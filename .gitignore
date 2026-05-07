@@ -1,0 +1,4 @@
+.env
+venv/
+village.db
+__pycache__/
