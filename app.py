@@ -1,8 +1,19 @@
-from flask import Flask, jsonify
+from dotenv import load_dotenv
+import os
+from flask import Flask, jsonify, redirect, request, session, url_for
 from database import init_db, get_db
 import time
+import requests as http_requests
+
+load_dotenv()
+
+TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
+TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
+TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 app = Flask(__name__)
+app.secret_key = SECRET_KEY
 VALID_JOBS = ["fishing", "mining", "foraging"]
 jobs_list = ", ".join(VALID_JOBS)
 
@@ -11,7 +22,72 @@ init_db()
 
 @app.route("/")
 def home():
-    return "Penguin Village is alive"
+    username = session.get("username")
+    if not username:
+        return "Penguin Village is alive — please log in"
+    
+    if session.pop("new_user", False):
+        return f"Welcome to Penguin Village, {username}! Your penguin has been created!"
+    
+    return f"Welcome back, {username}!"
+
+@app.route("/login")
+def login():
+    twitch_auth_url = (
+        "https://id.twitch.tv/oauth2/authorize"
+        f"?client_id={TWITCH_CLIENT_ID}"
+        f"&redirect_uri={TWITCH_REDIRECT_URI}"
+        "&response_type=code"
+        "&scope=user:read:email"
+    )
+    return redirect(twitch_auth_url)
+
+@app.route("/callback")
+def callback():
+    code = request.args.get("code")
+
+    token_response = http_requests.post("https://id.twitch.tv/oauth2/token", data={
+        "client_id": TWITCH_CLIENT_ID,
+        "client_secret": TWITCH_CLIENT_SECRET,
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": TWITCH_REDIRECT_URI
+    })
+
+    token_data = token_response.json()
+    access_token = token_data.get("access_token")
+
+    user_response = http_requests.get("https://api.twitch.tv/helix/users", headers={
+        "Authorization": f"Bearer {access_token}",
+        "Client-Id": TWITCH_CLIENT_ID
+    })
+
+    user_data = user_response.json()
+    username = user_data["data"][0]["login"]
+
+    session["username"] = username
+
+    # Auto-register if first time logging in
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO penguins (username) VALUES (?)",
+            (username,)
+        )
+        db.commit()
+        session["new_user"] = True
+    except:
+        session["new_user"] = False
+    finally:
+        db.close()
+
+    return redirect(url_for("home"))
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
 
 @app.route("/register/<username>")
 def register(username):
@@ -201,4 +277,4 @@ def active(username):
     return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5001)
