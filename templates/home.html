@@ -1,103 +1,729 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Penguin Village</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #1a1a2e;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .container {
-            text-align: center;
-            padding: 2rem;
-        }
-        h1 { color: #7dd3fc; font-size: 2.5rem; margin-bottom: 0.5rem; }
-        p { color: #94a3b8; margin-bottom: 2rem; }
-        .card {
-            background: #16213e;
-            border: 1px solid #0f3460;
-            border-radius: 12px;
-            padding: 2rem;
-            margin: 1rem auto;
-            max-width: 400px;
-        }
-        .stat {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #0f3460;
-        }
-        .stat:last-child { border: none; }
-        .stat-label { color: #94a3b8; }
-        .stat-value { color: #7dd3fc; font-weight: bold; }
-        .btn {
-            background: #0f3460;
-            color: white;
-            border: 1px solid #7dd3fc;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 1rem;
-            margin: 0.5rem;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn:hover { background: #7dd3fc; color: #1a1a2e; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Penguin Village</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #1C1C1C;
+      --panel:    #2E2E2E;
+      --purple:   #A86EFF;
+      --pink:     #FF7FE5;
+      --white:    #FFFFFF;
+      --orange:   #FF8C00;
+      --dark:     #141414;
+      --border:   3px solid #A86EFF;
+      --border-thin: 2px solid #A86EFF;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      image-rendering: pixelated;
+      overflow: hidden;
+    }
+
+    /* ── SCANLINE OVERLAY ── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.04) 2px,
+        rgba(0,0,0,0.04) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── LAYOUT ── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--dark);
+      border-bottom: var(--border);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .nav-logo { color: var(--purple); font-size: 11px; letter-spacing: 1px; }
+    .nav-logo span { color: var(--pink); }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-user { color: var(--white); font-size: 8px; }
+    .nav-logout {
+      color: var(--pink);
+      font-size: 7px;
+      border: 2px solid var(--pink);
+      padding: 4px 8px;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .nav-logout:hover { background: var(--pink); color: var(--dark); }
+
+    /* ── MAIN BODY ── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 200px;
+      flex-shrink: 0;
+      background: var(--panel);
+      border-right: var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; }
+    .sidebar-tab {
+      flex: 1;
+      padding: 8px 4px;
+      font-size: 6px;
+      font-family: 'Press Start 2P', monospace;
+      color: #888;
+      background: var(--dark);
+      border: none;
+      border-right: 2px solid var(--purple);
+      cursor: pointer;
+      text-align: center;
+    }
+    .sidebar-tab:last-child { border-right: none; }
+    .sidebar-tab.active { color: var(--purple); background: var(--panel); }
+    .sidebar-tab:hover:not(.active) { color: var(--pink); }
+
+    .sidebar-panel { display: none; flex-direction: column; flex: 1; }
+    .sidebar-panel.active { display: flex; }
+
+    /* ── PENGUIN PANEL ── */
+    .penguin-display {
+      padding: 14px 10px;
+      border-bottom: var(--border-thin);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .penguin-sprite {
+      width: 72px;
+      height: 72px;
+      image-rendering: pixelated;
+      object-fit: contain;
+    }
+    .penguin-placeholder {
+      width: 72px;
+      height: 72px;
+      background: var(--dark);
+      border: 2px solid var(--purple);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 6px;
+      color: #666;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .penguin-name { color: var(--white); font-size: 7px; text-align: center; margin-top: 2px; }
+    .penguin-level { color: var(--orange); font-size: 6px; }
+
+    /* ── STATS ── */
+    .stats-section { padding: 10px; border-bottom: var(--border-thin); }
+    .section-title { color: var(--purple); font-size: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--purple); padding-bottom: 4px; }
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+    .stat-lbl { color: #888; font-size: 6px; }
+    .stat-val { color: var(--white); font-size: 6px; }
+    .bar-wrap { height: 6px; background: var(--dark); border: 1px solid #444; margin-bottom: 6px; }
+    .bar-fill { height: 100%; }
+    .status-resting { color: #4aff6b; }
+    .status-working { color: var(--orange); }
+
+    /* ── WORK BUTTONS ── */
+    .work-section { padding: 10px; flex: 1; }
+    .job-btn {
+      width: 100%;
+      background: var(--dark);
+      border: 2px solid var(--purple);
+      padding: 7px 6px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      text-decoration: none;
+      font-family: 'Press Start 2P', monospace;
+    }
+    .job-btn:hover { border-color: var(--pink); background: #1a1a1a; }
+    .job-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .job-icon { font-size: 14px; flex-shrink: 0; }
+    .job-info { display: flex; flex-direction: column; gap: 3px; }
+    .job-name { color: var(--white); font-size: 5px; }
+    .job-reward { color: var(--orange); font-size: 5px; }
+    .job-cost { color: #ff6b6b; font-size: 5px; }
+
+    .collect-btn {
+      width: 100%;
+      background: var(--orange);
+      border: 2px solid #ffa500;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--dark);
+      font-size: 6px;
+      font-family: 'Press Start 2P', monospace;
+      text-decoration: none;
+      display: block;
+      margin-top: 4px;
+    }
+    .collect-btn:hover { background: #ffa500; }
+
+    /* ── SOCIAL LINKS ── */
+    .social-section {
+      padding: 10px;
+      border-top: var(--border-thin);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .social-btn {
+      width: 100%;
+      padding: 7px 8px;
+      font-size: 6px;
+      font-family: 'Press Start 2P', monospace;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      border: 2px solid;
+    }
+    .twitch-btn { background: #6441a5; border-color: var(--purple); color: var(--white); }
+    .twitch-btn:hover { border-color: var(--pink); }
+    .twitch-btn.live { border-color: #ff0000; animation: livepulse 1.2s infinite; }
+    .linktree-btn { background: var(--dark); border-color: #39e09b; color: #39e09b; }
+    .linktree-btn:hover { background: #0a1f14; }
+    .live-dot {
+      width: 7px; height: 7px;
+      background: #ff0000;
+      flex-shrink: 0;
+      animation: blink 1.2s infinite;
+    }
+    .live-label { color: #ff6666; }
+    @keyframes livepulse { 0%,100% { border-color: #ff0000; } 50% { border-color: #ff4444; } }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.1; } }
+
+    /* ── CONTENT AREA ── */
+    .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .content-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; }
+    .content-tab {
+      padding: 9px 14px;
+      font-size: 7px;
+      font-family: 'Press Start 2P', monospace;
+      color: #888;
+      background: var(--dark);
+      border: none;
+      border-right: 2px solid var(--purple);
+      cursor: pointer;
+    }
+    .content-tab:last-child { border-right: none; }
+    .content-tab.active { color: var(--purple); background: var(--panel); }
+    .content-tab:hover:not(.active) { color: var(--pink); }
+
+    .content-panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
+    .content-panel.active { display: flex; }
+
+    /* ── VILLAGE MAP ── */
+    .map-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #0a0a14;
+    }
+    .map-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+      opacity: 0.9;
+    }
+    .map-placeholder-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      background: #0a1628;
+    }
+    .map-placeholder-overlay span {
+      color: var(--purple);
+      font-size: 8px;
+      text-align: center;
+      line-height: 2;
+      border: 2px dashed var(--purple);
+      padding: 20px;
+    }
+
+    /* ── PENGUIN SPRITES ON MAP ── */
+    .map-penguin {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .map-penguin:hover { transform: scale(1.1); }
+    .map-penguin img {
+      width: 28px;
+      height: 28px;
+      image-rendering: pixelated;
+    }
+    .map-penguin-placeholder {
+      width: 28px;
+      height: 28px;
+      background: var(--dark);
+      border: 2px solid var(--purple);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .map-penguin-name {
+      font-size: 5px;
+      color: var(--white);
+      background: rgba(0,0,0,0.85);
+      padding: 2px 4px;
+      white-space: nowrap;
+      border: 1px solid var(--purple);
+    }
+    .map-penguin-job {
+      font-size: 5px;
+      color: var(--orange);
+      white-space: nowrap;
+    }
+
+    /* ── LEADERBOARD PANEL ── */
+    .leaderboard { padding: 16px; overflow-y: auto; }
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border: 2px solid var(--panel);
+      margin-bottom: 6px;
+      background: var(--dark);
+    }
+    .lb-row:hover { border-color: var(--purple); }
+    .lb-rank { color: var(--purple); font-size: 7px; width: 20px; text-align: center; }
+    .lb-name { color: var(--white); font-size: 7px; flex: 1; }
+    .lb-coins { color: var(--orange); font-size: 7px; }
+    .lb-level { color: #888; font-size: 6px; }
+
+    /* ── EVENTS PANEL ── */
+    .events { padding: 16px; overflow-y: auto; }
+    .event-card {
+      border: 2px solid var(--purple);
+      background: var(--dark);
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .event-title { color: var(--pink); font-size: 8px; margin-bottom: 6px; }
+    .event-desc { color: #888; font-size: 6px; line-height: 2; }
+    .event-status { color: var(--orange); font-size: 6px; margin-top: 6px; }
+
+    /* ── NEWS TICKER ── */
+    .news-bar {
+      background: var(--dark);
+      border-top: var(--border);
+      padding: 6px 12px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .news-label { color: var(--purple); font-size: 6px; white-space: nowrap; flex-shrink: 0; }
+    .news-ticker-wrap { flex: 1; overflow: hidden; position: relative; height: 14px; }
+    .news-ticker {
+      display: flex;
+      gap: 48px;
+      position: absolute;
+      white-space: nowrap;
+      animation: ticker 30s linear infinite;
+    }
+    .news-ticker-item { color: #888; font-size: 6px; }
+    .news-ticker-item .hi { color: var(--purple); }
+    .news-ticker-item .gold { color: var(--orange); }
+    @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+    /* ── LOGIN SCREEN ── */
+    .login-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 40px;
+      background: var(--bg);
+    }
+    .login-penguin { width: 96px; height: 96px; image-rendering: pixelated; object-fit: contain; }
+    .login-title { color: var(--purple); font-size: 18px; text-align: center; line-height: 1.6; }
+    .login-title span { color: var(--pink); }
+    .login-sub { color: #888; font-size: 7px; text-align: center; line-height: 2.2; max-width: 360px; }
+    .login-btn {
+      background: #6441a5;
+      border: 3px solid var(--purple);
+      color: var(--white);
+      font-size: 8px;
+      font-family: 'Press Start 2P', monospace;
+      padding: 12px 24px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 8px;
+    }
+    .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--dark); }
+    ::-webkit-scrollbar-thumb { background: var(--purple); }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🐧 Penguin Village</h1>
-        <p>A cozy village built by the Mbarepingu community</p>
+<div id="app">
 
-        {% if logged_in %}
-            <div class="card">
-                <h2>{{ penguin['username'] }}</h2>
-                <div class="stat">
-                    <span class="stat-label">Level</span>
-                    <span class="stat-value">{{ penguin['level'] }}</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Coins</span>
-                    <span class="stat-value">{{ penguin['coins'] }}</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Energy</span>
-                    <span class="stat-value">{{ penguin['energy'] }}</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Job</span>
-                    <span class="stat-value">
-                        {{ penguin['job'] if penguin['job'] else 'Resting' }}
-                    </span>
-                </div>
-            </div>
-            <div class="card">
-        <h3>Actions</h3>
-        {% if penguin['job'] %}
-            <p style="color: #94a3b8;">Currently working: {{ penguin['job'] }}</p>
-            <a href="/collect/{{ penguin['username'] }}?redirect=true" class="btn">Collect Earnings</a>
-        {% else %}
-            <p style="color: #94a3b8;">Send your penguin to work:</p>
-            <a href="/work/{{ penguin['username'] }}/fishing?redirect=true" class="btn">🎣 Fish</a>
-            <a href="/work/{{ penguin['username'] }}/mining?redirect=true" class="btn">⛏️ Mine</a>
-            <a href="/work/{{ penguin['username'] }}/foraging?redirect=true" class="btn">🌿 Forage</a>
-        {% endif %}
-            </div>
-            <a href="/logout" class="btn">Logout</a>
-        
-        {% else %}
-            <div class="card">
-                <p>Login with your Twitch account to join the village!</p>
-                <a href="/login" class="btn">Login with Twitch</a>
-            </div>
-        {% endif %}
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">PENGUIN <span>VILLAGE</span></div>
+    <div class="nav-right">
+      {% if logged_in %}
+        <div class="nav-user">{{ penguin['username'] }}</div>
+        <a href="/logout" class="nav-logout">LOGOUT</a>
+      {% endif %}
     </div>
+  </nav>
+
+  {% if not logged_in %}
+  <!-- LOGIN SCREEN -->
+  <div class="login-screen">
+    <img src="/static/penguin.png" class="login-penguin" alt="Penguin"
+         onerror="this.style.display='none'"/>
+    <div class="login-title">PENGUIN<br><span>VILLAGE</span></div>
+    <div class="login-sub">
+      A pixel village built by the Mbarepingu community.<br>
+      Log in with Twitch to claim your penguin and join the village!
+    </div>
+    <a href="/login" class="login-btn">LOGIN WITH TWITCH</a>
+  </div>
+
+  {% else %}
+  <!-- MAIN GAME UI -->
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" onclick="switchSidebarTab('penguin', this)">PENGUIN</button>
+        <button class="sidebar-tab" onclick="switchSidebarTab('village-info', this)">VILLAGE</button>
+      </div>
+
+      <!-- PENGUIN TAB -->
+      <div class="sidebar-panel active" id="sidebar-penguin">
+
+        <div class="penguin-display">
+          <img src="/static/penguin.png" class="penguin-sprite" alt="Penguin"
+               onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
+          <div class="penguin-name">{{ penguin['username'] | upper }}</div>
+          <div class="penguin-level">★ LEVEL {{ penguin['level'] }}</div>
+        </div>
+
+        <div class="stats-section">
+          <div class="section-title">STATS</div>
+          <div class="stat-row">
+            <span class="stat-lbl">ENERGY</span>
+            <span class="stat-val">{{ penguin['energy'] }}/100</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
+          </div>
+          <div class="stat-row">
+            <span class="stat-lbl">COINS</span>
+            <span class="stat-val">{{ penguin['coins'] }}</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" style="width:{{ [penguin['coins'], 100] | min }}%; background:var(--orange);"></div>
+          </div>
+          <div class="stat-row">
+            <span class="stat-lbl">STATUS</span>
+            {% if penguin['job'] %}
+              <span class="stat-val status-working">{{ penguin['job'] | upper }}</span>
+            {% else %}
+              <span class="stat-val status-resting">RESTING</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="work-section">
+          <div class="section-title">
+            {% if penguin['job'] %}WORKING{% else %}SEND TO WORK{% endif %}
+          </div>
+
+          {% if penguin['job'] %}
+            <a href="/collect/{{ penguin['username'] }}?redirect=true" class="collect-btn">
+              COLLECT EARNINGS
+            </a>
+          {% else %}
+            <a href="/work/{{ penguin['username'] }}/fishing?redirect=true" class="job-btn">
+              <span class="job-icon">🎣</span>
+              <div class="job-info">
+                <span class="job-name">FISHING</span>
+                <span class="job-reward">+1 COIN/MIN</span>
+                <span class="job-cost">-10 ENERGY</span>
+              </div>
+            </a>
+            <a href="/work/{{ penguin['username'] }}/mining?redirect=true" class="job-btn">
+              <span class="job-icon">⛏️</span>
+              <div class="job-info">
+                <span class="job-name">MINING</span>
+                <span class="job-reward">+2 COIN/MIN</span>
+                <span class="job-cost">-20 ENERGY</span>
+              </div>
+            </a>
+            <a href="/work/{{ penguin['username'] }}/foraging?redirect=true" class="job-btn">
+              <span class="job-icon">🌿</span>
+              <div class="job-info">
+                <span class="job-name">FORAGING</span>
+                <span class="job-reward">+1 COIN/MIN</span>
+                <span class="job-cost">-15 ENERGY</span>
+              </div>
+            </a>
+          {% endif %}
+        </div>
+
+        <!-- SOCIAL LINKS -->
+        <div class="social-section">
+          <a href="https://twitch.tv/mbarepingu" target="_blank"
+             class="social-btn twitch-btn" id="twitch-link">
+            <span>📺</span>
+            <span id="twitch-label">TWITCH</span>
+          </a>
+          <a href="https://linktr.ee/mbarepingu" target="_blank"
+             class="social-btn linktree-btn">
+            <span>🌿</span>
+            <span>LINKTREE</span>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- VILLAGE INFO TAB -->
+      <div class="sidebar-panel" id="sidebar-village-info">
+        <div class="stats-section">
+          <div class="section-title">VILLAGE STATS</div>
+          <div class="stat-row"><span class="stat-lbl">CITIZENS</span><span class="stat-val">--</span></div>
+          <div class="stat-row"><span class="stat-lbl">BUILDINGS</span><span class="stat-val">2/8</span></div>
+          <div class="stat-row"><span class="stat-lbl">FISH POOL</span><span class="stat-val">--</span></div>
+        </div>
+        <div class="stats-section">
+          <div class="section-title">NEXT BUILDING</div>
+          <div class="stat-row"><span class="stat-lbl">THE INN</span></div>
+          <div class="bar-wrap" style="margin-top:6px;">
+            <div class="bar-fill" style="width:62%; background:var(--purple);"></div>
+          </div>
+          <div class="stat-row"><span class="stat-lbl">620 / 1000 FISH</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+      <div class="content-tabs">
+        <button class="content-tab active" onclick="switchContentTab('map', this)">VILLAGE MAP</button>
+        <button class="content-tab" onclick="switchContentTab('leaderboard', this)">LEADERBOARD</button>
+        <button class="content-tab" onclick="switchContentTab('events', this)">EVENTS</button>
+      </div>
+
+      <!-- MAP TAB -->
+      <div class="content-panel active" id="panel-map">
+        <div class="map-area" id="map-area">
+          <div class="map-placeholder-overlay">
+            <span>VILLAGE MAP<br>COMING SOON</span>
+          </div>
+          <!-- Penguins will be rendered here by JS -->
+        </div>
+      </div>
+
+      <!-- LEADERBOARD TAB -->
+      <div class="content-panel" id="panel-leaderboard">
+        <div class="leaderboard" id="leaderboard-list">
+          <div class="section-title" style="margin-bottom:12px;">TOP VILLAGERS</div>
+          <div style="color:#666; font-size:7px; text-align:center; padding:20px;">
+            LOADING...
+          </div>
+        </div>
+      </div>
+
+      <!-- EVENTS TAB -->
+      <div class="content-panel" id="panel-events">
+        <div class="events">
+          <div class="section-title" style="margin-bottom:12px;">VILLAGE EVENTS</div>
+          <div class="event-card">
+            <div class="event-title">⚡ MAYOR'S DECREE</div>
+            <div class="event-desc">The Mayor is watching! All coins earned during<br>the stream are doubled this session.</div>
+            <div class="event-status">STATUS: ACTIVE DURING STREAM</div>
+          </div>
+          <div class="event-card" style="opacity:0.5;">
+            <div class="event-title">🏗️ BUILD THE INN</div>
+            <div class="event-desc">Donate fish to complete the Inn building.<br>Unlocks the rest mechanic for all villagers.</div>
+            <div class="event-status">STATUS: IN PROGRESS — 62%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEWS TICKER -->
+      <div class="news-bar">
+        <div class="news-label">NEWS:</div>
+        <div class="news-ticker-wrap">
+          <div class="news-ticker" id="news-ticker">
+            <span class="news-ticker-item">
+              <span class="hi">WELCOME TO PENGUIN VILLAGE</span> — build, work, and grow the community!
+            </span>
+            <span class="news-ticker-item">
+              <span class="hi">{{ penguin['username'] | upper }}</span> is logged in
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+  function switchSidebarTab(name, btn) {
+    document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sidebar-' + name).classList.add('active');
+  }
+
+  function switchContentTab(name, btn) {
+    document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'leaderboard') loadLeaderboard();
+  }
+
+  // Check if streamer is live via our backend
+  async function checkLiveStatus() {
+    try {
+      const res = await fetch('/islive');
+      const data = await res.json();
+      const btn = document.getElementById('twitch-link');
+      const label = document.getElementById('twitch-label');
+      if (data.live) {
+        btn.classList.add('live');
+        label.innerHTML = '<span class="live-label">● LIVE NOW</span>';
+      }
+    } catch(e) {}
+  }
+
+  // Load leaderboard from backend
+  async function loadLeaderboard() {
+    try {
+      const res = await fetch('/leaderboard');
+      const data = await res.json();
+      const list = document.getElementById('leaderboard-list');
+      if (!data.penguins || data.penguins.length === 0) {
+        list.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">NO VILLAGERS YET</div>';
+        return;
+      }
+      let html = '<div class="section-title" style="margin-bottom:12px;">TOP VILLAGERS</div>';
+      data.penguins.forEach((p, i) => {
+        const medals = ['🥇','🥈','🥉'];
+        const rank = medals[i] || `#${i+1}`;
+        html += `
+          <div class="lb-row">
+            <div class="lb-rank">${rank}</div>
+            <div class="lb-name">${p.username.toUpperCase()}</div>
+            <div class="lb-level">LV${p.level}</div>
+            <div class="lb-coins">${p.coins}G</div>
+          </div>`;
+      });
+      list.innerHTML = html;
+    } catch(e) {}
+  }
+
+  // Spawn penguin sprites on map
+  function spawnPenguins(penguins) {
+    const map = document.getElementById('map-area');
+    penguins.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'map-penguin';
+      el.style.left = (15 + Math.random() * 65) + '%';
+      el.style.top = (20 + Math.random() * 50) + '%';
+      const jobLabel = p.job ? `${p.job}` : '💤';
+      el.innerHTML = `
+        <div class="map-penguin-placeholder">🐧</div>
+        <div class="map-penguin-name">${p.username.toUpperCase()}</div>
+        <div class="map-penguin-job">${jobLabel}</div>`;
+      map.appendChild(el);
+    });
+  }
+
+  // Animate penguins wandering
+  function wanderPenguins() {
+    document.querySelectorAll('.map-penguin').forEach(el => {
+      const currentLeft = parseFloat(el.style.left);
+      const currentTop = parseFloat(el.style.top);
+      const newLeft = Math.max(5, Math.min(85, currentLeft + (Math.random() - 0.5) * 4));
+      const newTop = Math.max(10, Math.min(75, currentTop + (Math.random() - 0.5) * 4));
+      el.style.transition = 'left 2s linear, top 2s linear';
+      el.style.left = newLeft + '%';
+      el.style.top = newTop + '%';
+    });
+  }
+
+  // Load penguins on map
+  async function loadMapPenguins() {
+    try {
+      const res = await fetch('/leaderboard');
+      const data = await res.json();
+      if (data.penguins) spawnPenguins(data.penguins);
+    } catch(e) {
+      // Fallback placeholder penguin
+      spawnPenguins([{ username: '{{ penguin["username"] }}', job: '{{ penguin["job"] or "" }}' }]);
+    }
+  }
+
+  {% if logged_in %}
+  checkLiveStatus();
+  loadMapPenguins();
+  setInterval(wanderPenguins, 3000);
+  setInterval(checkLiveStatus, 60000);
+  {% endif %}
+</script>
+
 </body>
 </html>

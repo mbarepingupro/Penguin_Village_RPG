@@ -251,6 +251,31 @@ def collect(username):
         "minutes_worked": minutes_worked
     })
 
+@app.route("/leaderboard")
+def leaderboard():
+    db = get_db()
+    penguins = db.execute(
+        "SELECT username, level, coins, job FROM penguins ORDER BY coins DESC LIMIT 20"
+    ).fetchall()
+    db.close()
+    return jsonify({"penguins": [dict(p) for p in penguins]})
+
+@app.route("/islive")
+def islive():
+    try:
+        res = http_requests.get(
+            "https://api.twitch.tv/helix/streams?user_login=mbarepingu",
+            headers={
+                "Client-Id": TWITCH_CLIENT_ID,
+                "Authorization": f"Bearer {os.getenv('TWITCH_APP_TOKEN', '')}"
+            }
+        )
+        data = res.json()
+        live = len(data.get("data", [])) > 0
+        return jsonify({"live": live})
+    except:
+        return jsonify({"live": False})
+
 @app.route("/active/<username>")
 def active(username):
     db = get_db()
