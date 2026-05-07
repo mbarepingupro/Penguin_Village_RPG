@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Penguin Village</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        h1 { color: #7dd3fc; font-size: 2.5rem; margin-bottom: 0.5rem; }
+        p { color: #94a3b8; margin-bottom: 2rem; }
+        .card {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1rem auto;
+            max-width: 400px;
+        }
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #0f3460;
+        }
+        .stat:last-child { border: none; }
+        .stat-label { color: #94a3b8; }
+        .stat-value { color: #7dd3fc; font-weight: bold; }
+        .btn {
+            background: #0f3460;
+            color: white;
+            border: 1px solid #7dd3fc;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 0.5rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover { background: #7dd3fc; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐧 Penguin Village</h1>
+        <p>A cozy village built by the Mbarepingu community</p>
+
+        {% if logged_in %}
+            <div class="card">
+                <h2>{{ penguin['username'] }}</h2>
+                <div class="stat">
+                    <span class="stat-label">Level</span>
+                    <span class="stat-value">{{ penguin['level'] }}</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Coins</span>
+                    <span class="stat-value">{{ penguin['coins'] }}</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Energy</span>
+                    <span class="stat-value">{{ penguin['energy'] }}</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Job</span>
+                    <span class="stat-value">
+                        {{ penguin['job'] if penguin['job'] else 'Resting' }}
+                    </span>
+                </div>
+            </div>
+            <div class="card">
+        <h3>Actions</h3>
+        {% if penguin['job'] %}
+            <p style="color: #94a3b8;">Currently working: {{ penguin['job'] }}</p>
+            <a href="/collect/{{ penguin['username'] }}?redirect=true" class="btn">Collect Earnings</a>
+        {% else %}
+            <p style="color: #94a3b8;">Send your penguin to work:</p>
+            <a href="/work/{{ penguin['username'] }}/fishing?redirect=true" class="btn">🎣 Fish</a>
+            <a href="/work/{{ penguin['username'] }}/mining?redirect=true" class="btn">⛏️ Mine</a>
+            <a href="/work/{{ penguin['username'] }}/foraging?redirect=true" class="btn">🌿 Forage</a>
+        {% endif %}
+            </div>
+            <a href="/logout" class="btn">Logout</a>
+        
+        {% else %}
+            <div class="card">
+                <p>Login with your Twitch account to join the village!</p>
+                <a href="/login" class="btn">Login with Twitch</a>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

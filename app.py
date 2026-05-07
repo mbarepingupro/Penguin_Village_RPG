@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-from flask import Flask, jsonify, redirect, request, session, url_for
+from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db
 import time
 import requests as http_requests
@@ -24,12 +24,16 @@ init_db()
 def home():
     username = session.get("username")
     if not username:
-        return "Penguin Village is alive — please log in"
+        return render_template("home.html", logged_in=False)
     
-    if session.pop("new_user", False):
-        return f"Welcome to Penguin Village, {username}! Your penguin has been created!"
-    
-    return f"Welcome back, {username}!"
+    db = get_db()
+    penguin = db.execute(
+        "SELECT * FROM penguins WHERE username = ?",
+        (username,)
+    ).fetchone()
+    db.close()
+
+    return render_template("home.html", logged_in=True, penguin=penguin)
 
 @app.route("/login")
 def login():
@@ -195,6 +199,8 @@ def work(username, job):
     db.commit()
     db.close()
 
+    if request.args.get("redirect"):
+        return redirect(url_for("home"))
     return jsonify({
         "status": "success",
         "message": f"{username} started {job}!",
@@ -236,6 +242,8 @@ def collect(username):
     db.commit()
     db.close()
 
+    if request.args.get("redirect"):
+        return redirect(url_for("home"))
     return jsonify({
         "status": "success",
         "message": f"{username} collected {coins_earned} coins from {penguin['job']}!",
