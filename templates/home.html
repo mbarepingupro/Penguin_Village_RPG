@@ -161,11 +161,10 @@
       align-items: center;
       gap: 7px;
       cursor: pointer;
-      text-decoration: none;
       font-family: 'Press Start 2P', monospace;
     }
-    .job-btn:hover { border-color: var(--pink); background: #1a1a1a; }
-    .job-btn.disabled { opacity: 0.4; pointer-events: none; }
+    .job-btn:hover:not(:disabled) { border-color: var(--pink); background: #1a1a1a; }
+    .job-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .job-icon { font-size: 14px; flex-shrink: 0; }
     .job-info { display: flex; flex-direction: column; gap: 3px; }
     .job-name { color: var(--white); font-size: 5px; }
@@ -182,11 +181,21 @@
       color: var(--dark);
       font-size: 6px;
       font-family: 'Press Start 2P', monospace;
-      text-decoration: none;
       display: block;
       margin-top: 4px;
     }
-    .collect-btn:hover { background: #ffa500; }
+    .collect-btn:hover:not(:disabled) { background: #ffa500; }
+    .collect-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .work-msg {
+      font-size: 5px;
+      padding: 5px 4px;
+      margin-bottom: 6px;
+      text-align: center;
+      display: none;
+    }
+    .work-msg.ok { color: #4aff6b; border: 1px solid #4aff6b; }
+    .work-msg.err { color: #ff6b6b; border: 1px solid #ff6b6b; }
 
     /* ── SOCIAL LINKS ── */
     .social-section {
@@ -458,63 +467,67 @@
           <div class="section-title">STATS</div>
           <div class="stat-row">
             <span class="stat-lbl">ENERGY</span>
-            <span class="stat-val">{{ penguin['energy'] }}/100</span>
+            <span class="stat-val" id="stat-energy">{{ penguin['energy'] }}/100</span>
           </div>
           <div class="bar-wrap">
-            <div class="bar-fill" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
+            <div class="bar-fill" id="energy-bar" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
           </div>
           <div class="stat-row">
             <span class="stat-lbl">COINS</span>
-            <span class="stat-val">{{ penguin['coins'] }}</span>
+            <span class="stat-val" id="stat-coins">{{ penguin['coins'] }}</span>
           </div>
           <div class="bar-wrap">
-            <div class="bar-fill" style="width:{{ [penguin['coins'], 100] | min }}%; background:var(--orange);"></div>
+            <div class="bar-fill" id="coins-bar" style="width:{{ [penguin['coins'], 100] | min }}%; background:var(--orange);"></div>
           </div>
           <div class="stat-row">
             <span class="stat-lbl">STATUS</span>
             {% if penguin['job'] %}
-              <span class="stat-val status-working">{{ penguin['job'] | upper }}</span>
+              <span class="stat-val status-working" id="stat-status">{{ penguin['job'] | upper }}</span>
             {% else %}
-              <span class="stat-val status-resting">RESTING</span>
+              <span class="stat-val status-resting" id="stat-status">RESTING</span>
             {% endif %}
           </div>
         </div>
 
         <div class="work-section">
-          <div class="section-title">
+          <div class="section-title" id="work-title">
             {% if penguin['job'] %}WORKING{% else %}SEND TO WORK{% endif %}
           </div>
 
-          {% if penguin['job'] %}
-            <a href="/collect/{{ penguin['username'] }}?redirect=true" class="collect-btn">
-              COLLECT EARNINGS
-            </a>
-          {% else %}
-            <a href="/work/{{ penguin['username'] }}/fishing?redirect=true" class="job-btn">
+          <div class="work-msg" id="work-msg"></div>
+
+          <div id="job-buttons" {% if penguin['job'] %}style="display:none"{% endif %}>
+            <button class="job-btn" onclick="sendToWork('fishing')">
               <span class="job-icon">🎣</span>
               <div class="job-info">
                 <span class="job-name">FISHING</span>
                 <span class="job-reward">+1 COIN/MIN</span>
                 <span class="job-cost">-10 ENERGY</span>
               </div>
-            </a>
-            <a href="/work/{{ penguin['username'] }}/mining?redirect=true" class="job-btn">
+            </button>
+            <button class="job-btn" onclick="sendToWork('mining')">
               <span class="job-icon">⛏️</span>
               <div class="job-info">
                 <span class="job-name">MINING</span>
                 <span class="job-reward">+2 COIN/MIN</span>
                 <span class="job-cost">-20 ENERGY</span>
               </div>
-            </a>
-            <a href="/work/{{ penguin['username'] }}/foraging?redirect=true" class="job-btn">
+            </button>
+            <button class="job-btn" onclick="sendToWork('foraging')">
               <span class="job-icon">🌿</span>
               <div class="job-info">
                 <span class="job-name">FORAGING</span>
                 <span class="job-reward">+1 COIN/MIN</span>
                 <span class="job-cost">-15 ENERGY</span>
               </div>
-            </a>
-          {% endif %}
+            </button>
+          </div>
+
+          <div id="collect-section" {% if not penguin['job'] %}style="display:none"{% endif %}>
+            <button class="collect-btn" id="collect-btn" onclick="collectEarnings()">
+              COLLECT EARNINGS
+            </button>
+          </div>
         </div>
 
         <!-- SOCIAL LINKS -->
@@ -720,6 +733,71 @@
   }
 
   {% if logged_in %}
+  const CURRENT_USER = '{{ penguin["username"] }}';
+
+  function showWorkMsg(text, type) {
+    const el = document.getElementById('work-msg');
+    el.textContent = text;
+    el.className = 'work-msg ' + type;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
+  function setJobButtonsDisabled(disabled) {
+    document.querySelectorAll('#job-buttons .job-btn').forEach(b => b.disabled = disabled);
+  }
+
+  async function sendToWork(job) {
+    setJobButtonsDisabled(true);
+    try {
+      const res = await fetch(`/work/${CURRENT_USER}/${job}`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        document.getElementById('work-title').textContent = 'WORKING';
+        document.getElementById('job-buttons').style.display = 'none';
+        document.getElementById('collect-section').style.display = '';
+        const statusEl = document.getElementById('stat-status');
+        statusEl.textContent = job.toUpperCase();
+        statusEl.className = 'stat-val status-working';
+        showWorkMsg('Started ' + job + '!', 'ok');
+      } else {
+        showWorkMsg(data.message, 'err');
+        setJobButtonsDisabled(false);
+      }
+    } catch(e) {
+      showWorkMsg('Connection error.', 'err');
+      setJobButtonsDisabled(false);
+    }
+  }
+
+  async function collectEarnings() {
+    const btn = document.getElementById('collect-btn');
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/collect/${CURRENT_USER}`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        document.getElementById('work-title').textContent = 'SEND TO WORK';
+        document.getElementById('collect-section').style.display = 'none';
+        document.getElementById('job-buttons').style.display = '';
+        const coinsEl = document.getElementById('stat-coins');
+        const newCoins = parseInt(coinsEl.textContent || '0') + data.coins_earned;
+        coinsEl.textContent = newCoins;
+        document.getElementById('coins-bar').style.width = Math.min(newCoins, 100) + '%';
+        const statusEl = document.getElementById('stat-status');
+        statusEl.textContent = 'RESTING';
+        statusEl.className = 'stat-val status-resting';
+        showWorkMsg('Collected ' + data.coins_earned + ' coins!', 'ok');
+      } else {
+        showWorkMsg(data.message, 'err');
+        btn.disabled = false;
+      }
+    } catch(e) {
+      showWorkMsg('Connection error.', 'err');
+      btn.disabled = false;
+    }
+  }
+
   checkLiveStatus();
   loadMapPenguins();
   setInterval(wanderPenguins, 3000);
