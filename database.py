@@ -17,6 +17,18 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS daily_missions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            mission_key TEXT NOT NULL,
+            date TEXT NOT NULL,
+            progress INTEGER DEFAULT 0,
+            completed INTEGER DEFAULT 0,
+            UNIQUE(username, mission_key, date)
+        )
+    """)
+
     try:
         cursor.execute("ALTER TABLE penguins ADD COLUMN last_active INTEGER DEFAULT 0")
     except:

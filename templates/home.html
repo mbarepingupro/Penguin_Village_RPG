@@ -409,6 +409,46 @@
     }
     .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
 
+    /* ── MISSIONS PANEL ── */
+    .missions-panel { padding: 16px; overflow-y: auto; flex: 1; }
+    .missions-date { color: #555; font-size: 5px; margin-bottom: 12px; letter-spacing: 1px; }
+    .mission-card {
+      border: 2px solid var(--panel);
+      background: var(--dark);
+      padding: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .mission-card.done   { border-color: #2a6b3a; }
+    .mission-card.stream { border-color: #6441a5; }
+    .mission-header { display: flex; align-items: center; gap: 8px; }
+    .mission-icon   { font-size: 15px; flex-shrink: 0; line-height: 1; }
+    .mission-title  { color: var(--white); font-size: 6px; flex: 1; }
+    .mission-badge  { font-size: 5px; padding: 2px 5px; border: 1px solid; flex-shrink: 0; }
+    .mission-badge.stream { color: #9b72d8; border-color: #9b72d8; }
+    .mission-badge.done   { color: #4aff6b; border-color: #4aff6b; }
+    .mission-desc { color: #666; font-size: 5px; line-height: 2; }
+    .mission-bar-wrap { height: 5px; background: #111; border: 1px solid #2a2a2a; }
+    .mission-bar-fill { height: 100%; background: var(--purple); transition: width 0.4s; }
+    .mission-bar-fill.done { background: #2a6b3a; }
+    .mission-footer { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .mission-reward { color: var(--orange); font-size: 5px; }
+    .mission-prog   { color: #555; font-size: 5px; }
+    .mission-claim {
+      background: #6441a5;
+      border: 2px solid var(--purple);
+      color: var(--white);
+      font-size: 5px;
+      font-family: 'Press Start 2P', monospace;
+      padding: 3px 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .mission-claim:hover:not(:disabled) { border-color: var(--pink); }
+    .mission-claim:disabled { opacity: 0.4; cursor: not-allowed; }
+
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--dark); }
@@ -571,6 +611,7 @@
       <div class="content-tabs">
         <button class="content-tab active" onclick="switchContentTab('map', this)">VILLAGE MAP</button>
         <button class="content-tab" onclick="switchContentTab('leaderboard', this)">LEADERBOARD</button>
+        <button class="content-tab" onclick="switchContentTab('missions', this)">MISSIONS</button>
         <button class="content-tab" onclick="switchContentTab('events', this)">EVENTS</button>
       </div>
 
@@ -589,6 +630,13 @@
           <div style="color:#666; font-size:7px; text-align:center; padding:20px;">
             LOADING...
           </div>
+        </div>
+      </div>
+
+      <!-- MISSIONS TAB -->
+      <div class="content-panel" id="panel-missions">
+        <div class="missions-panel" id="missions-list">
+          <div style="color:#666; font-size:7px; text-align:center; padding:20px;">LOADING...</div>
         </div>
       </div>
 
@@ -646,6 +694,7 @@
     btn.classList.add('active');
     document.getElementById('panel-' + name).classList.add('active');
     if (name === 'leaderboard') loadLeaderboard();
+    if (name === 'missions') loadMissions();
   }
 
   // Check if streamer is live via our backend
@@ -769,6 +818,79 @@
     }
   }
 
+  // ── MISSIONS ──────────────────────────────────────────
+  function renderMissions(missions, date, container) {
+    let html = `<div class="missions-date">DAILY MISSIONS &mdash; ${date} &mdash; RESETS AT MIDNIGHT</div>`;
+    missions.forEach(m => {
+      const pct  = m.target > 0 ? Math.round((m.progress / m.target) * 100) : 0;
+      const done = m.completed;
+      const stream = m.stream;
+      let cardClass = 'mission-card' + (done ? ' done' : stream ? ' stream' : '');
+      let badge = done
+        ? '<span class="mission-badge done">&#x2713; DONE</span>'
+        : stream
+          ? '<span class="mission-badge stream">STREAM</span>'
+          : '';
+      let footer;
+      if (done) {
+        footer = `<span class="mission-reward">+${m.coins} COINS EARNED</span>
+                  <span class="mission-prog">${m.progress}/${m.target}</span>`;
+      } else if (stream) {
+        footer = `<span class="mission-reward">+${m.coins} COINS</span>
+                  <button class="mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>`;
+      } else {
+        footer = `<span class="mission-reward">+${m.coins} COINS</span>
+                  <span class="mission-prog">${m.progress}/${m.target}</span>`;
+      }
+      html += `
+        <div class="${cardClass}" id="mission-card-${m.key}">
+          <div class="mission-header">
+            <span class="mission-icon">${m.icon}</span>
+            <span class="mission-title">${m.title}</span>
+            ${badge}
+          </div>
+          <div class="mission-desc">${m.desc}</div>
+          <div class="mission-bar-wrap">
+            <div class="mission-bar-fill${done ? ' done' : ''}" style="width:${pct}%"></div>
+          </div>
+          <div class="mission-footer">${footer}</div>
+        </div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  {% if logged_in %}
+  async function loadMissions() {
+    const container = document.getElementById('missions-list');
+    if (!container) return;
+    try {
+      const res  = await fetch(`/missions/${CURRENT_USER}`);
+      const data = await res.json();
+      renderMissions(data.missions, data.date, container);
+    } catch(e) {
+      container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">ERROR LOADING MISSIONS</div>';
+    }
+  }
+
+  async function claimStreamMission(key, btn) {
+    btn.disabled = true;
+    try {
+      const res  = await fetch(`/missions/${CURRENT_USER}/claim/${key}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showWorkMsg(data.message, 'ok');
+        loadMissions();
+      } else {
+        showWorkMsg(data.message, 'err');
+        btn.disabled = false;
+      }
+    } catch(e) {
+      btn.disabled = false;
+    }
+  }
+  {% endif %}
+  // ──────────────────────────────────────────────────────
+
   {% if logged_in %}
   const CURRENT_USER = '{{ penguin["username"] }}';
 
@@ -825,6 +947,7 @@
         statusEl.textContent = 'RESTING';
         statusEl.className = 'stat-val status-resting';
         showWorkMsg('Collected ' + data.coins_earned + ' coins!', 'ok');
+        if (document.getElementById('panel-missions').classList.contains('active')) loadMissions();
       } else {
         showWorkMsg(data.message, 'err');
         btn.disabled = false;
