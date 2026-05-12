@@ -28,6 +28,21 @@ MISSION_DEFS = {
 }
 DAILY_MISSIONS = list(MISSION_DEFS.keys())
 
+FURNITURE_CATALOG = {
+    "rug":     {"name": "COSY RUG",    "cost":  8, "icon": "🟥"},
+    "lamp":    {"name": "ICE LAMP",    "cost":  8, "icon": "🕯️"},
+    "chair":   {"name": "ICE CHAIR",   "cost": 15, "icon": "🪑"},
+    "plant":   {"name": "SNOW PLANT",  "cost": 12, "icon": "🌿"},
+    "table":   {"name": "FISH TABLE",  "cost": 20, "icon": "🍽️"},
+    "tv":      {"name": "STREAM TV",   "cost": 25, "icon": "📺"},
+    "bed":     {"name": "SNOW BED",    "cost": 30, "icon": "🛏️"},
+    "fishtank":{"name": "FISH TANK",   "cost": 35, "icon": "🐠"},
+    "penguin": {"name": "PET PENGUIN", "cost": 40, "icon": "🐧"},
+    "trophy":  {"name": "TROPHY",      "cost": 50, "icon": "🏆"},
+}
+IGLOO_COLS = 11
+IGLOO_ROWS = 8
+
 def get_today():
     return datetime.date.today().isoformat()
 
@@ -378,6 +393,111 @@ def claim_stream_mission(username, key):
     if newly_done:
         return jsonify({"status": "success", "message": f"Mission complete! +{defn['coins']} coins", "coins": defn["coins"]})
     return jsonify({"status": "error", "message": "Already completed or not available."})
+
+
+@app.route("/igloo/<username>")
+def get_igloo(username):
+    db = get_db()
+    items = db.execute(
+        "SELECT id, item_key, x, y FROM igloo_items WHERE username=? ORDER BY id",
+        (username,)
+    ).fetchall()
+    penguin = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()
+    db.close()
+    return jsonify({
+        "items":   [dict(r) for r in items],
+        "coins":   penguin["coins"] if penguin else 0,
+        "catalog": FURNITURE_CATALOG,
+    })
+
+
+@app.route("/igloo/<username>/place", methods=["POST"])
+def igloo_place(username):
+    data     = request.get_json(silent=True) or {}
+    item_key = data.get("item_key")
+    x        = int(data.get("x", -1))
+    y        = int(data.get("y", -1))
+
+    if item_key not in FURNITURE_CATALOG:
+        return jsonify({"status": "error", "message": "Unknown item."})
+    if not (0 <= x < IGLOO_COLS and 0 <= y < IGLOO_ROWS):
+        return jsonify({"status": "error", "message": "Out of bounds."})
+
+    cost = FURNITURE_CATALOG[item_key]["cost"]
+    db   = get_db()
+
+    penguin = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()
+    if not penguin or penguin["coins"] < cost:
+        db.close()
+        return jsonify({"status": "error", "message": f"Need {cost}G to buy that!"})
+
+    if db.execute("SELECT id FROM igloo_items WHERE username=? AND x=? AND y=?", (username, x, y)).fetchone():
+        db.close()
+        return jsonify({"status": "error", "message": "That spot is taken!"})
+
+    db.execute("UPDATE penguins SET coins = coins - ? WHERE username=?", (cost, username))
+    cursor = db.execute(
+        "INSERT INTO igloo_items (username, item_key, x, y) VALUES (?, ?, ?, ?)",
+        (username, item_key, x, y)
+    )
+    new_id    = cursor.lastrowid
+    new_coins = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()["coins"]
+    db.commit()
+    db.close()
+
+    return jsonify({
+        "status": "success",
+        "item":   {"id": new_id, "item_key": item_key, "x": x, "y": y},
+        "coins":  new_coins,
+    })
+
+
+@app.route("/igloo/<username>/move/<int:item_id>", methods=["POST"])
+def igloo_move(username, item_id):
+    data = request.get_json(silent=True) or {}
+    x    = int(data.get("x", -1))
+    y    = int(data.get("y", -1))
+
+    if not (0 <= x < IGLOO_COLS and 0 <= y < IGLOO_ROWS):
+        return jsonify({"status": "error", "message": "Out of bounds."})
+
+    db   = get_db()
+    item = db.execute("SELECT id FROM igloo_items WHERE id=? AND username=?", (item_id, username)).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+
+    occupant = db.execute(
+        "SELECT id FROM igloo_items WHERE username=? AND x=? AND y=? AND id!=?",
+        (username, x, y, item_id)
+    ).fetchone()
+    if occupant:
+        db.close()
+        return jsonify({"status": "error", "message": "That spot is taken!"})
+
+    db.execute("UPDATE igloo_items SET x=?, y=? WHERE id=?", (x, y, item_id))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
+
+
+@app.route("/igloo/<username>/remove/<int:item_id>", methods=["POST"])
+def igloo_remove(username, item_id):
+    db   = get_db()
+    item = db.execute(
+        "SELECT item_key FROM igloo_items WHERE id=? AND username=?", (item_id, username)
+    ).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+
+    refund = FURNITURE_CATALOG.get(item["item_key"], {}).get("cost", 0) // 2
+    db.execute("DELETE FROM igloo_items WHERE id=?", (item_id,))
+    db.execute("UPDATE penguins SET coins = coins + ? WHERE username=?", (refund, username))
+    new_coins = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()["coins"]
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "refund": refund, "coins": new_coins})
 
 
 @app.route("/active/<username>")

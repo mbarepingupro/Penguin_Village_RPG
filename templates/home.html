@@ -449,6 +449,135 @@
     .mission-claim:hover:not(:disabled) { border-color: var(--pink); }
     .mission-claim:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    /* ── IGLOO ── */
+    .igloo-bar {
+      background: var(--dark);
+      border-bottom: 2px solid var(--purple);
+      padding: 6px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      font-size: 6px;
+    }
+    .igloo-bar-title  { color: var(--purple); }
+    .igloo-bar-hint   { color: #555; font-size: 5px; }
+    .igloo-bar-coins  { color: var(--orange); margin-left: auto; }
+    .igloo-cancel-btn {
+      background: transparent;
+      border: 1px solid var(--pink);
+      color: var(--pink);
+      font-size: 5px;
+      font-family: 'Press Start 2P', monospace;
+      padding: 3px 6px;
+      cursor: pointer;
+    }
+    .igloo-cancel-btn:hover { background: var(--pink); color: var(--dark); }
+
+    .igloo-main { display: flex; flex: 1; overflow: hidden; }
+
+    .igloo-floor-wrap {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+      background: #080f1a;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .igloo-floor {
+      width: 660px;
+      height: 400px;
+      flex-shrink: 0;
+      position: relative;
+      background-color: #0d1f33;
+      background-image:
+        linear-gradient(rgba(100,160,255,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(100,160,255,0.07) 1px, transparent 1px);
+      background-size: 60px 50px;
+      border: 2px solid #1a3a5a;
+      border-top: 14px solid #060e1c;
+      box-shadow: inset 0 6px 20px rgba(0,0,50,0.6);
+      cursor: default;
+    }
+    .igloo-floor.placing { cursor: crosshair; }
+    .igloo-floor.moving  { cursor: move; }
+
+    .igloo-placed {
+      position: absolute;
+      width: 60px;
+      height: 50px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .igloo-placed:hover { border-color: rgba(168,110,255,0.5); }
+    .igloo-placed.selected { border-color: var(--pink); background: rgba(255,127,229,0.1); }
+    .igloo-placed-icon { font-size: 22px; line-height: 1; pointer-events: none; }
+    .igloo-placed-name { font-size: 4px; color: #445; white-space: nowrap; pointer-events: none; }
+    .igloo-placed-x {
+      position: absolute;
+      top: 1px; right: 3px;
+      font-size: 9px;
+      color: var(--pink);
+      display: none;
+      line-height: 1;
+      font-family: monospace;
+    }
+    .igloo-placed.selected .igloo-placed-x { display: block; }
+
+    .igloo-ghost {
+      position: absolute;
+      width: 60px;
+      height: 50px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      opacity: 0.55;
+      pointer-events: none;
+      border: 1px dashed var(--purple);
+      background: rgba(168,110,255,0.08);
+      z-index: 10;
+    }
+    .igloo-ghost.blocked { border-color: #ff4444; background: rgba(255,68,68,0.1); }
+
+    .igloo-catalog {
+      width: 188px;
+      flex-shrink: 0;
+      border-left: 2px solid var(--purple);
+      background: var(--panel);
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .igloo-catalog-title { color: var(--purple); font-size: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--purple); flex-shrink: 0; }
+    .catalog-card {
+      background: var(--dark);
+      border: 2px solid #2a2a2a;
+      padding: 6px 4px;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .catalog-card:hover:not(.cant-afford) { border-color: var(--purple); }
+    .catalog-card.selected-cat  { border-color: var(--pink); }
+    .catalog-card.cant-afford   { opacity: 0.35; cursor: not-allowed; }
+    .catalog-card-icon { font-size: 20px; line-height: 1; }
+    .catalog-card-name { color: var(--white); font-size: 4px; }
+    .catalog-card-cost { color: var(--orange); font-size: 5px; }
+
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--dark); }
@@ -612,6 +741,7 @@
         <button class="content-tab active" onclick="switchContentTab('map', this)">VILLAGE MAP</button>
         <button class="content-tab" onclick="switchContentTab('leaderboard', this)">LEADERBOARD</button>
         <button class="content-tab" onclick="switchContentTab('missions', this)">MISSIONS</button>
+        <button class="content-tab" onclick="switchContentTab('igloo', this)">IGLOO</button>
         <button class="content-tab" onclick="switchContentTab('events', this)">EVENTS</button>
       </div>
 
@@ -637,6 +767,26 @@
       <div class="content-panel" id="panel-missions">
         <div class="missions-panel" id="missions-list">
           <div style="color:#666; font-size:7px; text-align:center; padding:20px;">LOADING...</div>
+        </div>
+      </div>
+
+      <!-- IGLOO TAB -->
+      <div class="content-panel" id="panel-igloo">
+        <div class="igloo-bar">
+          <span class="igloo-bar-title">MY IGLOO</span>
+          <span class="igloo-bar-hint" id="igloo-hint">SELECT AN ITEM FROM THE CATALOG TO PLACE</span>
+          <span class="igloo-bar-coins" id="igloo-coins">💰 -- G</span>
+          <button class="igloo-cancel-btn" id="igloo-cancel" style="display:none" onclick="iglooCancel()">CANCEL</button>
+        </div>
+        <div class="igloo-main">
+          <div class="igloo-floor-wrap">
+            <div class="igloo-floor" id="igloo-floor">
+              <div class="igloo-ghost" id="igloo-ghost"></div>
+            </div>
+          </div>
+          <div class="igloo-catalog" id="igloo-catalog">
+            <div class="igloo-catalog-title">CATALOG</div>
+          </div>
         </div>
       </div>
 
@@ -695,6 +845,7 @@
     document.getElementById('panel-' + name).classList.add('active');
     if (name === 'leaderboard') loadLeaderboard();
     if (name === 'missions') loadMissions();
+    if (name === 'igloo') loadIgloo();
   }
 
   // Check if streamer is live via our backend
@@ -957,6 +1108,215 @@
       btn.disabled = false;
     }
   }
+
+  // ── IGLOO ─────────────────────────────────────────────
+  const IGLOO_CW = 60, IGLOO_CH = 50;  // cell width/height px
+  const IGLOO_COLS = 11, IGLOO_ROWS = 8;
+
+  let iglooState   = { mode: 'view', key: null, icon: null, id: null };
+  let iglooItems   = [];   // [{id, item_key, x, y}]
+  let iglooCatalog = {};   // {key: {name, cost, icon}}
+  let iglooCoins   = 0;
+  let iglooEventsOn = false;
+
+  function iglooCell(e) {
+    const r = document.getElementById('igloo-floor').getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(IGLOO_COLS - 1, Math.floor((e.clientX - r.left)  / IGLOO_CW))),
+      y: Math.max(0, Math.min(IGLOO_ROWS - 1, Math.floor((e.clientY - r.top) / IGLOO_CH))),
+    };
+  }
+
+  function iglooOccupant(x, y, skipId = null) {
+    return iglooItems.find(i => i.x === x && i.y === y && i.id !== skipId) || null;
+  }
+
+  function iglooSetHint(text, showCancel) {
+    document.getElementById('igloo-hint').textContent = text;
+    document.getElementById('igloo-cancel').style.display = showCancel ? '' : 'none';
+  }
+
+  function iglooSetCoins(coins) {
+    iglooCoins = coins;
+    document.getElementById('igloo-coins').textContent = `💰 ${coins}G`;
+  }
+
+  function iglooRenderFloor() {
+    const floor = document.getElementById('igloo-floor');
+    floor.querySelectorAll('.igloo-placed').forEach(el => el.remove());
+    iglooItems.forEach(item => {
+      const d  = iglooCatalog[item.item_key] || {};
+      const el = document.createElement('div');
+      el.className = 'igloo-placed' + (iglooState.id === item.id ? ' selected' : '');
+      el.style.left = (item.x * IGLOO_CW) + 'px';
+      el.style.top  = (item.y * IGLOO_CH) + 'px';
+      el.innerHTML = `
+        <span class="igloo-placed-x" data-id="${item.id}">&times;</span>
+        <span class="igloo-placed-icon">${d.icon || '❓'}</span>
+        <span class="igloo-placed-name">${d.name || item.item_key}</span>`;
+      el.addEventListener('click', (e) => iglooItemClick(item.id, e));
+      floor.appendChild(el);
+    });
+  }
+
+  function iglooRenderCatalog() {
+    const cont = document.getElementById('igloo-catalog');
+    let html = '<div class="igloo-catalog-title">CATALOG</div>';
+    Object.entries(iglooCatalog).forEach(([key, d]) => {
+      const poor = iglooCoins < d.cost;
+      const sel  = iglooState.key === key ? ' selected-cat' : '';
+      html += `
+        <div class="catalog-card${poor ? ' cant-afford' : ''}${sel}" onclick="iglooCatalogClick('${key}')">
+          <span class="catalog-card-icon">${d.icon}</span>
+          <span class="catalog-card-name">${d.name}</span>
+          <span class="catalog-card-cost">💰 ${d.cost}G</span>
+        </div>`;
+    });
+    cont.innerHTML = html;
+  }
+
+  async function loadIgloo() {
+    try {
+      const res  = await fetch(`/igloo/${CURRENT_USER}`);
+      const data = await res.json();
+      iglooItems   = data.items;
+      iglooCatalog = data.catalog;
+      iglooSetCoins(data.coins);
+      iglooRenderFloor();
+      iglooRenderCatalog();
+      if (!iglooEventsOn) { attachIglooEvents(); iglooEventsOn = true; }
+    } catch(e) {
+      showWorkMsg('Error loading igloo.', 'err');
+    }
+  }
+
+  function attachIglooEvents() {
+    const floor = document.getElementById('igloo-floor');
+    const ghost = document.getElementById('igloo-ghost');
+
+    floor.addEventListener('click', (e) => {
+      // Only handle clicks that land directly on the floor or grid (not on items)
+      if (e.target.closest('.igloo-placed')) return;
+      const {x, y} = iglooCell(e);
+      if (iglooState.mode === 'place') {
+        if (iglooOccupant(x, y)) { showWorkMsg('That spot is taken!', 'err'); return; }
+        doIglooPlace(iglooState.key, x, y);
+      } else if (iglooState.mode === 'move') {
+        if (iglooOccupant(x, y, iglooState.id)) { showWorkMsg('That spot is taken!', 'err'); return; }
+        doIglooMove(iglooState.id, x, y);
+      } else {
+        iglooState.id = null;
+        iglooRenderFloor();
+      }
+    });
+
+    floor.addEventListener('mousemove', (e) => {
+      if (iglooState.mode === 'view') { ghost.style.display = 'none'; return; }
+      const {x, y} = iglooCell(e);
+      const skipId  = iglooState.mode === 'move' ? iglooState.id : null;
+      const blocked = !!iglooOccupant(x, y, skipId);
+      ghost.style.left    = (x * IGLOO_CW) + 'px';
+      ghost.style.top     = (y * IGLOO_CH) + 'px';
+      ghost.style.display = 'flex';
+      ghost.className     = 'igloo-ghost' + (blocked ? ' blocked' : '');
+      ghost.textContent   = iglooState.icon || '';
+    });
+
+    floor.addEventListener('mouseleave', () => { ghost.style.display = 'none'; });
+
+    // Remove button (× on selected item)
+    floor.addEventListener('click', (e) => {
+      const xBtn = e.target.closest('.igloo-placed-x');
+      if (!xBtn) return;
+      e.stopPropagation();
+      doIglooRemove(parseInt(xBtn.dataset.id));
+    });
+  }
+
+  function iglooCatalogClick(key) {
+    const d = iglooCatalog[key];
+    if (!d) return;
+    if (iglooCoins < d.cost) { showWorkMsg(`Need ${d.cost}G to buy ${d.name}!`, 'err'); return; }
+    iglooState = { mode: 'place', key, icon: d.icon, id: null };
+    document.getElementById('igloo-floor').className = 'igloo-floor placing';
+    iglooSetHint(`PLACING ${d.icon} ${d.name} — CLICK THE FLOOR`, true);
+    iglooRenderCatalog();
+    iglooRenderFloor();
+  }
+
+  function iglooItemClick(id, e) {
+    e.stopPropagation();
+    if (iglooState.mode === 'place') return;
+    if (iglooState.mode === 'move' && iglooState.id === id) { iglooCancel(); return; }
+    const item = iglooItems.find(i => i.id === id);
+    if (!item) return;
+    const d = iglooCatalog[item.item_key] || {};
+    iglooState = { mode: 'move', key: item.item_key, icon: d.icon || '❓', id };
+    document.getElementById('igloo-floor').className = 'igloo-floor moving';
+    iglooSetHint(`MOVING ${d.icon || ''} ${d.name || item.item_key} — CLICK TO REPOSITION — × TO REMOVE`, true);
+    iglooRenderFloor();
+  }
+
+  async function doIglooPlace(key, x, y) {
+    try {
+      const res  = await fetch(`/igloo/${CURRENT_USER}/place`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ item_key: key, x, y })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        iglooItems.push(data.item);
+        iglooSetCoins(data.coins);
+        iglooRenderFloor();
+        iglooRenderCatalog();
+        showWorkMsg('Placed!', 'ok');
+      } else {
+        showWorkMsg(data.message, 'err');
+      }
+    } catch(e) { showWorkMsg('Error placing item.', 'err'); }
+  }
+
+  async function doIglooMove(id, x, y) {
+    try {
+      const res  = await fetch(`/igloo/${CURRENT_USER}/move/${id}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ x, y })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        const item = iglooItems.find(i => i.id === id);
+        if (item) { item.x = x; item.y = y; }
+        iglooCancel();
+      } else {
+        showWorkMsg(data.message, 'err');
+      }
+    } catch(e) { showWorkMsg('Error moving item.', 'err'); }
+  }
+
+  async function doIglooRemove(id) {
+    try {
+      const res  = await fetch(`/igloo/${CURRENT_USER}/remove/${id}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        iglooItems = iglooItems.filter(i => i.id !== id);
+        iglooSetCoins(data.coins);
+        iglooCancel();
+        showWorkMsg(`Removed. +${data.refund}G refunded.`, 'ok');
+      } else {
+        showWorkMsg(data.message, 'err');
+      }
+    } catch(e) { showWorkMsg('Error removing item.', 'err'); }
+  }
+
+  function iglooCancel() {
+    iglooState = { mode: 'view', key: null, icon: null, id: null };
+    document.getElementById('igloo-floor').className = 'igloo-floor';
+    document.getElementById('igloo-ghost').style.display = 'none';
+    iglooSetHint('SELECT AN ITEM TO MOVE  —  CATALOG TO PLACE NEW ITEMS', false);
+    iglooRenderFloor();
+    iglooRenderCatalog();
+  }
+  // ──────────────────────────────────────────────────────
 
   checkLiveStatus();
   loadMapPenguins();
