@@ -688,33 +688,70 @@
     } catch(e) {}
   }
 
-  // Spawn penguin sprites on map
+  // Waypoints follow the visible road/path on village.png.
+  // Coordinates are percentages of the map container (left, top).
+  const PATH_WAYPOINTS = [
+    {x:  6, y: 70},  // far left edge of road
+    {x: 12, y: 64},  // igloo / penguin hotel area
+    {x: 19, y: 64},  // between igloo and jail
+    {x: 26, y: 62},  // horny jail area
+    {x: 33, y: 62},  // sea lion pit area
+    {x: 38, y: 57},  // junction — road forks slightly upward
+    {x: 44, y: 64},  // penguin village sign
+    {x: 50, y: 65},  // center of road
+    {x: 57, y: 63},  // right of centre
+    {x: 64, y: 61},  // approaching club soda
+    {x: 71, y: 60},  // club soda area
+    {x: 79, y: 59},  // the guillotine area
+    {x: 87, y: 61},  // far right edge
+    {x: 30, y: 50},  // award hall (upper spur)
+    {x: 46, y: 49},  // pets / parkinsons (upper spur)
+  ];
+
+  // Each active penguin: { el, cx, cy, tx, ty }
+  const activePenguins = [];
+  const PENGUIN_SPEED = 0.07; // % per tick (50ms → ~1.4%/s)
+  const ARRIVAL_THRESHOLD = 0.5;
+
+  function randomWaypoint() {
+    return PATH_WAYPOINTS[Math.floor(Math.random() * PATH_WAYPOINTS.length)];
+  }
+
   function spawnPenguins(penguins) {
     const map = document.getElementById('map-area');
     penguins.forEach(p => {
+      const start = randomWaypoint();
       const el = document.createElement('div');
       el.className = 'map-penguin';
-      el.style.left = (15 + Math.random() * 65) + '%';
-      el.style.top = (20 + Math.random() * 50) + '%';
-      const jobLabel = p.job ? `${p.job}` : '💤';
+      el.style.left = start.x + '%';
+      el.style.top  = start.y + '%';
+      const jobLabel = p.job || '💤';
       el.innerHTML = `
         <div class="map-penguin-placeholder">🐧</div>
         <div class="map-penguin-name">${p.username.toUpperCase()}</div>
         <div class="map-penguin-job">${jobLabel}</div>`;
       map.appendChild(el);
+      const target = randomWaypoint();
+      activePenguins.push({ el, cx: start.x, cy: start.y, tx: target.x, ty: target.y });
     });
   }
 
-  // Animate penguins wandering
-  function wanderPenguins() {
-    document.querySelectorAll('.map-penguin').forEach(el => {
-      const currentLeft = parseFloat(el.style.left);
-      const currentTop = parseFloat(el.style.top);
-      const newLeft = Math.max(5, Math.min(85, currentLeft + (Math.random() - 0.5) * 4));
-      const newTop = Math.max(10, Math.min(75, currentTop + (Math.random() - 0.5) * 4));
-      el.style.transition = 'left 2s linear, top 2s linear';
-      el.style.left = newLeft + '%';
-      el.style.top = newTop + '%';
+  // Tick: move each penguin one small step toward its current target waypoint.
+  function tickPenguins() {
+    activePenguins.forEach(p => {
+      const dx = p.tx - p.cx;
+      const dy = p.ty - p.cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < ARRIVAL_THRESHOLD) {
+        const wp = randomWaypoint();
+        p.tx = wp.x;
+        p.ty = wp.y;
+      } else {
+        p.cx += (dx / dist) * PENGUIN_SPEED;
+        p.cy += (dy / dist) * PENGUIN_SPEED;
+        p.el.style.left = p.cx + '%';
+        p.el.style.top  = p.cy + '%';
+      }
     });
   }
 
@@ -800,7 +837,7 @@
 
   checkLiveStatus();
   loadMapPenguins();
-  setInterval(wanderPenguins, 3000);
+  setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
   {% endif %}
 </script>
