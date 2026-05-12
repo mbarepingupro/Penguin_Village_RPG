@@ -564,9 +564,7 @@
       <!-- MAP TAB -->
       <div class="content-panel active" id="panel-map">
         <div class="map-area" id="map-area">
-          <div class="map-placeholder-overlay">
-            <span>VILLAGE MAP<br>COMING SOON</span>
-          </div>
+          <img src="/static/village.png" class="map-img" alt="Village Map"/>
           <!-- Penguins will be rendered here by JS -->
         </div>
       </div>
@@ -607,7 +605,9 @@
               <span class="hi">WELCOME TO PENGUIN VILLAGE</span> — build, work, and grow the community!
             </span>
             <span class="news-ticker-item">
-              <span class="hi">{{ penguin['username'] | upper }}</span> is logged in
+                {% if logged_in %}
+                <span class="hi">{{ penguin['username'] | upper }}</span> is logged in
+                {% endif %}
             </span>
           </div>
         </div>
@@ -713,7 +713,9 @@
       if (data.penguins) spawnPenguins(data.penguins);
     } catch(e) {
       // Fallback placeholder penguin
+      {% if logged_in %}
       spawnPenguins([{ username: '{{ penguin["username"] }}', job: '{{ penguin["job"] or "" }}' }]);
+      {% endif %}
     }
   }
 

@@ -33,6 +33,10 @@ def home():
     ).fetchone()
     db.close()
 
+    if penguin is None:
+        session.clear()
+        return render_template("home.html", logged_in=False)
+
     return render_template("home.html", logged_in=True, penguin=penguin)
 
 @app.route("/login")
@@ -55,9 +59,9 @@ def callback():
         "client_secret": TWITCH_CLIENT_SECRET,
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": TWITCH_REDIRECT_URI
+        "redirect_uri": TWITCH_REDIRECT_URI,
     })
-
+    print("TOKEN RESPONSE:", token_response.json())
     token_data = token_response.json()
     access_token = token_data.get("access_token")
 
@@ -67,6 +71,7 @@ def callback():
     })
 
     user_data = user_response.json()
+    print("TWITCH RESPONSE:", user_data)  # temporary debug line
     username = user_data["data"][0]["login"]
 
     session["username"] = username
