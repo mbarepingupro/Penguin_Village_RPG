@@ -1,737 +1,959 @@
 from dotenv import load_dotenv
 import os
 import datetime
+import random
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db
 import time
 import requests as http_requests
-import random
 
 load_dotenv()
 
-TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
+TWITCH_CLIENT_ID    = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
 TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY          = os.getenv("SECRET_KEY")
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
-MISSION_DEFS = {
-    "login_today":  {"title": "SHOW UP",      "desc": "Log in to the village today",        "coins": 5,  "target": 1, "stream": False, "icon": "🐧"},
-    "work_today":   {"title": "CLOCK IN",      "desc": "Send your penguin to work",          "coins": 5,  "target": 1, "stream": False, "icon": "⚒️"},
-    "collect_1":    {"title": "FIRST HAUL",    "desc": "Collect your earnings once",         "coins": 8,  "target": 1, "stream": False, "icon": "💰"},
-    "collect_3":    {"title": "HARD WORKER",   "desc": "Collect earnings 3 times today",     "coins": 20, "target": 3, "stream": False, "icon": "⛏️"},
-    "watch_stream": {"title": "LOYAL VIEWER",  "desc": "Watch the stream for 30 minutes",   "coins": 25, "target": 1, "stream": True,  "icon": "📺"},
-    "chat_stream":  {"title": "CHATTERBOX",    "desc": "Send a message during the stream",   "coins": 15, "target": 1, "stream": True,  "icon": "💬"},
+# ── JOB DURATION TIERS ────────────────────────────────────────────────────────
+# Key = duration in minutes. rate_mult is applied to the base per-hour rates.
+JOB_TIERS = {
+    30:  {"label": "30 MIN",   "quality": "POOR",  "rate_mult": 0.50},
+    60:  {"label": "1 HOUR",   "quality": "OK",    "rate_mult": 0.75},
+    120: {"label": "2 HOURS",  "quality": "DECENT","rate_mult": 0.875},
+    240: {"label": "4 HOURS",  "quality": "GOOD",  "rate_mult": 1.0},
+    480: {"label": "8 HOURS",  "quality": "GREAT", "rate_mult": 1.2},
+    720: {"label": "12 HOURS", "quality": "BEST",  "rate_mult": 1.4},
 }
-DAILY_MISSIONS = list(MISSION_DEFS.keys())
 
-FURNITURE_CATALOG = {
-    "rug":     {"name": "COSY RUG",    "cost":  8, "icon": "🟥"},
-    "lamp":    {"name": "ICE LAMP",    "cost":  8, "icon": "🕯️"},
-    "chair":   {"name": "ICE CHAIR",   "cost": 15, "icon": "🪑"},
-    "plant":   {"name": "SNOW PLANT",  "cost": 12, "icon": "🌿"},
-    "table":   {"name": "FISH TABLE",  "cost": 20, "icon": "🍽️"},
-    "tv":      {"name": "STREAM TV",   "cost": 25, "icon": "📺"},
-    "bed":     {"name": "SNOW BED",    "cost": 30, "icon": "🛏️"},
-    "fishtank":{"name": "FISH TANK",   "cost": 35, "icon": "🐠"},
-    "penguin": {"name": "PET PENGUIN", "cost": 40, "icon": "🐧"},
-    "trophy":  {"name": "TROPHY",      "cost": 50, "icon": "🏆"},
-}
-IGLOO_COLS = 11
-IGLOO_ROWS = 8
-
+# ── BUILDINGS ─────────────────────────────────────────────────────────────────
+# produces = per-hour rates at 4-hour baseline (rate_mult 1.0)
 BUILDINGS = {
-    "cursed_temple": {
-        "name": "Cursed Temple", "icon": "⛩️",
-        "desc": "Enlightenment costs extra. Spells available while stocks last.",
-        "type": "job", "job": "monk", "job_label": "MONK",
-        "produces": {"xp": 5, "spell_fragments": 0.2},
-        "energy_cost": 25, "pos": {"x": 9, "y": 30},
-    },
     "hotel": {
         "name": "Penguin Hotel", "icon": "🏨",
-        "desc": "Clean sheets. Warm beds. They charge too much.",
-        "type": "rest", "rest_cost": 30,
+        "desc": "Rest those flippers. You've earned it.",
+        "type": "rest", "rest_cost": 50,
         "pos": {"x": 12, "y": 62},
     },
     "horny_jail": {
         "name": "Horny Jail", "icon": "🔒",
-        "desc": "You're not getting out of here. (Coming soon)",
+        "desc": "You know what you did.",
         "type": "placeholder",
         "pos": {"x": 24, "y": 63},
     },
     "award_hall": {
         "name": "Award Hall", "icon": "🏆",
-        "desc": "Your accomplishments. Such as they are. Displayed for all to see.",
+        "desc": "Your ego, immortalised in pixel form.",
         "type": "achievements",
         "pos": {"x": 30, "y": 48},
     },
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit", "icon": "🦭",
-        "desc": "Throw some fish. Get some fish back. Ash has a system.",
-        "type": "job", "job": "fishing", "job_label": "FISHING",
-        "produces": {"fish": 1},
-        "energy_cost": 10, "pos": {"x": 36, "y": 62},
+        "desc": "Fish don't catch themselves. Actually here they do.",
+        "type": "job", "job_label": "FISHING",
+        "produces": {"fish": 20, "gold": 5},
+        "pos": {"x": 36, "y": 62},
     },
     "parkmusement": {
         "name": "Ash's Parkmusement", "icon": "🎪",
-        "desc": "Juggle. Fall down. Get paid. The circus life chose you.",
-        "type": "job", "job": "circus", "job_label": "CIRCUS",
-        "produces": {"coins": 2},
-        "energy_cost": 20, "pos": {"x": 47, "y": 48},
+        "desc": "Step right up! Juggle fish for coins! No refunds.",
+        "type": "job", "job_label": "CIRCUS",
+        "produces": {"gold": 30},
+        "pos": {"x": 47, "y": 48},
+    },
+    "cursed_temple": {
+        "name": "Cursed Temple", "icon": "⛩️",
+        "desc": "Enlightenment costs extra. Spells available while stocks last.",
+        "type": "job", "job_label": "MONK",
+        "produces": {"xp": 200, "spell_fragments": 2},
+        "pos": {"x": 9, "y": 30},
     },
     "club_soda": {
         "name": "Club Soda", "icon": "🌿",
-        "desc": "Herbal tea. Herbal music. Herbal vibes. Very herbal.",
-        "type": "job", "job": "herbalism", "job_label": "HERBALISM",
-        "produces": {"herbs": 1},
-        "energy_cost": 15, "pos": {"x": 67, "y": 58},
+        "desc": "Where the herbs are fresh and the beats are questionable.",
+        "type": "job", "job_label": "HERBALISM",
+        "produces": {"herbs": 15, "gold": 5},
+        "pos": {"x": 67, "y": 58},
     },
     "barracks": {
         "name": "Penguin Barracks", "icon": "⚔️",
-        "desc": "Sign up. Show up. Try not to die.",
+        "desc": "Gear up. Fight stuff. Try not to die.",
         "type": "combat",
         "pos": {"x": 79, "y": 57},
     },
     "guillotine": {
         "name": "Gil the Guillotine", "icon": "💀",
         "desc": "A hard day's work. Blood gems don't collect themselves.",
-        "type": "job", "job": "executioner", "job_label": "EXECUTIONER",
-        "produces": {"blood_gems": 0.5, "bones": 1},
-        "energy_cost": 30, "pos": {"x": 84, "y": 58},
+        "type": "job", "job_label": "EXECUTIONER",
+        "produces": {"blood_gems": 5, "bones": 10, "gold": 5},
+        "pos": {"x": 84, "y": 58},
     },
 }
 
+# ── MONSTERS ──────────────────────────────────────────────────────────────────
 MONSTERS = {
-    "snow_crab":      {"name":"Snow Crab",      "tier":1,"min_level":1,"hp":30, "attack":5, "defense":3, "rewards":{"fish":5,"xp":10},              "drop_name":"Ice Shard",       "drop_chance":0.3,"icon":"🦀"},
-    "ice_bat":        {"name":"Ice Bat",         "tier":1,"min_level":1,"hp":20, "attack":8, "defense":2, "rewards":{"herbs":3,"xp":8},               "drop_name":"Bat Wing",        "drop_chance":0.4,"icon":"🦇"},
-    "frost_rat":      {"name":"Frost Rat",       "tier":1,"min_level":1,"hp":15, "attack":6, "defense":1, "rewards":{"bones":3,"xp":6},               "drop_name":"Rat Tail",        "drop_chance":0.5,"icon":"🐀"},
-    "blizzard_wolf":  {"name":"Blizzard Wolf",   "tier":2,"min_level":4,"hp":60, "attack":15,"defense":8, "rewards":{"blood_gems":3,"xp":20},         "drop_name":"Wolf Fang",       "drop_chance":0.3,"icon":"🐺"},
-    "cursed_snowman": {"name":"Cursed Snowman",  "tier":2,"min_level":4,"hp":50, "attack":12,"defense":10,"rewards":{"spell_fragments":3,"xp":18},    "drop_name":"Cursed Carrot",   "drop_chance":0.25,"icon":"☃️"},
-    "shadow_penguin": {"name":"Shadow Penguin",  "tier":2,"min_level":4,"hp":55, "attack":14,"defense":7, "rewards":{"bones":5,"xp":22},              "drop_name":"Shadow Feather",  "drop_chance":0.2,"icon":"🐧"},
-    "stone_golem":    {"name":"Stone Golem",     "tier":3,"min_level":7,"hp":120,"attack":25,"defense":20,"rewards":{"blood_gems":8,"xp":40},         "drop_name":"Stone Core",      "drop_chance":0.2,"icon":"🗿"},
-    "sea_serpent":    {"name":"Sea Serpent",     "tier":3,"min_level":7,"hp":100,"attack":22,"defense":15,"rewards":{"fish":15,"xp":35},              "drop_name":"Serpent Scale",   "drop_chance":0.15,"icon":"🐍"},
-    "dark_druid":     {"name":"Dark Druid",      "tier":3,"min_level":7,"hp":110,"attack":28,"defense":12,"rewards":{"spell_fragments":8,"herbs":5,"xp":45},"drop_name":"Druid Staff","drop_chance":0.1,"icon":"🧙"},
+    "snow_crab":      {"name":"Snow Crab",      "tier":1,"min_level":1, "hp":30,  "attack":5,  "defense":3,  "rewards":{"fish":5,  "gold":8,  "xp":15}, "drop_name":"Ice Shard",      "drop_chance":0.30,"icon":"🦀"},
+    "ice_bat":        {"name":"Ice Bat",         "tier":1,"min_level":1, "hp":20,  "attack":8,  "defense":2,  "rewards":{"herbs":3, "gold":6,  "xp":12}, "drop_name":"Bat Wing",       "drop_chance":0.40,"icon":"🦇"},
+    "frost_rat":      {"name":"Frost Rat",       "tier":1,"min_level":1, "hp":15,  "attack":6,  "defense":1,  "rewards":{"bones":3, "gold":5,  "xp":10}, "drop_name":"Rat Tail",       "drop_chance":0.50,"icon":"🐀"},
+    "blizzard_wolf":  {"name":"Blizzard Wolf",   "tier":2,"min_level":6, "hp":60,  "attack":15, "defense":8,  "rewards":{"blood_gems":3,"gold":20,"xp":30},"drop_name":"Wolf Fang",    "drop_chance":0.30,"icon":"🐺"},
+    "cursed_snowman": {"name":"Cursed Snowman",  "tier":2,"min_level":6, "hp":50,  "attack":12, "defense":10, "rewards":{"spell_fragments":3,"gold":18,"xp":28},"drop_name":"Cursed Carrot","drop_chance":0.25,"icon":"☃️"},
+    "shadow_penguin": {"name":"Shadow Penguin",  "tier":2,"min_level":6, "hp":55,  "attack":14, "defense":7,  "rewards":{"bones":5, "gold":22, "xp":35}, "drop_name":"Shadow Feather", "drop_chance":0.20,"icon":"🐧"},
+    "stone_golem":    {"name":"Stone Golem",     "tier":3,"min_level":16,"hp":120, "attack":25, "defense":20, "rewards":{"blood_gems":8,"gold":40,"xp":60},"drop_name":"Stone Core",   "drop_chance":0.20,"icon":"🗿"},
+    "sea_serpent":    {"name":"Sea Serpent",     "tier":3,"min_level":16,"hp":100, "attack":22, "defense":15, "rewards":{"fish":15, "gold":35, "xp":55}, "drop_name":"Serpent Scale",  "drop_chance":0.15,"icon":"🐍"},
+    "dark_druid":     {"name":"Dark Druid",      "tier":3,"min_level":16,"hp":110, "attack":28, "defense":12, "rewards":{"spell_fragments":8,"herbs":5,"gold":45,"xp":70},"drop_name":"Druid Staff","drop_chance":0.10,"icon":"🧙"},
 }
 
+# ── GEAR CATALOG ──────────────────────────────────────────────────────────────
+# cost keys: 'gold' + resource names (never gold alone)
 GEAR_CATALOG = {
-    "fish_club":   {"name":"FISH CLUB",       "type":"combat",  "slot":"weapon","attack_bonus":5, "defense_bonus":0, "cost":{"coins":30},           "icon":"🐟"},
-    "bone_dagger": {"name":"BONE DAGGER",     "type":"combat",  "slot":"weapon","attack_bonus":8, "defense_bonus":0, "cost":{"bones":5},            "icon":"🗡️"},
-    "ice_sword":   {"name":"ICE SWORD",       "type":"combat",  "slot":"weapon","attack_bonus":14,"defense_bonus":0, "cost":{"fish":10,"coins":20}, "icon":"⚔️"},
-    "blood_axe":   {"name":"BLOOD AXE",       "type":"combat",  "slot":"weapon","attack_bonus":20,"defense_bonus":0, "cost":{"blood_gems":8},       "icon":"🪓"},
-    "fish_vest":   {"name":"FISH SCALE VEST", "type":"combat",  "slot":"armor", "attack_bonus":0, "defense_bonus":5, "cost":{"fish":8},             "icon":"🐠"},
-    "bone_shield": {"name":"BONE SHIELD",     "type":"combat",  "slot":"armor", "attack_bonus":0, "defense_bonus":10,"cost":{"bones":8},            "icon":"🦴"},
-    "ice_plate":   {"name":"ICE PLATE",       "type":"combat",  "slot":"armor", "attack_bonus":0, "defense_bonus":16,"cost":{"fish":12,"herbs":5},  "icon":"🧊"},
-    "tophat":      {"name":"TOP HAT",         "type":"cosmetic","slot":"hat",   "attack_bonus":0, "defense_bonus":0, "cost":{"coins":25},           "icon":"🎩"},
-    "party_hat":   {"name":"PARTY HAT",       "type":"cosmetic","slot":"hat",   "attack_bonus":0, "defense_bonus":0, "cost":{"coins":15},           "icon":"🎉"},
-    "crown":       {"name":"CROWN",           "type":"cosmetic","slot":"hat",   "attack_bonus":0, "defense_bonus":0, "cost":{"coins":80},           "icon":"👑"},
-    "red_cape":    {"name":"RED CAPE",        "type":"cosmetic","slot":"cape",  "attack_bonus":0, "defense_bonus":0, "cost":{"coins":20},           "icon":"🔴"},
-    "star_cape":   {"name":"STAR CAPE",       "type":"cosmetic","slot":"cape",  "attack_bonus":0, "defense_bonus":0, "cost":{"herbs":5,"coins":30},"icon":"⭐"},
+    # Weapons
+    "fish_club":   {"name":"FISH CLUB",       "set_name":None,            "type":"combat",  "slot":"weapon","rarity":"common",   "attack_bonus":5,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":50}},
+    "bone_dagger": {"name":"BONE DAGGER",     "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"uncommon", "attack_bonus":10, "defense_bonus":0, "speed_bonus":2,"hp_bonus":0, "cost":{"gold":80,  "bones":10}},
+    "ice_sword":   {"name":"ICE SWORD",       "set_name":"Frost Guardian","type":"combat",  "slot":"weapon","rarity":"rare",     "attack_bonus":18, "defense_bonus":2, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":200, "fish":30}},
+    "blood_axe":   {"name":"BLOOD AXE",       "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"epic",     "attack_bonus":30, "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":500, "blood_gems":15}},
+    # Chest armor
+    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":"Frost Guardian","type":"combat",  "slot":"chest", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"cost":{"gold":60,  "fish":15}},
+    "bone_plate":  {"name":"BONE PLATE",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"chest", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":12,"speed_bonus":0,"hp_bonus":15,"cost":{"gold":120, "bones":20}},
+    "ice_plate":   {"name":"ICE PLATE",       "set_name":"Frost Guardian","type":"combat",  "slot":"chest", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":22,"speed_bonus":0,"hp_bonus":25,"cost":{"gold":300, "fish":40,"herbs":10}},
+    # Boots
+    "leather_boots":{"name":"LEATHER BOOTS",  "set_name":None,            "type":"combat",  "slot":"boots", "rarity":"common",   "attack_bonus":0,  "defense_bonus":3, "speed_bonus":5,"hp_bonus":0, "cost":{"gold":40}},
+    "bone_boots":  {"name":"BONE BOOTS",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"boots", "rarity":"uncommon", "attack_bonus":2,  "defense_bonus":5, "speed_bonus":8,"hp_bonus":0, "cost":{"gold":100, "bones":15}},
+    "frost_boots": {"name":"FROST BOOTS",     "set_name":"Frost Guardian","type":"combat",  "slot":"boots", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":8, "speed_bonus":12,"hp_bonus":5,"cost":{"gold":250, "fish":20,"spell_fragments":5}},
+    # Cosmetics
+    "tophat":      {"name":"TOP HAT",         "set_name":None,            "type":"cosmetic","slot":"hat",   "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":25}},
+    "party_hat":   {"name":"PARTY HAT",       "set_name":None,            "type":"cosmetic","slot":"hat",   "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":15}},
+    "crown":       {"name":"CROWN",           "set_name":None,            "type":"cosmetic","slot":"hat",   "rarity":"rare",     "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":200}},
+    "red_cape":    {"name":"RED CAPE",        "set_name":None,            "type":"cosmetic","slot":"cape",  "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":20}},
+    "star_cape":   {"name":"STAR CAPE",       "set_name":None,            "type":"cosmetic","slot":"cape",  "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":80,  "herbs":10}},
 }
 
+# ── ACHIEVEMENT DEFINITIONS ───────────────────────────────────────────────────
 ACHIEVEMENT_DEFS = {
-    "first_login":  {"title":"WELCOME HOME",      "desc":"Log in for the first time",       "icon":"🐧"},
-    "first_job":    {"title":"CLOCK IN",          "desc":"Complete your first job",          "icon":"⚒️"},
-    "first_fight":  {"title":"BRAVE (OR DUMB)",   "desc":"Fight your first monster",         "icon":"⚔️"},
-    "first_kill":   {"title":"MONSTER SLAYER",    "desc":"Defeat your first monster",        "icon":"💀"},
-    "level_5":      {"title":"RISING STAR",       "desc":"Reach level 5",                    "icon":"⭐"},
-    "level_10":     {"title":"VILLAGE LEGEND",    "desc":"Reach level 10",                   "icon":"🌟"},
-    "coins_100":    {"title":"GETTING PAID",      "desc":"Accumulate 100 coins",             "icon":"💰"},
-    "coins_500":    {"title":"MONEY PENGUIN",     "desc":"Accumulate 500 coins",             "icon":"🤑"},
-    "fish_50":      {"title":"FISHER PENGUIN",    "desc":"Catch 50 fish total",              "icon":"🎣"},
-    "kill_10":      {"title":"HUNTER",            "desc":"Defeat 10 monsters total",         "icon":"🏹"},
-    "igloo_5":      {"title":"HOME SWEET IGLOO",  "desc":"Place 5 items in your igloo",      "icon":"🏠"},
+    "first_login":    {"title":"WELCOME HOME",      "desc":"Log in for the first time",         "icon":"🐧", "category":"village"},
+    "first_job":      {"title":"CLOCK IN",          "desc":"Complete your first job",           "icon":"⚒️", "category":"jobs"},
+    "first_fight":    {"title":"BRAVE (OR DUMB)",   "desc":"Fight your first monster",          "icon":"⚔️", "category":"combat"},
+    "first_kill":     {"title":"MONSTER SLAYER",    "desc":"Defeat your first monster",         "icon":"💀", "category":"combat"},
+    "level_5":        {"title":"RISING STAR",       "desc":"Reach level 5",                     "icon":"⭐", "category":"village"},
+    "level_10":       {"title":"VILLAGE LEGEND",    "desc":"Reach level 10",                    "icon":"🌟", "category":"village"},
+    "level_20":       {"title":"SEASONED VETERAN",  "desc":"Reach level 20",                    "icon":"💫", "category":"village"},
+    "gold_500":       {"title":"GETTING PAID",      "desc":"Accumulate 500 gold",               "icon":"💰", "category":"collection"},
+    "gold_5000":      {"title":"MONEY PENGUIN",     "desc":"Accumulate 5000 gold total",        "icon":"🤑", "category":"collection"},
+    "fish_50":        {"title":"FISHER PENGUIN",    "desc":"Collect 50 fish",                   "icon":"🎣", "category":"jobs"},
+    "fish_500":       {"title":"MASTER FISHER",     "desc":"Collect 500 fish",                  "icon":"🐟", "category":"jobs"},
+    "kill_10":        {"title":"HUNTER",            "desc":"Defeat 10 monsters",                "icon":"🏹", "category":"combat"},
+    "kill_50":        {"title":"VETERAN HUNTER",    "desc":"Defeat 50 monsters",                "icon":"🗡️", "category":"combat"},
+    "igloo_5":        {"title":"HOME SWEET IGLOO",  "desc":"Place 5 items in your igloo",       "icon":"🏠", "category":"village"},
+    "streak_7":       {"title":"DEDICATED",         "desc":"Log in 7 days in a row",            "icon":"🔥", "category":"village"},
+    "streak_30":      {"title":"COMMITTED",         "desc":"Log in 30 days in a row",           "icon":"🔥", "category":"village"},
+    "prestige_1":     {"title":"REBORN",            "desc":"Prestige for the first time",       "icon":"♻️", "category":"prestige"},
 }
 
+# ── FURNITURE CATALOG ─────────────────────────────────────────────────────────
+FURNITURE_CATALOG = {
+    "rug":      {"name":"COSY RUG",    "cost":8,  "icon":"🟥"},
+    "lamp":     {"name":"ICE LAMP",    "cost":8,  "icon":"🕯️"},
+    "chair":    {"name":"ICE CHAIR",   "cost":15, "icon":"🪑"},
+    "plant":    {"name":"SNOW PLANT",  "cost":12, "icon":"🌿"},
+    "table":    {"name":"FISH TABLE",  "cost":20, "icon":"🍽️"},
+    "tv":       {"name":"STREAM TV",   "cost":25, "icon":"📺"},
+    "bed":      {"name":"SNOW BED",    "cost":30, "icon":"🛏️"},
+    "fishtank": {"name":"FISH TANK",   "cost":35, "icon":"🐠"},
+    "penguin":  {"name":"PET PENGUIN", "cost":40, "icon":"🐧"},
+    "trophy":   {"name":"TROPHY",      "cost":50, "icon":"🏆"},
+}
+IGLOO_COLS = 11
+IGLOO_ROWS = 8
+
+# ── MISSION DEFINITIONS ───────────────────────────────────────────────────────
+MISSION_DEFS = {
+    "login_today":  {"title":"SHOW UP",      "desc":"Log in to the village today",       "gold":25,  "target":1, "stream":False, "icon":"🐧"},
+    "work_today":   {"title":"CLOCK IN",     "desc":"Send your penguin to work",         "gold":25,  "target":1, "stream":False, "icon":"⚒️"},
+    "collect_1":    {"title":"FIRST HAUL",   "desc":"Collect your earnings once",        "gold":30,  "target":1, "stream":False, "icon":"💰"},
+    "collect_3":    {"title":"HARD WORKER",  "desc":"Collect earnings 3 times today",    "gold":80,  "target":3, "stream":False, "icon":"⛏️"},
+    "fight_1":      {"title":"BRAWLER",      "desc":"Fight a monster today",             "gold":40,  "target":1, "stream":False, "icon":"⚔️"},
+    "watch_stream": {"title":"LOYAL VIEWER", "desc":"Watch the stream for 30 minutes",  "gold":100, "target":1, "stream":True,  "icon":"📺"},
+    "chat_stream":  {"title":"CHATTERBOX",   "desc":"Send a message during the stream",  "gold":60,  "target":1, "stream":True,  "icon":"💬"},
+}
+DAILY_MISSIONS = list(MISSION_DEFS.keys())
+
+
+# ── LEVEL / XP SYSTEM ────────────────────────────────────────────────────────
+# XP required to level up from level k: int(80 * k^2.2)
+# This gives ~1 week to level 5, level 30 is a long-term prestige target.
+def _xp_to_levelup(level):
+    return int(80 * (level ** 2.2))
+
+def calc_level(total_xp):
+    """Return level 1-30 based on total XP (exponential scaling)."""
+    level = 1
+    remaining = total_xp
+    while level < 30:
+        needed = _xp_to_levelup(level)
+        if remaining < needed:
+            break
+        remaining -= needed
+        level += 1
+    return level
+
+def xp_progress(total_xp):
+    """Return (current_level, xp_into_level, xp_needed_for_next) tuple."""
+    level = 1
+    remaining = total_xp
+    while level < 30:
+        needed = _xp_to_levelup(level)
+        if remaining < needed:
+            return level, remaining, needed
+        remaining -= needed
+        level += 1
+    return 30, 0, _xp_to_levelup(30)
+
+
+# ── HELPERS ───────────────────────────────────────────────────────────────────
 
 def get_today():
     return datetime.date.today().isoformat()
 
+
+def ensure_resources(db, username):
+    """Create resources row if missing; migrate legacy penguins.coins to gold."""
+    db.execute("INSERT OR IGNORE INTO resources (username) VALUES (?)", (username,))
+    try:
+        p = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()
+        if p and p["coins"] and p["coins"] > 0:
+            db.execute("UPDATE resources SET gold=gold+? WHERE username=?", (p["coins"], username))
+            db.execute("UPDATE penguins SET coins=0 WHERE username=?", (username,))
+    except Exception:
+        pass
+
+
+def get_gold(db, username):
+    ensure_resources(db, username)
+    r = db.execute("SELECT gold FROM resources WHERE username=?", (username,)).fetchone()
+    return r["gold"] if r else 0
+
+
+def add_gold(db, username, amount):
+    ensure_resources(db, username)
+    db.execute("UPDATE resources SET gold=gold+? WHERE username=?", (amount, username))
+
+
+def log_event(db, event_type, message, username=None):
+    db.execute(
+        "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
+        (event_type, message, username, int(time.time()))
+    )
+
+
+def update_login_streak(db, username, today):
+    db.execute(
+        "INSERT OR IGNORE INTO login_streaks (username, current_streak, longest_streak, last_login_date) VALUES (?,1,1,?)",
+        (username, today)
+    )
+    row = db.execute("SELECT * FROM login_streaks WHERE username=?", (username,)).fetchone()
+    if row["last_login_date"] == today:
+        return row["current_streak"]
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    if row["last_login_date"] == yesterday:
+        new_streak = row["current_streak"] + 1
+    else:
+        new_streak = 1
+    new_longest = max(row["longest_streak"], new_streak)
+    db.execute(
+        "UPDATE login_streaks SET current_streak=?, longest_streak=?, last_login_date=? WHERE username=?",
+        (new_streak, new_longest, today, username)
+    )
+    db.execute(
+        "UPDATE penguins SET login_streak=? WHERE username=?",
+        (new_streak, username)
+    )
+    return new_streak
+
+
 def advance_mission(db, username, key, today, amount=1):
-    """Increment a mission's progress. Awards coins automatically on completion. Returns True if newly completed."""
     defn = MISSION_DEFS.get(key)
     if not defn:
         return False
     db.execute(
-        "INSERT OR IGNORE INTO daily_missions (username, mission_key, date) VALUES (?, ?, ?)",
+        "INSERT OR IGNORE INTO daily_missions (username, mission_key, date) VALUES (?,?,?)",
         (username, key, today)
     )
     row = db.execute(
         "SELECT progress, completed FROM daily_missions WHERE username=? AND mission_key=? AND date=?",
         (username, key, today)
     ).fetchone()
-    if row is None or row["completed"]:
+    if not row or row["completed"]:
         return False
-    target = defn["target"]
-    new_progress = min(row["progress"] + amount, target)
-    newly_completed = new_progress >= target
+    new_prog = min(row["progress"] + amount, defn["target"])
+    done = new_prog >= defn["target"]
     db.execute(
         "UPDATE daily_missions SET progress=?, completed=? WHERE username=? AND mission_key=? AND date=?",
-        (new_progress, 1 if newly_completed else 0, username, key, today)
+        (new_prog, 1 if done else 0, username, key, today)
     )
-    if newly_completed:
-        db.execute(
-            "UPDATE penguins SET coins = coins + ? WHERE username = ?",
-            (defn["coins"], username)
-        )
-    return newly_completed
+    if done:
+        add_gold(db, username, defn["gold"])
+    return done
 
-
-def calc_level(xp):
-    return min(10, xp // 100 + 1)
-
-def ensure_resources(db, username):
-    db.execute("INSERT OR IGNORE INTO resources (username) VALUES (?)", (username,))
 
 def get_player_stats(db, username):
     p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
     level = p["level"] if p else 1
-    attack = level * 3
-    defense = level * 2
-    hp = level * 20
+    attack  = level * 4 + 3
+    defense = level * 3
+    speed   = level * 2
+    hp      = level * 30 + 20
     equipped = db.execute(
-        "SELECT attack_bonus, defense_bonus FROM gear WHERE username=? AND equipped=1", (username,)
+        "SELECT attack_bonus, defense_bonus, speed_bonus, hp_bonus FROM gear WHERE username=? AND equipped=1",
+        (username,)
     ).fetchall()
     for g in equipped:
-        attack += g["attack_bonus"]
+        attack  += g["attack_bonus"]
         defense += g["defense_bonus"]
-    return {"attack": attack, "defense": defense, "hp": hp, "level": level}
+        speed   += g["speed_bonus"]
+        hp      += g["hp_bonus"]
+    return {"attack": attack, "defense": defense, "speed": speed, "hp": hp, "level": level}
+
 
 def award_xp(db, username, amount):
     p = db.execute("SELECT xp, level FROM penguins WHERE username=?", (username,)).fetchone()
-    if not p: return False
-    new_xp = p["xp"] + amount
+    if not p:
+        return False
+    new_xp    = (p["xp"] or 0) + amount
     new_level = calc_level(new_xp)
+    leveled   = new_level > (p["level"] or 1)
     db.execute("UPDATE penguins SET xp=?, level=? WHERE username=?", (new_xp, new_level, username))
-    return new_level > p["level"]
+    if leveled:
+        log_event(db, "village", f"{username} reached level {new_level}! 🎉", username)
+    return leveled
+
 
 def simulate_combat(player_stats, monster):
-    php = player_stats["hp"]
-    mhp = monster["hp"]
+    php  = player_stats["hp"]
+    mhp  = monster["hp"]
     patk = player_stats["attack"]
     pdef = player_stats["defense"]
     matk = monster["attack"]
     mdef = monster["defense"]
-    for _ in range(200):
-        if php <= 0 or mhp <= 0: break
+    for _ in range(300):
+        if php <= 0 or mhp <= 0:
+            break
         mhp -= max(1, patk - mdef // 2)
         php -= max(1, matk - pdef // 2)
     return php > 0
 
+
 def check_achievements(db, username):
-    p = db.execute("SELECT level, coins, xp FROM penguins WHERE username=?", (username,)).fetchone()
-    r = db.execute("SELECT fish FROM resources WHERE username=?", (username,)).fetchone()
+    now   = int(time.time())
+    p     = db.execute("SELECT level, xp FROM penguins WHERE username=?", (username,)).fetchone()
+    r     = db.execute("SELECT gold, fish FROM resources WHERE username=?", (username,)).fetchone()
     kills = db.execute("SELECT COUNT(*) as c FROM monster_kills WHERE username=?", (username,)).fetchone()
     igloo = db.execute("SELECT COUNT(*) as c FROM igloo_items WHERE username=?", (username,)).fetchone()
+    streak = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
+    prest  = db.execute("SELECT prestige FROM penguins WHERE username=?", (username,)).fetchone()
+
     new_ach = []
-    def try_unlock(aid):
+    def unlock(aid):
         try:
-            db.execute("INSERT INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
-                       (username, aid, int(time.time())))
+            db.execute(
+                "INSERT INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
+                (username, aid, now)
+            )
             new_ach.append(aid)
-        except: pass
+            defn = ACHIEVEMENT_DEFS.get(aid, {})
+            log_event(db, "achievement", f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username)
+        except Exception:
+            pass
+
     if p:
-        if p["level"] >= 5:  try_unlock("level_5")
-        if p["level"] >= 10: try_unlock("level_10")
-        if p["coins"] >= 100: try_unlock("coins_100")
-        if p["coins"] >= 500: try_unlock("coins_500")
-    if r and r["fish"] >= 50: try_unlock("fish_50")
-    if kills and kills["c"] >= 1:  try_unlock("first_kill")
-    if kills and kills["c"] >= 10: try_unlock("kill_10")
-    if igloo and igloo["c"] >= 5:  try_unlock("igloo_5")
+        if p["level"] >= 5:  unlock("level_5")
+        if p["level"] >= 10: unlock("level_10")
+        if p["level"] >= 20: unlock("level_20")
+    if r:
+        if r["gold"] >= 500:  unlock("gold_500")
+        if r["gold"] >= 5000: unlock("gold_5000")
+        if r["fish"] >= 50:   unlock("fish_50")
+        if r["fish"] >= 500:  unlock("fish_500")
+    if kills:
+        if kills["c"] >= 1:  unlock("first_kill")
+        if kills["c"] >= 10: unlock("kill_10")
+        if kills["c"] >= 50: unlock("kill_50")
+    if igloo and igloo["c"] >= 5:
+        unlock("igloo_5")
+    if streak:
+        if streak["current_streak"] >= 7:  unlock("streak_7")
+        if streak["current_streak"] >= 30: unlock("streak_30")
+    if prest and prest["prestige"] >= 1:
+        unlock("prestige_1")
     return new_ach
 
 
-# Set up the database when the server starts
+# ── APP INIT ──────────────────────────────────────────────────────────────────
 init_db()
+
+
+# ── ROUTES ───────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def home():
     username = session.get("username")
     if not username:
         return render_template("home.html", logged_in=False)
-
     db = get_db()
-    penguin = db.execute(
-        "SELECT * FROM penguins WHERE username = ?",
-        (username,)
-    ).fetchone()
-    db.close()
-
-    if penguin is None:
+    penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not penguin:
         session.clear()
+        db.close()
         return render_template("home.html", logged_in=False)
+    ensure_resources(db, username)
+    db.commit()
+    resources = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    streak    = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
+    db.close()
+    return render_template(
+        "home.html",
+        logged_in=True,
+        penguin=penguin,
+        resources=resources,
+        streak=streak["current_streak"] if streak else 1,
+    )
 
-    return render_template("home.html", logged_in=True, penguin=penguin)
 
 @app.route("/login")
 def login():
-    twitch_auth_url = (
+    return redirect(
         "https://id.twitch.tv/oauth2/authorize"
         f"?client_id={TWITCH_CLIENT_ID}"
         f"&redirect_uri={TWITCH_REDIRECT_URI}"
-        "&response_type=code"
-        "&scope=user:read:email"
+        "&response_type=code&scope=user:read:email"
     )
-    return redirect(twitch_auth_url)
+
 
 @app.route("/callback")
 def callback():
     code = request.args.get("code")
-
-    token_response = http_requests.post("https://id.twitch.tv/oauth2/token", data={
+    token_resp = http_requests.post("https://id.twitch.tv/oauth2/token", data={
         "client_id": TWITCH_CLIENT_ID,
         "client_secret": TWITCH_CLIENT_SECRET,
         "code": code,
         "grant_type": "authorization_code",
         "redirect_uri": TWITCH_REDIRECT_URI,
     })
-    print("TOKEN RESPONSE:", token_response.json())
-    token_data = token_response.json()
-    access_token = token_data.get("access_token")
-
-    user_response = http_requests.get("https://api.twitch.tv/helix/users", headers={
-        "Authorization": f"Bearer {access_token}",
-        "Client-Id": TWITCH_CLIENT_ID
-    })
-
-    user_data = user_response.json()
-    print("TWITCH RESPONSE:", user_data)
-    username = user_data["data"][0]["login"]
-
+    access_token = token_resp.json().get("access_token")
+    user_resp = http_requests.get(
+        "https://api.twitch.tv/helix/users",
+        headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
+    )
+    username = user_resp.json()["data"][0]["login"]
     session["username"] = username
 
-    # Auto-register if first time logging in, then mark daily login mission
     db = get_db()
     try:
         db.execute("INSERT INTO penguins (username) VALUES (?)", (username,))
         session["new_user"] = True
-    except:
+        log_event(db, "village", f"{username} joined the village! 🐧", username)
+    except Exception:
         session["new_user"] = False
 
     today = get_today()
-    advance_mission(db, username, "login_today", today)
     ensure_resources(db, username)
-    try_unlock = lambda aid: db.execute(
-        "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
-        (username, aid, int(time.time()))
-    )
-    try_unlock("first_login")
+    streak = update_login_streak(db, username, today)
+    advance_mission(db, username, "login_today", today)
+    try:
+        db.execute(
+            "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
+            (username, "first_login", int(time.time()))
+        )
+    except Exception:
+        pass
+    check_achievements(db, username)
     db.commit()
     db.close()
-
     return redirect(url_for("home"))
+
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("home"))
 
-@app.route("/register/<username>")
-def register(username):
-    db = get_db()
-    cursor = db.cursor()
-
-    try:
-        cursor.execute(
-            "INSERT INTO penguins (username) VALUES (?)",
-            (username,)
-        )
-        db.commit()
-        return jsonify({
-            "status": "success",
-            "message": f"Welcome to the Penguin Village, {username}!",
-            "penguin": {
-                "username": username,
-                "level": 1,
-                "energy": 100,
-                "coins": 0,
-                "job": None,
-                "job_started": 0
-            }
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"{username} already has a penguin!"
-        })
-    finally:
-        db.close()
 
 @app.route("/profile/<username>")
 def profile(username):
     db = get_db()
-    cursor = db.cursor()
-
-    penguin = cursor.execute(
-        "SELECT * FROM penguins WHERE username = ?",
-        (username,)
-    ).fetchone()
-
+    p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Not found"})
+    ensure_resources(db, username)
+    r      = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    streak = db.execute("SELECT current_streak, longest_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
     db.close()
-
-    if penguin is None:
-        return jsonify({
-            "status": "error",
-            "message": f"{username} doesn't have a penguin yet!"
-        })
-
-    xp = penguin["xp"] if penguin["xp"] else 0
-    next_level_xp = calc_level(xp) * 100
-    xp_in_level = xp % 100
-
+    xp_val = p["xp"] or 0
+    level, xp_into, xp_needed = xp_progress(xp_val)
     return jsonify({
         "status": "success",
         "penguin": {
-            "username": penguin["username"],
-            "level": penguin["level"],
-            "energy": penguin["energy"],
-            "coins": penguin["coins"],
-            "xp": xp,
-            "xp_in_level": xp_in_level,
-            "job": penguin["job"] if penguin["job"] else None,
-            "job_started": penguin["job_started"]
-        }
+            "username":    p["username"],
+            "level":       level,
+            "xp":          xp_val,
+            "xp_into":     xp_into,
+            "xp_needed":   xp_needed,
+            "energy":      p["energy"],
+            "max_energy":  p["max_energy"] or 100,
+            "gold":        r["gold"] if r else 0,
+            "prestige":    p["prestige"] or 0,
+            "breed":       p["breed"] or "classic_black",
+            "job":         p["job"],
+            "job_duration":p["job_duration"] or 0,
+            "job_started": p["job_started"] or 0,
+            "login_streak":streak["current_streak"] if streak else 1,
+        },
+        "resources": dict(r) if r else {},
     })
-
-
-@app.route("/building/<building_id>")
-def building_info(building_id):
-    b = BUILDINGS.get(building_id)
-    if not b:
-        return jsonify({"status":"error","message":"Unknown building."})
-    username = request.args.get("username","")
-    db = get_db()
-    p = db.execute("SELECT job, job_started, energy, coins FROM penguins WHERE username=?", (username,)).fetchone()
-    db.close()
-    result = {**b, "building_id": building_id}
-    if p:
-        result["player_job"] = p["job"]
-        result["player_job_started"] = p["job_started"]
-        result["player_energy"] = p["energy"]
-        result["player_coins"] = p["coins"]
-        result["working_here"] = (p["job"] == building_id)
-        if p["job"] == building_id and b.get("type") == "job":
-            mins = (int(time.time()) - p["job_started"]) // 60
-            result["minutes_worked"] = mins
-            result["preview_earnings"] = {
-                k: int(v * mins) for k, v in b["produces"].items()
-            }
-    return jsonify(result)
-
-
-@app.route("/work/start", methods=["POST"])
-def work_start():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username","")
-    building_id = data.get("building_id","")
-    b = BUILDINGS.get(building_id)
-    if not b or b.get("type") != "job":
-        return jsonify({"status":"error","message":"Not a job building."})
-    db = get_db()
-    p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
-    if not p:
-        db.close()
-        return jsonify({"status":"error","message":"Penguin not found."})
-    if p["job"] is not None:
-        db.close()
-        return jsonify({"status":"error","message":f"Already working! Collect first."})
-    energy_cost = b.get("energy_cost", 10)
-    if p["energy"] < energy_cost:
-        db.close()
-        return jsonify({"status":"error","message":f"Need {energy_cost} energy."})
-    db.execute(
-        "UPDATE penguins SET job=?, job_started=?, energy=energy-? WHERE username=?",
-        (building_id, int(time.time()), energy_cost, username)
-    )
-    today = get_today()
-    advance_mission(db, username, "work_today", today)
-    db.commit()
-    db.close()
-    return jsonify({"status":"success","message":f"Started {b['job_label']}!","building_id":building_id})
-
-
-@app.route("/work/collect", methods=["POST"])
-def work_collect():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username","")
-    db = get_db()
-    p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
-    if not p:
-        db.close()
-        return jsonify({"status":"error","message":"Penguin not found."})
-    if not p["job"]:
-        db.close()
-        return jsonify({"status":"error","message":"Not working."})
-    b = BUILDINGS.get(p["job"])
-    if not b:
-        db.close()
-        return jsonify({"status":"error","message":"Invalid job state."})
-    mins = (int(time.time()) - p["job_started"]) // 60
-    earned = {}
-    leveled_up = False
-    ensure_resources(db, username)
-    for resource, rate in b.get("produces", {}).items():
-        amount = int(rate * mins)
-        if amount <= 0: continue
-        earned[resource] = amount
-        if resource == "coins":
-            db.execute("UPDATE penguins SET coins=coins+? WHERE username=?", (amount, username))
-        elif resource == "xp":
-            leveled_up = award_xp(db, username, amount) or leveled_up
-        else:
-            db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
-    db.execute("UPDATE penguins SET job=NULL, job_started=0 WHERE username=?", (username,))
-    today = get_today()
-    advance_mission(db, username, "collect_1", today)
-    advance_mission(db, username, "collect_3", today)
-    new_ach = check_achievements(db, username)
-    if earned: check_achievements(db, username)
-    db.commit()
-    db.close()
-    return jsonify({
-        "status":"success",
-        "earned": earned,
-        "minutes": mins,
-        "leveled_up": leveled_up,
-        "new_achievements": new_ach,
-        "building": b["name"],
-    })
-
-
-@app.route("/rest", methods=["POST"])
-def rest():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username","")
-    db = get_db()
-    p = db.execute("SELECT coins, energy FROM penguins WHERE username=?", (username,)).fetchone()
-    if not p:
-        db.close()
-        return jsonify({"status":"error","message":"Penguin not found."})
-    cost = BUILDINGS["hotel"]["rest_cost"]
-    if p["coins"] < cost:
-        db.close()
-        return jsonify({"status":"error","message":f"Need {cost} coins to rest."})
-    db.execute("UPDATE penguins SET coins=coins-?, energy=100 WHERE username=?", (cost, username))
-    db.commit()
-    db.close()
-    return jsonify({"status":"success","message":"Fully rested!","energy":100})
 
 
 @app.route("/resources/<username>")
 def get_resources(username):
     db = get_db()
     ensure_resources(db, username)
-    r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     db.commit()
+    r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     db.close()
     return jsonify(dict(r) if r else {})
-
-
-@app.route("/combat/monsters")
-def combat_monsters():
-    username = request.args.get("username","")
-    today = get_today()
-    db = get_db()
-    p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
-    player_level = p["level"] if p else 1
-    killed_today = set(
-        row["monster_id"] for row in
-        db.execute("SELECT monster_id FROM monster_kills WHERE username=? AND date=?", (username, today)).fetchall()
-    )
-    db.close()
-    result = []
-    for mid, m in MONSTERS.items():
-        result.append({**m, "id": mid,
-            "can_fight": player_level >= m["min_level"],
-            "killed_today": mid in killed_today})
-    return jsonify({"monsters": result, "player_level": player_level})
-
-
-@app.route("/combat/fight", methods=["POST"])
-def combat_fight():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username","")
-    monster_id = data.get("monster_id","")
-    m = MONSTERS.get(monster_id)
-    if not m:
-        return jsonify({"status":"error","message":"Unknown monster."})
-    today = get_today()
-    db = get_db()
-    p = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
-    if not p:
-        db.close()
-        return jsonify({"status":"error","message":"Penguin not found."})
-    if p["level"] < m["min_level"]:
-        db.close()
-        return jsonify({"status":"error","message":f"Need level {m['min_level']}."})
-    already = db.execute(
-        "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND date=?",
-        (username, monster_id, today)
-    ).fetchone()
-    if already:
-        db.close()
-        return jsonify({"status":"error","message":"Already fought this today."})
-    stats = get_player_stats(db, username)
-    won = simulate_combat(stats, m)
-    drop = None
-    new_ach = []
-    ensure_resources(db, username)
-    advance_mission(db, username, "first_fight", today)
-    if won:
-        for resource, amount in m["rewards"].items():
-            if resource == "xp":
-                award_xp(db, username, amount)
-            elif resource == "coins":
-                db.execute("UPDATE penguins SET coins=coins+? WHERE username=?", (amount, username))
-            else:
-                db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
-        if random.random() < m["drop_chance"]:
-            drop = m["drop_name"]
-        db.execute(
-            "INSERT OR IGNORE INTO monster_kills (username, monster_id, date) VALUES (?,?,?)",
-            (username, monster_id, today)
-        )
-        new_ach = check_achievements(db, username)
-    else:
-        db.execute("UPDATE penguins SET energy=MAX(0,energy-20) WHERE username=?", (username,))
-        award_xp(db, username, 2)
-        db.execute(
-            "INSERT OR IGNORE INTO monster_kills (username, monster_id, date) VALUES (?,?,?)",
-            (username, monster_id, today)
-        )
-    db.commit()
-    db.close()
-    return jsonify({
-        "status":"success",
-        "won": won,
-        "drop": drop,
-        "rewards": m["rewards"] if won else {"xp":2},
-        "new_achievements": new_ach,
-    })
-
-
-@app.route("/gear/inventory")
-def gear_inventory():
-    username = request.args.get("username","")
-    db = get_db()
-    rows = db.execute("SELECT * FROM gear WHERE username=?", (username,)).fetchall()
-    db.close()
-    return jsonify({"gear": [dict(r) for r in rows], "catalog": GEAR_CATALOG})
-
-
-@app.route("/gear/buy", methods=["POST"])
-def gear_buy():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username","")
-    item_id = data.get("item_id","")
-    defn = GEAR_CATALOG.get(item_id)
-    if not defn:
-        return jsonify({"status":"error","message":"Unknown item."})
-    db = get_db()
-    p = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()
-    r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-    if not p:
-        db.close()
-        return jsonify({"status":"error","message":"Penguin not found."})
-    cost = defn["cost"]
-    # Check can afford
-    for resource, amount in cost.items():
-        if resource == "coins":
-            if p["coins"] < amount:
-                db.close()
-                return jsonify({"status":"error","message":f"Need {amount} coins."})
-        else:
-            have = r[resource] if r and resource in r.keys() else 0
-            if have < amount:
-                db.close()
-                return jsonify({"status":"error","message":f"Need {amount} {resource}."})
-    # Deduct
-    for resource, amount in cost.items():
-        if resource == "coins":
-            db.execute("UPDATE penguins SET coins=coins-? WHERE username=?", (amount, username))
-        else:
-            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
-    db.execute(
-        "INSERT INTO gear (username, item_id, name, type, slot, attack_bonus, defense_bonus) VALUES (?,?,?,?,?,?,?)",
-        (username, item_id, defn["name"], defn["type"], defn["slot"],
-         defn["attack_bonus"], defn["defense_bonus"])
-    )
-    db.commit()
-    db.close()
-    return jsonify({"status":"success","message":f"{defn['name']} purchased!"})
-
-
-@app.route("/gear/equip", methods=["POST"])
-def gear_equip():
-    data = request.get_json(silent=True) or {}
-    username = data.get("username","")
-    gear_id = int(data.get("gear_id",0))
-    db = get_db()
-    item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
-    if not item:
-        db.close()
-        return jsonify({"status":"error","message":"Item not found."})
-    if item["equipped"]:
-        db.execute("UPDATE gear SET equipped=0 WHERE id=?", (gear_id,))
-        db.commit(); db.close()
-        return jsonify({"status":"success","equipped":False,"message":f"{item['name']} unequipped."})
-    # Unequip other items in same slot
-    db.execute("UPDATE gear SET equipped=0 WHERE username=? AND slot=?", (username, item["slot"]))
-    db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_id,))
-    db.commit(); db.close()
-    return jsonify({"status":"success","equipped":True,"message":f"{item['name']} equipped."})
-
-
-@app.route("/achievements/<username>")
-def get_achievements(username):
-    db = get_db()
-    rows = db.execute(
-        "SELECT achievement_id, unlocked_at FROM achievements WHERE username=?", (username,)
-    ).fetchall()
-    db.close()
-    unlocked = {r["achievement_id"]: r["unlocked_at"] for r in rows}
-    result = []
-    for aid, defn in ACHIEVEMENT_DEFS.items():
-        result.append({**defn, "id": aid, "unlocked": aid in unlocked,
-                       "unlocked_at": unlocked.get(aid)})
-    return jsonify({"achievements": result})
 
 
 @app.route("/leaderboard")
 def leaderboard():
     db = get_db()
-    penguins = db.execute(
-        "SELECT username, level, coins, job FROM penguins ORDER BY coins DESC LIMIT 20"
+    rows = db.execute(
+        "SELECT p.username, p.level, p.xp, p.prestige, r.gold "
+        "FROM penguins p LEFT JOIN resources r ON p.username=r.username "
+        "ORDER BY p.level DESC, p.xp DESC LIMIT 20"
     ).fetchall()
     db.close()
-    return jsonify({"penguins": [dict(p) for p in penguins]})
+    return jsonify({"penguins": [dict(r) for r in rows]})
+
 
 @app.route("/islive")
 def islive():
     try:
-        res = http_requests.get(
+        res  = http_requests.get(
             "https://api.twitch.tv/helix/streams?user_login=mbarepingu",
-            headers={
-                "Client-Id": TWITCH_CLIENT_ID,
-                "Authorization": f"Bearer {os.getenv('TWITCH_APP_TOKEN', '')}"
-            }
+            headers={"Client-Id": TWITCH_CLIENT_ID,
+                     "Authorization": f"Bearer {os.getenv('TWITCH_APP_TOKEN', '')}"}
         )
-        data = res.json()
-        live = len(data.get("data", [])) > 0
+        live = len(res.json().get("data", [])) > 0
         return jsonify({"live": live})
-    except:
+    except Exception:
         return jsonify({"live": False})
+
+
+# ── BUILDING INFO ────────────────────────────────────────────────────────────
+
+@app.route("/building/<building_id>")
+def building_info(building_id):
+    username = request.args.get("username", "")
+    b = BUILDINGS.get(building_id)
+    if not b:
+        return jsonify({"status": "error", "message": "Building not found."})
+    db = get_db()
+    p  = db.execute("SELECT job, job_started, job_duration, energy FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    ensure_resources(db, username)
+    gold = get_gold(db, username)
+    db.close()
+
+    working_here     = p["job"] == building_id
+    minutes_worked   = 0
+    committed_mins   = 0
+    preview_earnings = {}
+    if working_here:
+        elapsed_secs   = int(time.time()) - (p["job_started"] or 0)
+        committed_mins = p["job_duration"] or 240
+        elapsed_mins   = elapsed_secs // 60
+        rate_mult      = JOB_TIERS.get(committed_mins, JOB_TIERS[240])["rate_mult"]
+        minutes_worked = min(elapsed_mins, committed_mins)
+        for res, rate in b.get("produces", {}).items():
+            preview_earnings[res] = int(rate * rate_mult * (minutes_worked / 60.0))
+
+    return jsonify({
+        "status":          "success",
+        "building_id":     building_id,
+        "icon":            b["icon"],
+        "name":            b["name"],
+        "desc":            b.get("desc", ""),
+        "type":            b["type"],
+        "job_label":       b.get("job_label", "WORK"),
+        "produces":        b.get("produces", {}),
+        "rest_cost":       b.get("rest_cost", 0),
+        "player_job":      p["job"],
+        "player_energy":   p["energy"] or 0,
+        "player_gold":     gold,
+        "working_here":    working_here,
+        "minutes_worked":  minutes_worked,
+        "committed_mins":  committed_mins,
+        "preview_earnings":preview_earnings,
+        "job_tiers":       {str(k): v for k, v in JOB_TIERS.items()},
+    })
+
+
+# ── JOBS ─────────────────────────────────────────────────────────────────────
+
+@app.route("/work/start", methods=["POST"])
+def work_start():
+    data        = request.get_json(silent=True) or {}
+    username    = data.get("username", "")
+    building_id = data.get("building_id", "")
+    duration    = int(data.get("duration_minutes", 240))
+
+    b = BUILDINGS.get(building_id)
+    if not b or b.get("type") != "job":
+        return jsonify({"status": "error", "message": "Not a job building."})
+    if duration not in JOB_TIERS:
+        return jsonify({"status": "error", "message": "Invalid duration."})
+
+    db = get_db()
+    p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    if p["job"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Already working! Collect first."})
+
+    db.execute(
+        "UPDATE penguins SET job=?, job_started=?, job_duration=? WHERE username=?",
+        (building_id, int(time.time()), duration, username)
+    )
+    today = get_today()
+    advance_mission(db, username, "work_today", today)
+    tier_label = JOB_TIERS[duration]["label"]
+    log_event(db, "job", f"{username} started {b['job_label']} at {b['name']} ({tier_label})", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"Started {b['job_label']}!", "building_id": building_id})
+
+
+@app.route("/work/collect", methods=["POST"])
+def work_collect():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    db = get_db()
+    p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p or not p["job"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Not working."})
+
+    b = BUILDINGS.get(p["job"])
+    if not b:
+        db.execute("UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?", (username,))
+        db.commit()
+        db.close()
+        return jsonify({"status": "error", "message": "Invalid job state cleared."})
+
+    committed_mins  = p["job_duration"] or 240
+    actual_secs     = int(time.time()) - (p["job_started"] or 0)
+    actual_mins     = actual_secs / 60.0
+    effective_mins  = min(actual_mins, committed_mins)  # no bonus for going over
+    rate_mult       = JOB_TIERS.get(committed_mins, JOB_TIERS[240])["rate_mult"]
+
+    earned    = {}
+    leveled   = False
+    ensure_resources(db, username)
+
+    for resource, rate_per_hour in b.get("produces", {}).items():
+        amount = int(rate_per_hour * rate_mult * (effective_mins / 60.0))
+        if amount <= 0:
+            continue
+        earned[resource] = amount
+        if resource == "gold":
+            add_gold(db, username, amount)
+        elif resource == "xp":
+            if award_xp(db, username, amount):
+                leveled = True
+        else:
+            db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
+
+    db.execute("UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?", (username,))
+    today = get_today()
+    advance_mission(db, username, "collect_1", today)
+    advance_mission(db, username, "collect_3", today)
+    new_ach = check_achievements(db, username)
+
+    earned_parts = [f"+{v} {k}" for k, v in earned.items() if v > 0]
+    log_event(db, "job",
+              f"{username} collected from {b['name']}: {', '.join(earned_parts) or 'nothing yet'}",
+              username)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status":           "success",
+        "earned":           earned,
+        "minutes":          int(effective_mins),
+        "leveled_up":       leveled,
+        "new_achievements": new_ach,
+        "building":         b["name"],
+    })
+
+
+@app.route("/work/status")
+def work_status():
+    username = request.args.get("username", "")
+    db = get_db()
+    p  = db.execute("SELECT job, job_started, job_duration FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p or not p["job"]:
+        db.close()
+        return jsonify({"working": False})
+    b            = BUILDINGS.get(p["job"], {})
+    elapsed_secs = int(time.time()) - (p["job_started"] or 0)
+    elapsed_mins = elapsed_secs // 60
+    committed    = p["job_duration"] or 240
+    remaining    = max(0, committed - elapsed_mins)
+    rate_mult    = JOB_TIERS.get(committed, JOB_TIERS[240])["rate_mult"]
+    preview      = {
+        res: int(rate * rate_mult * (min(elapsed_mins, committed) / 60.0))
+        for res, rate in b.get("produces", {}).items()
+    }
+    db.close()
+    return jsonify({
+        "working":       True,
+        "building_id":   p["job"],
+        "building_name": b.get("name", p["job"]),
+        "elapsed_mins":  elapsed_mins,
+        "committed_mins":committed,
+        "remaining_mins":remaining,
+        "ready":         elapsed_mins >= committed,
+        "preview":       preview,
+    })
+
+
+# ── REST ─────────────────────────────────────────────────────────────────────
+
+@app.route("/rest", methods=["POST"])
+def rest():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    db = get_db()
+    p  = db.execute("SELECT energy, max_energy FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    max_e = p["max_energy"] or 100
+    if (p["energy"] or 0) >= max_e:
+        db.close()
+        return jsonify({"status": "error", "message": "Already at full energy!"})
+    cost = BUILDINGS["hotel"]["rest_cost"]
+    ensure_resources(db, username)
+    gold = get_gold(db, username)
+    if gold < cost:
+        db.close()
+        return jsonify({"status": "error", "message": f"Need {cost} gold to rest."})
+    add_gold(db, username, -cost)
+    db.execute("UPDATE penguins SET energy=? WHERE username=?", (max_e, username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"Fully rested! Energy restored.", "energy": max_e})
+
+
+# ── COMBAT ───────────────────────────────────────────────────────────────────
+
+@app.route("/combat/monsters")
+def combat_monsters():
+    username = request.args.get("username", "")
+    today    = get_today()
+    db = get_db()
+    p  = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
+    player_level = p["level"] if p else 1
+    killed_today = {
+        row["monster_id"] for row in
+        db.execute("SELECT monster_id FROM monster_kills WHERE username=? AND killed_date=?", (username, today))
+    }
+    db.close()
+    result = [
+        {**m, "id": mid,
+         "can_fight":    player_level >= m["min_level"],
+         "killed_today": mid in killed_today}
+        for mid, m in MONSTERS.items()
+    ]
+    return jsonify({"monsters": result, "player_level": player_level, "player_energy": p["energy"] if p else 100})
+
+
+@app.route("/combat/fight", methods=["POST"])
+def combat_fight():
+    data       = request.get_json(silent=True) or {}
+    username   = data.get("username", "")
+    monster_id = data.get("monster_id", "")
+    m = MONSTERS.get(monster_id)
+    if not m:
+        return jsonify({"status": "error", "message": "Unknown monster."})
+
+    today = get_today()
+    db    = get_db()
+    p     = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    if p["level"] < m["min_level"]:
+        db.close()
+        return jsonify({"status": "error", "message": f"Need level {m['min_level']}."})
+
+    energy_cost = 20 + (m["tier"] - 1) * 10
+    if (p["energy"] or 0) < energy_cost:
+        db.close()
+        return jsonify({"status": "error", "message": f"Need {energy_cost} energy to fight."})
+
+    if db.execute(
+        "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND killed_date=?",
+        (username, monster_id, today)
+    ).fetchone():
+        db.close()
+        return jsonify({"status": "error", "message": "Already fought this today."})
+
+    stats = get_player_stats(db, username)
+    won   = simulate_combat(stats, m)
+    drop  = None
+    new_ach = []
+    ensure_resources(db, username)
+
+    advance_mission(db, username, "fight_1", today)
+    db.execute("UPDATE penguins SET energy=MAX(0,energy-?) WHERE username=?", (energy_cost, username))
+
+    loot_summary = ""
+    if won:
+        for resource, amount in m["rewards"].items():
+            if resource == "xp":
+                award_xp(db, username, amount)
+            elif resource == "gold":
+                add_gold(db, username, amount)
+            else:
+                db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
+        if random.random() < m["drop_chance"]:
+            drop = m["drop_name"]
+        loot_summary = ", ".join(f"+{v} {k}" for k, v in m["rewards"].items())
+        if drop:
+            loot_summary += f" + {drop}"
+        log_event(db, "combat",
+                  f"{username} defeated {m['name']}! {loot_summary} 🎉",
+                  username)
+        advance_mission(db, username, "first_fight", today)
+        new_ach = check_achievements(db, username)
+    else:
+        award_xp(db, username, max(2, m["rewards"].get("xp", 10) // 5))
+        log_event(db, "combat", f"{username} was defeated by {m['name']}...", username)
+
+    db.execute(
+        "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
+        (username, monster_id, today, loot_summary if won else "defeat")
+    )
+    db.commit()
+    db.close()
+    return jsonify({
+        "status":           "success",
+        "won":              won,
+        "drop":             drop,
+        "rewards":          m["rewards"] if won else {},
+        "new_achievements": new_ach,
+        "energy_cost":      energy_cost,
+    })
+
+
+# ── GEAR ─────────────────────────────────────────────────────────────────────
+
+@app.route("/gear/inventory")
+def gear_inventory():
+    username = request.args.get("username", "")
+    db = get_db()
+    ensure_resources(db, username)
+    rows    = db.execute("SELECT * FROM gear WHERE username=? ORDER BY id", (username,)).fetchall()
+    gold    = get_gold(db, username)
+    r       = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    db.close()
+    return jsonify({
+        "gear":    [dict(g) for g in rows],
+        "catalog": GEAR_CATALOG,
+        "gold":    gold,
+        "resources": dict(r) if r else {},
+    })
+
+
+@app.route("/gear/buy", methods=["POST"])
+def gear_buy():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    item_id  = data.get("item_id", "")
+    defn = GEAR_CATALOG.get(item_id)
+    if not defn:
+        return jsonify({"status": "error", "message": "Unknown item."})
+
+    db = get_db()
+    ensure_resources(db, username)
+    r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    if not r:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    # Check affordability
+    for resource, amount in defn["cost"].items():
+        have = r["gold"] if resource == "gold" else (r[resource] if resource in r.keys() else 0)
+        if have < amount:
+            db.close()
+            return jsonify({"status": "error", "message": f"Need {amount} {resource}."})
+
+    # Deduct
+    for resource, amount in defn["cost"].items():
+        if resource == "gold":
+            add_gold(db, username, -amount)
+        else:
+            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, attack_bonus, defense_bonus, speed_bonus, hp_bonus, obtained_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (username, item_id, defn["name"], defn.get("set_name"), defn["type"], defn["slot"],
+         defn.get("rarity","common"), defn["attack_bonus"], defn["defense_bonus"],
+         defn["speed_bonus"], defn["hp_bonus"], int(time.time()))
+    )
+    new_ach = check_achievements(db, username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"{defn['name']} purchased!", "new_achievements": new_ach})
+
+
+@app.route("/gear/equip", methods=["POST"])
+def gear_equip():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    gear_id  = int(data.get("gear_id", 0))
+    db = get_db()
+    item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+    if item["equipped"]:
+        db.execute("UPDATE gear SET equipped=0 WHERE id=?", (gear_id,))
+        db.commit()
+        db.close()
+        return jsonify({"status": "success", "equipped": False, "message": f"{item['name']} unequipped."})
+    db.execute("UPDATE gear SET equipped=0 WHERE username=? AND slot=?", (username, item["slot"]))
+    db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_id,))
+    new_ach = check_achievements(db, username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "equipped": True, "message": f"{item['name']} equipped.", "new_achievements": new_ach})
+
+
+# ── MISSIONS ─────────────────────────────────────────────────────────────────
 
 @app.route("/missions/<username>")
 def get_missions(username):
     today = get_today()
-    db = get_db()
+    db    = get_db()
     for key in DAILY_MISSIONS:
         db.execute(
-            "INSERT OR IGNORE INTO daily_missions (username, mission_key, date) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO daily_missions (username, mission_key, date) VALUES (?,?,?)",
             (username, key, today)
         )
     db.commit()
@@ -740,23 +962,21 @@ def get_missions(username):
         (username, today)
     ).fetchall()
     db.close()
-
     key_order = {k: i for i, k in enumerate(DAILY_MISSIONS)}
-    missions = sorted([
+    missions  = sorted([
         {
-            "key":       row["mission_key"],
-            "title":     MISSION_DEFS[row["mission_key"]]["title"],
-            "desc":      MISSION_DEFS[row["mission_key"]]["desc"],
-            "coins":     MISSION_DEFS[row["mission_key"]]["coins"],
-            "target":    MISSION_DEFS[row["mission_key"]]["target"],
-            "stream":    MISSION_DEFS[row["mission_key"]]["stream"],
-            "icon":      MISSION_DEFS[row["mission_key"]]["icon"],
-            "progress":  row["progress"],
-            "completed": bool(row["completed"]),
+            "key":       r["mission_key"],
+            "title":     MISSION_DEFS[r["mission_key"]]["title"],
+            "desc":      MISSION_DEFS[r["mission_key"]]["desc"],
+            "gold":      MISSION_DEFS[r["mission_key"]]["gold"],
+            "target":    MISSION_DEFS[r["mission_key"]]["target"],
+            "stream":    MISSION_DEFS[r["mission_key"]]["stream"],
+            "icon":      MISSION_DEFS[r["mission_key"]]["icon"],
+            "progress":  r["progress"],
+            "completed": bool(r["completed"]),
         }
-        for row in rows if row["mission_key"] in MISSION_DEFS
+        for r in rows if r["mission_key"] in MISSION_DEFS
     ], key=lambda m: key_order.get(m["key"], 99))
-
     return jsonify({"missions": missions, "date": today})
 
 
@@ -766,29 +986,57 @@ def claim_stream_mission(username, key):
     if not defn or not defn.get("stream"):
         return jsonify({"status": "error", "message": "Not a claimable stream mission."})
     today = get_today()
-    db = get_db()
-    newly_done = advance_mission(db, username, key, today)
+    db    = get_db()
+    done  = advance_mission(db, username, key, today)
     db.commit()
     db.close()
-    if newly_done:
-        return jsonify({"status": "success", "message": f"Mission complete! +{defn['coins']} coins", "coins": defn["coins"]})
+    if done:
+        return jsonify({"status": "success", "message": f"Mission complete! +{defn['gold']} gold", "gold": defn["gold"]})
     return jsonify({"status": "error", "message": "Already completed or not available."})
 
 
+# ── ACHIEVEMENTS ─────────────────────────────────────────────────────────────
+
+@app.route("/achievements/<username>")
+def get_achievements(username):
+    db  = get_db()
+    ensure_resources(db, username)
+    check_achievements(db, username)
+    db.commit()
+    rows    = db.execute("SELECT achievement_id, unlocked_at FROM achievements WHERE username=?", (username,)).fetchall()
+    db.close()
+    unlocked = {r["achievement_id"]: r["unlocked_at"] for r in rows}
+    result   = [
+        {**defn, "id": aid, "unlocked": aid in unlocked, "unlocked_at": unlocked.get(aid)}
+        for aid, defn in ACHIEVEMENT_DEFS.items()
+    ]
+    return jsonify({"achievements": result})
+
+
+# ── EVENT LOG ─────────────────────────────────────────────────────────────────
+
+@app.route("/events")
+def get_events():
+    cutoff = int(time.time()) - 86400  # last 24 hours
+    db     = get_db()
+    rows   = db.execute(
+        "SELECT * FROM event_log WHERE created_at > ? ORDER BY created_at DESC LIMIT 100",
+        (cutoff,)
+    ).fetchall()
+    db.close()
+    return jsonify({"events": [dict(r) for r in rows]})
+
+
+# ── IGLOO ─────────────────────────────────────────────────────────────────────
+
 @app.route("/igloo/<username>")
 def get_igloo(username):
-    db = get_db()
-    items = db.execute(
-        "SELECT id, item_key, x, y FROM igloo_items WHERE username=? ORDER BY id",
-        (username,)
-    ).fetchall()
-    penguin = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()
+    db    = get_db()
+    items = db.execute("SELECT id, item_key, x, y FROM igloo_items WHERE username=? ORDER BY id", (username,)).fetchall()
+    ensure_resources(db, username)
+    gold = get_gold(db, username)
     db.close()
-    return jsonify({
-        "items":   [dict(r) for r in items],
-        "coins":   penguin["coins"] if penguin else 0,
-        "catalog": FURNITURE_CATALOG,
-    })
+    return jsonify({"items": [dict(r) for r in items], "coins": gold, "catalog": FURNITURE_CATALOG})
 
 
 @app.route("/igloo/<username>/place", methods=["POST"])
@@ -797,39 +1045,28 @@ def igloo_place(username):
     item_key = data.get("item_key")
     x        = int(data.get("x", -1))
     y        = int(data.get("y", -1))
-
     if item_key not in FURNITURE_CATALOG:
         return jsonify({"status": "error", "message": "Unknown item."})
     if not (0 <= x < IGLOO_COLS and 0 <= y < IGLOO_ROWS):
         return jsonify({"status": "error", "message": "Out of bounds."})
-
     cost = FURNITURE_CATALOG[item_key]["cost"]
     db   = get_db()
-
-    penguin = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()
-    if not penguin or penguin["coins"] < cost:
+    ensure_resources(db, username)
+    gold = get_gold(db, username)
+    if gold < cost:
         db.close()
-        return jsonify({"status": "error", "message": f"Need {cost}G to buy that!"})
-
+        return jsonify({"status": "error", "message": f"Need {cost}G!"})
     if db.execute("SELECT id FROM igloo_items WHERE username=? AND x=? AND y=?", (username, x, y)).fetchone():
         db.close()
         return jsonify({"status": "error", "message": "That spot is taken!"})
-
-    db.execute("UPDATE penguins SET coins = coins - ? WHERE username=?", (cost, username))
-    cursor = db.execute(
-        "INSERT INTO igloo_items (username, item_key, x, y) VALUES (?, ?, ?, ?)",
-        (username, item_key, x, y)
-    )
-    new_id    = cursor.lastrowid
-    new_coins = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()["coins"]
+    add_gold(db, username, -cost)
+    cur    = db.execute("INSERT INTO igloo_items (username, item_key, x, y) VALUES (?,?,?,?)", (username, item_key, x, y))
+    new_id = cur.lastrowid
+    new_gold = get_gold(db, username)
+    check_achievements(db, username)
     db.commit()
     db.close()
-
-    return jsonify({
-        "status": "success",
-        "item":   {"id": new_id, "item_key": item_key, "x": x, "y": y},
-        "coins":  new_coins,
-    })
+    return jsonify({"status": "success", "item": {"id": new_id, "item_key": item_key, "x": x, "y": y}, "coins": new_gold})
 
 
 @app.route("/igloo/<username>/move/<int:item_id>", methods=["POST"])
@@ -837,24 +1074,16 @@ def igloo_move(username, item_id):
     data = request.get_json(silent=True) or {}
     x    = int(data.get("x", -1))
     y    = int(data.get("y", -1))
-
     if not (0 <= x < IGLOO_COLS and 0 <= y < IGLOO_ROWS):
         return jsonify({"status": "error", "message": "Out of bounds."})
-
     db   = get_db()
     item = db.execute("SELECT id FROM igloo_items WHERE id=? AND username=?", (item_id, username)).fetchone()
     if not item:
         db.close()
         return jsonify({"status": "error", "message": "Item not found."})
-
-    occupant = db.execute(
-        "SELECT id FROM igloo_items WHERE username=? AND x=? AND y=? AND id!=?",
-        (username, x, y, item_id)
-    ).fetchone()
-    if occupant:
+    if db.execute("SELECT id FROM igloo_items WHERE username=? AND x=? AND y=? AND id!=?", (username, x, y, item_id)).fetchone():
         db.close()
         return jsonify({"status": "error", "message": "That spot is taken!"})
-
     db.execute("UPDATE igloo_items SET x=?, y=? WHERE id=?", (x, y, item_id))
     db.commit()
     db.close()
@@ -864,55 +1093,42 @@ def igloo_move(username, item_id):
 @app.route("/igloo/<username>/remove/<int:item_id>", methods=["POST"])
 def igloo_remove(username, item_id):
     db   = get_db()
-    item = db.execute(
-        "SELECT item_key FROM igloo_items WHERE id=? AND username=?", (item_id, username)
-    ).fetchone()
+    item = db.execute("SELECT item_key FROM igloo_items WHERE id=? AND username=?", (item_id, username)).fetchone()
     if not item:
         db.close()
         return jsonify({"status": "error", "message": "Item not found."})
-
     refund = FURNITURE_CATALOG.get(item["item_key"], {}).get("cost", 0) // 2
     db.execute("DELETE FROM igloo_items WHERE id=?", (item_id,))
-    db.execute("UPDATE penguins SET coins = coins + ? WHERE username=?", (refund, username))
-    new_coins = db.execute("SELECT coins FROM penguins WHERE username=?", (username,)).fetchone()["coins"]
+    ensure_resources(db, username)
+    add_gold(db, username, refund)
+    new_gold = get_gold(db, username)
     db.commit()
     db.close()
-    return jsonify({"status": "success", "refund": refund, "coins": new_coins})
+    return jsonify({"status": "success", "refund": refund, "coins": new_gold})
 
+
+# ── ACTIVE PING ───────────────────────────────────────────────────────────────
 
 @app.route("/active/<username>")
 def active(username):
     db = get_db()
-    cursor = db.cursor()
-
-    penguin = cursor.execute(
-        "SELECT * FROM penguins WHERE username = ?",
-        (username,)
-    ).fetchone()
-
-    if penguin is None:
+    p  = db.execute("SELECT energy, max_energy, last_active FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
         db.close()
         return jsonify({"status": "skip"})
-
-    now = int(time.time())
-
-    # Calculate energy recovery based on last_active
-    if penguin["last_active"] > 0:
-        minutes_since_active = (now - penguin["last_active"]) // 60
-        energy_recovered = minutes_since_active * 2
-        new_energy = min(100, penguin["energy"] + energy_recovered)
+    now     = int(time.time())
+    max_e   = p["max_energy"] or 100
+    if p["last_active"] and p["last_active"] > 0:
+        mins_away  = (now - p["last_active"]) // 60
+        recovered  = mins_away * 2
+        new_energy = min(max_e, (p["energy"] or 0) + recovered)
     else:
-        new_energy = penguin["energy"]
-        energy_recovered = 0
-
-    cursor.execute(
-        "UPDATE penguins SET last_active = ?, energy = ? WHERE username = ?",
-        (now, new_energy, username)
-    )
+        new_energy = p["energy"] or max_e
+    db.execute("UPDATE penguins SET last_active=?, energy=? WHERE username=?", (now, new_energy, username))
     db.commit()
     db.close()
+    return jsonify({"status": "ok", "energy": new_energy})
 
-    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5001)
