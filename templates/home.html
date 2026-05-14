@@ -149,28 +149,7 @@
     .status-resting { color: #4aff6b; }
     .status-working { color: var(--orange); }
 
-    /* ── WORK BUTTONS ── */
-    .work-section { padding: 10px; flex: 1; }
-    .job-btn {
-      width: 100%;
-      background: var(--dark);
-      border: 2px solid var(--purple);
-      padding: 7px 6px;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      cursor: pointer;
-      font-family: 'Press Start 2P', monospace;
-    }
-    .job-btn:hover:not(:disabled) { border-color: var(--pink); background: #1a1a1a; }
-    .job-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .job-icon { font-size: 14px; flex-shrink: 0; }
-    .job-info { display: flex; flex-direction: column; gap: 3px; }
-    .job-name { color: var(--white); font-size: 5px; }
-    .job-reward { color: var(--orange); font-size: 5px; }
-    .job-cost { color: #ff6b6b; font-size: 5px; }
-
+    /* ── COLLECT BTN ── */
     .collect-btn {
       width: 100%;
       background: var(--orange);
@@ -194,7 +173,7 @@
       text-align: center;
       display: none;
     }
-    .work-msg.ok { color: #4aff6b; border: 1px solid #4aff6b; }
+    .work-msg.ok  { color: #4aff6b; border: 1px solid #4aff6b; }
     .work-msg.err { color: #ff6b6b; border: 1px solid #ff6b6b; }
 
     /* ── SOCIAL LINKS ── */
@@ -223,28 +202,38 @@
     .twitch-btn.live { border-color: #ff0000; animation: livepulse 1.2s infinite; }
     .linktree-btn { background: var(--dark); border-color: #39e09b; color: #39e09b; }
     .linktree-btn:hover { background: #0a1f14; }
-    .live-dot {
-      width: 7px; height: 7px;
-      background: #ff0000;
-      flex-shrink: 0;
-      animation: blink 1.2s infinite;
-    }
+    .live-dot { width: 7px; height: 7px; background: #ff0000; flex-shrink: 0; animation: blink 1.2s infinite; }
     .live-label { color: #ff6666; }
     @keyframes livepulse { 0%,100% { border-color: #ff0000; } 50% { border-color: #ff4444; } }
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.1; } }
 
+    /* ── RESOURCES GRID ── */
+    .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px 10px; }
+    .res-item { display: flex; align-items: center; gap: 4px; }
+    .res-icon { font-size: 10px; }
+    .res-val  { color: var(--white); font-size: 6px; }
+
+    /* ── GEAR SLOTS IN SIDEBAR ── */
+    .gear-slots { padding: 8px 10px; border-bottom: var(--border-thin); }
+    .gear-slot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer; }
+    .gear-slot-row:hover .gear-slot-val { color: var(--pink); }
+    .gear-slot-lbl { color: #666; font-size: 5px; width: 36px; flex-shrink: 0; }
+    .gear-slot-val { color: var(--white); font-size: 5px; flex: 1; }
+
     /* ── CONTENT AREA ── */
     .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .content-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; }
+    .content-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; overflow-x: auto; }
     .content-tab {
-      padding: 9px 14px;
-      font-size: 7px;
+      padding: 9px 10px;
+      font-size: 6px;
       font-family: 'Press Start 2P', monospace;
       color: #888;
       background: var(--dark);
       border: none;
       border-right: 2px solid var(--purple);
       cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     .content-tab:last-child { border-right: none; }
     .content-tab.active { color: var(--purple); background: var(--panel); }
@@ -267,24 +256,70 @@
       image-rendering: pixelated;
       opacity: 0.9;
     }
-    .map-placeholder-overlay {
+
+    /* ── BUILDING HOTSPOTS ── */
+    .building-hotspot {
       position: absolute;
-      inset: 0;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transform: translate(-50%, -50%);
+      background: rgba(168,110,255,0.12);
+    }
+    .building-hotspot:hover { border-color: var(--purple); background: rgba(168,110,255,0.3); }
+    .building-hotspot-label {
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 4px;
+      white-space: nowrap;
+      color: var(--white);
+      background: rgba(0,0,0,0.8);
+      padding: 1px 3px;
+      pointer-events: none;
+    }
+
+    /* ── BUILDING PANEL ── */
+    .building-panel {
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 240px;
+      background: rgba(18,18,18,0.97);
+      border-left: 3px solid var(--purple);
+      z-index: 50;
+      display: none;
       flex-direction: column;
-      gap: 10px;
-      background: #0a1628;
+      padding: 0;
+      overflow-y: auto;
     }
-    .map-placeholder-overlay span {
-      color: var(--purple);
-      font-size: 8px;
-      text-align: center;
-      line-height: 2;
-      border: 2px dashed var(--purple);
-      padding: 20px;
+    .building-panel.open { display: flex; }
+    .bp-close { align-self: flex-end; padding: 6px 10px; font-size: 14px; color: var(--pink); cursor: pointer; font-family: monospace; }
+    .bp-close:hover { color: var(--white); }
+    .bp-icon { font-size: 36px; text-align: center; padding: 10px; }
+    .bp-name { color: var(--purple); font-size: 7px; text-align: center; padding: 0 10px 6px; }
+    .bp-desc { color: #666; font-size: 5px; text-align: center; padding: 0 10px 10px; line-height: 2; border-bottom: 1px solid #2a2a2a; }
+    .bp-actions { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .bp-btn {
+      width: 100%;
+      padding: 8px;
+      font-size: 6px;
+      font-family: 'Press Start 2P', monospace;
+      border: 2px solid var(--purple);
+      background: var(--dark);
+      color: var(--white);
+      cursor: pointer;
     }
+    .bp-btn:hover:not(:disabled) { border-color: var(--pink); }
+    .bp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .bp-btn.collect { background: var(--orange); border-color: #ffa500; color: var(--dark); }
+    .bp-btn.collect:hover:not(:disabled) { background: #ffa500; }
+    .bp-info { font-size: 5px; color: #888; line-height: 2; }
 
     /* ── PENGUIN SPRITES ON MAP ── */
     .map-penguin {
@@ -297,45 +332,42 @@
       transition: transform 0.1s;
     }
     .map-penguin:hover { transform: scale(1.1); }
-    .map-penguin img {
-      width: 28px;
-      height: 28px;
-      image-rendering: pixelated;
-    }
+    .map-penguin img { width: 28px; height: 28px; image-rendering: pixelated; }
     .map-penguin-placeholder {
-      width: 28px;
-      height: 28px;
+      width: 28px; height: 28px;
       background: var(--dark);
       border: 2px solid var(--purple);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       font-size: 14px;
     }
     .map-penguin-name {
-      font-size: 5px;
-      color: var(--white);
+      font-size: 5px; color: var(--white);
       background: rgba(0,0,0,0.85);
-      padding: 2px 4px;
-      white-space: nowrap;
+      padding: 2px 4px; white-space: nowrap;
       border: 1px solid var(--purple);
     }
-    .map-penguin-job {
-      font-size: 5px;
-      color: var(--orange);
-      white-space: nowrap;
-    }
+    .map-penguin-job { font-size: 5px; color: var(--orange); white-space: nowrap; }
 
-    /* ── LEADERBOARD PANEL ── */
+    /* ── IGLOO GHOST (used also in map for building hotspot injection) ── */
+    .igloo-ghost {
+      position: absolute;
+      width: 60px; height: 50px;
+      display: none;
+      align-items: center; justify-content: center;
+      font-size: 22px;
+      opacity: 0.55;
+      pointer-events: none;
+      border: 1px dashed var(--purple);
+      background: rgba(168,110,255,0.08);
+      z-index: 10;
+    }
+    .igloo-ghost.blocked { border-color: #ff4444; background: rgba(255,68,68,0.1); }
+
+    /* ── LEADERBOARD ── */
     .leaderboard { padding: 16px; overflow-y: auto; }
     .lb-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px;
-      border: 2px solid var(--panel);
-      margin-bottom: 6px;
-      background: var(--dark);
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px; border: 2px solid var(--panel); margin-bottom: 6px; background: var(--dark);
     }
     .lb-row:hover { border-color: var(--purple); }
     .lb-rank { color: var(--purple); font-size: 7px; width: 20px; text-align: center; }
@@ -343,83 +375,13 @@
     .lb-coins { color: var(--orange); font-size: 7px; }
     .lb-level { color: #888; font-size: 6px; }
 
-    /* ── EVENTS PANEL ── */
-    .events { padding: 16px; overflow-y: auto; }
-    .event-card {
-      border: 2px solid var(--purple);
-      background: var(--dark);
-      padding: 10px;
-      margin-bottom: 10px;
-    }
-    .event-title { color: var(--pink); font-size: 8px; margin-bottom: 6px; }
-    .event-desc { color: #888; font-size: 6px; line-height: 2; }
-    .event-status { color: var(--orange); font-size: 6px; margin-top: 6px; }
-
-    /* ── NEWS TICKER ── */
-    .news-bar {
-      background: var(--dark);
-      border-top: var(--border);
-      padding: 6px 12px;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-shrink: 0;
-      overflow: hidden;
-    }
-    .news-label { color: var(--purple); font-size: 6px; white-space: nowrap; flex-shrink: 0; }
-    .news-ticker-wrap { flex: 1; overflow: hidden; position: relative; height: 14px; }
-    .news-ticker {
-      display: flex;
-      gap: 48px;
-      position: absolute;
-      white-space: nowrap;
-      animation: ticker 30s linear infinite;
-    }
-    .news-ticker-item { color: #888; font-size: 6px; }
-    .news-ticker-item .hi { color: var(--purple); }
-    .news-ticker-item .gold { color: var(--orange); }
-    @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-
-    /* ── LOGIN SCREEN ── */
-    .login-screen {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      padding: 40px;
-      background: var(--bg);
-    }
-    .login-penguin { width: 96px; height: 96px; image-rendering: pixelated; object-fit: contain; }
-    .login-title { color: var(--purple); font-size: 18px; text-align: center; line-height: 1.6; }
-    .login-title span { color: var(--pink); }
-    .login-sub { color: #888; font-size: 7px; text-align: center; line-height: 2.2; max-width: 360px; }
-    .login-btn {
-      background: #6441a5;
-      border: 3px solid var(--purple);
-      color: var(--white);
-      font-size: 8px;
-      font-family: 'Press Start 2P', monospace;
-      padding: 12px 24px;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-      margin-top: 8px;
-    }
-    .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
-
-    /* ── MISSIONS PANEL ── */
+    /* ── MISSIONS ── */
     .missions-panel { padding: 16px; overflow-y: auto; flex: 1; }
     .missions-date { color: #555; font-size: 5px; margin-bottom: 12px; letter-spacing: 1px; }
     .mission-card {
-      border: 2px solid var(--panel);
-      background: var(--dark);
-      padding: 10px;
-      margin-bottom: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
+      border: 2px solid var(--panel); background: var(--dark);
+      padding: 10px; margin-bottom: 8px;
+      display: flex; flex-direction: column; gap: 5px;
     }
     .mission-card.done   { border-color: #2a6b3a; }
     .mission-card.stream { border-color: #6441a5; }
@@ -437,151 +399,182 @@
     .mission-reward { color: var(--orange); font-size: 5px; }
     .mission-prog   { color: #555; font-size: 5px; }
     .mission-claim {
-      background: #6441a5;
-      border: 2px solid var(--purple);
-      color: var(--white);
-      font-size: 5px;
+      background: #6441a5; border: 2px solid var(--purple);
+      color: var(--white); font-size: 5px;
       font-family: 'Press Start 2P', monospace;
-      padding: 3px 6px;
-      cursor: pointer;
-      flex-shrink: 0;
+      padding: 3px 6px; cursor: pointer; flex-shrink: 0;
     }
     .mission-claim:hover:not(:disabled) { border-color: var(--pink); }
     .mission-claim:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* ── IGLOO ── */
     .igloo-bar {
-      background: var(--dark);
-      border-bottom: 2px solid var(--purple);
-      padding: 6px 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-      font-size: 6px;
+      background: var(--dark); border-bottom: 2px solid var(--purple);
+      padding: 6px 10px; display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0; font-size: 6px;
     }
     .igloo-bar-title  { color: var(--purple); }
     .igloo-bar-hint   { color: #555; font-size: 5px; }
     .igloo-bar-coins  { color: var(--orange); margin-left: auto; }
     .igloo-cancel-btn {
-      background: transparent;
-      border: 1px solid var(--pink);
-      color: var(--pink);
-      font-size: 5px;
+      background: transparent; border: 1px solid var(--pink);
+      color: var(--pink); font-size: 5px;
       font-family: 'Press Start 2P', monospace;
-      padding: 3px 6px;
-      cursor: pointer;
+      padding: 3px 6px; cursor: pointer;
     }
     .igloo-cancel-btn:hover { background: var(--pink); color: var(--dark); }
-
     .igloo-main { display: flex; flex: 1; overflow: hidden; }
-
     .igloo-floor-wrap {
-      flex: 1;
-      overflow: auto;
-      padding: 12px;
-      background: #080f1a;
-      display: flex;
-      align-items: flex-start;
+      flex: 1; overflow: auto; padding: 12px; background: #080f1a;
+      display: flex; align-items: flex-start;
     }
-
     .igloo-floor {
-      width: 660px;
-      height: 400px;
-      flex-shrink: 0;
-      position: relative;
+      width: 660px; height: 400px; flex-shrink: 0; position: relative;
       background-color: #0d1f33;
       background-image:
         linear-gradient(rgba(100,160,255,0.07) 1px, transparent 1px),
         linear-gradient(90deg, rgba(100,160,255,0.07) 1px, transparent 1px);
       background-size: 60px 50px;
-      border: 2px solid #1a3a5a;
-      border-top: 14px solid #060e1c;
+      border: 2px solid #1a3a5a; border-top: 14px solid #060e1c;
       box-shadow: inset 0 6px 20px rgba(0,0,50,0.6);
       cursor: default;
     }
     .igloo-floor.placing { cursor: crosshair; }
     .igloo-floor.moving  { cursor: move; }
-
     .igloo-placed {
-      position: absolute;
-      width: 60px;
-      height: 50px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1px;
-      cursor: pointer;
-      border: 1px solid transparent;
-      user-select: none;
+      position: absolute; width: 60px; height: 50px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1px; cursor: pointer; border: 1px solid transparent; user-select: none;
     }
     .igloo-placed:hover { border-color: rgba(168,110,255,0.5); }
     .igloo-placed.selected { border-color: var(--pink); background: rgba(255,127,229,0.1); }
     .igloo-placed-icon { font-size: 22px; line-height: 1; pointer-events: none; }
     .igloo-placed-name { font-size: 4px; color: #445; white-space: nowrap; pointer-events: none; }
     .igloo-placed-x {
-      position: absolute;
-      top: 1px; right: 3px;
-      font-size: 9px;
-      color: var(--pink);
-      display: none;
-      line-height: 1;
-      font-family: monospace;
+      position: absolute; top: 1px; right: 3px;
+      font-size: 9px; color: var(--pink); display: none;
+      line-height: 1; font-family: monospace;
     }
     .igloo-placed.selected .igloo-placed-x { display: block; }
-
-    .igloo-ghost {
-      position: absolute;
-      width: 60px;
-      height: 50px;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      opacity: 0.55;
-      pointer-events: none;
-      border: 1px dashed var(--purple);
-      background: rgba(168,110,255,0.08);
-      z-index: 10;
-    }
-    .igloo-ghost.blocked { border-color: #ff4444; background: rgba(255,68,68,0.1); }
-
     .igloo-catalog {
-      width: 188px;
-      flex-shrink: 0;
-      border-left: 2px solid var(--purple);
-      background: var(--panel);
-      overflow-y: auto;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      width: 188px; flex-shrink: 0;
+      border-left: 2px solid var(--purple); background: var(--panel);
+      overflow-y: auto; padding: 8px;
+      display: flex; flex-direction: column; gap: 6px;
     }
     .igloo-catalog-title { color: var(--purple); font-size: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--purple); flex-shrink: 0; }
     .catalog-card {
-      background: var(--dark);
-      border: 2px solid #2a2a2a;
-      padding: 6px 4px;
-      text-align: center;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 3px;
-      flex-shrink: 0;
+      background: var(--dark); border: 2px solid #2a2a2a;
+      padding: 6px 4px; text-align: center; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0;
     }
     .catalog-card:hover:not(.cant-afford) { border-color: var(--purple); }
-    .catalog-card.selected-cat  { border-color: var(--pink); }
-    .catalog-card.cant-afford   { opacity: 0.35; cursor: not-allowed; }
+    .catalog-card.selected-cat { border-color: var(--pink); }
+    .catalog-card.cant-afford  { opacity: 0.35; cursor: not-allowed; }
     .catalog-card-icon { font-size: 20px; line-height: 1; }
     .catalog-card-name { color: var(--white); font-size: 4px; }
     .catalog-card-cost { color: var(--orange); font-size: 5px; }
+
+    /* ── COMBAT TAB ── */
+    .combat-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .monster-card { border: 2px solid var(--panel); background: var(--dark); padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+    .monster-card.killed { opacity: 0.5; }
+    .monster-header { display: flex; align-items: center; gap: 8px; }
+    .monster-icon { font-size: 20px; }
+    .monster-name { color: var(--white); font-size: 7px; flex: 1; }
+    .monster-tier { font-size: 5px; padding: 2px 5px; border: 1px solid; }
+    .tier-1 { color: #4aff6b; border-color: #4aff6b; }
+    .tier-2 { color: var(--orange); border-color: var(--orange); }
+    .tier-3 { color: var(--pink); border-color: var(--pink); }
+    .monster-stats { color: #666; font-size: 5px; }
+    .monster-rewards { color: var(--orange); font-size: 5px; }
+    .monster-footer { display: flex; justify-content: space-between; align-items: center; }
+    .fight-btn {
+      background: var(--dark); border: 2px solid var(--pink); color: var(--pink);
+      font-size: 5px; font-family: 'Press Start 2P', monospace;
+      padding: 4px 8px; cursor: pointer;
+    }
+    .fight-btn:hover:not(:disabled) { background: var(--pink); color: var(--dark); }
+    .fight-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── GEAR TAB ── */
+    .gear-panel { padding: 12px; overflow-y: auto; flex: 1; }
+    .gear-section-title { color: var(--purple); font-size: 6px; margin: 8px 0 6px; border-bottom: 1px solid var(--purple); padding-bottom: 3px; }
+    .gear-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+    .gear-card { border: 2px solid #2a2a2a; background: var(--dark); padding: 8px; text-align: center; display: flex; flex-direction: column; gap: 3px; }
+    .gear-card.combat   { border-color: #3a2a00; }
+    .gear-card.cosmetic { border-color: #2a002a; }
+    .gear-card.equipped { border-color: var(--purple); }
+    .gear-card-icon { font-size: 18px; }
+    .gear-card-name { color: var(--white); font-size: 4px; }
+    .gear-card-stats { color: var(--orange); font-size: 4px; }
+    .gear-card-cost { color: #888; font-size: 4px; }
+    .gear-card-btn { margin-top: 2px; padding: 3px 5px; font-size: 4px; font-family: 'Press Start 2P', monospace; border: 1px solid; cursor: pointer; }
+    .equip-btn     { border-color: var(--purple); color: var(--purple); background: transparent; }
+    .equip-btn.on  { border-color: var(--pink);   color: var(--pink);   }
+    .buy-btn       { border-color: var(--orange);  color: var(--orange); background: transparent; }
+    .equip-btn:hover:not(:disabled), .buy-btn:hover:not(:disabled) { opacity: 0.8; }
+    .buy-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── AWARDS TAB ── */
+    .awards-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .award-card { border: 2px solid #333; background: var(--dark); padding: 8px; display: flex; align-items: center; gap: 10px; }
+    .award-card.unlocked { border-color: #2a6b3a; }
+    .award-card.locked   { opacity: 0.5; }
+    .award-icon  { font-size: 20px; }
+    .award-info  { flex: 1; }
+    .award-title { color: var(--white); font-size: 6px; margin-bottom: 3px; }
+    .award-desc  { color: #666; font-size: 5px; }
+    .award-badge { font-size: 5px; padding: 2px 5px; border: 1px solid #2a6b3a; color: #4aff6b; }
+
+    /* ── NEWS TICKER ── */
+    .news-bar {
+      background: var(--dark); border-top: var(--border);
+      padding: 6px 12px; display: flex; gap: 12px; align-items: center;
+      flex-shrink: 0; overflow: hidden;
+    }
+    .news-label { color: var(--purple); font-size: 6px; white-space: nowrap; flex-shrink: 0; }
+    .news-ticker-wrap { flex: 1; overflow: hidden; position: relative; height: 14px; }
+    .news-ticker {
+      display: flex; gap: 48px; position: absolute;
+      white-space: nowrap; animation: ticker 30s linear infinite;
+    }
+    .news-ticker-item { color: #888; font-size: 6px; }
+    .news-ticker-item .hi   { color: var(--purple); }
+    .news-ticker-item .gold { color: var(--orange); }
+    @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+
+    /* ── LOGIN SCREEN ── */
+    .login-screen {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 24px; padding: 40px; background: var(--bg);
+    }
+    .login-penguin { width: 96px; height: 96px; image-rendering: pixelated; object-fit: contain; }
+    .login-title { color: var(--purple); font-size: 18px; text-align: center; line-height: 1.6; }
+    .login-title span { color: var(--pink); }
+    .login-sub { color: #888; font-size: 7px; text-align: center; line-height: 2.2; max-width: 360px; }
+    .login-btn {
+      background: #6441a5; border: 3px solid var(--purple); color: var(--white);
+      font-size: 8px; font-family: 'Press Start 2P', monospace;
+      padding: 12px 24px; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 8px;
+    }
+    .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
 
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--dark); }
     ::-webkit-scrollbar-thumb { background: var(--purple); }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+      background: var(--dark); border: 2px solid var(--purple);
+      color: var(--white); font-size: 6px; padding: 8px 16px;
+      z-index: 9998; display: none; white-space: nowrap;
+      font-family: 'Press Start 2P', monospace;
+    }
+    #toast.ok  { border-color: #4aff6b; color: #4aff6b; }
+    #toast.err { border-color: #ff6b6b; color: #ff6b6b; }
   </style>
 </head>
 <body>
@@ -629,7 +622,7 @@
           <img src="/static/penguin.png" class="penguin-sprite" alt="Penguin"
                onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
-          <div class="penguin-level">★ LEVEL {{ penguin['level'] }}</div>
+          <div class="penguin-level" id="stat-level">★ LEVEL {{ penguin['level'] }}</div>
         </div>
 
         <div class="stats-section">
@@ -642,11 +635,11 @@
             <div class="bar-fill" id="energy-bar" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
           </div>
           <div class="stat-row">
-            <span class="stat-lbl">COINS</span>
-            <span class="stat-val" id="stat-coins">{{ penguin['coins'] }}</span>
+            <span class="stat-lbl">XP</span>
+            <span class="stat-val" id="stat-xp">0/100</span>
           </div>
           <div class="bar-wrap">
-            <div class="bar-fill" id="coins-bar" style="width:{{ [penguin['coins'], 100] | min }}%; background:var(--orange);"></div>
+            <div class="bar-fill" id="xp-bar" style="width:0%; background:var(--purple);"></div>
           </div>
           <div class="stat-row">
             <span class="stat-lbl">STATUS</span>
@@ -658,44 +651,45 @@
           </div>
         </div>
 
-        <div class="work-section">
-          <div class="section-title" id="work-title">
-            {% if penguin['job'] %}WORKING{% else %}SEND TO WORK{% endif %}
+        <!-- COLLECT SECTION (shown when working) -->
+        <div id="sidebar-collect-section" style="display:none; padding:0 10px 8px;">
+          <div id="sidebar-job-info" style="color:#888; font-size:5px; margin-bottom:5px; line-height:2;"></div>
+          <button class="collect-btn" id="sidebar-collect-btn" onclick="sidebarCollect()">COLLECT</button>
+        </div>
+
+        <div class="work-msg" id="work-msg"></div>
+
+        <!-- RESOURCES SECTION -->
+        <div class="stats-section">
+          <div class="section-title">RESOURCES</div>
+          <div class="res-grid">
+            <div class="res-item"><span class="res-icon">💰</span><span class="res-val" id="res-coins">{{ penguin['coins'] }}</span></div>
+            <div class="res-item"><span class="res-icon">🐟</span><span class="res-val" id="res-fish">0</span></div>
+            <div class="res-item"><span class="res-icon">🌿</span><span class="res-val" id="res-herbs">0</span></div>
+            <div class="res-item"><span class="res-icon">💎</span><span class="res-val" id="res-blood-gems">0</span></div>
+            <div class="res-item"><span class="res-icon">🦴</span><span class="res-val" id="res-bones">0</span></div>
+            <div class="res-item"><span class="res-icon">✨</span><span class="res-val" id="res-frags">0</span></div>
           </div>
+        </div>
 
-          <div class="work-msg" id="work-msg"></div>
-
-          <div id="job-buttons" {% if penguin['job'] %}style="display:none"{% endif %}>
-            <button class="job-btn" onclick="sendToWork('fishing')">
-              <span class="job-icon">🎣</span>
-              <div class="job-info">
-                <span class="job-name">FISHING</span>
-                <span class="job-reward">+1 COIN/MIN</span>
-                <span class="job-cost">-10 ENERGY</span>
-              </div>
-            </button>
-            <button class="job-btn" onclick="sendToWork('mining')">
-              <span class="job-icon">⛏️</span>
-              <div class="job-info">
-                <span class="job-name">MINING</span>
-                <span class="job-reward">+2 COIN/MIN</span>
-                <span class="job-cost">-20 ENERGY</span>
-              </div>
-            </button>
-            <button class="job-btn" onclick="sendToWork('foraging')">
-              <span class="job-icon">🌿</span>
-              <div class="job-info">
-                <span class="job-name">FORAGING</span>
-                <span class="job-reward">+1 COIN/MIN</span>
-                <span class="job-cost">-15 ENERGY</span>
-              </div>
-            </button>
+        <!-- GEAR SLOTS -->
+        <div class="gear-slots">
+          <div class="section-title">GEAR</div>
+          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
+            <span class="gear-slot-lbl">WEAPON</span>
+            <span class="gear-slot-val" id="gear-slot-weapon">---</span>
           </div>
-
-          <div id="collect-section" {% if not penguin['job'] %}style="display:none"{% endif %}>
-            <button class="collect-btn" id="collect-btn" onclick="collectEarnings()">
-              COLLECT EARNINGS
-            </button>
+          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
+            <span class="gear-slot-lbl">ARMOR</span>
+            <span class="gear-slot-val" id="gear-slot-armor">---</span>
+          </div>
+          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
+            <span class="gear-slot-lbl">HAT</span>
+            <span class="gear-slot-val" id="gear-slot-hat">---</span>
+          </div>
+          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
+            <span class="gear-slot-lbl">CAPE</span>
+            <span class="gear-slot-val" id="gear-slot-cape">---</span>
           </div>
         </div>
 
@@ -720,16 +714,11 @@
         <div class="stats-section">
           <div class="section-title">VILLAGE STATS</div>
           <div class="stat-row"><span class="stat-lbl">CITIZENS</span><span class="stat-val">--</span></div>
-          <div class="stat-row"><span class="stat-lbl">BUILDINGS</span><span class="stat-val">2/8</span></div>
-          <div class="stat-row"><span class="stat-lbl">FISH POOL</span><span class="stat-val">--</span></div>
+          <div class="stat-row"><span class="stat-lbl">BUILDINGS</span><span class="stat-val">9</span></div>
         </div>
         <div class="stats-section">
-          <div class="section-title">NEXT BUILDING</div>
-          <div class="stat-row"><span class="stat-lbl">THE INN</span></div>
-          <div class="bar-wrap" style="margin-top:6px;">
-            <div class="bar-fill" style="width:62%; background:var(--purple);"></div>
-          </div>
-          <div class="stat-row"><span class="stat-lbl">620 / 1000 FISH</span></div>
+          <div class="section-title">LEADERBOARD</div>
+          <div id="sidebar-lb" style="font-size:5px; color:#888; padding:4px 0;">LOADING...</div>
         </div>
       </div>
 
@@ -738,35 +727,49 @@
     <!-- CONTENT -->
     <div class="content">
       <div class="content-tabs">
-        <button class="content-tab active" onclick="switchContentTab('map', this)">VILLAGE MAP</button>
-        <button class="content-tab" onclick="switchContentTab('leaderboard', this)">LEADERBOARD</button>
-        <button class="content-tab" onclick="switchContentTab('missions', this)">MISSIONS</button>
-        <button class="content-tab" onclick="switchContentTab('igloo', this)">IGLOO</button>
-        <button class="content-tab" onclick="switchContentTab('events', this)">EVENTS</button>
+        <button class="content-tab active" data-tab="map"     onclick="switchContentTab('map', this)">MAP</button>
+        <button class="content-tab"        data-tab="combat"  onclick="switchContentTab('combat', this)">COMBAT</button>
+        <button class="content-tab"        data-tab="gear"    onclick="switchContentTab('gear', this)">GEAR</button>
+        <button class="content-tab"        data-tab="missions"onclick="switchContentTab('missions', this)">MISSIONS</button>
+        <button class="content-tab"        data-tab="igloo"   onclick="switchContentTab('igloo', this)">IGLOO</button>
+        <button class="content-tab"        data-tab="awards"  onclick="switchContentTab('awards', this)">AWARDS</button>
       </div>
 
       <!-- MAP TAB -->
       <div class="content-panel active" id="panel-map">
         <div class="map-area" id="map-area">
           <img src="/static/village.png" class="map-img" alt="Village Map"/>
-          <!-- Penguins will be rendered here by JS -->
+          <!-- hotspots injected by JS from VILLAGE_BUILDINGS const -->
+          <div class="igloo-ghost" id="igloo-ghost"></div>
+        </div>
+        <!-- Building panel overlay -->
+        <div class="building-panel" id="building-panel">
+          <div class="bp-close" onclick="closeBuildingPanel()">×</div>
+          <div class="bp-icon"    id="bp-icon"></div>
+          <div class="bp-name"    id="bp-name"></div>
+          <div class="bp-desc"    id="bp-desc"></div>
+          <div class="bp-actions" id="bp-actions"></div>
         </div>
       </div>
 
-      <!-- LEADERBOARD TAB -->
-      <div class="content-panel" id="panel-leaderboard">
-        <div class="leaderboard" id="leaderboard-list">
-          <div class="section-title" style="margin-bottom:12px;">TOP VILLAGERS</div>
-          <div style="color:#666; font-size:7px; text-align:center; padding:20px;">
-            LOADING...
-          </div>
+      <!-- COMBAT TAB -->
+      <div class="content-panel" id="panel-combat">
+        <div class="combat-panel" id="combat-list">
+          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
+        </div>
+      </div>
+
+      <!-- GEAR TAB -->
+      <div class="content-panel" id="panel-gear">
+        <div class="gear-panel" id="gear-content">
+          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
       <!-- MISSIONS TAB -->
       <div class="content-panel" id="panel-missions">
         <div class="missions-panel" id="missions-list">
-          <div style="color:#666; font-size:7px; text-align:center; padding:20px;">LOADING...</div>
+          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
@@ -781,7 +784,7 @@
         <div class="igloo-main">
           <div class="igloo-floor-wrap">
             <div class="igloo-floor" id="igloo-floor">
-              <div class="igloo-ghost" id="igloo-ghost"></div>
+              <div class="igloo-ghost" id="igloo-ghost-floor"></div>
             </div>
           </div>
           <div class="igloo-catalog" id="igloo-catalog">
@@ -790,45 +793,38 @@
         </div>
       </div>
 
-      <!-- EVENTS TAB -->
-      <div class="content-panel" id="panel-events">
-        <div class="events">
-          <div class="section-title" style="margin-bottom:12px;">VILLAGE EVENTS</div>
-          <div class="event-card">
-            <div class="event-title">⚡ MAYOR'S DECREE</div>
-            <div class="event-desc">The Mayor is watching! All coins earned during<br>the stream are doubled this session.</div>
-            <div class="event-status">STATUS: ACTIVE DURING STREAM</div>
-          </div>
-          <div class="event-card" style="opacity:0.5;">
-            <div class="event-title">🏗️ BUILD THE INN</div>
-            <div class="event-desc">Donate fish to complete the Inn building.<br>Unlocks the rest mechanic for all villagers.</div>
-            <div class="event-status">STATUS: IN PROGRESS — 62%</div>
-          </div>
+      <!-- AWARDS TAB -->
+      <div class="content-panel" id="panel-awards">
+        <div class="awards-panel" id="awards-list">
+          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
-      <!-- NEWS TICKER -->
-      <div class="news-bar">
-        <div class="news-label">NEWS:</div>
-        <div class="news-ticker-wrap">
-          <div class="news-ticker" id="news-ticker">
-            <span class="news-ticker-item">
-              <span class="hi">WELCOME TO PENGUIN VILLAGE</span> — build, work, and grow the community!
-            </span>
-            <span class="news-ticker-item">
-                {% if logged_in %}
-                <span class="hi">{{ penguin['username'] | upper }}</span> is logged in
-                {% endif %}
-            </span>
-          </div>
-        </div>
+    </div><!-- /content -->
+
+  </div><!-- /main -->
+
+  <!-- NEWS TICKER -->
+  <div class="news-bar">
+    <div class="news-label">NEWS:</div>
+    <div class="news-ticker-wrap">
+      <div class="news-ticker" id="news-ticker">
+        <span class="news-ticker-item">
+          <span class="hi">WELCOME TO PENGUIN VILLAGE</span> — build, work, and grow the community!
+        </span>
+        <span class="news-ticker-item">
+          <span class="hi">{{ penguin['username'] | upper }}</span> is logged in
+        </span>
       </div>
     </div>
-
   </div>
+
   {% endif %}
 
-</div>
+</div><!-- /#app -->
+
+<!-- TOAST -->
+<div id="toast"></div>
 
 <script>
   function switchSidebarTab(name, btn) {
@@ -841,19 +837,25 @@
   function switchContentTab(name, btn) {
     document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
+    else {
+      document.querySelectorAll('.content-tab').forEach(t => {
+        if (t.dataset.tab === name) t.classList.add('active');
+      });
+    }
     document.getElementById('panel-' + name).classList.add('active');
-    if (name === 'leaderboard') loadLeaderboard();
-    if (name === 'missions') loadMissions();
-    if (name === 'igloo') loadIgloo();
+    if (name === 'missions')  loadMissions();
+    if (name === 'igloo')     loadIgloo();
+    if (name === 'combat')    loadCombat();
+    if (name === 'gear')      loadGear();
+    if (name === 'awards')    loadAwards();
   }
 
-  // Check if streamer is live via our backend
   async function checkLiveStatus() {
     try {
       const res = await fetch('/islive');
       const data = await res.json();
-      const btn = document.getElementById('twitch-link');
+      const btn   = document.getElementById('twitch-link');
       const label = document.getElementById('twitch-label');
       if (data.live) {
         btn.classList.add('live');
@@ -862,12 +864,12 @@
     } catch(e) {}
   }
 
-  // Load leaderboard from backend
   async function loadLeaderboard() {
     try {
       const res = await fetch('/leaderboard');
       const data = await res.json();
       const list = document.getElementById('leaderboard-list');
+      if (!list) return;
       if (!data.penguins || data.penguins.length === 0) {
         list.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">NO VILLAGERS YET</div>';
         return;
@@ -876,41 +878,26 @@
       data.penguins.forEach((p, i) => {
         const medals = ['🥇','🥈','🥉'];
         const rank = medals[i] || `#${i+1}`;
-        html += `
-          <div class="lb-row">
-            <div class="lb-rank">${rank}</div>
-            <div class="lb-name">${p.username.toUpperCase()}</div>
-            <div class="lb-level">LV${p.level}</div>
-            <div class="lb-coins">${p.coins}G</div>
-          </div>`;
+        html += `<div class="lb-row">
+          <div class="lb-rank">${rank}</div>
+          <div class="lb-name">${p.username.toUpperCase()}</div>
+          <div class="lb-level">LV${p.level}</div>
+          <div class="lb-coins">${p.coins}G</div>
+        </div>`;
       });
       list.innerHTML = html;
     } catch(e) {}
   }
 
-  // Waypoints follow the visible road/path on village.png.
-  // Coordinates are percentages of the map container (left, top).
   const PATH_WAYPOINTS = [
-    {x:  6, y: 70},  // far left edge of road
-    {x: 12, y: 64},  // igloo / penguin hotel area
-    {x: 19, y: 64},  // between igloo and jail
-    {x: 26, y: 62},  // horny jail area
-    {x: 33, y: 62},  // sea lion pit area
-    {x: 38, y: 57},  // junction — road forks slightly upward
-    {x: 44, y: 64},  // penguin village sign
-    {x: 50, y: 65},  // center of road
-    {x: 57, y: 63},  // right of centre
-    {x: 64, y: 61},  // approaching club soda
-    {x: 71, y: 60},  // club soda area
-    {x: 79, y: 59},  // the guillotine area
-    {x: 87, y: 61},  // far right edge
-    {x: 30, y: 50},  // award hall (upper spur)
-    {x: 46, y: 49},  // pets / parkinsons (upper spur)
+    {x:  6, y: 70}, {x: 12, y: 64}, {x: 19, y: 64}, {x: 26, y: 62},
+    {x: 33, y: 62}, {x: 38, y: 57}, {x: 44, y: 64}, {x: 50, y: 65},
+    {x: 57, y: 63}, {x: 64, y: 61}, {x: 71, y: 60}, {x: 79, y: 59},
+    {x: 87, y: 61}, {x: 30, y: 50}, {x: 46, y: 49},
   ];
 
-  // Each active penguin: { el, cx, cy, tx, ty }
   const activePenguins = [];
-  const PENGUIN_SPEED = 0.07; // % per tick (50ms → ~1.4%/s)
+  const PENGUIN_SPEED = 0.07;
   const ARRIVAL_THRESHOLD = 0.5;
 
   function randomWaypoint() {
@@ -936,7 +923,6 @@
     });
   }
 
-  // Tick: move each penguin one small step toward its current target waypoint.
   function tickPenguins() {
     activePenguins.forEach(p => {
       const dx = p.tx - p.cx;
@@ -955,14 +941,12 @@
     });
   }
 
-  // Load penguins on map
   async function loadMapPenguins() {
     try {
       const res = await fetch('/leaderboard');
       const data = await res.json();
       if (data.penguins) spawnPenguins(data.penguins);
     } catch(e) {
-      // Fallback placeholder penguin
       {% if logged_in %}
       spawnPenguins([{ username: '{{ penguin["username"] }}', job: '{{ penguin["job"] or "" }}' }]);
       {% endif %}
@@ -979,9 +963,7 @@
       let cardClass = 'mission-card' + (done ? ' done' : stream ? ' stream' : '');
       let badge = done
         ? '<span class="mission-badge done">&#x2713; DONE</span>'
-        : stream
-          ? '<span class="mission-badge stream">STREAM</span>'
-          : '';
+        : stream ? '<span class="mission-badge stream">STREAM</span>' : '';
       let footer;
       if (done) {
         footer = `<span class="mission-reward">+${m.coins} COINS EARNED</span>
@@ -1011,6 +993,32 @@
   }
 
   {% if logged_in %}
+  const CURRENT_USER = '{{ penguin["username"] }}';
+
+  // ── TOAST ──
+  let _toastTimer = null;
+  function showToast(text, type) {
+    const el = document.getElementById('toast');
+    el.textContent = text;
+    el.className = type || '';
+    el.style.display = 'block';
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+  }
+
+  // Keep old showWorkMsg for igloo compatibility
+  function showWorkMsg(text, type) {
+    const el = document.getElementById('work-msg');
+    if (el) {
+      el.textContent = text;
+      el.className = 'work-msg ' + type;
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 3500);
+    }
+    showToast(text, type);
+  }
+
+  // ── MISSIONS ──
   async function loadMissions() {
     const container = document.getElementById('missions-list');
     if (!container) return;
@@ -1029,101 +1037,493 @@
       const res  = await fetch(`/missions/${CURRENT_USER}/claim/${key}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
-        showWorkMsg(data.message, 'ok');
+        showToast(data.message, 'ok');
         loadMissions();
       } else {
-        showWorkMsg(data.message, 'err');
+        showToast(data.message, 'err');
         btn.disabled = false;
       }
-    } catch(e) {
-      btn.disabled = false;
-    }
-  }
-  {% endif %}
-  // ──────────────────────────────────────────────────────
-
-  {% if logged_in %}
-  const CURRENT_USER = '{{ penguin["username"] }}';
-
-  function showWorkMsg(text, type) {
-    const el = document.getElementById('work-msg');
-    el.textContent = text;
-    el.className = 'work-msg ' + type;
-    el.style.display = 'block';
-    setTimeout(() => { el.style.display = 'none'; }, 3500);
+    } catch(e) { btn.disabled = false; }
   }
 
-  function setJobButtonsDisabled(disabled) {
-    document.querySelectorAll('#job-buttons .job-btn').forEach(b => b.disabled = disabled);
-  }
+  // ── REFRESH STATS ──
+  let _jobStartedTs = {{ penguin['job_started'] or 0 }};
+  let _currentJob   = {{ ('"' + penguin['job'] + '"') if penguin['job'] else 'null' }};
+  let _sidebarPollTimer = null;
 
-  async function sendToWork(job) {
-    setJobButtonsDisabled(true);
+  async function refreshStats() {
     try {
-      const res = await fetch(`/work/${CURRENT_USER}/${job}`);
-      const data = await res.json();
-      if (data.status === 'success') {
-        document.getElementById('work-title').textContent = 'WORKING';
-        document.getElementById('job-buttons').style.display = 'none';
-        document.getElementById('collect-section').style.display = '';
+      const [pRes, rRes, gRes] = await Promise.all([
+        fetch(`/profile/${CURRENT_USER}`),
+        fetch(`/resources/${CURRENT_USER}`),
+        fetch(`/gear/inventory?username=${CURRENT_USER}`)
+      ]);
+      const pData = await pRes.json();
+      const rData = await rRes.json();
+      const gData = await gRes.json();
+
+      if (pData.status === 'success') {
+        const p = pData.penguin;
+        document.getElementById('stat-energy').textContent = p.energy + '/100';
+        document.getElementById('energy-bar').style.width = p.energy + '%';
+        document.getElementById('stat-level').textContent = '★ LEVEL ' + p.level;
+        const xpPct = p.xp_in_level !== undefined ? p.xp_in_level : (p.xp % 100);
+        document.getElementById('stat-xp').textContent = xpPct + '/100';
+        document.getElementById('xp-bar').style.width = xpPct + '%';
+        document.getElementById('res-coins').textContent = p.coins;
+
+        _currentJob   = p.job || null;
+        _jobStartedTs = p.job_started || 0;
+
         const statusEl = document.getElementById('stat-status');
-        statusEl.textContent = job.toUpperCase();
-        statusEl.className = 'stat-val status-working';
-        showWorkMsg('Started ' + job + '!', 'ok');
-      } else {
-        showWorkMsg(data.message, 'err');
-        setJobButtonsDisabled(false);
+        if (_currentJob) {
+          statusEl.textContent = _currentJob.replace(/_/g,' ').toUpperCase();
+          statusEl.className = 'stat-val status-working';
+          document.getElementById('sidebar-collect-section').style.display = '';
+          startSidebarPoll();
+        } else {
+          statusEl.textContent = 'RESTING';
+          statusEl.className = 'stat-val status-resting';
+          document.getElementById('sidebar-collect-section').style.display = 'none';
+          stopSidebarPoll();
+        }
+        updateSidebarJobInfo();
       }
-    } catch(e) {
-      showWorkMsg('Connection error.', 'err');
-      setJobButtonsDisabled(false);
-    }
+
+      if (rData.fish !== undefined) {
+        document.getElementById('res-fish').textContent      = rData.fish || 0;
+        document.getElementById('res-herbs').textContent     = rData.herbs || 0;
+        document.getElementById('res-blood-gems').textContent = rData.blood_gems || 0;
+        document.getElementById('res-bones').textContent     = rData.bones || 0;
+        document.getElementById('res-frags').textContent     = rData.spell_fragments || 0;
+      }
+
+      if (gData.gear) {
+        const slots = { weapon: '---', armor: '---', hat: '---', cape: '---' };
+        gData.gear.forEach(g => {
+          if (g.equipped) slots[g.slot] = g.name;
+        });
+        document.getElementById('gear-slot-weapon').textContent = slots.weapon;
+        document.getElementById('gear-slot-armor').textContent  = slots.armor;
+        document.getElementById('gear-slot-hat').textContent    = slots.hat;
+        document.getElementById('gear-slot-cape').textContent   = slots.cape;
+      }
+    } catch(e) {}
   }
 
-  async function collectEarnings() {
-    const btn = document.getElementById('collect-btn');
+  function updateSidebarJobInfo() {
+    const infoEl = document.getElementById('sidebar-job-info');
+    if (!infoEl || !_currentJob || !_jobStartedTs) { return; }
+    const mins = Math.floor((Date.now() / 1000 - _jobStartedTs) / 60);
+    const b = VILLAGE_BUILDINGS[_currentJob];
+    let preview = '';
+    if (b && b.produces) {
+      const parts = Object.entries(b.produces).map(([k, v]) => `~${Math.floor(v * mins)} ${k}`);
+      preview = parts.join(', ');
+    }
+    infoEl.innerHTML = `~${mins}min worked<br>${preview ? 'EST: ' + preview : ''}`;
+  }
+
+  function startSidebarPoll() {
+    if (_sidebarPollTimer) return;
+    _sidebarPollTimer = setInterval(() => { updateSidebarJobInfo(); }, 30000);
+    updateSidebarJobInfo();
+  }
+  function stopSidebarPoll() {
+    if (_sidebarPollTimer) { clearInterval(_sidebarPollTimer); _sidebarPollTimer = null; }
+  }
+
+  async function sidebarCollect() {
+    const btn = document.getElementById('sidebar-collect-btn');
     btn.disabled = true;
     try {
-      const res = await fetch(`/collect/${CURRENT_USER}`);
+      const res = await fetch('/work/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER })
+      });
       const data = await res.json();
       if (data.status === 'success') {
-        document.getElementById('work-title').textContent = 'SEND TO WORK';
-        document.getElementById('collect-section').style.display = 'none';
-        document.getElementById('job-buttons').style.display = '';
-        const coinsEl = document.getElementById('stat-coins');
-        const newCoins = parseInt(coinsEl.textContent || '0') + data.coins_earned;
-        coinsEl.textContent = newCoins;
-        document.getElementById('coins-bar').style.width = Math.min(newCoins, 100) + '%';
-        const statusEl = document.getElementById('stat-status');
-        statusEl.textContent = 'RESTING';
-        statusEl.className = 'stat-val status-resting';
-        showWorkMsg('Collected ' + data.coins_earned + ' coins!', 'ok');
+        let msg = `Collected from ${data.building}: `;
+        const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
+        msg += parts.length ? parts.join(', ') : 'nothing (too soon!)';
+        if (data.leveled_up) msg += ' ★ LEVEL UP!';
+        showToast(msg, 'ok');
+        if (data.new_achievements && data.new_achievements.length) {
+          data.new_achievements.forEach(aid => {
+            setTimeout(() => showToast('🏆 ACHIEVEMENT: ' + aid.replace(/_/g,' ').toUpperCase(), 'ok'), 500);
+          });
+        }
+        await refreshStats();
         if (document.getElementById('panel-missions').classList.contains('active')) loadMissions();
       } else {
-        showWorkMsg(data.message, 'err');
+        showToast(data.message, 'err');
         btn.disabled = false;
       }
     } catch(e) {
-      showWorkMsg('Connection error.', 'err');
+      showToast('Connection error.', 'err');
       btn.disabled = false;
     }
   }
 
-  // ── IGLOO ─────────────────────────────────────────────
-  const IGLOO_CW = 60, IGLOO_CH = 50;  // cell width/height px
+  // ── VILLAGE BUILDINGS ──
+  const VILLAGE_BUILDINGS = {
+    cursed_temple: { name:"Cursed Temple",        icon:"⛩️",  type:"job",          pos:{x:9,  y:30} },
+    hotel:         { name:"Penguin Hotel",         icon:"🏨",  type:"rest",         pos:{x:12, y:62} },
+    horny_jail:    { name:"Horny Jail",            icon:"🔒",  type:"placeholder",  pos:{x:24, y:63} },
+    award_hall:    { name:"Award Hall",            icon:"🏆",  type:"achievements", pos:{x:30, y:48} },
+    sea_lion_pit:  { name:"Ash's Sea Lion Pit",    icon:"🦭",  type:"job",          pos:{x:36, y:62} },
+    parkmusement:  { name:"Ash's Parkmusement",    icon:"🎪",  type:"job",          pos:{x:47, y:48} },
+    club_soda:     { name:"Club Soda",             icon:"🌿",  type:"job",          pos:{x:67, y:58} },
+    barracks:      { name:"Penguin Barracks",      icon:"⚔️",  type:"combat",       pos:{x:79, y:57} },
+    guillotine:    { name:"Gil the Guillotine",    icon:"💀",  type:"job",          pos:{x:84, y:58} },
+  };
+
+  // Inject hotspots into map
+  function injectBuildingHotspots() {
+    const map = document.getElementById('map-area');
+    Object.entries(VILLAGE_BUILDINGS).forEach(([id, b]) => {
+      const el = document.createElement('div');
+      el.className = 'building-hotspot';
+      el.style.left = b.pos.x + '%';
+      el.style.top  = b.pos.y + '%';
+      el.innerHTML = `${b.icon}<span class="building-hotspot-label">${b.name.toUpperCase()}</span>`;
+      el.onclick = () => openBuilding(id);
+      map.appendChild(el);
+    });
+  }
+
+  // ── BUILDING PANEL ──
+  async function openBuilding(buildingId) {
+    const panel = document.getElementById('building-panel');
+    panel.classList.add('open');
+    document.getElementById('bp-icon').textContent    = '...';
+    document.getElementById('bp-name').textContent    = '';
+    document.getElementById('bp-desc').textContent    = '';
+    document.getElementById('bp-actions').innerHTML   = '';
+    try {
+      const res  = await fetch(`/building/${buildingId}?username=${CURRENT_USER}`);
+      const data = await res.json();
+      if (data.status === 'error') { showToast(data.message, 'err'); closeBuildingPanel(); return; }
+      document.getElementById('bp-icon').textContent = data.icon || '';
+      document.getElementById('bp-name').textContent = (data.name || '').toUpperCase();
+      document.getElementById('bp-desc').textContent = data.desc || '';
+      renderBuildingActions(data);
+    } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
+  }
+
+  function closeBuildingPanel() {
+    document.getElementById('building-panel').classList.remove('open');
+  }
+
+  function renderBuildingActions(data) {
+    const container = document.getElementById('bp-actions');
+    let html = '';
+    const btype = data.type;
+
+    if (btype === 'job') {
+      if (data.working_here) {
+        const mins = data.minutes_worked || 0;
+        const prev = data.preview_earnings || {};
+        const prevStr = Object.entries(prev).map(([k,v]) => `~${v} ${k}`).join(', ');
+        html += `<div class="bp-info">Working ${mins} min<br>${prevStr ? 'Est: ' + prevStr : 'Keep going...'}</div>`;
+        html += `<button class="bp-btn collect" onclick="bpCollect()">COLLECT EARNINGS</button>`;
+      } else if (data.player_job && data.player_job !== data.building_id) {
+        html += `<div class="bp-info" style="color:#ff6b6b;">Already working elsewhere!<br>Collect first.</div>`;
+      } else {
+        const ec = data.energy_cost || 0;
+        const canAfford = (data.player_energy || 0) >= ec;
+        html += `<div class="bp-info">Energy cost: ${ec}<br>Your energy: ${data.player_energy || 0}</div>`;
+        const produces = data.produces || {};
+        const prodStr = Object.entries(produces).map(([k,v]) => `${v}/min ${k}`).join(', ');
+        if (prodStr) html += `<div class="bp-info">Produces: ${prodStr}</div>`;
+        html += `<button class="bp-btn" ${canAfford ? '' : 'disabled'} onclick="bpStartWork('${data.building_id}')">
+          ${canAfford ? 'START ' + (data.job_label || 'WORK') : 'NOT ENOUGH ENERGY'}
+        </button>`;
+      }
+    } else if (btype === 'rest') {
+      const cost = data.rest_cost || 30;
+      const canAfford = (data.player_coins || 0) >= cost;
+      html += `<div class="bp-info">Restore energy to 100.<br>Cost: ${cost} coins<br>Your coins: ${data.player_coins || 0}</div>`;
+      html += `<button class="bp-btn" ${canAfford ? '' : 'disabled'} onclick="bpRest()">
+        ${canAfford ? 'REST (30 COINS)' : 'NEED 30 COINS'}
+      </button>`;
+    } else if (btype === 'combat') {
+      html += `<div class="bp-info">Fight monsters. Win loot.<br>Try not to die.</div>`;
+      html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">GO TO COMBAT</button>`;
+    } else if (btype === 'achievements') {
+      html += `<div class="bp-info">View your achievements.</div>`;
+      html += `<button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW AWARDS</button>`;
+    } else if (btype === 'placeholder') {
+      html += `<div class="bp-info" style="color:#666;">Coming soon...</div>`;
+    }
+
+    container.innerHTML = html;
+  }
+
+  async function bpStartWork(buildingId) {
+    try {
+      const res = await fetch('/work/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'ok');
+        await refreshStats();
+        closeBuildingPanel();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function bpCollect() {
+    try {
+      const res = await fetch('/work/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
+        showToast('Collected: ' + (parts.join(', ') || 'nothing yet'), 'ok');
+        if (data.leveled_up) setTimeout(() => showToast('★ LEVEL UP!', 'ok'), 800);
+        await refreshStats();
+        closeBuildingPanel();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function bpRest() {
+    try {
+      const res = await fetch('/rest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'ok');
+        await refreshStats();
+        closeBuildingPanel();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  // ── COMBAT ──
+  async function loadCombat() {
+    const container = document.getElementById('combat-list');
+    container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>';
+    try {
+      const res  = await fetch(`/combat/monsters?username=${CURRENT_USER}`);
+      const data = await res.json();
+      let html = '';
+      data.monsters.forEach(m => {
+        const tierClass = `tier-${m.tier}`;
+        const tierLabel = m.tier === 1 ? 'T1' : m.tier === 2 ? 'T2' : 'T3';
+        const rewardStr = Object.entries(m.rewards).map(([k,v]) => `+${v} ${k}`).join(' ');
+        const cantFight = !m.can_fight;
+        const killed    = m.killed_today;
+        const btnLabel  = killed ? 'DONE TODAY' : cantFight ? `LV${m.min_level} REQ` : 'FIGHT';
+        html += `
+          <div class="monster-card${killed ? ' killed' : ''}">
+            <div class="monster-header">
+              <span class="monster-icon">${m.icon}</span>
+              <span class="monster-name">${m.name.toUpperCase()}</span>
+              <span class="monster-tier ${tierClass}">${tierLabel}</span>
+            </div>
+            <div class="monster-stats">HP:${m.hp} ATK:${m.attack} DEF:${m.defense} | Drop: ${m.drop_name} (${Math.round(m.drop_chance*100)}%)</div>
+            <div class="monster-rewards">${rewardStr}</div>
+            <div class="monster-footer">
+              <span style="color:#555;font-size:5px;">MIN LV${m.min_level}</span>
+              <button class="fight-btn" ${(cantFight || killed) ? 'disabled' : ''}
+                onclick="fightMonster('${m.id}')">${btnLabel}</button>
+            </div>
+          </div>`;
+      });
+      container.innerHTML = html || '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">NO MONSTERS</div>';
+    } catch(e) {
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
+    }
+  }
+
+  async function fightMonster(monsterId) {
+    try {
+      const res = await fetch('/combat/fight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, monster_id: monsterId })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        if (data.won) {
+          const parts = Object.entries(data.rewards || {}).map(([k,v]) => `+${v} ${k}`);
+          let msg = '⚔️ VICTORY! ' + parts.join(', ');
+          if (data.drop) msg += ` | DROP: ${data.drop}`;
+          showToast(msg, 'ok');
+          if (data.new_achievements && data.new_achievements.length) {
+            data.new_achievements.forEach(aid => {
+              setTimeout(() => showToast('🏆 ACHIEVEMENT: ' + aid.replace(/_/g,' ').toUpperCase(), 'ok'), 600);
+            });
+          }
+        } else {
+          showToast('💀 DEFEATED! -20 energy, +2 xp', 'err');
+        }
+        await refreshStats();
+        loadCombat();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error fighting.', 'err'); }
+  }
+
+  // ── GEAR ──
+  async function loadGear() {
+    const container = document.getElementById('gear-content');
+    container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>';
+    try {
+      const [rRes, gRes] = await Promise.all([
+        fetch(`/resources/${CURRENT_USER}`),
+        fetch(`/gear/inventory?username=${CURRENT_USER}`)
+      ]);
+      const rData = await rRes.json();
+      const gData = await gRes.json();
+
+      let html = '<div class="gear-section-title">OWNED GEAR</div><div class="gear-grid">';
+      if (gData.gear && gData.gear.length) {
+        gData.gear.forEach(g => {
+          const eq = g.equipped ? ' equipped' : '';
+          const statsStr = (g.attack_bonus > 0 ? `+${g.attack_bonus} ATK ` : '') + (g.defense_bonus > 0 ? `+${g.defense_bonus} DEF` : '');
+          html += `<div class="gear-card ${g.type}${eq}">
+            <div class="gear-card-icon">${(gData.catalog[g.item_id] || {}).icon || '❓'}</div>
+            <div class="gear-card-name">${g.name}</div>
+            ${statsStr ? `<div class="gear-card-stats">${statsStr}</div>` : ''}
+            <div class="gear-card-name" style="color:#666;font-size:4px;">${g.slot.toUpperCase()}</div>
+            <button class="gear-card-btn equip-btn${g.equipped ? ' on' : ''}" onclick="equipGear(${g.id})">
+              ${g.equipped ? 'UNEQUIP' : 'EQUIP'}
+            </button>
+          </div>`;
+        });
+      } else {
+        html += '<div style="color:#666;font-size:5px;grid-column:span 2;text-align:center;padding:10px;">No gear owned yet</div>';
+      }
+      html += '</div>';
+
+      html += '<div class="gear-section-title">GEAR CATALOG</div><div class="gear-grid">';
+      Object.entries(gData.catalog || {}).forEach(([itemId, defn]) => {
+        const costStr = Object.entries(defn.cost).map(([k,v]) => `${v} ${k}`).join(', ');
+        // Check if can afford
+        let canAfford = true;
+        for (const [res, amt] of Object.entries(defn.cost)) {
+          if (res === 'coins') {
+            // we don't have coins in rData, skip check for now — backend will validate
+          } else {
+            const have = rData[res] || 0;
+            if (have < amt) { canAfford = false; }
+          }
+        }
+        const statsStr = (defn.attack_bonus > 0 ? `+${defn.attack_bonus} ATK ` : '') +
+                         (defn.defense_bonus > 0 ? `+${defn.defense_bonus} DEF` : '');
+        html += `<div class="gear-card ${defn.type}">
+          <div class="gear-card-icon">${defn.icon}</div>
+          <div class="gear-card-name">${defn.name}</div>
+          ${statsStr ? `<div class="gear-card-stats">${statsStr}</div>` : ''}
+          <div class="gear-card-name" style="color:#666;font-size:4px;">${defn.slot.toUpperCase()}</div>
+          <div class="gear-card-cost">${costStr}</div>
+          <button class="gear-card-btn buy-btn" onclick="buyGear('${itemId}')">BUY</button>
+        </div>`;
+      });
+      html += '</div>';
+
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING GEAR</div>';
+    }
+  }
+
+  async function buyGear(itemId) {
+    try {
+      const res = await fetch('/gear/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, item_id: itemId })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'ok');
+        await refreshStats();
+        loadGear();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error buying gear.', 'err'); }
+  }
+
+  async function equipGear(gearId) {
+    try {
+      const res = await fetch('/gear/equip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, gear_id: gearId })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'ok');
+        await refreshStats();
+        loadGear();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  // ── AWARDS ──
+  async function loadAwards() {
+    const container = document.getElementById('awards-list');
+    container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>';
+    try {
+      const res  = await fetch(`/achievements/${CURRENT_USER}`);
+      const data = await res.json();
+      let html = '';
+      (data.achievements || []).forEach(a => {
+        const cls = a.unlocked ? 'award-card unlocked' : 'award-card locked';
+        html += `<div class="${cls}">
+          <div class="award-icon">${a.icon}</div>
+          <div class="award-info">
+            <div class="award-title">${a.title}</div>
+            <div class="award-desc">${a.desc}</div>
+          </div>
+          ${a.unlocked ? '<span class="award-badge">&#x2713; UNLOCKED</span>' : ''}
+        </div>`;
+      });
+      container.innerHTML = html || '<div style="color:#666;font-size:6px;text-align:center;padding:20px;">No achievements yet</div>';
+    } catch(e) {
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING AWARDS</div>';
+    }
+  }
+
+  // ── IGLOO ──
+  const IGLOO_CW = 60, IGLOO_CH = 50;
   const IGLOO_COLS = 11, IGLOO_ROWS = 8;
 
-  let iglooState   = { mode: 'view', key: null, icon: null, id: null };
-  let iglooItems   = [];   // [{id, item_key, x, y}]
-  let iglooCatalog = {};   // {key: {name, cost, icon}}
-  let iglooCoins   = 0;
+  let iglooState    = { mode: 'view', key: null, icon: null, id: null };
+  let iglooItems    = [];
+  let iglooCatalog  = {};
+  let iglooCoins    = 0;
   let iglooEventsOn = false;
 
   function iglooCell(e) {
     const r = document.getElementById('igloo-floor').getBoundingClientRect();
     return {
-      x: Math.max(0, Math.min(IGLOO_COLS - 1, Math.floor((e.clientX - r.left)  / IGLOO_CW))),
-      y: Math.max(0, Math.min(IGLOO_ROWS - 1, Math.floor((e.clientY - r.top) / IGLOO_CH))),
+      x: Math.max(0, Math.min(IGLOO_COLS - 1, Math.floor((e.clientX - r.left) / IGLOO_CW))),
+      y: Math.max(0, Math.min(IGLOO_ROWS - 1, Math.floor((e.clientY - r.top)  / IGLOO_CH))),
     };
   }
 
@@ -1185,17 +1585,14 @@
       iglooRenderFloor();
       iglooRenderCatalog();
       if (!iglooEventsOn) { attachIglooEvents(); iglooEventsOn = true; }
-    } catch(e) {
-      showWorkMsg('Error loading igloo.', 'err');
-    }
+    } catch(e) { showWorkMsg('Error loading igloo.', 'err'); }
   }
 
   function attachIglooEvents() {
     const floor = document.getElementById('igloo-floor');
-    const ghost = document.getElementById('igloo-ghost');
+    const ghost = document.getElementById('igloo-ghost-floor');
 
     floor.addEventListener('click', (e) => {
-      // Only handle clicks that land directly on the floor or grid (not on items)
       if (e.target.closest('.igloo-placed')) return;
       const {x, y} = iglooCell(e);
       if (iglooState.mode === 'place') {
@@ -1224,7 +1621,6 @@
 
     floor.addEventListener('mouseleave', () => { ghost.style.display = 'none'; });
 
-    // Remove button (× on selected item)
     floor.addEventListener('click', (e) => {
       const xBtn = e.target.closest('.igloo-placed-x');
       if (!xBtn) return;
@@ -1311,17 +1707,20 @@
   function iglooCancel() {
     iglooState = { mode: 'view', key: null, icon: null, id: null };
     document.getElementById('igloo-floor').className = 'igloo-floor';
-    document.getElementById('igloo-ghost').style.display = 'none';
+    document.getElementById('igloo-ghost-floor').style.display = 'none';
     iglooSetHint('SELECT AN ITEM TO MOVE  —  CATALOG TO PLACE NEW ITEMS', false);
     iglooRenderFloor();
     iglooRenderCatalog();
   }
-  // ──────────────────────────────────────────────────────
 
+  // ── INIT ──
   checkLiveStatus();
   loadMapPenguins();
+  injectBuildingHotspots();
+  refreshStats();
   setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
+  setInterval(refreshStats, 60000);
   {% endif %}
 </script>
 
