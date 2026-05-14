@@ -44,9 +44,62 @@ def init_db():
     except:
         pass
 
+    # XP column on penguins
+    try:
+        cursor.execute("ALTER TABLE penguins ADD COLUMN xp INTEGER DEFAULT 0")
+    except:
+        pass
+
+    # Resources per player (everything except coins)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS resources (
+            username TEXT PRIMARY KEY,
+            fish INTEGER DEFAULT 0,
+            herbs INTEGER DEFAULT 0,
+            blood_gems INTEGER DEFAULT 0,
+            bones INTEGER DEFAULT 0,
+            spell_fragments INTEGER DEFAULT 0
+        )
+    """)
+
+    # Gear owned by player
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS gear (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT,
+            item_id TEXT,
+            name TEXT,
+            type TEXT,
+            slot TEXT,
+            attack_bonus INTEGER DEFAULT 0,
+            defense_bonus INTEGER DEFAULT 0,
+            equipped INTEGER DEFAULT 0
+        )
+    """)
+
+    # Daily monster kill tracker (per day, resets with date)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS monster_kills (
+            username TEXT,
+            monster_id TEXT,
+            date TEXT,
+            PRIMARY KEY (username, monster_id, date)
+        )
+    """)
+
+    # Achievements
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS achievements (
+            username TEXT,
+            achievement_id TEXT,
+            unlocked_at INTEGER,
+            PRIMARY KEY (username, achievement_id)
+        )
+    """)
+
     conn.commit()
     conn.close()
-   
+
 def get_db():
     conn = sqlite3.connect("village.db")
     conn.row_factory = sqlite3.Row
