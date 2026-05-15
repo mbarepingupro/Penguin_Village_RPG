@@ -25,7 +25,7 @@
       background: var(--bg);
       color: var(--white);
       font-family: 'Press Start 2P', monospace;
-      font-size: 10px;
+      font-size: 13px;
       image-rendering: pixelated;
       overflow: hidden;
     }
@@ -59,13 +59,13 @@
       align-items: center;
       flex-shrink: 0;
     }
-    .nav-logo { color: var(--purple); font-size: 11px; letter-spacing: 1px; }
+    .nav-logo { color: var(--purple); font-size: 14px; letter-spacing: 1px; }
     .nav-logo span { color: var(--pink); }
     .nav-right { display: flex; align-items: center; gap: 12px; }
-    .nav-user { color: var(--white); font-size: 8px; }
+    .nav-user { color: var(--white); font-size: 11px; }
     .nav-logout {
       color: var(--pink);
-      font-size: 7px;
+      font-size: 10px;
       border: 2px solid var(--pink);
       padding: 4px 8px;
       text-decoration: none;
@@ -78,7 +78,7 @@
 
     /* ── SIDEBAR ── */
     .sidebar {
-      width: 200px;
+      width: 240px;
       flex-shrink: 0;
       background: var(--panel);
       border-right: var(--border);
@@ -91,7 +91,7 @@
     .sidebar-tab {
       flex: 1;
       padding: 8px 4px;
-      font-size: 6px;
+      font-size: 9px;
       font-family: 'Press Start 2P', monospace;
       color: #888;
       background: var(--dark);
@@ -130,20 +130,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 6px;
+      font-size: 9px;
       color: #666;
       text-align: center;
       line-height: 1.6;
     }
-    .penguin-name { color: var(--white); font-size: 7px; text-align: center; margin-top: 2px; }
-    .penguin-level { color: var(--orange); font-size: 6px; }
+    .penguin-name { color: var(--white); font-size: 10px; text-align: center; margin-top: 2px; }
+    .penguin-level { color: var(--orange); font-size: 9px; }
 
     /* ── STATS ── */
     .stats-section { padding: 10px; border-bottom: var(--border-thin); }
-    .section-title { color: var(--purple); font-size: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--purple); padding-bottom: 4px; }
+    .section-title { color: var(--purple); font-size: 9px; margin-bottom: 8px; border-bottom: 1px solid var(--purple); padding-bottom: 4px; }
     .stat-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-    .stat-lbl { color: #888; font-size: 6px; }
-    .stat-val { color: var(--white); font-size: 6px; }
+    .stat-lbl { color: #888; font-size: 9px; }
+    .stat-val { color: var(--white); font-size: 9px; }
     .bar-wrap { height: 6px; background: var(--dark); border: 1px solid #444; margin-bottom: 6px; }
     .bar-fill { height: 100%; }
     .status-resting { color: #4aff6b; }
@@ -158,7 +158,7 @@
       text-align: center;
       cursor: pointer;
       color: var(--dark);
-      font-size: 6px;
+      font-size: 9px;
       font-family: 'Press Start 2P', monospace;
       display: block;
       margin-top: 4px;
@@ -167,7 +167,7 @@
     .collect-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .work-msg {
-      font-size: 5px;
+      font-size: 7px;
       padding: 5px 4px;
       margin-bottom: 6px;
       text-align: center;
@@ -188,7 +188,7 @@
     .social-btn {
       width: 100%;
       padding: 7px 8px;
-      font-size: 6px;
+      font-size: 9px;
       font-family: 'Press Start 2P', monospace;
       cursor: pointer;
       display: flex;
@@ -211,21 +211,21 @@
     .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px 10px; }
     .res-item { display: flex; align-items: center; gap: 4px; }
     .res-icon { font-size: 10px; }
-    .res-val  { color: var(--white); font-size: 6px; }
+    .res-val  { color: var(--white); font-size: 9px; }
 
     /* ── GEAR SLOTS IN SIDEBAR ── */
     .gear-slots { padding: 8px 10px; border-bottom: var(--border-thin); }
     .gear-slot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer; }
     .gear-slot-row:hover .gear-slot-val { color: var(--pink); }
-    .gear-slot-lbl { color: #666; font-size: 5px; width: 36px; flex-shrink: 0; }
-    .gear-slot-val { color: var(--white); font-size: 5px; flex: 1; }
+    .gear-slot-lbl { color: #666; font-size: 7px; width: 44px; flex-shrink: 0; }
+    .gear-slot-val { color: var(--white); font-size: 7px; flex: 1; }
 
     /* ── CONTENT AREA ── */
     .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     .content-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; overflow-x: auto; }
     .content-tab {
       padding: 9px 10px;
-      font-size: 6px;
+      font-size: 9px;
       font-family: 'Press Start 2P', monospace;
       color: #888;
       background: var(--dark);
@@ -274,10 +274,10 @@
     .building-hotspot:hover { border-color: var(--purple); background: rgba(168,110,255,0.3); }
     .building-hotspot-label {
       position: absolute;
-      bottom: -14px;
+      bottom: -16px;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 4px;
+      font-size: 6px;
       white-space: nowrap;
       color: var(--white);
       background: rgba(0,0,0,0.8);
@@ -302,13 +302,13 @@
     .bp-close { align-self: flex-end; padding: 6px 10px; font-size: 14px; color: var(--pink); cursor: pointer; font-family: monospace; }
     .bp-close:hover { color: var(--white); }
     .bp-icon { font-size: 36px; text-align: center; padding: 10px; }
-    .bp-name { color: var(--purple); font-size: 7px; text-align: center; padding: 0 10px 6px; }
-    .bp-desc { color: #666; font-size: 5px; text-align: center; padding: 0 10px 10px; line-height: 2; border-bottom: 1px solid #2a2a2a; }
+    .bp-name { color: var(--purple); font-size: 10px; text-align: center; padding: 0 10px 6px; }
+    .bp-desc { color: #666; font-size: 7px; text-align: center; padding: 0 10px 10px; line-height: 2; border-bottom: 1px solid #2a2a2a; }
     .bp-actions { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
     .bp-btn {
       width: 100%;
       padding: 8px;
-      font-size: 6px;
+      font-size: 9px;
       font-family: 'Press Start 2P', monospace;
       border: 2px solid var(--purple);
       background: var(--dark);
@@ -319,7 +319,7 @@
     .bp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .bp-btn.collect { background: var(--orange); border-color: #ffa500; color: var(--dark); }
     .bp-btn.collect:hover:not(:disabled) { background: #ffa500; }
-    .bp-info { font-size: 5px; color: #888; line-height: 2; }
+    .bp-info { font-size: 7px; color: #888; line-height: 2; }
 
     /* ── PENGUIN SPRITES ON MAP ── */
     .map-penguin {
@@ -341,12 +341,12 @@
       font-size: 14px;
     }
     .map-penguin-name {
-      font-size: 5px; color: var(--white);
+      font-size: 7px; color: var(--white);
       background: rgba(0,0,0,0.85);
       padding: 2px 4px; white-space: nowrap;
       border: 1px solid var(--purple);
     }
-    .map-penguin-job { font-size: 5px; color: var(--orange); white-space: nowrap; }
+    .map-penguin-job { font-size: 7px; color: var(--orange); white-space: nowrap; }
 
     /* ── IGLOO GHOST (used also in map for building hotspot injection) ── */
     .igloo-ghost {
@@ -370,14 +370,14 @@
       padding: 8px; border: 2px solid var(--panel); margin-bottom: 6px; background: var(--dark);
     }
     .lb-row:hover { border-color: var(--purple); }
-    .lb-rank { color: var(--purple); font-size: 7px; width: 20px; text-align: center; }
-    .lb-name { color: var(--white); font-size: 7px; flex: 1; }
-    .lb-coins { color: var(--orange); font-size: 7px; }
-    .lb-level { color: #888; font-size: 6px; }
+    .lb-rank { color: var(--purple); font-size: 10px; width: 24px; text-align: center; }
+    .lb-name { color: var(--white); font-size: 10px; flex: 1; }
+    .lb-coins { color: var(--orange); font-size: 10px; }
+    .lb-level { color: #888; font-size: 9px; }
 
     /* ── MISSIONS ── */
     .missions-panel { padding: 16px; overflow-y: auto; flex: 1; }
-    .missions-date { color: #555; font-size: 5px; margin-bottom: 12px; letter-spacing: 1px; }
+    .missions-date { color: #555; font-size: 7px; margin-bottom: 12px; letter-spacing: 1px; }
     .mission-card {
       border: 2px solid var(--panel); background: var(--dark);
       padding: 10px; margin-bottom: 8px;
@@ -387,20 +387,20 @@
     .mission-card.stream { border-color: #6441a5; }
     .mission-header { display: flex; align-items: center; gap: 8px; }
     .mission-icon   { font-size: 15px; flex-shrink: 0; line-height: 1; }
-    .mission-title  { color: var(--white); font-size: 6px; flex: 1; }
-    .mission-badge  { font-size: 5px; padding: 2px 5px; border: 1px solid; flex-shrink: 0; }
+    .mission-title  { color: var(--white); font-size: 9px; flex: 1; }
+    .mission-badge  { font-size: 7px; padding: 2px 5px; border: 1px solid; flex-shrink: 0; }
     .mission-badge.stream { color: #9b72d8; border-color: #9b72d8; }
     .mission-badge.done   { color: #4aff6b; border-color: #4aff6b; }
-    .mission-desc { color: #666; font-size: 5px; line-height: 2; }
+    .mission-desc { color: #666; font-size: 7px; line-height: 2; }
     .mission-bar-wrap { height: 5px; background: #111; border: 1px solid #2a2a2a; }
     .mission-bar-fill { height: 100%; background: var(--purple); transition: width 0.4s; }
     .mission-bar-fill.done { background: #2a6b3a; }
     .mission-footer { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-    .mission-reward { color: var(--orange); font-size: 5px; }
-    .mission-prog   { color: #555; font-size: 5px; }
+    .mission-reward { color: var(--orange); font-size: 7px; }
+    .mission-prog   { color: #555; font-size: 7px; }
     .mission-claim {
       background: #6441a5; border: 2px solid var(--purple);
-      color: var(--white); font-size: 5px;
+      color: var(--white); font-size: 7px;
       font-family: 'Press Start 2P', monospace;
       padding: 3px 6px; cursor: pointer; flex-shrink: 0;
     }
@@ -411,14 +411,14 @@
     .igloo-bar {
       background: var(--dark); border-bottom: 2px solid var(--purple);
       padding: 6px 10px; display: flex; align-items: center; gap: 10px;
-      flex-shrink: 0; font-size: 6px;
+      flex-shrink: 0; font-size: 9px;
     }
     .igloo-bar-title  { color: var(--purple); }
-    .igloo-bar-hint   { color: #555; font-size: 5px; }
+    .igloo-bar-hint   { color: #555; font-size: 7px; }
     .igloo-bar-coins  { color: var(--orange); margin-left: auto; }
     .igloo-cancel-btn {
       background: transparent; border: 1px solid var(--pink);
-      color: var(--pink); font-size: 5px;
+      color: var(--pink); font-size: 7px;
       font-family: 'Press Start 2P', monospace;
       padding: 3px 6px; cursor: pointer;
     }
@@ -449,10 +449,10 @@
     .igloo-placed:hover { border-color: rgba(168,110,255,0.5); }
     .igloo-placed.selected { border-color: var(--pink); background: rgba(255,127,229,0.1); }
     .igloo-placed-icon { font-size: 22px; line-height: 1; pointer-events: none; }
-    .igloo-placed-name { font-size: 4px; color: #445; white-space: nowrap; pointer-events: none; }
+    .igloo-placed-name { font-size: 6px; color: #445; white-space: nowrap; pointer-events: none; }
     .igloo-placed-x {
       position: absolute; top: 1px; right: 3px;
-      font-size: 9px; color: var(--pink); display: none;
+      font-size: 12px; color: var(--pink); display: none;
       line-height: 1; font-family: monospace;
     }
     .igloo-placed.selected .igloo-placed-x { display: block; }
@@ -462,7 +462,7 @@
       overflow-y: auto; padding: 8px;
       display: flex; flex-direction: column; gap: 6px;
     }
-    .igloo-catalog-title { color: var(--purple); font-size: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--purple); flex-shrink: 0; }
+    .igloo-catalog-title { color: var(--purple); font-size: 9px; padding-bottom: 4px; border-bottom: 1px solid var(--purple); flex-shrink: 0; }
     .catalog-card {
       background: var(--dark); border: 2px solid #2a2a2a;
       padding: 6px 4px; text-align: center; cursor: pointer;
@@ -472,8 +472,8 @@
     .catalog-card.selected-cat { border-color: var(--pink); }
     .catalog-card.cant-afford  { opacity: 0.35; cursor: not-allowed; }
     .catalog-card-icon { font-size: 20px; line-height: 1; }
-    .catalog-card-name { color: var(--white); font-size: 4px; }
-    .catalog-card-cost { color: var(--orange); font-size: 5px; }
+    .catalog-card-name { color: var(--white); font-size: 6px; }
+    .catalog-card-cost { color: var(--orange); font-size: 7px; }
 
     /* ── COMBAT TAB ── */
     .combat-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
@@ -481,17 +481,17 @@
     .monster-card.killed { opacity: 0.5; }
     .monster-header { display: flex; align-items: center; gap: 8px; }
     .monster-icon { font-size: 20px; }
-    .monster-name { color: var(--white); font-size: 7px; flex: 1; }
-    .monster-tier { font-size: 5px; padding: 2px 5px; border: 1px solid; }
+    .monster-name { color: var(--white); font-size: 10px; flex: 1; }
+    .monster-tier { font-size: 7px; padding: 2px 5px; border: 1px solid; }
     .tier-1 { color: #4aff6b; border-color: #4aff6b; }
     .tier-2 { color: var(--orange); border-color: var(--orange); }
     .tier-3 { color: var(--pink); border-color: var(--pink); }
-    .monster-stats { color: #666; font-size: 5px; }
-    .monster-rewards { color: var(--orange); font-size: 5px; }
+    .monster-stats { color: #666; font-size: 7px; }
+    .monster-rewards { color: var(--orange); font-size: 7px; }
     .monster-footer { display: flex; justify-content: space-between; align-items: center; }
     .fight-btn {
       background: var(--dark); border: 2px solid var(--pink); color: var(--pink);
-      font-size: 5px; font-family: 'Press Start 2P', monospace;
+      font-size: 7px; font-family: 'Press Start 2P', monospace;
       padding: 4px 8px; cursor: pointer;
     }
     .fight-btn:hover:not(:disabled) { background: var(--pink); color: var(--dark); }
@@ -499,17 +499,17 @@
 
     /* ── GEAR TAB ── */
     .gear-panel { padding: 12px; overflow-y: auto; flex: 1; }
-    .gear-section-title { color: var(--purple); font-size: 6px; margin: 8px 0 6px; border-bottom: 1px solid var(--purple); padding-bottom: 3px; }
+    .gear-section-title { color: var(--purple); font-size: 9px; margin: 8px 0 6px; border-bottom: 1px solid var(--purple); padding-bottom: 3px; }
     .gear-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
     .gear-card { border: 2px solid #2a2a2a; background: var(--dark); padding: 8px; text-align: center; display: flex; flex-direction: column; gap: 3px; }
     .gear-card.combat   { border-color: #3a2a00; }
     .gear-card.cosmetic { border-color: #2a002a; }
     .gear-card.equipped { border-color: var(--purple); }
     .gear-card-icon { font-size: 18px; }
-    .gear-card-name { color: var(--white); font-size: 4px; }
-    .gear-card-stats { color: var(--orange); font-size: 4px; }
-    .gear-card-cost { color: #888; font-size: 4px; }
-    .gear-card-btn { margin-top: 2px; padding: 3px 5px; font-size: 4px; font-family: 'Press Start 2P', monospace; border: 1px solid; cursor: pointer; }
+    .gear-card-name { color: var(--white); font-size: 6px; }
+    .gear-card-stats { color: var(--orange); font-size: 6px; }
+    .gear-card-cost { color: #888; font-size: 6px; }
+    .gear-card-btn { margin-top: 2px; padding: 3px 5px; font-size: 6px; font-family: 'Press Start 2P', monospace; border: 1px solid; cursor: pointer; }
     .equip-btn     { border-color: var(--purple); color: var(--purple); background: transparent; }
     .equip-btn.on  { border-color: var(--pink);   color: var(--pink);   }
     .buy-btn       { border-color: var(--orange);  color: var(--orange); background: transparent; }
@@ -523,9 +523,9 @@
     .award-card.locked   { opacity: 0.5; }
     .award-icon  { font-size: 20px; }
     .award-info  { flex: 1; }
-    .award-title { color: var(--white); font-size: 6px; margin-bottom: 3px; }
-    .award-desc  { color: #666; font-size: 5px; }
-    .award-badge { font-size: 5px; padding: 2px 5px; border: 1px solid #2a6b3a; color: #4aff6b; }
+    .award-title { color: var(--white); font-size: 9px; margin-bottom: 3px; }
+    .award-desc  { color: #666; font-size: 7px; }
+    .award-badge { font-size: 7px; padding: 2px 5px; border: 1px solid #2a6b3a; color: #4aff6b; }
 
     /* ── NEWS TICKER ── */
     .news-bar {
@@ -533,13 +533,13 @@
       padding: 6px 12px; display: flex; gap: 12px; align-items: center;
       flex-shrink: 0; overflow: hidden;
     }
-    .news-label { color: var(--purple); font-size: 6px; white-space: nowrap; flex-shrink: 0; }
+    .news-label { color: var(--purple); font-size: 9px; white-space: nowrap; flex-shrink: 0; }
     .news-ticker-wrap { flex: 1; overflow: hidden; position: relative; height: 14px; }
     .news-ticker {
       display: flex; gap: 48px; position: absolute;
       white-space: nowrap; animation: ticker 30s linear infinite;
     }
-    .news-ticker-item { color: #888; font-size: 6px; }
+    .news-ticker-item { color: #888; font-size: 9px; }
     .news-ticker-item .hi   { color: var(--purple); }
     .news-ticker-item .gold { color: var(--orange); }
     @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
@@ -550,12 +550,12 @@
       justify-content: center; gap: 24px; padding: 40px; background: var(--bg);
     }
     .login-penguin { width: 96px; height: 96px; image-rendering: pixelated; object-fit: contain; }
-    .login-title { color: var(--purple); font-size: 18px; text-align: center; line-height: 1.6; }
+    .login-title { color: var(--purple); font-size: 22px; text-align: center; line-height: 1.6; }
     .login-title span { color: var(--pink); }
-    .login-sub { color: #888; font-size: 7px; text-align: center; line-height: 2.2; max-width: 360px; }
+    .login-sub { color: #888; font-size: 10px; text-align: center; line-height: 2.2; max-width: 360px; }
     .login-btn {
       background: #6441a5; border: 3px solid var(--purple); color: var(--white);
-      font-size: 8px; font-family: 'Press Start 2P', monospace;
+      font-size: 11px; font-family: 'Press Start 2P', monospace;
       padding: 12px 24px; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 8px;
     }
     .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
@@ -563,19 +563,19 @@
     /* ── STREAK DISPLAY ── */
     .streak-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     .streak-flame { font-size: 13px; line-height: 1; }
-    .streak-count { color: var(--orange); font-size: 5px; }
+    .streak-count { color: var(--orange); font-size: 7px; }
     .streak-week { display: flex; gap: 3px; margin-bottom: 5px; }
     .streak-day {
       width: 20px; height: 20px; border: 2px solid #333;
       display: flex; align-items: center; justify-content: center;
-      font-size: 5px; color: #444; flex-shrink: 0;
+      font-size: 7px; color: #444; flex-shrink: 0;
     }
     .streak-day.done   { border-color: var(--orange); background: rgba(255,140,0,0.15); color: var(--orange); }
     .streak-day.today  { border-color: #4aff6b;       background: rgba(74,255,107,0.12); color: #4aff6b; }
     .streak-day.reward { border-color: var(--pink);   }
     .streak-day.reward.done  { background: rgba(255,127,229,0.2); color: var(--pink); }
     .streak-day.reward.today { border-color: var(--pink); background: rgba(255,127,229,0.2); color: var(--pink); }
-    .streak-next { color: #666; font-size: 4px; line-height: 2; }
+    .streak-next { color: #666; font-size: 7px; line-height: 2; }
     .streak-next.ready { color: #4aff6b; }
 
     /* ── STREAK REWARD MODAL ── */
@@ -593,16 +593,16 @@
     }
     @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .sm-fire { font-size: 36px; margin-bottom: 10px; }
-    .sm-title { color: var(--orange); font-size: 9px; margin-bottom: 6px; }
-    .sm-streak { color: #888; font-size: 5px; margin-bottom: 14px; }
-    .sm-item { color: var(--white); font-size: 7px; margin-bottom: 6px; }
-    .sm-rarity { font-size: 5px; padding: 3px 8px; border: 1px solid; display: inline-block; margin-bottom: 16px; }
+    .sm-title { color: var(--orange); font-size: 12px; margin-bottom: 6px; }
+    .sm-streak { color: #888; font-size: 7px; margin-bottom: 14px; }
+    .sm-item { color: var(--white); font-size: 10px; margin-bottom: 6px; }
+    .sm-rarity { font-size: 7px; padding: 3px 8px; border: 1px solid; display: inline-block; margin-bottom: 16px; }
     .sm-rarity.uncommon { color: #2aaa4a; border-color: #2aaa4a; }
     .sm-rarity.rare     { color: #4060d0; border-color: #4060d0; }
     .sm-rarity.epic     { color: var(--purple); border-color: var(--purple); }
     .sm-close {
       background: var(--orange); border: 2px solid #ffa500;
-      color: var(--dark); font-size: 6px;
+      color: var(--dark); font-size: 9px;
       font-family: 'Press Start 2P', monospace;
       padding: 8px 18px; cursor: pointer;
     }
@@ -611,18 +611,18 @@
     /* ── DURATION TIER SELECTOR ── */
     .duration-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-bottom: 8px; }
     .dur-btn {
-      padding: 5px 3px; font-size: 4px; font-family: 'Press Start 2P', monospace;
+      padding: 5px 3px; font-size: 6px; font-family: 'Press Start 2P', monospace;
       border: 2px solid #333; background: var(--dark); color: #888;
       cursor: pointer; text-align: center; line-height: 1.4;
     }
     .dur-btn:hover { border-color: var(--purple); color: var(--white); }
     .dur-btn.selected { border-color: var(--orange); color: var(--orange); }
-    .dur-quality { display: block; color: #555; font-size: 3px; margin-top: 2px; }
+    .dur-quality { display: block; color: #555; font-size: 5px; margin-top: 2px; }
     .dur-btn.selected .dur-quality { color: #a86000; }
 
     /* ── EVENT LOG ── */
     .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-    .event-row { display: flex; gap: 8px; padding: 5px 8px; border-left: 3px solid; font-size: 5px; line-height: 1.8; }
+    .event-row { display: flex; gap: 8px; padding: 5px 8px; border-left: 3px solid; font-size: 7px; line-height: 1.8; }
     .event-row.job         { border-color: var(--orange); }
     .event-row.combat      { border-color: var(--pink); }
     .event-row.village     { border-color: var(--purple); }
@@ -637,6 +637,23 @@
     .gear-card.epic      { border-color: #6030a0; }
     .gear-card.legendary { border-color: #a06000; }
 
+    /* ── CALIBRATION TOOL ── */
+    .calibrate-panel {
+      position: fixed; right: 0; top: 0; bottom: 0; width: 280px;
+      background: rgba(10,10,10,0.97); border-left: 3px solid var(--orange);
+      z-index: 8000; display: flex; flex-direction: column; font-size: 7px;
+    }
+    .calibrate-header { background: var(--orange); color: var(--dark); padding: 8px 10px; font-size: 9px; flex-shrink: 0; }
+    .calibrate-json { flex: 1; overflow-y: auto; padding: 8px; }
+    .calibrate-json pre { color: #4aff6b; font-size: 6px; white-space: pre-wrap; word-break: break-all; font-family: monospace; }
+    .calibrate-btns { display: flex; gap: 6px; padding: 8px; flex-shrink: 0; border-top: 1px solid var(--orange); }
+    .calibrate-btn {
+      flex: 1; padding: 6px; font-size: 7px; font-family: 'Press Start 2P', monospace;
+      border: 2px solid var(--orange); background: var(--dark); color: var(--orange); cursor: pointer;
+    }
+    .calibrate-btn:hover { background: var(--orange); color: var(--dark); }
+    .calibrate-hotspot { cursor: move !important; border: 2px dashed var(--orange) !important; background: rgba(255,140,0,0.25) !important; }
+
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--dark); }
@@ -646,7 +663,7 @@
     #toast {
       position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
       background: var(--dark); border: 2px solid var(--purple);
-      color: var(--white); font-size: 6px; padding: 8px 16px;
+      color: var(--white); font-size: 9px; padding: 8px 16px;
       z-index: 9998; display: none; white-space: nowrap;
       font-family: 'Press Start 2P', monospace;
     }
@@ -730,7 +747,7 @@
 
         <!-- COLLECT SECTION (shown when working) -->
         <div id="sidebar-collect-section" style="display:none; padding:0 10px 8px;">
-          <div id="sidebar-job-info" style="color:#888; font-size:5px; margin-bottom:5px; line-height:2;"></div>
+          <div id="sidebar-job-info" style="color:#888; font-size:7px; margin-bottom:5px; line-height:2;"></div>
           <button class="collect-btn" id="sidebar-collect-btn" onclick="sidebarCollect()">COLLECT</button>
         </div>
 
@@ -745,6 +762,7 @@
           </div>
           <div class="streak-week" id="streak-week"></div>
           <div class="streak-next" id="streak-next">LOADING...</div>
+          <div style="color:#555; font-size:7px; margin-top:4px;">RESETS: <span id="streak-reset-countdown"></span></div>
         </div>
 
         <!-- RESOURCES SECTION -->
@@ -806,7 +824,7 @@
         </div>
         <div class="stats-section">
           <div class="section-title">LEADERBOARD</div>
-          <div id="sidebar-lb" style="font-size:5px; color:#888; padding:4px 0;">LOADING...</div>
+          <div id="sidebar-lb" style="font-size:7px; color:#888; padding:4px 0;">LOADING...</div>
         </div>
       </div>
 
@@ -843,8 +861,12 @@
 
       <!-- COMBAT TAB -->
       <div class="content-panel" id="panel-combat">
+        <div style="background:var(--dark);border-bottom:2px solid var(--purple);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+          <span style="color:var(--purple);font-size:9px;">MONSTERS</span>
+          <span style="color:#555;font-size:7px;">RESETS: <span id="combat-reset-countdown"></span></span>
+        </div>
         <div class="combat-panel" id="combat-list">
-          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
+          <div style="color:#666;font-size:9px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
@@ -857,8 +879,12 @@
 
       <!-- MISSIONS TAB -->
       <div class="content-panel" id="panel-missions">
+        <div style="background:var(--dark);border-bottom:2px solid var(--purple);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+          <span style="color:var(--purple);font-size:9px;">DAILY MISSIONS</span>
+          <span style="color:#555;font-size:7px;">RESETS: <span id="missions-reset-countdown"></span></span>
+        </div>
         <div class="missions-panel" id="missions-list">
-          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
+          <div style="color:#666;font-size:9px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
@@ -918,6 +944,22 @@
   {% endif %}
 
 </div><!-- /#app -->
+
+<!-- DAILY LOGIN POPUP -->
+<div id="daily-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9995;align-items:center;justify-content:center;">
+  <div style="background:var(--panel);border:3px solid var(--orange);padding:28px 24px;max-width:300px;width:90%;text-align:center;font-family:'Press Start 2P',monospace;animation:popIn 0.25s ease;">
+    <div style="font-size:40px;margin-bottom:10px;">🔥</div>
+    <div style="color:var(--orange);font-size:12px;margin-bottom:6px;">DAY <span id="dp-day">1</span> STREAK!</div>
+    <div style="color:#888;font-size:7px;margin-bottom:16px;">WELCOME BACK TO THE VILLAGE</div>
+    <div style="background:var(--dark);border:2px solid var(--purple);padding:12px;margin-bottom:16px;">
+      <div style="color:#888;font-size:7px;margin-bottom:6px;">TODAY'S REWARD</div>
+      <div style="color:var(--orange);font-size:11px;margin-bottom:4px;">+50 💰 GOLD</div>
+      <div style="color:var(--white);font-size:9px;" id="dp-resource"></div>
+    </div>
+    <div style="margin-bottom:16px;" id="dp-milestones"></div>
+    <button id="dp-collect-btn" onclick="collectDailyStreak()" style="width:100%;background:var(--orange);border:2px solid #ffa500;color:var(--dark);font-size:9px;font-family:'Press Start 2P',monospace;padding:10px;cursor:pointer;">COLLECT</button>
+  </div>
+</div>
 
 <!-- STREAK REWARD MODAL -->
 <div id="streak-modal">
@@ -1233,16 +1275,23 @@
       if (!data.working) {
         document.getElementById('sidebar-collect-section').style.display = 'none';
         stopSidebarPoll();
+        if (_countdownTimers['sidebar-job-countdown']) {
+          clearInterval(_countdownTimers['sidebar-job-countdown']);
+        }
         _currentJob = null;
         document.getElementById('stat-status').textContent  = 'RESTING';
         document.getElementById('stat-status').className    = 'stat-val status-resting';
         return;
       }
-      const remaining = data.remaining_mins;
-      const readyStr  = remaining > 0 ? `${remaining} min left` : '✓ READY!';
-      const prevStr   = Object.entries(data.preview || {}).filter(([,v]) => v > 0).map(([k,v]) => `~${v} ${k}`).join(', ');
-      infoEl.innerHTML = `${data.building_name}<br>${readyStr}${prevStr ? '<br>' + prevStr : ''}`;
+      const prevStr = Object.entries(data.preview || {}).filter(([,v]) => v > 0).map(([k,v]) => `~${v} ${k}`).join(', ');
+      infoEl.innerHTML = `${data.building_name}${prevStr ? '<br><span style="color:#888;">' + prevStr + '</span>' : ''}<br><span id="sidebar-job-countdown"></span>`;
       const btn = document.getElementById('sidebar-collect-btn');
+      if (data.job_end_ts) {
+        startCountdown('sidebar-job-countdown', data.job_end_ts, (el) => {
+          el.innerHTML = '<span style="color:#4aff6b;">✓ READY TO COLLECT!</span>';
+          if (btn) { btn.textContent = '✓ COLLECT NOW'; btn.style.animation = 'livepulse 1s infinite'; }
+        });
+      }
       if (btn) btn.textContent = data.ready ? '✓ COLLECT NOW' : 'COLLECT EARLY';
     } catch(e) {}
   }
@@ -1254,6 +1303,47 @@
   }
   function stopSidebarPoll() {
     if (_sidebarPollTimer) { clearInterval(_sidebarPollTimer); _sidebarPollTimer = null; }
+  }
+
+  // ── COUNTDOWN TIMERS ──
+  const _countdownTimers = {};
+
+  function getMidnightTs() {
+    const now = new Date();
+    const midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    return Math.floor(midnight.getTime() / 1000);
+  }
+
+  function startCountdown(elementId, targetTs, onComplete) {
+    if (_countdownTimers[elementId]) clearInterval(_countdownTimers[elementId]);
+    function tick() {
+      const el = document.getElementById(elementId);
+      if (!el) { clearInterval(_countdownTimers[elementId]); return; }
+      const secs = Math.max(0, targetTs - Math.floor(Date.now() / 1000));
+      if (secs === 0) {
+        clearInterval(_countdownTimers[elementId]);
+        if (onComplete) onComplete(el);
+        return;
+      }
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      el.textContent = h > 0
+        ? `${h}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s`
+        : `${m}m ${String(s).padStart(2,'0')}s`;
+    }
+    tick();
+    _countdownTimers[elementId] = setInterval(tick, 1000);
+  }
+
+  function startMidnightCountdowns() {
+    const midTs = getMidnightTs();
+    if (document.getElementById('streak-reset-countdown'))
+      startCountdown('streak-reset-countdown', midTs);
+    if (document.getElementById('missions-reset-countdown'))
+      startCountdown('missions-reset-countdown', midTs);
+    if (document.getElementById('combat-reset-countdown'))
+      startCountdown('combat-reset-countdown', midTs);
   }
 
   async function sidebarCollect() {
@@ -1302,18 +1392,107 @@
     guillotine:    { name:"Gil the Guillotine",    icon:"💀",  type:"job",          pos:{x:84, y:58} },
   };
 
-  // Inject hotspots into map
-  function injectBuildingHotspots() {
+  // Inject hotspots into map (loads saved positions from server first)
+  async function injectBuildingHotspots() {
     const map = document.getElementById('map-area');
+    let overrides = {};
+    try {
+      const res = await fetch('/buildings/config');
+      overrides = await res.json();
+    } catch(e) {}
     Object.entries(VILLAGE_BUILDINGS).forEach(([id, b]) => {
+      const pos = overrides[id] || b.pos;
       const el = document.createElement('div');
       el.className = 'building-hotspot';
-      el.style.left = b.pos.x + '%';
-      el.style.top  = b.pos.y + '%';
+      el.id = 'hotspot-' + id;
+      el.style.left = pos.x + '%';
+      el.style.top  = pos.y + '%';
+      el.dataset.buildingId = id;
       el.innerHTML = `${b.icon}<span class="building-hotspot-label">${b.name.toUpperCase()}</span>`;
-      el.onclick = () => openBuilding(id);
+      el.onclick = () => { if (!_calibrateMode) openBuilding(id); };
       map.appendChild(el);
     });
+    if (_calibrateMode) initCalibrate();
+  }
+
+  // ── CALIBRATION MODE ──
+  const _calibrateMode = new URLSearchParams(location.search).has('calibrate');
+  let _calibratePositions = {};
+
+  function initCalibrate() {
+    document.querySelectorAll('.building-hotspot').forEach(el => {
+      const id = el.dataset.buildingId;
+      const b  = VILLAGE_BUILDINGS[id];
+      _calibratePositions[id] = {
+        x: parseFloat(el.style.left),
+        y: parseFloat(el.style.top)
+      };
+      el.classList.add('calibrate-hotspot');
+      let dragging = false, startX, startY, startLeft, startTop;
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        dragging = true;
+        startX = e.clientX; startY = e.clientY;
+        startLeft = parseFloat(el.style.left);
+        startTop  = parseFloat(el.style.top);
+        const map  = document.getElementById('map-area');
+        const rect = map.getBoundingClientRect();
+        function onMove(ev) {
+          if (!dragging) return;
+          const dx = ((ev.clientX - startX) / rect.width) * 100;
+          const dy = ((ev.clientY - startY) / rect.height) * 100;
+          const nx = Math.round((startLeft + dx) * 10) / 10;
+          const ny = Math.round((startTop  + dy) * 10) / 10;
+          el.style.left = nx + '%';
+          el.style.top  = ny + '%';
+          _calibratePositions[id] = { x: nx, y: ny };
+          updateCalibrateJson();
+        }
+        function onUp() {
+          dragging = false;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+    });
+    // Build calibration panel
+    const panel = document.createElement('div');
+    panel.className = 'calibrate-panel';
+    panel.id = 'calibrate-panel';
+    panel.innerHTML = `
+      <div class="calibrate-header">🔧 CALIBRATION MODE</div>
+      <div class="calibrate-json"><pre id="calibrate-json-out"></pre></div>
+      <div class="calibrate-btns">
+        <button class="calibrate-btn" onclick="copyCalibrate()">COPY JSON</button>
+        <button class="calibrate-btn" onclick="saveCalibrate()">SAVE</button>
+      </div>`;
+    document.body.appendChild(panel);
+    updateCalibrateJson();
+  }
+
+  function updateCalibrateJson() {
+    const el = document.getElementById('calibrate-json-out');
+    if (el) el.textContent = JSON.stringify(_calibratePositions, null, 2);
+  }
+
+  function copyCalibrate() {
+    navigator.clipboard.writeText(JSON.stringify(_calibratePositions, null, 2))
+      .then(() => showToast('JSON copied!', 'ok'))
+      .catch(() => showToast('Copy failed', 'err'));
+  }
+
+  async function saveCalibrate() {
+    try {
+      const res = await fetch('/buildings/positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_calibratePositions)
+      });
+      const data = await res.json();
+      showToast(data.status === 'success' ? 'Positions saved!' : 'Save failed', data.status === 'success' ? 'ok' : 'err');
+    } catch(e) { showToast('Save error', 'err'); }
   }
 
   // ── BUILDING PANEL ──
@@ -1462,6 +1641,10 @@
     try {
       const res  = await fetch(`/combat/monsters?username=${CURRENT_USER}`);
       const data = await res.json();
+      if (data.status === 'error' || !data.monsters) {
+        container.innerHTML = `<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">${data.message || 'ERROR LOADING COMBAT'}</div>`;
+        return;
+      }
       let html = '';
       data.monsters.forEach(m => {
         const tierClass = `tier-${m.tier}`;
@@ -1480,7 +1663,7 @@
             <div class="monster-stats">HP:${m.hp} ATK:${m.attack} DEF:${m.defense} | Drop: ${m.drop_name} (${Math.round(m.drop_chance*100)}%)</div>
             <div class="monster-rewards">${rewardStr}</div>
             <div class="monster-footer">
-              <span style="color:#555;font-size:5px;">MIN LV${m.min_level}</span>
+              <span style="color:#555;font-size:7px;">MIN LV${m.min_level}</span>
               <button class="fight-btn" ${(cantFight || killed) ? 'disabled' : ''}
                 onclick="fightMonster('${m.id}')">${btnLabel}</button>
             </div>
@@ -1488,7 +1671,7 @@
       });
       container.innerHTML = html || '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">NO MONSTERS</div>';
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
     }
   }
 
@@ -1535,13 +1718,13 @@
       const gData = await gRes.json();
 
       let html = '<div class="gear-section-title">OWNED GEAR</div><div class="gear-grid">';
+      const slotIconMap = {weapon:'⚔️', chest:'🛡️', boots:'👟', hat:'🎩', cape:'🧣'};
       if (gData.gear && gData.gear.length) {
-        const slotIcons = {weapon:'⚔️', chest:'🛡️', boots:'👟', hat:'🎩', cape:'🧣'};
         gData.gear.forEach(g => {
           const eq       = g.equipped ? ' equipped' : '';
           const rarity   = g.rarity || 'common';
           const statsStr = (g.attack_bonus > 0 ? `+${g.attack_bonus} ATK ` : '') + (g.defense_bonus > 0 ? `+${g.defense_bonus} DEF` : '');
-          const gIcon    = slotIcons[g.slot] || '❓';
+          const gIcon    = slotIconMap[g.slot] || '❓';
           html += `<div class="gear-card ${g.type} ${rarity}${eq}">
             <div class="gear-card-icon">${gIcon}</div>
             <div class="gear-card-name">${g.name}</div>
@@ -1553,14 +1736,13 @@
           </div>`;
         });
       } else {
-        html += '<div style="color:#666;font-size:5px;grid-column:span 2;text-align:center;padding:10px;">No gear owned yet</div>';
+        html += '<div style="color:#666;font-size:7px;grid-column:span 2;text-align:center;padding:10px;">No gear owned yet</div>';
       }
       html += '</div>';
 
       html += '<div class="gear-section-title">GEAR CATALOG</div><div class="gear-grid">';
       Object.entries(gData.catalog || {}).forEach(([itemId, defn]) => {
         const costStr = Object.entries(defn.cost).map(([k,v]) => `${v} ${k}`).join(', ');
-        // Check if can afford
         let canAfford = true;
         for (const [res, amt] of Object.entries(defn.cost)) {
           const have = res === 'gold' ? (gData.gold || 0) : ((gData.resources || {})[res] || 0);
@@ -1569,8 +1751,7 @@
         const statsStr = (defn.attack_bonus > 0 ? `+${defn.attack_bonus} ATK ` : '') +
                          (defn.defense_bonus > 0 ? `+${defn.defense_bonus} DEF` : '');
         const rarityClass = defn.rarity || 'common';
-        const slotIcons = {weapon:'⚔️', chest:'🛡️', boots:'👟', hat:'🎩', cape:'🧣'};
-        const itemIcon = slotIcons[defn.slot] || '❓';
+        const itemIcon = slotIconMap[defn.slot] || '❓';
         html += `<div class="gear-card ${defn.type} ${rarityClass}">
           <div class="gear-card-icon">${itemIcon}</div>
           <div class="gear-card-name">${defn.name}</div>
@@ -1584,7 +1765,7 @@
 
       container.innerHTML = html;
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING GEAR</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING GEAR</div>';
     }
   }
 
@@ -1643,9 +1824,9 @@
           ${a.unlocked ? '<span class="award-badge">&#x2713; UNLOCKED</span>' : ''}
         </div>`;
       });
-      container.innerHTML = html || '<div style="color:#666;font-size:6px;text-align:center;padding:20px;">No achievements yet</div>';
+      container.innerHTML = html || '<div style="color:#666;font-size:9px;text-align:center;padding:20px;">No achievements yet</div>';
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING AWARDS</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING AWARDS</div>';
     }
   }
 
@@ -1690,7 +1871,7 @@
       const res  = await fetch('/events');
       const data = await res.json();
       if (!data.events || data.events.length === 0) {
-        container.innerHTML = '<div style="color:#666;font-size:6px;text-align:center;padding:20px;">NO EVENTS YET</div>';
+        container.innerHTML = '<div style="color:#666;font-size:9px;text-align:center;padding:20px;">NO EVENTS YET</div>';
         return;
       }
       const now = Math.floor(Date.now() / 1000);
@@ -1707,7 +1888,7 @@
       });
       container.innerHTML = html;
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING EVENTS</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING EVENTS</div>';
     }
   }
 
@@ -1921,9 +2102,63 @@
   injectBuildingHotspots();
   refreshStats();
   loadStreak();
+  startMidnightCountdowns();
   setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
+
+  // ── DAILY LOGIN STREAK POPUP ──
+  let _dailyPopupShown = false;
+
+  function showDailyPopup(streak, reward) {
+    if (_dailyPopupShown) return;
+    _dailyPopupShown = true;
+    document.getElementById('dp-day').textContent = streak;
+    document.getElementById('dp-resource').textContent =
+      `+${reward.resource_amount} ${reward.resource_icon} ${reward.resource.toUpperCase().replace('_',' ')}`;
+    const MILESTONES = {3:'3 DAYS: +100 GOLD', 7:'7 DAYS: GEAR DROP', 14:'14 DAYS: COSMETIC', 30:'30 DAYS: EPIC GEAR', 60:'60 DAYS: LEGENDARY'};
+    let mHtml = '';
+    for (const [day, label] of Object.entries(MILESTONES)) {
+      const d = parseInt(day);
+      const done = streak >= d;
+      const next = !done && d > streak;
+      const color = done ? '#4aff6b' : next ? 'var(--orange)' : '#555';
+      mHtml += `<div style="font-size:6px;color:${color};margin-bottom:3px;">${done ? '✓' : '○'} ${label}</div>`;
+    }
+    document.getElementById('dp-milestones').innerHTML = mHtml;
+    const popup = document.getElementById('daily-popup');
+    popup.style.display = 'flex';
+  }
+
+  async function collectDailyStreak() {
+    const btn = document.getElementById('dp-collect-btn');
+    btn.disabled = true;
+    btn.textContent = 'COLLECTING...';
+    try {
+      const res  = await fetch(`/streak/claim/${CURRENT_USER}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        document.getElementById('daily-popup').style.display = 'none';
+        const e = data.earned;
+        showToast(`+${e.gold} gold & ${e.resource_amount} ${e.resource_icon} ${e.resource}!`, 'ok');
+        await refreshStats();
+      } else {
+        document.getElementById('daily-popup').style.display = 'none';
+        showToast(data.message || 'Already claimed!', 'ok');
+      }
+    } catch(e) {
+      btn.disabled = false;
+      btn.textContent = 'COLLECT';
+    }
+  }
+
+  {% if daily_reward %}
+  showDailyPopup({{ streak | tojson }}, {
+    resource:        {{ daily_reward.resource | tojson }},
+    resource_amount: {{ daily_reward.resource_amount | tojson }},
+    resource_icon:   {{ daily_reward.resource_icon | tojson }}
+  });
+  {% endif %}
 
   {% if streak_reward %}
   // Show streak gear drop popup
