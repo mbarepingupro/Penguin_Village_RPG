@@ -246,6 +246,31 @@ def log_event(db, event_type, message, username=None):
     )
 
 
+import json
+from pathlib import Path
+
+DAILY_RESOURCE_OPTIONS = [
+    ("fish",           "🐟"),
+    ("herbs",          "🌿"),
+    ("bones",          "🦴"),
+    ("blood_gems",     "💎"),
+    ("spell_fragments","✨"),
+]
+
+STREAK_MILESTONES = {
+    3:  {"label": "100 gold",                      "gold": 100},
+    7:  {"label": "Rare gear piece",               "gold": 0},
+    14: {"label": "Cosmetic item",                 "gold": 0},
+    30: {"label": "Epic gear piece",               "gold": 0},
+    60: {"label": "Legendary cosmetic + breed",    "gold": 0},
+}
+
+def compute_daily_reward():
+    res_name, res_icon = random.choice(DAILY_RESOURCE_OPTIONS)
+    amount = random.randint(2, 5)
+    return {"gold": 50, "resource": res_name, "resource_amount": amount, "resource_icon": res_icon}
+
+
 STREAK_GEAR_WEIGHTS = [
     ("epic",     0.10),
     ("rare",     0.30),
@@ -447,6 +472,7 @@ def home():
     streak_row    = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
     db.close()
     streak_reward = session.pop("streak_reward", None)
+    daily_reward  = session.pop("daily_reward",  None)
     return render_template(
         "home.html",
         logged_in=True,
@@ -454,6 +480,7 @@ def home():
         resources=resources,
         streak=streak_row["current_streak"] if streak_row else 1,
         streak_reward=streak_reward,
+        daily_reward=daily_reward,
     )
 
 
@@ -495,7 +522,11 @@ def callback():
 
     today = get_today()
     ensure_resources(db, username)
+    streak_row_pre = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
+    is_new_day = not streak_row_pre or streak_row_pre["last_login_date"] != today
     streak = update_login_streak(db, username, today)
+    if is_new_day:
+        session["daily_reward"] = compute_daily_reward()
     streak_reward = award_streak_gear(db, username, streak)
     if streak_reward:
         session["streak_reward"] = streak_reward
@@ -562,6 +593,48 @@ def get_resources(username):
     r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     db.close()
     return jsonify(dict(r) if r else {})
+
+
+@app.route("/streak/claim/<username>", methods=["POST"])
+def streak_claim(username):
+    today = get_today()
+    db    = get_db()
+    row   = db.execute("SELECT current_streak, daily_reward_claimed FROM login_streaks WHERE username=?", (username,)).fetchone()
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "No streak found."})
+    if row["daily_reward_claimed"] == today:
+        db.close()
+        return jsonify({"status": "error", "message": "Already claimed today!"})
+    reward = compute_daily_reward()
+    ensure_resources(db, username)
+    add_gold(db, username, reward["gold"])
+    db.execute(
+        f"UPDATE resources SET {reward['resource']}={reward['resource']}+? WHERE username=?",
+        (reward["resource_amount"], username)
+    )
+    db.execute("UPDATE login_streaks SET daily_reward_claimed=? WHERE username=?", (today, username))
+    log_event(db, "village",
+              f"{username} claimed day {row['current_streak']} streak reward: +{reward['gold']} gold + {reward['resource_amount']} {reward['resource']} {reward['resource_icon']}",
+              username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "earned": reward})
+
+
+BUILDINGS_CONFIG_PATH = Path("building_config.json")
+
+@app.route("/buildings/config")
+def get_building_config():
+    if BUILDINGS_CONFIG_PATH.exists():
+        return jsonify(json.loads(BUILDINGS_CONFIG_PATH.read_text()))
+    return jsonify({})
+
+@app.route("/buildings/positions", methods=["POST"])
+def save_building_positions():
+    data = request.get_json(silent=True) or {}
+    BUILDINGS_CONFIG_PATH.write_text(json.dumps(data, indent=2))
+    return jsonify({"status": "success"})
 
 
 @app.route("/streak/<username>")
@@ -777,6 +850,7 @@ def work_status():
         for res, rate in b.get("produces", {}).items()
     }
     db.close()
+    job_started = p["job_started"] or 0
     return jsonify({
         "working":       True,
         "building_id":   p["job"],
@@ -786,6 +860,7 @@ def work_status():
         "remaining_mins":remaining,
         "ready":         elapsed_mins >= committed,
         "preview":       preview,
+        "job_end_ts":    job_started + committed * 60,
     })
 
 
@@ -823,21 +898,24 @@ def rest():
 def combat_monsters():
     username = request.args.get("username", "")
     today    = get_today()
-    db = get_db()
-    p  = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
-    player_level = p["level"] if p else 1
-    killed_today = {
-        row["monster_id"] for row in
-        db.execute("SELECT monster_id FROM monster_kills WHERE username=? AND killed_date=?", (username, today))
-    }
-    db.close()
-    result = [
-        {**m, "id": mid,
-         "can_fight":    player_level >= m["min_level"],
-         "killed_today": mid in killed_today}
-        for mid, m in MONSTERS.items()
-    ]
-    return jsonify({"monsters": result, "player_level": player_level, "player_energy": p["energy"] if p else 100})
+    try:
+        db = get_db()
+        p  = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
+        player_level = p["level"] if p else 1
+        killed_today = {
+            row["monster_id"] for row in
+            db.execute("SELECT monster_id FROM monster_kills WHERE username=? AND killed_date=?", (username, today))
+        }
+        db.close()
+        result = [
+            {**m, "id": mid,
+             "can_fight":    player_level >= m["min_level"],
+             "killed_today": mid in killed_today}
+            for mid, m in MONSTERS.items()
+        ]
+        return jsonify({"monsters": result, "player_level": player_level, "player_energy": p["energy"] if p else 100})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e), "monsters": []})
 
 
 @app.route("/combat/fight", methods=["POST"])
