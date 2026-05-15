@@ -246,6 +246,42 @@ def log_event(db, event_type, message, username=None):
     )
 
 
+STREAK_GEAR_WEIGHTS = [
+    ("epic",     0.10),
+    ("rare",     0.30),
+    ("uncommon", 0.60),
+]
+
+def award_streak_gear(db, username, streak):
+    """On every 7th day of streak, roll a random uncommon/rare/epic gear drop."""
+    if streak <= 0 or streak % 7 != 0:
+        return None
+    roll = random.random()
+    cumulative = 0.0
+    chosen_rarity = "uncommon"
+    for rarity, weight in STREAK_GEAR_WEIGHTS:
+        cumulative += weight
+        if roll < cumulative:
+            chosen_rarity = rarity
+            break
+    candidates = [(iid, d) for iid, d in GEAR_CATALOG.items() if d.get("rarity") == chosen_rarity]
+    if not candidates:
+        return None
+    item_id, defn = random.choice(candidates)
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
+        "attack_bonus, defense_bonus, speed_bonus, hp_bonus, obtained_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (username, item_id, defn["name"], defn.get("set_name"), defn["type"], defn["slot"],
+         chosen_rarity, defn["attack_bonus"], defn["defense_bonus"],
+         defn["speed_bonus"], defn["hp_bonus"], int(time.time()))
+    )
+    log_event(db, "achievement",
+              f"{username} hit a {streak}-day streak and got {chosen_rarity.upper()} gear: {defn['name']}! 🔥",
+              username)
+    return {"item_id": item_id, "name": defn["name"], "rarity": chosen_rarity,
+            "slot": defn["slot"], "streak": streak}
+
+
 def update_login_streak(db, username, today):
     db.execute(
         "INSERT OR IGNORE INTO login_streaks (username, current_streak, longest_streak, last_login_date) VALUES (?,1,1,?)",
@@ -407,15 +443,17 @@ def home():
         return render_template("home.html", logged_in=False)
     ensure_resources(db, username)
     db.commit()
-    resources = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-    streak    = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
+    resources     = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    streak_row    = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
     db.close()
+    streak_reward = session.pop("streak_reward", None)
     return render_template(
         "home.html",
         logged_in=True,
         penguin=penguin,
         resources=resources,
-        streak=streak["current_streak"] if streak else 1,
+        streak=streak_row["current_streak"] if streak_row else 1,
+        streak_reward=streak_reward,
     )
 
 
@@ -458,6 +496,9 @@ def callback():
     today = get_today()
     ensure_resources(db, username)
     streak = update_login_streak(db, username, today)
+    streak_reward = award_streak_gear(db, username, streak)
+    if streak_reward:
+        session["streak_reward"] = streak_reward
     advance_mission(db, username, "login_today", today)
     try:
         db.execute(
@@ -521,6 +562,24 @@ def get_resources(username):
     r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     db.close()
     return jsonify(dict(r) if r else {})
+
+
+@app.route("/streak/<username>")
+def get_streak(username):
+    db  = get_db()
+    row = db.execute(
+        "SELECT current_streak, longest_streak FROM login_streaks WHERE username=?", (username,)
+    ).fetchone()
+    db.close()
+    cur = row["current_streak"] if row else 1
+    week_day       = (cur % 7) or 7   # 1-7, where 7 = reward day
+    days_to_reward = 7 - week_day
+    return jsonify({
+        "current":        cur,
+        "longest":        row["longest_streak"] if row else 1,
+        "week_day":       week_day,
+        "days_to_reward": days_to_reward,
+    })
 
 
 @app.route("/leaderboard")
