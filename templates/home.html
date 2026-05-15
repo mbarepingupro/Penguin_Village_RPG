@@ -1058,7 +1058,7 @@
       if (data.penguins) spawnPenguins(data.penguins);
     } catch(e) {
       {% if logged_in %}
-      spawnPenguins([{ username: '{{ penguin["username"] }}', job: '{{ penguin["job"] or "" }}' }]);
+      spawnPenguins([{ username: {{ penguin["username"] | tojson }}, job: {{ (penguin["job"] or "") | tojson }} }]);
       {% endif %}
     }
   }
@@ -1103,7 +1103,7 @@
   }
 
   {% if logged_in %}
-  const CURRENT_USER = '{{ penguin["username"] }}';
+  const CURRENT_USER = {{ penguin["username"] | tojson }};
 
   // ── TOAST ──
   let _toastTimer = null;
@@ -1157,8 +1157,8 @@
   }
 
   // ── REFRESH STATS ──
-  let _jobStartedTs = {{ penguin['job_started'] or 0 }};
-  let _currentJob   = {{ ('"' + penguin['job'] + '"') if penguin['job'] else 'null' }};
+  let _jobStartedTs = {{ (penguin['job_started'] or 0) | tojson }};
+  let _currentJob   = {{ penguin['job'] | tojson }};
   let _sidebarPollTimer = null;
 
   async function refreshStats() {
@@ -1927,11 +1927,11 @@
 
   {% if streak_reward %}
   // Show streak gear drop popup
-  document.getElementById('sm-streak-line').textContent = 'Day {{ streak }} streak reward!';
-  document.getElementById('sm-item-name').textContent   = '{{ streak_reward.name }}';
+  document.getElementById('sm-streak-line').textContent = {{ ('Day ' + (streak | string) + ' streak reward!') | tojson }};
+  document.getElementById('sm-item-name').textContent   = {{ streak_reward.name | tojson }};
   const smBadge = document.getElementById('sm-rarity-badge');
-  smBadge.textContent  = '{{ streak_reward.rarity | upper }} • {{ streak_reward.slot | upper }}';
-  smBadge.className    = 'sm-rarity {{ streak_reward.rarity }}';
+  smBadge.textContent  = {{ (streak_reward.rarity.upper() + ' • ' + streak_reward.slot.upper()) | tojson }};
+  smBadge.className    = 'sm-rarity ' + {{ streak_reward.rarity | tojson }};
   document.getElementById('streak-modal').classList.add('show');
   {% endif %}
 
