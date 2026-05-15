@@ -560,6 +560,83 @@
     }
     .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
 
+    /* ── STREAK DISPLAY ── */
+    .streak-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .streak-flame { font-size: 13px; line-height: 1; }
+    .streak-count { color: var(--orange); font-size: 5px; }
+    .streak-week { display: flex; gap: 3px; margin-bottom: 5px; }
+    .streak-day {
+      width: 20px; height: 20px; border: 2px solid #333;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 5px; color: #444; flex-shrink: 0;
+    }
+    .streak-day.done   { border-color: var(--orange); background: rgba(255,140,0,0.15); color: var(--orange); }
+    .streak-day.today  { border-color: #4aff6b;       background: rgba(74,255,107,0.12); color: #4aff6b; }
+    .streak-day.reward { border-color: var(--pink);   }
+    .streak-day.reward.done  { background: rgba(255,127,229,0.2); color: var(--pink); }
+    .streak-day.reward.today { border-color: var(--pink); background: rgba(255,127,229,0.2); color: var(--pink); }
+    .streak-next { color: #666; font-size: 4px; line-height: 2; }
+    .streak-next.ready { color: #4aff6b; }
+
+    /* ── STREAK REWARD MODAL ── */
+    #streak-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88); z-index: 9990;
+      align-items: center; justify-content: center;
+    }
+    #streak-modal.show { display: flex; }
+    .streak-modal-box {
+      background: var(--panel); border: 3px solid var(--orange);
+      padding: 28px 24px; max-width: 280px; width: 90%;
+      text-align: center; font-family: 'Press Start 2P', monospace;
+      animation: popIn 0.25s ease;
+    }
+    @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .sm-fire { font-size: 36px; margin-bottom: 10px; }
+    .sm-title { color: var(--orange); font-size: 9px; margin-bottom: 6px; }
+    .sm-streak { color: #888; font-size: 5px; margin-bottom: 14px; }
+    .sm-item { color: var(--white); font-size: 7px; margin-bottom: 6px; }
+    .sm-rarity { font-size: 5px; padding: 3px 8px; border: 1px solid; display: inline-block; margin-bottom: 16px; }
+    .sm-rarity.uncommon { color: #2aaa4a; border-color: #2aaa4a; }
+    .sm-rarity.rare     { color: #4060d0; border-color: #4060d0; }
+    .sm-rarity.epic     { color: var(--purple); border-color: var(--purple); }
+    .sm-close {
+      background: var(--orange); border: 2px solid #ffa500;
+      color: var(--dark); font-size: 6px;
+      font-family: 'Press Start 2P', monospace;
+      padding: 8px 18px; cursor: pointer;
+    }
+    .sm-close:hover { background: #ffa500; }
+
+    /* ── DURATION TIER SELECTOR ── */
+    .duration-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-bottom: 8px; }
+    .dur-btn {
+      padding: 5px 3px; font-size: 4px; font-family: 'Press Start 2P', monospace;
+      border: 2px solid #333; background: var(--dark); color: #888;
+      cursor: pointer; text-align: center; line-height: 1.4;
+    }
+    .dur-btn:hover { border-color: var(--purple); color: var(--white); }
+    .dur-btn.selected { border-color: var(--orange); color: var(--orange); }
+    .dur-quality { display: block; color: #555; font-size: 3px; margin-top: 2px; }
+    .dur-btn.selected .dur-quality { color: #a86000; }
+
+    /* ── EVENT LOG ── */
+    .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .event-row { display: flex; gap: 8px; padding: 5px 8px; border-left: 3px solid; font-size: 5px; line-height: 1.8; }
+    .event-row.job         { border-color: var(--orange); }
+    .event-row.combat      { border-color: var(--pink); }
+    .event-row.village     { border-color: var(--purple); }
+    .event-row.achievement { border-color: #4aff6b; }
+    .event-time { color: #555; flex-shrink: 0; width: 48px; }
+    .event-msg  { color: #ccc; flex: 1; }
+
+    /* ── GEAR RARITY BORDERS ── */
+    .gear-card.common    { border-color: #444; }
+    .gear-card.uncommon  { border-color: #2a7a3a; }
+    .gear-card.rare      { border-color: #2040a0; }
+    .gear-card.epic      { border-color: #6030a0; }
+    .gear-card.legendary { border-color: #a06000; }
+
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: var(--dark); }
@@ -659,11 +736,22 @@
 
         <div class="work-msg" id="work-msg"></div>
 
+        <!-- STREAK SECTION -->
+        <div class="stats-section">
+          <div class="section-title">STREAK</div>
+          <div class="streak-row">
+            <span class="streak-flame">🔥</span>
+            <span class="streak-count" id="streak-count">{{ streak }} DAY{% if streak != 1 %}S{% endif %}</span>
+          </div>
+          <div class="streak-week" id="streak-week"></div>
+          <div class="streak-next" id="streak-next">LOADING...</div>
+        </div>
+
         <!-- RESOURCES SECTION -->
         <div class="stats-section">
           <div class="section-title">RESOURCES</div>
           <div class="res-grid">
-            <div class="res-item"><span class="res-icon">💰</span><span class="res-val" id="res-coins">{{ penguin['coins'] }}</span></div>
+            <div class="res-item"><span class="res-icon">💰</span><span class="res-val" id="res-gold">{{ resources.gold if resources else 0 }}</span></div>
             <div class="res-item"><span class="res-icon">🐟</span><span class="res-val" id="res-fish">0</span></div>
             <div class="res-item"><span class="res-icon">🌿</span><span class="res-val" id="res-herbs">0</span></div>
             <div class="res-item"><span class="res-icon">💎</span><span class="res-val" id="res-blood-gems">0</span></div>
@@ -733,6 +821,7 @@
         <button class="content-tab"        data-tab="missions"onclick="switchContentTab('missions', this)">MISSIONS</button>
         <button class="content-tab"        data-tab="igloo"   onclick="switchContentTab('igloo', this)">IGLOO</button>
         <button class="content-tab"        data-tab="awards"  onclick="switchContentTab('awards', this)">AWARDS</button>
+        <button class="content-tab"        data-tab="eventlog" onclick="switchContentTab('eventlog', this)">EVENTS</button>
       </div>
 
       <!-- MAP TAB -->
@@ -800,6 +889,13 @@
         </div>
       </div>
 
+      <!-- EVENT LOG TAB -->
+      <div class="content-panel" id="panel-eventlog">
+        <div class="eventlog-panel" id="eventlog-list">
+          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
+        </div>
+      </div>
+
     </div><!-- /content -->
 
   </div><!-- /main -->
@@ -822,6 +918,19 @@
   {% endif %}
 
 </div><!-- /#app -->
+
+<!-- STREAK REWARD MODAL -->
+<div id="streak-modal">
+  <div class="streak-modal-box">
+    <div class="sm-fire">🔥</div>
+    <div class="sm-title">7-DAY STREAK!</div>
+    <div class="sm-streak" id="sm-streak-line"></div>
+    <div class="sm-item" id="sm-item-name"></div>
+    <div class="sm-rarity" id="sm-rarity-badge"></div>
+    <br>
+    <button class="sm-close" onclick="document.getElementById('streak-modal').classList.remove('show')">SWEET!</button>
+  </div>
+</div>
 
 <!-- TOAST -->
 <div id="toast"></div>
@@ -849,6 +958,7 @@
     if (name === 'combat')    loadCombat();
     if (name === 'gear')      loadGear();
     if (name === 'awards')    loadAwards();
+    if (name === 'eventlog')  loadEventLog();
   }
 
   async function checkLiveStatus() {
@@ -882,7 +992,7 @@
           <div class="lb-rank">${rank}</div>
           <div class="lb-name">${p.username.toUpperCase()}</div>
           <div class="lb-level">LV${p.level}</div>
-          <div class="lb-coins">${p.coins}G</div>
+          <div class="lb-coins">${(p.gold || 0)}G</div>
         </div>`;
       });
       list.innerHTML = html;
@@ -966,13 +1076,13 @@
         : stream ? '<span class="mission-badge stream">STREAM</span>' : '';
       let footer;
       if (done) {
-        footer = `<span class="mission-reward">+${m.coins} COINS EARNED</span>
+        footer = `<span class="mission-reward">+${m.gold} GOLD EARNED</span>
                   <span class="mission-prog">${m.progress}/${m.target}</span>`;
       } else if (stream) {
-        footer = `<span class="mission-reward">+${m.coins} COINS</span>
+        footer = `<span class="mission-reward">+${m.gold} GOLD</span>
                   <button class="mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>`;
       } else {
-        footer = `<span class="mission-reward">+${m.coins} COINS</span>
+        footer = `<span class="mission-reward">+${m.gold} GOLD</span>
                   <span class="mission-prog">${m.progress}/${m.target}</span>`;
       }
       html += `
@@ -1064,13 +1174,16 @@
 
       if (pData.status === 'success') {
         const p = pData.penguin;
-        document.getElementById('stat-energy').textContent = p.energy + '/100';
-        document.getElementById('energy-bar').style.width = p.energy + '%';
+        const maxE = p.max_energy || 100;
+        document.getElementById('stat-energy').textContent = p.energy + '/' + maxE;
+        document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
         document.getElementById('stat-level').textContent = '★ LEVEL ' + p.level;
-        const xpPct = p.xp_in_level !== undefined ? p.xp_in_level : (p.xp % 100);
-        document.getElementById('stat-xp').textContent = xpPct + '/100';
+        const xpNeeded = p.xp_needed || 100;
+        const xpInto   = p.xp_into   || 0;
+        const xpPct    = Math.round((xpInto / xpNeeded) * 100);
+        document.getElementById('stat-xp').textContent = xpInto + '/' + xpNeeded;
         document.getElementById('xp-bar').style.width = xpPct + '%';
-        document.getElementById('res-coins').textContent = p.coins;
+        document.getElementById('res-gold').textContent = p.gold || 0;
 
         _currentJob   = p.job || null;
         _jobStartedTs = p.job_started || 0;
@@ -1111,17 +1224,27 @@
     } catch(e) {}
   }
 
-  function updateSidebarJobInfo() {
+  async function updateSidebarJobInfo() {
     const infoEl = document.getElementById('sidebar-job-info');
-    if (!infoEl || !_currentJob || !_jobStartedTs) { return; }
-    const mins = Math.floor((Date.now() / 1000 - _jobStartedTs) / 60);
-    const b = VILLAGE_BUILDINGS[_currentJob];
-    let preview = '';
-    if (b && b.produces) {
-      const parts = Object.entries(b.produces).map(([k, v]) => `~${Math.floor(v * mins)} ${k}`);
-      preview = parts.join(', ');
-    }
-    infoEl.innerHTML = `~${mins}min worked<br>${preview ? 'EST: ' + preview : ''}`;
+    if (!infoEl || !_currentJob) return;
+    try {
+      const res  = await fetch(`/work/status?username=${CURRENT_USER}`);
+      const data = await res.json();
+      if (!data.working) {
+        document.getElementById('sidebar-collect-section').style.display = 'none';
+        stopSidebarPoll();
+        _currentJob = null;
+        document.getElementById('stat-status').textContent  = 'RESTING';
+        document.getElementById('stat-status').className    = 'stat-val status-resting';
+        return;
+      }
+      const remaining = data.remaining_mins;
+      const readyStr  = remaining > 0 ? `${remaining} min left` : '✓ READY!';
+      const prevStr   = Object.entries(data.preview || {}).filter(([,v]) => v > 0).map(([k,v]) => `~${v} ${k}`).join(', ');
+      infoEl.innerHTML = `${data.building_name}<br>${readyStr}${prevStr ? '<br>' + prevStr : ''}`;
+      const btn = document.getElementById('sidebar-collect-btn');
+      if (btn) btn.textContent = data.ready ? '✓ COLLECT NOW' : 'COLLECT EARLY';
+    } catch(e) {}
   }
 
   function startSidebarPoll() {
@@ -1223,30 +1346,37 @@
 
     if (btype === 'job') {
       if (data.working_here) {
-        const mins = data.minutes_worked || 0;
-        const prev = data.preview_earnings || {};
-        const prevStr = Object.entries(prev).map(([k,v]) => `~${v} ${k}`).join(', ');
-        html += `<div class="bp-info">Working ${mins} min<br>${prevStr ? 'Est: ' + prevStr : 'Keep going...'}</div>`;
+        const mins      = data.minutes_worked || 0;
+        const committed = data.committed_mins || 0;
+        const remaining = Math.max(0, committed - mins);
+        const prev      = data.preview_earnings || {};
+        const prevStr   = Object.entries(prev).map(([k,v]) => `~${v} ${k}`).join(', ');
+        const readyMsg  = remaining > 0 ? `${remaining} min left` : '<span style="color:#4aff6b;">READY TO COLLECT!</span>';
+        html += `<div class="bp-info">${mins}/${committed} min worked<br>${readyMsg}${prevStr ? '<br>Est: ' + prevStr : ''}</div>`;
         html += `<button class="bp-btn collect" onclick="bpCollect()">COLLECT EARNINGS</button>`;
       } else if (data.player_job && data.player_job !== data.building_id) {
         html += `<div class="bp-info" style="color:#ff6b6b;">Already working elsewhere!<br>Collect first.</div>`;
       } else {
-        const ec = data.energy_cost || 0;
-        const canAfford = (data.player_energy || 0) >= ec;
-        html += `<div class="bp-info">Energy cost: ${ec}<br>Your energy: ${data.player_energy || 0}</div>`;
         const produces = data.produces || {};
-        const prodStr = Object.entries(produces).map(([k,v]) => `${v}/min ${k}`).join(', ');
-        if (prodStr) html += `<div class="bp-info">Produces: ${prodStr}</div>`;
-        html += `<button class="bp-btn" ${canAfford ? '' : 'disabled'} onclick="bpStartWork('${data.building_id}')">
-          ${canAfford ? 'START ' + (data.job_label || 'WORK') : 'NOT ENOUGH ENERGY'}
-        </button>`;
+        const prodStr  = Object.entries(produces).map(([k,v]) => `${v}/hr ${k}`).join(', ');
+        if (prodStr) html += `<div class="bp-info" style="color:#888;">Per hour (at 4hr): ${prodStr}</div>`;
+        const tiers = data.job_tiers || {};
+        html += `<div class="bp-info" style="color:#888;margin-bottom:4px;">Choose duration:</div>`;
+        html += `<div class="duration-grid">`;
+        [[30,'30M'],[60,'1HR'],[120,'2HR'],[240,'4HR'],[480,'8HR'],[720,'12HR']].forEach(([m, lbl]) => {
+          const t   = tiers[String(m)] || {};
+          const sel = _selectedDuration === m ? ' selected' : '';
+          html += `<button class="dur-btn${sel}" onclick="selectDuration(${m}, this)">${lbl}<span class="dur-quality">${t.quality || ''}</span></button>`;
+        });
+        html += `</div>`;
+        html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label || 'WORK'}</button>`;
       }
     } else if (btype === 'rest') {
-      const cost = data.rest_cost || 30;
-      const canAfford = (data.player_coins || 0) >= cost;
-      html += `<div class="bp-info">Restore energy to 100.<br>Cost: ${cost} coins<br>Your coins: ${data.player_coins || 0}</div>`;
+      const cost      = data.rest_cost || 50;
+      const canAfford = (data.player_gold || 0) >= cost;
+      html += `<div class="bp-info">Restore energy to full.<br>Cost: ${cost} gold<br>Your gold: ${data.player_gold || 0}</div>`;
       html += `<button class="bp-btn" ${canAfford ? '' : 'disabled'} onclick="bpRest()">
-        ${canAfford ? 'REST (30 COINS)' : 'NEED 30 COINS'}
+        ${canAfford ? 'REST (' + cost + ' GOLD)' : 'NEED ' + cost + ' GOLD'}
       </button>`;
     } else if (btype === 'combat') {
       html += `<div class="bp-info">Fight monsters. Win loot.<br>Try not to die.</div>`;
@@ -1261,12 +1391,20 @@
     container.innerHTML = html;
   }
 
+  let _selectedDuration = 240;
+
+  function selectDuration(mins, el) {
+    _selectedDuration = mins;
+    document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('selected'));
+    if (el) el.classList.add('selected');
+  }
+
   async function bpStartWork(buildingId) {
     try {
       const res = await fetch('/work/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId })
+        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId, duration_minutes: _selectedDuration })
       });
       const data = await res.json();
       if (data.status === 'success') {
@@ -1398,11 +1536,14 @@
 
       let html = '<div class="gear-section-title">OWNED GEAR</div><div class="gear-grid">';
       if (gData.gear && gData.gear.length) {
+        const slotIcons = {weapon:'⚔️', chest:'🛡️', boots:'👟', hat:'🎩', cape:'🧣'};
         gData.gear.forEach(g => {
-          const eq = g.equipped ? ' equipped' : '';
+          const eq       = g.equipped ? ' equipped' : '';
+          const rarity   = g.rarity || 'common';
           const statsStr = (g.attack_bonus > 0 ? `+${g.attack_bonus} ATK ` : '') + (g.defense_bonus > 0 ? `+${g.defense_bonus} DEF` : '');
-          html += `<div class="gear-card ${g.type}${eq}">
-            <div class="gear-card-icon">${(gData.catalog[g.item_id] || {}).icon || '❓'}</div>
+          const gIcon    = slotIcons[g.slot] || '❓';
+          html += `<div class="gear-card ${g.type} ${rarity}${eq}">
+            <div class="gear-card-icon">${gIcon}</div>
             <div class="gear-card-name">${g.name}</div>
             ${statsStr ? `<div class="gear-card-stats">${statsStr}</div>` : ''}
             <div class="gear-card-name" style="color:#666;font-size:4px;">${g.slot.toUpperCase()}</div>
@@ -1422,22 +1563,21 @@
         // Check if can afford
         let canAfford = true;
         for (const [res, amt] of Object.entries(defn.cost)) {
-          if (res === 'coins') {
-            // we don't have coins in rData, skip check for now — backend will validate
-          } else {
-            const have = rData[res] || 0;
-            if (have < amt) { canAfford = false; }
-          }
+          const have = res === 'gold' ? (gData.gold || 0) : ((gData.resources || {})[res] || 0);
+          if (have < amt) { canAfford = false; }
         }
         const statsStr = (defn.attack_bonus > 0 ? `+${defn.attack_bonus} ATK ` : '') +
                          (defn.defense_bonus > 0 ? `+${defn.defense_bonus} DEF` : '');
-        html += `<div class="gear-card ${defn.type}">
-          <div class="gear-card-icon">${defn.icon}</div>
+        const rarityClass = defn.rarity || 'common';
+        const slotIcons = {weapon:'⚔️', chest:'🛡️', boots:'👟', hat:'🎩', cape:'🧣'};
+        const itemIcon = slotIcons[defn.slot] || '❓';
+        html += `<div class="gear-card ${defn.type} ${rarityClass}">
+          <div class="gear-card-icon">${itemIcon}</div>
           <div class="gear-card-name">${defn.name}</div>
           ${statsStr ? `<div class="gear-card-stats">${statsStr}</div>` : ''}
           <div class="gear-card-name" style="color:#666;font-size:4px;">${defn.slot.toUpperCase()}</div>
           <div class="gear-card-cost">${costStr}</div>
-          <button class="gear-card-btn buy-btn" onclick="buyGear('${itemId}')">BUY</button>
+          <button class="gear-card-btn buy-btn" ${canAfford ? '' : 'disabled'} onclick="buyGear('${itemId}')">BUY</button>
         </div>`;
       });
       html += '</div>';
@@ -1506,6 +1646,68 @@
       container.innerHTML = html || '<div style="color:#666;font-size:6px;text-align:center;padding:20px;">No achievements yet</div>';
     } catch(e) {
       container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING AWARDS</div>';
+    }
+  }
+
+  // ── STREAK ──
+  async function loadStreak() {
+    try {
+      const res  = await fetch(`/streak/${CURRENT_USER}`);
+      const data = await res.json();
+      const cur  = data.current || 1;
+      const day  = data.week_day || 1;   // 1-7
+
+      document.getElementById('streak-count').textContent = cur + ' DAY' + (cur !== 1 ? 'S' : '');
+
+      let dotsHtml = '';
+      for (let i = 1; i <= 7; i++) {
+        const isReward = i === 7;
+        let cls = 'streak-day' + (isReward ? ' reward' : '');
+        let label = isReward ? '★' : String(i);
+        if (i < day)       { cls += ' done';  label = isReward ? '★' : '✓'; }
+        else if (i === day){ cls += ' today'; label = isReward ? '★' : '●'; }
+        dotsHtml += `<div class="${cls}" title="Day ${i}">${label}</div>`;
+      }
+      document.getElementById('streak-week').innerHTML = dotsHtml;
+
+      const nextEl = document.getElementById('streak-next');
+      if (data.days_to_reward === 0) {
+        nextEl.textContent = '★ GEAR DROP EARNED TODAY!';
+        nextEl.className   = 'streak-next ready';
+      } else {
+        nextEl.textContent = data.days_to_reward + ' day' + (data.days_to_reward !== 1 ? 's' : '') + ' until gear drop';
+        nextEl.className   = 'streak-next';
+      }
+    } catch(e) {}
+  }
+
+  // ── EVENT LOG ──
+  async function loadEventLog() {
+    const container = document.getElementById('eventlog-list');
+    if (!container) return;
+    container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>';
+    try {
+      const res  = await fetch('/events');
+      const data = await res.json();
+      if (!data.events || data.events.length === 0) {
+        container.innerHTML = '<div style="color:#666;font-size:6px;text-align:center;padding:20px;">NO EVENTS YET</div>';
+        return;
+      }
+      const now = Math.floor(Date.now() / 1000);
+      let html = '';
+      data.events.forEach(e => {
+        const agoSecs = now - (e.created_at || 0);
+        const timeStr = agoSecs < 3600
+          ? `${Math.floor(agoSecs / 60)}m ago`
+          : `${Math.floor(agoSecs / 3600)}h ago`;
+        html += `<div class="event-row ${e.event_type || 'village'}">
+          <span class="event-time">${timeStr}</span>
+          <span class="event-msg">${e.message}</span>
+        </div>`;
+      });
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:6px;text-align:center;padding:20px;">ERROR LOADING EVENTS</div>';
     }
   }
 
@@ -1718,9 +1920,21 @@
   loadMapPenguins();
   injectBuildingHotspots();
   refreshStats();
+  loadStreak();
   setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
+
+  {% if streak_reward %}
+  // Show streak gear drop popup
+  document.getElementById('sm-streak-line').textContent = 'Day {{ streak }} streak reward!';
+  document.getElementById('sm-item-name').textContent   = '{{ streak_reward.name }}';
+  const smBadge = document.getElementById('sm-rarity-badge');
+  smBadge.textContent  = '{{ streak_reward.rarity | upper }} • {{ streak_reward.slot | upper }}';
+  smBadge.className    = 'sm-rarity {{ streak_reward.rarity }}';
+  document.getElementById('streak-modal').classList.add('show');
+  {% endif %}
+
   {% endif %}
 </script>
 
