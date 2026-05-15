@@ -84,7 +84,7 @@
       border-right: var(--border);
       display: flex;
       flex-direction: column;
-      overflow-y: auto;
+      overflow-y: hidden;
     }
 
     .sidebar-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; }
@@ -104,8 +104,37 @@
     .sidebar-tab.active { color: var(--purple); background: var(--panel); }
     .sidebar-tab:hover:not(.active) { color: var(--pink); }
 
-    .sidebar-panel { display: none; flex-direction: column; flex: 1; }
+    .sidebar-panel { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
     .sidebar-panel.active { display: flex; }
+
+    /* ── STATS SIDEBAR TAB ── */
+    .sb-section { padding: 10px; border-bottom: 2px solid var(--purple); flex-shrink: 0; }
+    .sb-section-title { color: var(--purple); font-size: 10px; margin-bottom: 8px; }
+    .sb-res-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .sb-res-lbl { color: #888; font-size: 8px; }
+    .sb-res-val { color: var(--white); font-size: 9px; }
+    .sb-mission-row { display: flex; align-items: flex-start; gap: 5px; padding: 5px 0; border-bottom: 1px solid #2a2a2a; }
+    .sb-mission-check { font-size: 9px; flex-shrink: 0; line-height: 1.6; }
+    .sb-mission-info { flex: 1; min-width: 0; }
+    .sb-mission-title { font-size: 7px; line-height: 1.6; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sb-mission-reward { color: var(--orange); font-size: 7px; }
+    .sb-mission-claim {
+      background: #6441a5; border: 1px solid var(--purple);
+      color: var(--white); font-size: 6px; align-self: center;
+      font-family: 'Press Start 2P', monospace; padding: 3px 5px; cursor: pointer; flex-shrink: 0;
+    }
+    .sb-mission-claim:hover:not(:disabled) { border-color: var(--pink); }
+    .sb-mission-claim:disabled { opacity: 0.4; cursor: not-allowed; }
+    .sb-streak-count { color: var(--orange); font-size: 11px; }
+    .sb-award-row { display: flex; align-items: center; justify-content: space-between; }
+    .sb-award-count { color: var(--white); font-size: 8px; }
+    .sb-award-btn {
+      background: transparent; border: 1px solid var(--purple);
+      color: var(--purple); font-size: 7px;
+      font-family: 'Press Start 2P', monospace; padding: 3px 6px; cursor: pointer;
+    }
+    .sb-award-btn:hover { border-color: var(--pink); color: var(--pink); }
+    .gear-slot-icon { font-size: 14px; flex-shrink: 0; }
 
     /* ── PENGUIN PANEL ── */
     .penguin-display {
@@ -706,7 +735,7 @@
     <div class="sidebar">
       <div class="sidebar-tabs">
         <button class="sidebar-tab active" onclick="switchSidebarTab('penguin', this)">PENGUIN</button>
-        <button class="sidebar-tab" onclick="switchSidebarTab('village-info', this)">VILLAGE</button>
+        <button class="sidebar-tab" onclick="switchSidebarTab('stats', this)">STATS</button>
       </div>
 
       <!-- PENGUIN TAB -->
@@ -716,24 +745,27 @@
           <img src="/static/penguin.png" class="penguin-sprite" alt="Penguin"
                onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
+          {% if penguin['prestige'] and penguin['prestige'] > 0 %}
+          <div style="color:var(--pink);font-size:8px;">{{ '★' * penguin['prestige'] }} PRESTIGE</div>
+          {% endif %}
           <div class="penguin-level" id="stat-level">★ LEVEL {{ penguin['level'] }}</div>
         </div>
 
         <div class="stats-section">
           <div class="section-title">STATS</div>
           <div class="stat-row">
-            <span class="stat-lbl">ENERGY</span>
-            <span class="stat-val" id="stat-energy">{{ penguin['energy'] }}/100</span>
-          </div>
-          <div class="bar-wrap">
-            <div class="bar-fill" id="energy-bar" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
-          </div>
-          <div class="stat-row">
             <span class="stat-lbl">XP</span>
             <span class="stat-val" id="stat-xp">0/100</span>
           </div>
           <div class="bar-wrap">
             <div class="bar-fill" id="xp-bar" style="width:0%; background:var(--purple);"></div>
+          </div>
+          <div class="stat-row">
+            <span class="stat-lbl">ENERGY</span>
+            <span class="stat-val" id="stat-energy">{{ penguin['energy'] }}/100</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" id="energy-bar" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
           </div>
           <div class="stat-row">
             <span class="stat-lbl">STATUS</span>
@@ -753,79 +785,89 @@
 
         <div class="work-msg" id="work-msg"></div>
 
-        <!-- STREAK SECTION -->
-        <div class="stats-section">
-          <div class="section-title">STREAK</div>
-          <div class="streak-row">
-            <span class="streak-flame">🔥</span>
-            <span class="streak-count" id="streak-count">{{ streak }} DAY{% if streak != 1 %}S{% endif %}</span>
-          </div>
-          <div class="streak-week" id="streak-week"></div>
-          <div class="streak-next" id="streak-next">LOADING...</div>
-          <div style="color:#555; font-size:7px; margin-top:4px;">RESETS: <span id="streak-reset-countdown"></span></div>
-        </div>
-
-        <!-- RESOURCES SECTION -->
-        <div class="stats-section">
-          <div class="section-title">RESOURCES</div>
-          <div class="res-grid">
-            <div class="res-item"><span class="res-icon">💰</span><span class="res-val" id="res-gold">{{ resources.gold if resources else 0 }}</span></div>
-            <div class="res-item"><span class="res-icon">🐟</span><span class="res-val" id="res-fish">0</span></div>
-            <div class="res-item"><span class="res-icon">🌿</span><span class="res-val" id="res-herbs">0</span></div>
-            <div class="res-item"><span class="res-icon">💎</span><span class="res-val" id="res-blood-gems">0</span></div>
-            <div class="res-item"><span class="res-icon">🦴</span><span class="res-val" id="res-bones">0</span></div>
-            <div class="res-item"><span class="res-icon">✨</span><span class="res-val" id="res-frags">0</span></div>
-          </div>
-        </div>
-
-        <!-- GEAR SLOTS -->
+        <!-- EQUIPPED GEAR (4 slots with icons) -->
         <div class="gear-slots">
-          <div class="section-title">GEAR</div>
+          <div class="section-title">EQUIPPED GEAR</div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-lbl">WEAPON</span>
+            <span class="gear-slot-icon">⚔️</span>
+            <span class="gear-slot-lbl">WPN</span>
             <span class="gear-slot-val" id="gear-slot-weapon">---</span>
           </div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-lbl">ARMOR</span>
+            <span class="gear-slot-icon">🛡️</span>
+            <span class="gear-slot-lbl">ARM</span>
             <span class="gear-slot-val" id="gear-slot-armor">---</span>
           </div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
+            <span class="gear-slot-icon">🎩</span>
             <span class="gear-slot-lbl">HAT</span>
             <span class="gear-slot-val" id="gear-slot-hat">---</span>
           </div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
+            <span class="gear-slot-icon">🧣</span>
             <span class="gear-slot-lbl">CAPE</span>
             <span class="gear-slot-val" id="gear-slot-cape">---</span>
           </div>
         </div>
 
-        <!-- SOCIAL LINKS -->
-        <div class="social-section">
-          <a href="https://twitch.tv/mbarepingu" target="_blank"
-             class="social-btn twitch-btn" id="twitch-link">
-            <span>📺</span>
-            <span id="twitch-label">TWITCH</span>
-          </a>
-          <a href="https://linktr.ee/mbarepingu" target="_blank"
-             class="social-btn linktree-btn">
-            <span>🌿</span>
-            <span>LINKTREE</span>
-          </a>
+      </div>
+
+      <!-- STATS TAB -->
+      <div class="sidebar-panel" id="sidebar-stats">
+
+        <!-- RESOURCES -->
+        <div class="sb-section">
+          <div class="sb-section-title">RESOURCES</div>
+          <div class="sb-res-row"><span class="sb-res-lbl">🪙 GOLD</span><span class="sb-res-val" id="res-gold">{{ resources.gold if resources else 0 }}</span></div>
+          <div class="sb-res-row"><span class="sb-res-lbl">🐟 FISH</span><span class="sb-res-val" id="res-fish">0</span></div>
+          <div class="sb-res-row"><span class="sb-res-lbl">🌿 HERBS</span><span class="sb-res-val" id="res-herbs">0</span></div>
+          <div class="sb-res-row"><span class="sb-res-lbl">💎 BLOOD GEMS</span><span class="sb-res-val" id="res-blood-gems">0</span></div>
+          <div class="sb-res-row"><span class="sb-res-lbl">🦴 BONES</span><span class="sb-res-val" id="res-bones">0</span></div>
+          <div class="sb-res-row"><span class="sb-res-lbl">✨ SPELL FRAGS</span><span class="sb-res-val" id="res-frags">0</span></div>
+        </div>
+
+        <!-- DAILY MISSIONS -->
+        <div class="sb-section">
+          <div class="sb-section-title">MISSIONS</div>
+          <div id="sb-missions-list" style="color:#888;font-size:8px;">LOADING...</div>
+          <div style="color:#555;font-size:7px;margin-top:7px;">RESETS: <span id="sb-missions-countdown"></span></div>
+        </div>
+
+        <!-- STREAK -->
+        <div class="sb-section">
+          <div class="sb-section-title">STREAK</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+            <span style="font-size:16px;">🔥</span>
+            <span class="sb-streak-count" id="streak-count">{{ streak }} DAY{% if streak != 1 %}S{% endif %}</span>
+          </div>
+          <div class="streak-week" id="streak-week"></div>
+          <div class="streak-next" id="streak-next" style="margin-top:4px;">LOADING...</div>
+          <div style="color:#555;font-size:7px;margin-top:4px;">RESETS: <span id="streak-reset-countdown"></span></div>
+        </div>
+
+        <!-- ACHIEVEMENTS -->
+        <div class="sb-section">
+          <div class="sb-section-title">ACHIEVEMENTS</div>
+          <div class="sb-award-row">
+            <span class="sb-award-count" id="sb-award-count">-- / -- UNLOCKED</span>
+            <button class="sb-award-btn" onclick="switchContentTab('awards', document.querySelector('[data-tab=awards]'))">VIEW →</button>
+          </div>
         </div>
 
       </div>
 
-      <!-- VILLAGE INFO TAB -->
-      <div class="sidebar-panel" id="sidebar-village-info">
-        <div class="stats-section">
-          <div class="section-title">VILLAGE STATS</div>
-          <div class="stat-row"><span class="stat-lbl">CITIZENS</span><span class="stat-val">--</span></div>
-          <div class="stat-row"><span class="stat-lbl">BUILDINGS</span><span class="stat-val">9</span></div>
-        </div>
-        <div class="stats-section">
-          <div class="section-title">LEADERBOARD</div>
-          <div id="sidebar-lb" style="font-size:7px; color:#888; padding:4px 0;">LOADING...</div>
-        </div>
+      <!-- SOCIAL LINKS (always visible at bottom regardless of tab) -->
+      <div class="social-section" style="flex-shrink:0;">
+        <a href="https://twitch.tv/mbarepingu" target="_blank"
+           class="social-btn twitch-btn" id="twitch-link">
+          <span>📺</span>
+          <span id="twitch-label">TWITCH</span>
+        </a>
+        <a href="https://linktr.ee/mbarepingu" target="_blank"
+           class="social-btn linktree-btn">
+          <span>🌿</span>
+          <span>LINKTREE</span>
+        </a>
       </div>
 
     </div>
@@ -983,6 +1025,7 @@
     document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('sidebar-' + name).classList.add('active');
+    if (name === 'stats') { loadStatsMissions(); loadStatsAchievements(); }
   }
 
   function switchContentTab(name, btn) {
@@ -1191,11 +1234,53 @@
       if (data.status === 'success') {
         showToast(data.message, 'ok');
         loadMissions();
+        loadStatsMissions();
       } else {
         showToast(data.message, 'err');
         btn.disabled = false;
       }
     } catch(e) { btn.disabled = false; }
+  }
+
+  // ── STATS SIDEBAR ──
+  async function loadStatsMissions() {
+    const el = document.getElementById('sb-missions-list');
+    if (!el) return;
+    try {
+      const res  = await fetch(`/missions/${CURRENT_USER}`);
+      const data = await res.json();
+      let html = '';
+      (data.missions || []).forEach(m => {
+        const done  = m.completed;
+        const stream = m.stream;
+        const check = done ? '✓' : '○';
+        const titleColor = done ? '#555' : stream ? '#9b72d8' : 'var(--white)';
+        const checkColor = done ? '#4aff6b' : stream ? '#9b72d8' : '#555';
+        html += `<div class="sb-mission-row">
+          <span class="sb-mission-check" style="color:${checkColor}">${check}</span>
+          <div class="sb-mission-info">
+            <div class="sb-mission-title" style="color:${titleColor}">${m.icon} ${m.title}</div>
+            <div class="sb-mission-reward">+${m.gold}G</div>
+          </div>
+          ${stream && !done ? `<button class="sb-mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>` : ''}
+        </div>`;
+      });
+      el.innerHTML = html || '<span style="color:#555;font-size:7px;">NO MISSIONS</span>';
+    } catch(e) {
+      el.innerHTML = '<span style="color:#555;font-size:7px;">ERROR</span>';
+    }
+  }
+
+  async function loadStatsAchievements() {
+    const el = document.getElementById('sb-award-count');
+    if (!el) return;
+    try {
+      const res  = await fetch(`/achievements/${CURRENT_USER}`);
+      const data = await res.json();
+      const all      = data.achievements || [];
+      const unlocked = all.filter(a => a.unlocked).length;
+      el.textContent = `${unlocked} / ${all.length} UNLOCKED`;
+    } catch(e) {}
   }
 
   // ── REFRESH STATS ──
@@ -1338,12 +1423,10 @@
 
   function startMidnightCountdowns() {
     const midTs = getMidnightTs();
-    if (document.getElementById('streak-reset-countdown'))
-      startCountdown('streak-reset-countdown', midTs);
-    if (document.getElementById('missions-reset-countdown'))
-      startCountdown('missions-reset-countdown', midTs);
-    if (document.getElementById('combat-reset-countdown'))
-      startCountdown('combat-reset-countdown', midTs);
+    ['streak-reset-countdown', 'missions-reset-countdown',
+     'combat-reset-countdown', 'sb-missions-countdown'].forEach(id => {
+      if (document.getElementById(id)) startCountdown(id, midTs);
+    });
   }
 
   async function sidebarCollect() {
@@ -2102,6 +2185,7 @@
   injectBuildingHotspots();
   refreshStats();
   loadStreak();
+  loadStatsAchievements();
   startMidnightCountdowns();
   setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
