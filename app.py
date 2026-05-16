@@ -18,19 +18,10 @@ SECRET_KEY          = os.getenv("SECRET_KEY")
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
-# ── JOB DURATION TIERS ────────────────────────────────────────────────────────
-# Key = duration in minutes. rate_mult is applied to the base per-hour rates.
-JOB_TIERS = {
-    30:  {"label": "30 MIN",   "quality": "POOR",  "rate_mult": 0.50},
-    60:  {"label": "1 HOUR",   "quality": "OK",    "rate_mult": 0.75},
-    120: {"label": "2 HOURS",  "quality": "DECENT","rate_mult": 0.875},
-    240: {"label": "4 HOURS",  "quality": "GOOD",  "rate_mult": 1.0},
-    480: {"label": "8 HOURS",  "quality": "GREAT", "rate_mult": 1.2},
-    720: {"label": "12 HOURS", "quality": "BEST",  "rate_mult": 1.4},
-}
-
 # ── BUILDINGS ─────────────────────────────────────────────────────────────────
-# produces = per-hour rates at 4-hour baseline (rate_mult 1.0)
+# produces = per-hour rates. Jobs cap at JOB_CAP_HOURS; earned = floor(rate * hours).
+JOB_CAP_HOURS = 8.0
+
 BUILDINGS = {
     "hotel": {
         "name": "Penguin Hotel", "icon": "🏨",
@@ -54,28 +45,28 @@ BUILDINGS = {
         "name": "Ash's Sea Lion Pit", "icon": "🦭",
         "desc": "Fish don't catch themselves. Actually here they do.",
         "type": "job", "job_label": "FISHING",
-        "produces": {"fish": 20, "gold": 5},
+        "produces": {"fish": 0.2, "gold": 1.0, "xp": 2.0},
         "pos": {"x": 36, "y": 62},
     },
     "parkmusement": {
         "name": "Ash's Parkmusement", "icon": "🎪",
         "desc": "Step right up! Juggle fish for coins! No refunds.",
         "type": "job", "job_label": "CIRCUS",
-        "produces": {"gold": 30},
+        "produces": {"gold": 3.0, "xp": 2.0},
         "pos": {"x": 47, "y": 48},
     },
     "cursed_temple": {
         "name": "Cursed Temple", "icon": "⛩️",
         "desc": "Dark rituals. Ancient power. No refunds.",
         "type": "job", "job_label": "MONK",
-        "produces": {"xp": 200, "blood_gems": 1},
+        "produces": {"blood_gems": 0.2, "xp": 4.0},
         "pos": {"x": 9, "y": 30},
     },
     "club_soda": {
         "name": "Club Soda", "icon": "🌿",
         "desc": "Where the herbs are fresh and the beats are questionable.",
         "type": "job", "job_label": "HERBALISM",
-        "produces": {"herbs": 15, "gold": 5},
+        "produces": {"herbs": 0.2, "gold": 1.0, "xp": 2.0},
         "pos": {"x": 67, "y": 58},
     },
     "barracks": {
@@ -88,7 +79,7 @@ BUILDINGS = {
         "name": "Gil the Guillotine", "icon": "💀",
         "desc": "A hard day's work. Blood gems don't collect themselves.",
         "type": "job", "job_label": "EXECUTIONER",
-        "produces": {"blood_gems": 5, "bones": 10, "gold": 5},
+        "produces": {"blood_gems": 0.1, "bones": 0.1, "gold": 1.0, "xp": 2.0},
         "pos": {"x": 84, "y": 58},
     },
 }
@@ -692,17 +683,15 @@ def building_info(building_id):
     db.close()
 
     working_here     = p["job"] == building_id
-    minutes_worked   = 0
-    committed_mins   = 0
+    job_started_ts   = 0
+    hours_worked     = 0.0
     preview_earnings = {}
     if working_here:
-        elapsed_secs   = int(time.time()) - (p["job_started"] or 0)
-        committed_mins = p["job_duration"] or 240
-        elapsed_mins   = elapsed_secs // 60
-        rate_mult      = JOB_TIERS.get(committed_mins, JOB_TIERS[240])["rate_mult"]
-        minutes_worked = min(elapsed_mins, committed_mins)
+        job_started_ts = p["job_started"] or 0
+        elapsed_secs   = int(time.time()) - job_started_ts
+        hours_worked   = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
         for res, rate in b.get("produces", {}).items():
-            preview_earnings[res] = int(rate * rate_mult * (minutes_worked / 60.0))
+            preview_earnings[res] = int(rate * hours_worked)
 
     return jsonify({
         "status":          "success",
@@ -718,10 +707,11 @@ def building_info(building_id):
         "player_energy":   p["energy"] or 0,
         "player_gold":     gold,
         "working_here":    working_here,
-        "minutes_worked":  minutes_worked,
-        "committed_mins":  committed_mins,
+        "hours_worked":    round(hours_worked, 2),
+        "job_started_ts":  job_started_ts,
+        "job_cap_ts":      job_started_ts + int(JOB_CAP_HOURS * 3600) if job_started_ts else 0,
+        "complete":        hours_worked >= JOB_CAP_HOURS,
         "preview_earnings":preview_earnings,
-        "job_tiers":       {str(k): v for k, v in JOB_TIERS.items()},
     })
 
 
@@ -732,13 +722,10 @@ def work_start():
     data        = request.get_json(silent=True) or {}
     username    = data.get("username", "")
     building_id = data.get("building_id", "")
-    duration    = int(data.get("duration_minutes", 240))
 
     b = BUILDINGS.get(building_id)
     if not b or b.get("type") != "job":
         return jsonify({"status": "error", "message": "Not a job building."})
-    if duration not in JOB_TIERS:
-        return jsonify({"status": "error", "message": "Invalid duration."})
 
     db = get_db()
     p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
@@ -749,17 +736,22 @@ def work_start():
         db.close()
         return jsonify({"status": "error", "message": "Already working! Collect first."})
 
+    now = int(time.time())
     db.execute(
-        "UPDATE penguins SET job=?, job_started=?, job_duration=? WHERE username=?",
-        (building_id, int(time.time()), duration, username)
+        "UPDATE penguins SET job=?, job_started=?, job_duration=0 WHERE username=?",
+        (building_id, now, username)
     )
     today = get_today()
     advance_mission(db, username, "work_today", today)
-    tier_label = JOB_TIERS[duration]["label"]
-    log_event(db, "job", f"{username} started {b['job_label']} at {b['name']} ({tier_label})", username)
+    log_event(db, "job", f"{username} started {b['job_label']} at {b['name']}", username)
     db.commit()
     db.close()
-    return jsonify({"status": "success", "message": f"Started {b['job_label']}!", "building_id": building_id})
+    return jsonify({
+        "status":      "success",
+        "message":     f"Started {b['job_label']}!",
+        "building_id": building_id,
+        "job_cap_ts":  now + int(JOB_CAP_HOURS * 3600),
+    })
 
 
 @app.route("/work/collect", methods=["POST"])
@@ -779,18 +771,15 @@ def work_collect():
         db.close()
         return jsonify({"status": "error", "message": "Invalid job state cleared."})
 
-    committed_mins  = p["job_duration"] or 240
-    actual_secs     = int(time.time()) - (p["job_started"] or 0)
-    actual_mins     = actual_secs / 60.0
-    effective_mins  = min(actual_mins, committed_mins)  # no bonus for going over
-    rate_mult       = JOB_TIERS.get(committed_mins, JOB_TIERS[240])["rate_mult"]
+    elapsed_secs  = int(time.time()) - (p["job_started"] or 0)
+    hours_worked  = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
 
-    earned    = {}
-    leveled   = False
+    earned  = {}
+    leveled = False
     ensure_resources(db, username)
 
     for resource, rate_per_hour in b.get("produces", {}).items():
-        amount = int(rate_per_hour * rate_mult * (effective_mins / 60.0))
+        amount = int(rate_per_hour * hours_worked)
         if amount <= 0:
             continue
         earned[resource] = amount
@@ -817,7 +806,7 @@ def work_collect():
     return jsonify({
         "status":           "success",
         "earned":           earned,
-        "minutes":          int(effective_mins),
+        "hours_worked":     round(hours_worked, 2),
         "leveled_up":       leveled,
         "new_achievements": new_ach,
         "building":         b["name"],
@@ -828,32 +817,32 @@ def work_collect():
 def work_status():
     username = request.args.get("username", "")
     db = get_db()
-    p  = db.execute("SELECT job, job_started, job_duration FROM penguins WHERE username=?", (username,)).fetchone()
+    p  = db.execute("SELECT job, job_started FROM penguins WHERE username=?", (username,)).fetchone()
     if not p or not p["job"]:
         db.close()
         return jsonify({"working": False})
-    b            = BUILDINGS.get(p["job"], {})
-    elapsed_secs = int(time.time()) - (p["job_started"] or 0)
-    elapsed_mins = elapsed_secs // 60
-    committed    = p["job_duration"] or 240
-    remaining    = max(0, committed - elapsed_mins)
-    rate_mult    = JOB_TIERS.get(committed, JOB_TIERS[240])["rate_mult"]
-    preview      = {
-        res: int(rate * rate_mult * (min(elapsed_mins, committed) / 60.0))
+    b             = BUILDINGS.get(p["job"], {})
+    job_started   = p["job_started"] or 0
+    elapsed_secs  = int(time.time()) - job_started
+    hours_worked  = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
+    hours_remaining = max(0.0, JOB_CAP_HOURS - hours_worked)
+    complete      = hours_worked >= JOB_CAP_HOURS
+    preview       = {
+        res: int(rate * hours_worked)
         for res, rate in b.get("produces", {}).items()
     }
     db.close()
-    job_started = p["job_started"] or 0
     return jsonify({
-        "working":       True,
-        "building_id":   p["job"],
-        "building_name": b.get("name", p["job"]),
-        "elapsed_mins":  elapsed_mins,
-        "committed_mins":committed,
-        "remaining_mins":remaining,
-        "ready":         elapsed_mins >= committed,
-        "preview":       preview,
-        "job_end_ts":    job_started + committed * 60,
+        "working":          True,
+        "building_id":      p["job"],
+        "building_name":    b.get("name", p["job"]),
+        "job_label":        b.get("job_label", "WORK"),
+        "hours_worked":     round(hours_worked, 2),
+        "hours_remaining":  round(hours_remaining, 2),
+        "complete":         complete,
+        "preview":          preview,
+        "job_started_ts":   job_started,
+        "job_cap_ts":       job_started + int(JOB_CAP_HOURS * 3600),
     })
 
 
