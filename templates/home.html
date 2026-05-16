@@ -625,8 +625,9 @@
     @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .sm-fire { font-size: 36px; margin-bottom: 10px; }
     .sm-title { color: var(--orange); font-size: 14px; margin-bottom: 6px; }
-    .sm-streak { color: #888; font-size: 8px; margin-bottom: 14px; }
-    .sm-item { color: var(--white); font-size: 10px; margin-bottom: 6px; }
+    .sm-streak { color: #888; font-size: 8px; margin-bottom: 8px; }
+    .sm-item { color: #FFD700; font-size: 11px; margin-bottom: 6px; }
+    #sm-resources { color: var(--white); font-size: 9px; line-height: 2; margin-bottom: 10px; }
     .sm-rarity { font-size: 8px; padding: 4px 10px; border: 1px solid; display: inline-block; margin-bottom: 16px; }
     .sm-rarity.uncommon { color: #2aaa4a; border-color: #2aaa4a; }
     .sm-rarity.rare     { color: #4060d0; border-color: #4060d0; }
@@ -1023,10 +1024,10 @@
 <div id="streak-modal">
   <div class="streak-modal-box">
     <div class="sm-fire">🔥</div>
-    <div class="sm-title">7-DAY STREAK!</div>
+    <div class="sm-title" id="sm-title">7-DAY STREAK!</div>
     <div class="sm-streak" id="sm-streak-line"></div>
     <div class="sm-item" id="sm-item-name"></div>
-    <div class="sm-rarity" id="sm-rarity-badge"></div>
+    <div id="sm-resources"></div>
     <br>
     <button class="sm-close" onclick="document.getElementById('streak-modal').classList.remove('show')">SWEET!</button>
   </div>
@@ -2290,13 +2291,15 @@
   {% endif %}
 
   {% if streak_reward %}
-  // Show streak gear drop popup
-  document.getElementById('sm-streak-line').textContent = {{ ('Day ' + (streak | string) + ' streak reward!') | tojson }};
-  document.getElementById('sm-item-name').textContent   = {{ streak_reward.name | tojson }};
-  const smBadge = document.getElementById('sm-rarity-badge');
-  smBadge.textContent  = {{ (streak_reward.rarity.upper() + ' • ' + streak_reward.slot.upper()) | tojson }};
-  smBadge.className    = 'sm-rarity ' + {{ streak_reward.rarity | tojson }};
-  document.getElementById('streak-modal').classList.add('show');
+  (function() {
+    const sr = {{ streak_reward | tojson }};
+    document.getElementById('sm-title').textContent       = 'DAY ' + sr.streak + ' STREAK!';
+    document.getElementById('sm-streak-line').textContent = 'MILESTONE REWARD';
+    document.getElementById('sm-item-name').textContent   = '+' + sr.gold + ' GOLD';
+    document.getElementById('sm-resources').innerHTML     =
+      sr.resources.map(([k, v]) => `+${v} ${k.toUpperCase()}`).join('<br>');
+    document.getElementById('streak-modal').classList.add('show');
+  })();
   {% endif %}
 
   {% endif %}

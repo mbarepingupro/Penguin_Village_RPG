@@ -260,10 +260,18 @@ DAILY_RESOURCE_OPTIONS = [
 
 STREAK_MILESTONES = {
     3:  {"label": "100 gold",                      "gold": 100},
-    7:  {"label": "Rare gear piece",               "gold": 0},
-    14: {"label": "Cosmetic item",                 "gold": 0},
-    30: {"label": "Epic gear piece",               "gold": 0},
-    60: {"label": "Legendary cosmetic + breed",    "gold": 0},
+    7:  {"label": "Resource haul + 300 gold",      "gold": 300},
+    14: {"label": "Resource haul + 500 gold",      "gold": 500},
+    30: {"label": "Mega haul + 1000 gold",         "gold": 1000},
+    60: {"label": "Legendary haul + 2000 gold",    "gold": 2000},
+}
+
+# Resources awarded per milestone tier (every 7 days)
+_MILESTONE_TIERS = {
+    7:  {"gold": 300, "resources": [("fish", 20), ("herbs", 15)]},
+    14: {"gold": 500, "resources": [("fish", 30), ("herbs", 20), ("bones", 15)]},
+    21: {"gold": 500, "resources": [("blood_gems", 10), ("bones", 25), ("fish", 20)]},
+    28: {"gold": 750, "resources": [("blood_gems", 15), ("spell_fragments", 10), ("herbs", 25)]},
 }
 
 def compute_daily_reward():
@@ -272,40 +280,23 @@ def compute_daily_reward():
     return {"gold": 50, "resource": res_name, "resource_amount": amount, "resource_icon": res_icon}
 
 
-STREAK_GEAR_WEIGHTS = [
-    ("epic",     0.10),
-    ("rare",     0.30),
-    ("uncommon", 0.60),
-]
-
-def award_streak_gear(db, username, streak):
-    """On every 7th day of streak, roll a random uncommon/rare/epic gear drop."""
+def award_streak_milestone(db, username, streak):
+    """On every 7th login day, award a big resource haul + gold."""
     if streak <= 0 or streak % 7 != 0:
         return None
-    roll = random.random()
-    cumulative = 0.0
-    chosen_rarity = "uncommon"
-    for rarity, weight in STREAK_GEAR_WEIGHTS:
-        cumulative += weight
-        if roll < cumulative:
-            chosen_rarity = rarity
-            break
-    candidates = [(iid, d) for iid, d in GEAR_CATALOG.items() if d.get("rarity") == chosen_rarity]
-    if not candidates:
-        return None
-    item_id, defn = random.choice(candidates)
-    db.execute(
-        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
-        "attack_bonus, defense_bonus, speed_bonus, hp_bonus, obtained_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-        (username, item_id, defn["name"], defn.get("set_name"), defn["type"], defn["slot"],
-         chosen_rarity, defn["attack_bonus"], defn["defense_bonus"],
-         defn["speed_bonus"], defn["hp_bonus"], int(time.time()))
-    )
+    cycle = streak % 28 or 28
+    tier = _MILESTONE_TIERS.get(cycle, _MILESTONE_TIERS[7])
+    gold = tier["gold"]
+    resources = tier["resources"]
+    add_gold(db, username, gold)
+    ensure_resources(db, username)
+    for res_key, amount in resources:
+        db.execute(f"UPDATE resources SET {res_key}={res_key}+? WHERE username=?", (amount, username))
+    res_summary = ", ".join(f"+{amt} {key}" for key, amt in resources)
     log_event(db, "achievement",
-              f"{username} hit a {streak}-day streak and got {chosen_rarity.upper()} gear: {defn['name']}! 🔥",
+              f"{username} hit a {streak}-day streak! Haul: +{gold} gold, {res_summary} 🔥",
               username)
-    return {"item_id": item_id, "name": defn["name"], "rarity": chosen_rarity,
-            "slot": defn["slot"], "streak": streak}
+    return {"gold": gold, "resources": resources, "streak": streak}
 
 
 def update_login_streak(db, username, today):
@@ -529,7 +520,7 @@ def callback():
     streak = update_login_streak(db, username, today)
     if is_new_day:
         session["daily_reward"] = compute_daily_reward()
-    streak_reward = award_streak_gear(db, username, streak)
+    streak_reward = award_streak_milestone(db, username, streak)
     if streak_reward:
         session["streak_reward"] = streak_reward
     advance_mission(db, username, "login_today", today)
