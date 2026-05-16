@@ -66,9 +66,9 @@ BUILDINGS = {
     },
     "cursed_temple": {
         "name": "Cursed Temple", "icon": "⛩️",
-        "desc": "Enlightenment costs extra. Spells available while stocks last.",
+        "desc": "Dark rituals. Ancient power. No refunds.",
         "type": "job", "job_label": "MONK",
-        "produces": {"xp": 200, "spell_fragments": 2},
+        "produces": {"xp": 200, "blood_gems": 1},
         "pos": {"x": 9, "y": 30},
     },
     "club_soda": {
