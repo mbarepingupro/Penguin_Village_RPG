@@ -920,81 +920,92 @@ def combat_monsters():
 
 @app.route("/combat/fight", methods=["POST"])
 def combat_fight():
-    data       = request.get_json(silent=True) or {}
-    username   = data.get("username", "")
-    monster_id = data.get("monster_id", "")
-    m = MONSTERS.get(monster_id)
-    if not m:
-        return jsonify({"status": "error", "message": "Unknown monster."})
+    db = None
+    try:
+        data       = request.get_json(silent=True) or {}
+        username   = data.get("username", "")
+        monster_id = data.get("monster_id", "")
+        print(f"[COMBAT] fight request: username={username!r} monster_id={monster_id!r}")
 
-    today = get_today()
-    db    = get_db()
-    p     = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
-    if not p:
-        db.close()
-        return jsonify({"status": "error", "message": "Penguin not found."})
-    if p["level"] < m["min_level"]:
-        db.close()
-        return jsonify({"status": "error", "message": f"Need level {m['min_level']}."})
+        m = MONSTERS.get(monster_id)
+        if not m:
+            print(f"[COMBAT] unknown monster_id: {monster_id!r}")
+            return jsonify({"status": "error", "message": "Unknown monster."})
 
-    energy_cost = 20 + (m["tier"] - 1) * 10
-    if (p["energy"] or 0) < energy_cost:
-        db.close()
-        return jsonify({"status": "error", "message": f"Need {energy_cost} energy to fight."})
+        today = get_today()
+        db    = get_db()
+        p     = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
+        print(f"[COMBAT] penguin row: {dict(p) if p else None}")
+        if not p:
+            return jsonify({"status": "error", "message": "Penguin not found."})
+        if p["level"] < m["min_level"]:
+            return jsonify({"status": "error", "message": f"Need level {m['min_level']}."})
 
-    if db.execute(
-        "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND killed_date=?",
-        (username, monster_id, today)
-    ).fetchone():
-        db.close()
-        return jsonify({"status": "error", "message": "Already fought this today."})
+        energy_cost = 20 + (m["tier"] - 1) * 10
+        if (p["energy"] or 0) < energy_cost:
+            return jsonify({"status": "error", "message": f"Need {energy_cost} energy to fight."})
 
-    stats = get_player_stats(db, username)
-    won   = simulate_combat(stats, m)
-    drop  = None
-    new_ach = []
-    ensure_resources(db, username)
+        if db.execute(
+            "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND killed_date=?",
+            (username, monster_id, today)
+        ).fetchone():
+            return jsonify({"status": "error", "message": "Already fought this today."})
 
-    advance_mission(db, username, "fight_1", today)
-    db.execute("UPDATE penguins SET energy=MAX(0,energy-?) WHERE username=?", (energy_cost, username))
+        stats = get_player_stats(db, username)
+        print(f"[COMBAT] player stats: {stats}")
+        won   = simulate_combat(stats, m)
+        drop  = None
+        new_ach = []
+        ensure_resources(db, username)
 
-    loot_summary = ""
-    if won:
-        for resource, amount in m["rewards"].items():
-            if resource == "xp":
-                award_xp(db, username, amount)
-            elif resource == "gold":
-                add_gold(db, username, amount)
-            else:
-                db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
-        if random.random() < m["drop_chance"]:
-            drop = m["drop_name"]
-        loot_summary = ", ".join(f"+{v} {k}" for k, v in m["rewards"].items())
-        if drop:
-            loot_summary += f" + {drop}"
-        log_event(db, "combat",
-                  f"{username} defeated {m['name']}! {loot_summary} 🎉",
-                  username)
-        advance_mission(db, username, "first_fight", today)
-        new_ach = check_achievements(db, username)
-    else:
-        award_xp(db, username, max(2, m["rewards"].get("xp", 10) // 5))
-        log_event(db, "combat", f"{username} was defeated by {m['name']}...", username)
+        advance_mission(db, username, "fight_1", today)
+        db.execute("UPDATE penguins SET energy=MAX(0,energy-?) WHERE username=?", (energy_cost, username))
 
-    db.execute(
-        "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
-        (username, monster_id, today, loot_summary if won else "defeat")
-    )
-    db.commit()
-    db.close()
-    return jsonify({
-        "status":           "success",
-        "won":              won,
-        "drop":             drop,
-        "rewards":          m["rewards"] if won else {},
-        "new_achievements": new_ach,
-        "energy_cost":      energy_cost,
-    })
+        loot_summary = ""
+        if won:
+            for resource, amount in m["rewards"].items():
+                if resource == "xp":
+                    award_xp(db, username, amount)
+                elif resource == "gold":
+                    add_gold(db, username, amount)
+                else:
+                    db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
+            if random.random() < m["drop_chance"]:
+                drop = m["drop_name"]
+            loot_summary = ", ".join(f"+{v} {k}" for k, v in m["rewards"].items())
+            if drop:
+                loot_summary += f" + {drop}"
+            log_event(db, "combat",
+                      f"{username} defeated {m['name']}! {loot_summary} 🎉",
+                      username)
+            advance_mission(db, username, "first_fight", today)
+            new_ach = check_achievements(db, username)
+        else:
+            award_xp(db, username, max(2, m["rewards"].get("xp", 10) // 5))
+            log_event(db, "combat", f"{username} was defeated by {m['name']}...", username)
+
+        db.execute(
+            "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
+            (username, monster_id, today, loot_summary if won else "defeat")
+        )
+        db.commit()
+        print(f"[COMBAT] done: won={won} drop={drop} loot={loot_summary!r}")
+        return jsonify({
+            "status":           "success",
+            "won":              won,
+            "drop":             drop,
+            "rewards":          m["rewards"] if won else {},
+            "new_achievements": new_ach,
+            "energy_cost":      energy_cost,
+        })
+    except Exception as e:
+        import traceback
+        print(f"[COMBAT] ERROR: {e}")
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)})
+    finally:
+        if db:
+            db.close()
 
 
 # ── GEAR ─────────────────────────────────────────────────────────────────────

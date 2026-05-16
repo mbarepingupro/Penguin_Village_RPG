@@ -114,8 +114,8 @@
     .sb-res-lbl { color: #888; font-size: 8px; }
     .sb-res-val { color: var(--white); font-size: 9px; }
     .sb-mission-row { display: flex; align-items: flex-start; gap: 5px; padding: 5px 0; border-bottom: 1px solid #2a2a2a; position: relative; }
-    .sb-mission-tooltip { display: none; position: absolute; top: 100%; left: 0; background: #1C1C1C; border: 2px solid #A86EFF; padding: 6px 8px; font-size: 8px; color: #FFFFFF; white-space: nowrap; z-index: 100; pointer-events: none; }
-    .sb-mission-row:hover .sb-mission-tooltip { display: block; }
+    #sb-tooltip { display: none; position: fixed; z-index: 9999; background: #1C1C1C; border: 2px solid #A86EFF; padding: 6px 8px; font-size: 8px; color: #FFFFFF; max-width: 280px; word-break: break-word; pointer-events: none; }
+    #sb-tooltip::before { content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%); border: 4px solid transparent; border-right-color: #A86EFF; }
     .sb-mission-check { font-size: 9px; flex-shrink: 0; line-height: 1.6; }
     .sb-mission-info { flex: 1; min-width: 0; }
     .sb-mission-title { font-size: 8px; line-height: 1.6; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1258,20 +1258,38 @@
         const check = done ? '✓' : '○';
         const titleColor = done ? '#555' : stream ? '#9b72d8' : 'var(--white)';
         const checkColor = done ? '#4aff6b' : stream ? '#9b72d8' : '#555';
-        html += `<div class="sb-mission-row">
+        const desc = (m.desc || '').replace(/'/g, "\\'");
+        html += `<div class="sb-mission-row" onmouseenter="showSbTooltip(this,'${desc}')" onmouseleave="hideSbTooltip()">
           <span class="sb-mission-check" style="color:${checkColor}">${check}</span>
           <div class="sb-mission-info">
             <div class="sb-mission-title" style="color:${titleColor}">${m.icon} ${m.title}</div>
             <div class="sb-mission-reward">+${m.gold}G</div>
           </div>
           ${stream && !done ? `<button class="sb-mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>` : ''}
-          ${m.desc ? `<div class="sb-mission-tooltip">${m.desc}</div>` : ''}
         </div>`;
       });
       el.innerHTML = html || '<span style="color:#555;font-size:7px;">NO MISSIONS</span>';
     } catch(e) {
       el.innerHTML = '<span style="color:#555;font-size:7px;">ERROR</span>';
     }
+  }
+
+  function showSbTooltip(el, text) {
+    if (!text) return;
+    const tip = document.getElementById('sb-tooltip');
+    if (!tip) return;
+    tip.textContent = text;
+    tip.style.top  = '-9999px';
+    tip.style.left = '-9999px';
+    tip.style.display = 'block';
+    const rect    = el.getBoundingClientRect();
+    const tipH    = tip.offsetHeight;
+    tip.style.top  = Math.round(rect.top + rect.height / 2 - tipH / 2) + 'px';
+    tip.style.left = Math.round(rect.right + 12) + 'px';
+  }
+  function hideSbTooltip() {
+    const tip = document.getElementById('sb-tooltip');
+    if (tip) tip.style.display = 'none';
   }
 
   async function loadStatsAchievements() {
@@ -2260,5 +2278,6 @@
   {% endif %}
 </script>
 
+<div id="sb-tooltip"></div>
 </body>
 </html>
