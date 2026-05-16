@@ -787,6 +787,7 @@
 
         <div class="work-msg" id="work-msg"></div>
 
+        {% if features.get("gear_equip", False) %}
         <!-- EQUIPPED GEAR (4 slots with icons) -->
         <div class="gear-slots">
           <div class="section-title">EQUIPPED GEAR</div>
@@ -811,6 +812,7 @@
             <span class="gear-slot-val" id="gear-slot-cape">---</span>
           </div>
         </div>
+        {% endif %}
 
       </div>
 
@@ -878,12 +880,20 @@
     <div class="content">
       <div class="content-tabs">
         <button class="content-tab active" data-tab="map"     onclick="switchContentTab('map', this)">MAP</button>
+        {% if features.get("combat", False) %}
         <button class="content-tab"        data-tab="combat"  onclick="switchContentTab('combat', this)">COMBAT</button>
+        {% endif %}
+        {% if features.get("gear_equip", False) or features.get("gear_crafting", False) %}
         <button class="content-tab"        data-tab="gear"    onclick="switchContentTab('gear', this)">GEAR</button>
+        {% endif %}
         <button class="content-tab"        data-tab="missions"onclick="switchContentTab('missions', this)">MISSIONS</button>
         <button class="content-tab"        data-tab="igloo"   onclick="switchContentTab('igloo', this)">IGLOO</button>
+        {% if features.get("achievements", True) %}
         <button class="content-tab"        data-tab="awards"  onclick="switchContentTab('awards', this)">AWARDS</button>
+        {% endif %}
+        {% if features.get("event_log", True) %}
         <button class="content-tab"        data-tab="eventlog" onclick="switchContentTab('eventlog', this)">EVENTS</button>
+        {% endif %}
       </div>
 
       <!-- MAP TAB -->
@@ -903,6 +913,7 @@
         </div>
       </div>
 
+      {% if features.get("combat", False) %}
       <!-- COMBAT TAB -->
       <div class="content-panel" id="panel-combat">
         <div style="background:var(--dark);border-bottom:2px solid var(--purple);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
@@ -913,13 +924,16 @@
           <div style="color:#666;font-size:9px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
+      {% endif %}
 
+      {% if features.get("gear_equip", False) or features.get("gear_crafting", False) %}
       <!-- GEAR TAB -->
       <div class="content-panel" id="panel-gear">
         <div class="gear-panel" id="gear-content">
           <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
+      {% endif %}
 
       <!-- MISSIONS TAB -->
       <div class="content-panel" id="panel-missions">
@@ -1039,7 +1053,9 @@
         if (t.dataset.tab === name) t.classList.add('active');
       });
     }
-    document.getElementById('panel-' + name).classList.add('active');
+    const panel = document.getElementById('panel-' + name);
+    if (!panel) return;
+    panel.classList.add('active');
     if (name === 'missions')  loadMissions();
     if (name === 'igloo')     loadIgloo();
     if (name === 'combat')    loadCombat();
@@ -1191,6 +1207,7 @@
 
   {% if logged_in %}
   const CURRENT_USER = {{ penguin["username"] | tojson }};
+  const FEATURES     = {{ features | tojson }};
 
   // ── TOAST ──
   let _toastTimer = null;
@@ -1359,15 +1376,18 @@
         document.getElementById('res-frags').textContent     = rData.spell_fragments || 0;
       }
 
-      if (gData.gear) {
+      if (gData.gear && FEATURES.gear_equip) {
         const slots = { weapon: '---', armor: '---', hat: '---', cape: '---' };
         gData.gear.forEach(g => {
           if (g.equipped) slots[g.slot] = g.name;
         });
-        document.getElementById('gear-slot-weapon').textContent = slots.weapon;
-        document.getElementById('gear-slot-armor').textContent  = slots.armor;
-        document.getElementById('gear-slot-hat').textContent    = slots.hat;
-        document.getElementById('gear-slot-cape').textContent   = slots.cape;
+        const wEl = document.getElementById('gear-slot-weapon');
+        if (wEl) {
+          wEl.textContent = slots.weapon;
+          document.getElementById('gear-slot-armor').textContent  = slots.armor;
+          document.getElementById('gear-slot-hat').textContent    = slots.hat;
+          document.getElementById('gear-slot-cape').textContent   = slots.cape;
+        }
       }
     } catch(e) {}
   }
@@ -1662,8 +1682,12 @@
         ${canAfford ? 'REST (' + cost + ' GOLD)' : 'NEED ' + cost + ' GOLD'}
       </button>`;
     } else if (btype === 'combat') {
-      html += `<div class="bp-info">Fight monsters. Win loot.<br>Try not to die.</div>`;
-      html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">GO TO COMBAT</button>`;
+      if (FEATURES.combat) {
+        html += `<div class="bp-info">Fight monsters. Win loot.<br>Try not to die.</div>`;
+        html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">GO TO COMBAT</button>`;
+      } else {
+        html += `<div class="bp-info" style="color:#888;">The Barracks are being prepared...<br><br>Coming Soon!</div>`;
+      }
     } else if (btype === 'achievements') {
       html += `<div class="bp-info">View your achievements.</div>`;
       html += `<button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW AWARDS</button>`;

@@ -4,6 +4,7 @@ import datetime
 import random
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db
+from feature_flags import FEATURES
 import time
 import requests as http_requests
 
@@ -459,13 +460,13 @@ init_db()
 def home():
     username = session.get("username")
     if not username:
-        return render_template("home.html", logged_in=False)
+        return render_template("home.html", logged_in=False, features=FEATURES)
     db = get_db()
     penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
     if not penguin:
         session.clear()
         db.close()
-        return render_template("home.html", logged_in=False)
+        return render_template("home.html", logged_in=False, features=FEATURES)
     ensure_resources(db, username)
     db.commit()
     resources     = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
@@ -481,6 +482,7 @@ def home():
         streak=streak_row["current_streak"] if streak_row else 1,
         streak_reward=streak_reward,
         daily_reward=daily_reward,
+        features=FEATURES,
     )
 
 
@@ -896,6 +898,8 @@ def rest():
 
 @app.route("/combat/monsters")
 def combat_monsters():
+    if not FEATURES.get("combat", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!", "monsters": []})
     username = request.args.get("username", "")
     today    = get_today()
     try:
@@ -920,6 +924,8 @@ def combat_monsters():
 
 @app.route("/combat/fight", methods=["POST"])
 def combat_fight():
+    if not FEATURES.get("combat", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     db = None
     try:
         data       = request.get_json(silent=True) or {}
@@ -1012,6 +1018,8 @@ def combat_fight():
 
 @app.route("/gear/inventory")
 def gear_inventory():
+    if not FEATURES.get("gear_equip", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!", "gear": []})
     username = request.args.get("username", "")
     db = get_db()
     ensure_resources(db, username)
@@ -1029,6 +1037,8 @@ def gear_inventory():
 
 @app.route("/gear/buy", methods=["POST"])
 def gear_buy():
+    if not FEATURES.get("gear_crafting", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
     username = data.get("username", "")
     item_id  = data.get("item_id", "")
@@ -1072,6 +1082,8 @@ def gear_buy():
 
 @app.route("/gear/equip", methods=["POST"])
 def gear_equip():
+    if not FEATURES.get("gear_equip", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
     username = data.get("username", "")
     gear_id  = int(data.get("gear_id", 0))
