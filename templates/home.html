@@ -113,7 +113,9 @@
     .sb-res-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
     .sb-res-lbl { color: #888; font-size: 8px; }
     .sb-res-val { color: var(--white); font-size: 9px; }
-    .sb-mission-row { display: flex; align-items: flex-start; gap: 5px; padding: 5px 0; border-bottom: 1px solid #2a2a2a; }
+    .sb-mission-row { display: flex; align-items: flex-start; gap: 5px; padding: 5px 0; border-bottom: 1px solid #2a2a2a; position: relative; }
+    .sb-mission-tooltip { display: none; position: absolute; top: 100%; left: 0; background: #1C1C1C; border: 2px solid #A86EFF; padding: 6px 8px; font-size: 8px; color: #FFFFFF; white-space: nowrap; z-index: 100; pointer-events: none; }
+    .sb-mission-row:hover .sb-mission-tooltip { display: block; }
     .sb-mission-check { font-size: 9px; flex-shrink: 0; line-height: 1.6; }
     .sb-mission-info { flex: 1; min-width: 0; }
     .sb-mission-title { font-size: 8px; line-height: 1.6; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1263,6 +1265,7 @@
             <div class="sb-mission-reward">+${m.gold}G</div>
           </div>
           ${stream && !done ? `<button class="sb-mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>` : ''}
+          ${m.desc ? `<div class="sb-mission-tooltip">${m.desc}</div>` : ''}
         </div>`;
       });
       el.innerHTML = html || '<span style="color:#555;font-size:7px;">NO MISSIONS</span>';

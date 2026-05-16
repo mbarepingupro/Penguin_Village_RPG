@@ -139,6 +139,7 @@ def init_db():
     _add_col(c, "gear", "hp_bonus INTEGER DEFAULT 0")
     _add_col(c, "gear", "obtained_at INTEGER DEFAULT 0")
     _add_col(c, "login_streaks", "daily_reward_claimed TEXT DEFAULT NULL")
+    _add_col(c, "monster_kills", "killed_date TEXT DEFAULT ''")
 
     conn.commit()
     conn.close()
