@@ -352,6 +352,62 @@
     .bp-btn.collect:hover:not(:disabled) { background: #ffa500; }
     .bp-btn.rest { border-color: #4aff6b; color: #4aff6b; background: #2E2E2E; }
     .bp-btn.rest:hover:not(:disabled) { background: #4aff6b; color: #1C1C1C; }
+    .bp-coming-soon {
+      text-align: center; padding: 20px 0;
+    }
+    .bp-coming-soon-box {
+      border: 2px dashed #A86EFF; padding: 16px;
+    }
+    .bp-coming-soon-title { color: #FF7FE5; font-size: 10px; margin-bottom: 8px; }
+    .bp-coming-soon-desc  { color: #888; font-size: 8px; line-height: 1.8; }
+
+    /* ── WARDROBE (sidebar) ── */
+    .wardrobe-slots { padding: 8px 12px; border-bottom: var(--border-thin); }
+    .wardrobe-slot-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 2px; cursor: pointer; border-bottom: 1px solid #222;
+    }
+    .wardrobe-slot-row:last-child { border-bottom: none; }
+    .wardrobe-slot-row:hover { background: #252525; }
+    .wardrobe-slot-icon { font-size: 14px; width: 20px; flex-shrink: 0; }
+    .wardrobe-slot-lbl  { color: #555; font-size: 7px; width: 28px; flex-shrink: 0; }
+    .wardrobe-slot-val  { color: #888; font-size: 7px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wardrobe-slot-val.equipped { color: #FF7FE5; }
+
+    /* ── COSMETIC EQUIP MODAL ── */
+    #cosmetic-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88); z-index: 9998;
+      align-items: center; justify-content: center;
+    }
+    #cosmetic-modal.show { display: flex; }
+    .cosmetic-modal-box {
+      background: #2E2E2E; border: 3px solid #A86EFF;
+      padding: 16px; max-width: 320px; width: 90%;
+      font-family: 'Press Start 2P', monospace;
+      animation: popIn 0.2s ease;
+    }
+    .cosmetic-modal-title { color: #A86EFF; font-size: 9px; margin-bottom: 10px; }
+    .cosmetic-item-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 4px; border-bottom: 1px solid #222; font-size: 8px;
+    }
+    .cosmetic-item-name { color: #FF7FE5; flex: 1; }
+    .cosmetic-item-name.none { color: #555; font-style: italic; }
+    .cosmetic-action-btn {
+      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      padding: 4px 8px; border: 1px solid; cursor: pointer; background: none;
+    }
+    .cosmetic-action-btn.equip   { border-color: #A86EFF; color: #A86EFF; }
+    .cosmetic-action-btn.equip:hover { background: #A86EFF; color: #1C1C1C; }
+    .cosmetic-action-btn.unequip { border-color: #4aff6b; color: #4aff6b; }
+    .cosmetic-action-btn.unequip:hover { background: #4aff6b; color: #1C1C1C; }
+    .cosmetic-modal-close {
+      display: block; width: 100%; margin-top: 10px;
+      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      padding: 8px; border: 1px solid #555; color: #555; background: none; cursor: pointer;
+    }
+    .cosmetic-modal-close:hover { border-color: #888; color: #888; }
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
 
     /* ── PENGUIN SPRITES ON MAP ── */
@@ -888,8 +944,33 @@
 
         <div class="work-msg" id="work-msg"></div>
 
+        <!-- WARDROBE — always visible, shows cosmetic gear from level rewards -->
+        <div class="wardrobe-slots">
+          <div class="section-title">WARDROBE</div>
+          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('hat')">
+            <span class="wardrobe-slot-icon">🎩</span>
+            <span class="wardrobe-slot-lbl">HAT</span>
+            <span class="wardrobe-slot-val" id="wardrobe-hat">EMPTY</span>
+          </div>
+          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('back')">
+            <span class="wardrobe-slot-icon">🧥</span>
+            <span class="wardrobe-slot-lbl">BACK</span>
+            <span class="wardrobe-slot-val" id="wardrobe-back">EMPTY</span>
+          </div>
+          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('accessory')">
+            <span class="wardrobe-slot-icon">💎</span>
+            <span class="wardrobe-slot-lbl">ITEM</span>
+            <span class="wardrobe-slot-val" id="wardrobe-accessory">EMPTY</span>
+          </div>
+          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('footwear')">
+            <span class="wardrobe-slot-icon">👟</span>
+            <span class="wardrobe-slot-lbl">FEET</span>
+            <span class="wardrobe-slot-val" id="wardrobe-footwear">EMPTY</span>
+          </div>
+        </div>
+
         {% if features.get("gear_equip", False) %}
-        <!-- EQUIPPED GEAR (4 slots with icons) -->
+        <!-- COMBAT GEAR slots (only when combat gear is enabled) -->
         <div class="gear-slots">
           <div class="section-title">EQUIPPED GEAR</div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
@@ -1140,6 +1221,15 @@
 </div>
 
 <!-- STREAK REWARD MODAL -->
+<!-- COSMETIC EQUIP MODAL -->
+<div id="cosmetic-modal">
+  <div class="cosmetic-modal-box">
+    <div id="cosmetic-modal-title" class="cosmetic-modal-title">SELECT ITEM</div>
+    <div id="cosmetic-modal-list"></div>
+    <button class="cosmetic-modal-close" onclick="closeCosmeticModal()">CLOSE</button>
+  </div>
+</div>
+
 <!-- LEVEL-UP MODAL -->
 <div id="lvup-overlay">
   <div id="lvup-box">
@@ -1560,6 +1650,7 @@
           document.getElementById('gear-slot-cape').textContent   = slots.cape;
         }
       }
+      loadWardrobe();
     } catch(e) {}
   }
 
@@ -1876,6 +1967,82 @@
     document.getElementById('building-panel').classList.remove('open');
   }
 
+  function bpComingSoon(icon, title, desc) {
+    return `<div class="bp-coming-soon"><div class="bp-coming-soon-box">` +
+           `<div class="bp-coming-soon-title">${icon} ${title}</div>` +
+           `<div class="bp-coming-soon-desc">${desc}</div>` +
+           `</div></div>`;
+  }
+
+  // ── WARDROBE ──
+  let _cosmeticCache = [];
+
+  async function loadWardrobe() {
+    try {
+      const res  = await fetch(`/gear/cosmetics/${CURRENT_USER}`);
+      const data = await res.json();
+      _cosmeticCache = data.cosmetics || [];
+      const equipped = {};
+      _cosmeticCache.forEach(c => { if (c.equipped) equipped[c.slot] = c.name; });
+      ['hat', 'back', 'accessory', 'footwear'].forEach(slot => {
+        const el = document.getElementById(`wardrobe-${slot}`);
+        if (!el) return;
+        if (equipped[slot]) {
+          el.textContent = equipped[slot];
+          el.className   = 'wardrobe-slot-val equipped';
+        } else {
+          el.textContent = 'EMPTY';
+          el.className   = 'wardrobe-slot-val';
+        }
+      });
+    } catch(e) {}
+  }
+
+  const SLOT_LABELS = { hat: 'HAT', back: 'BACK', accessory: 'ITEM', footwear: 'FOOTWEAR' };
+
+  function openCosmeticSlot(slot) {
+    const items = _cosmeticCache.filter(c => c.slot === slot);
+    const title = document.getElementById('cosmetic-modal-title');
+    const list  = document.getElementById('cosmetic-modal-list');
+    title.textContent = 'SELECT ' + (SLOT_LABELS[slot] || slot.toUpperCase());
+    if (items.length === 0) {
+      list.innerHTML = `<div class="cosmetic-item-row"><span class="cosmetic-item-name none">No items owned for this slot yet.</span></div>`;
+    } else {
+      list.innerHTML = items.map(c => {
+        const isEquipped = !!c.equipped;
+        const btnCls  = isEquipped ? 'unequip' : 'equip';
+        const btnText = isEquipped ? 'UNEQUIP' : 'EQUIP';
+        const action  = isEquipped ? 'unequip' : 'equip';
+        return `<div class="cosmetic-item-row">
+          <span class="cosmetic-item-name">${isEquipped ? '▶ ' : ''}${c.name}</span>
+          <button class="cosmetic-action-btn ${btnCls}" onclick="cosmeticAction(${c.id}, '${action}')">${btnText}</button>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('cosmetic-modal').classList.add('show');
+  }
+
+  async function cosmeticAction(gearId, action) {
+    try {
+      const res  = await fetch('/gear/cosmetics/equip', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username: CURRENT_USER, gear_id: gearId, action }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        await loadWardrobe();
+        closeCosmeticModal();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  function closeCosmeticModal() {
+    document.getElementById('cosmetic-modal').classList.remove('show');
+  }
+
   function renderBuildingActions(data) {
     const container = document.getElementById('bp-actions');
     let html = '';
@@ -1964,13 +2131,19 @@
         html += `<div class="bp-info">Fight monsters. Win loot.<br>Try not to die.</div>`;
         html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">GO TO COMBAT</button>`;
       } else {
-        html += `<div class="bp-info" style="color:#888;">The Barracks are being prepared...<br><br>Coming Soon!</div>`;
+        html += bpComingSoon('🚧', 'THE BARRACKS ARE BEING PREPARED...', 'Combat, gear, and monsters are coming soon. Train your patience, villager.');
       }
     } else if (btype === 'achievements') {
       html += `<div class="bp-info">View your achievements.</div>`;
       html += `<button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW AWARDS</button>`;
     } else if (btype === 'placeholder') {
-      html += `<div class="bp-info" style="color:#666;">Coming soon...</div>`;
+      if (data.building_id === 'horny_jail') {
+        html += bpComingSoon('🔒', 'YOU KNOW WHAT YOU DID.', 'Coming Soon. Maybe. Behave.');
+      } else if (data.building_id === 'bank') {
+        html += bpComingSoon('🏦', 'UNDER CONSTRUCTION', 'Resource exchange is coming in a future update.');
+      } else {
+        html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
+      }
     }
 
     container.innerHTML = html;

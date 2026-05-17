@@ -5,7 +5,7 @@ import random
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db
 from feature_flags import FEATURES
-from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone
+from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
 import time
 import requests as http_requests
 
@@ -370,12 +370,13 @@ def apply_level_rewards(db, username, reward):
     if reward.get("title"):
         db.execute("UPDATE penguins SET title=? WHERE username=?", (reward["title"], username))
     for cosmetic in reward.get("cosmetics", []):
-        item_id = cosmetic.lower().replace(" ", "_").replace("'", "")
+        item_id     = cosmetic.lower().replace(" ", "_").replace("'", "")
+        cosm_slot   = COSMETIC_SLOTS.get(cosmetic, "accessory")
         try:
             db.execute(
                 "INSERT INTO gear (username, item_id, name, type, slot, rarity, obtained_at) "
-                "VALUES (?,?,?,'cosmetic','cosmetic','milestone',?)",
-                (username, item_id, cosmetic, now)
+                "VALUES (?,?,?,'cosmetic',?,'milestone',?)",
+                (username, item_id, cosmetic, cosm_slot, now)
             )
         except Exception:
             pass
@@ -947,6 +948,46 @@ def hotel_rest(username):
         "gold_spent":      cost,
         "new_energy":      max_e,
     })
+
+
+# ── COSMETICS ────────────────────────────────────────────────────────────────
+
+@app.route("/gear/cosmetics/<username>")
+def gear_cosmetics(username):
+    db   = get_db()
+    rows = db.execute(
+        "SELECT * FROM gear WHERE username=? AND type='cosmetic' ORDER BY obtained_at",
+        (username,)
+    ).fetchall()
+    db.close()
+    return jsonify({"cosmetics": [dict(g) for g in rows]})
+
+
+@app.route("/gear/cosmetics/equip", methods=["POST"])
+def gear_cosmetics_equip():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    gear_id  = data.get("gear_id")
+    action   = data.get("action", "equip")
+    db = get_db()
+    item = db.execute(
+        "SELECT * FROM gear WHERE id=? AND username=? AND type='cosmetic'",
+        (gear_id, username)
+    ).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+    if action == "unequip":
+        db.execute("UPDATE gear SET equipped=0 WHERE id=?", (gear_id,))
+    else:
+        db.execute(
+            "UPDATE gear SET equipped=0 WHERE username=? AND type='cosmetic' AND slot=?",
+            (username, item["slot"])
+        )
+        db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_id,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
 
 
 # ── COMBAT ───────────────────────────────────────────────────────────────────
