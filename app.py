@@ -2176,5 +2176,252 @@ def building_all_levels():
     return jsonify(levels)
 
 
+# ── PENGUIN CARD & PUBLIC PROFILE ─────────────────────────────────────────────
+import io
+from PIL import Image, ImageDraw, ImageFont
+
+CARD_FONT_PATH  = os.path.join(os.path.dirname(__file__), "static", "fonts", "PressStart2P-Regular.ttf")
+CARD_SPRITE_PATH = os.path.join(os.path.dirname(__file__), "static", "penguin.png")
+CARD_W, CARD_H  = 600, 340
+LEFT_W           = 190
+
+_COLORS = {
+    "bg":     (28,  28,  28),
+    "purple": (168, 110, 255),
+    "pink":   (255, 127, 229),
+    "orange": (255, 140,   0),
+    "green":  ( 74, 255, 107),
+    "white":  (255, 255, 255),
+    "gray":   (136, 136, 136),
+    "dark":   ( 18,  18,  18),
+}
+
+def _font(size):
+    try:
+        return ImageFont.truetype(CARD_FONT_PATH, size)
+    except Exception:
+        return ImageFont.load_default()
+
+def _job_label(job):
+    labels = {
+        "sea_lion_pit":  "Fishing",
+        "parkmusement":  "Circus",
+        "cursed_temple": "Monk",
+        "club_soda":     "Herbalism",
+        "guillotine":    "Executioner",
+    }
+    return labels.get(job, job.replace("_", " ").title() if job else "Resting")
+
+
+def _get_public_penguin(username):
+    """Return (penguin_row, resources_row, earned_titles, gold) or None."""
+    db = get_db()
+    p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return None
+    ensure_resources(db, username)
+    r  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    gold = get_gold(db, username)
+    titles = get_all_earned_titles(db, username)
+    # top building contribution
+    top_contrib = db.execute(
+        "SELECT building_id, SUM(amount) AS total FROM building_donations "
+        "WHERE username=? GROUP BY building_id ORDER BY total DESC LIMIT 1",
+        (username,)
+    ).fetchone()
+    # favourite job (most hours)
+    hour_cols = ["fishing_hours", "herbalism_hours", "circus_hours", "monk_hours", "executioner_hours"]
+    hours_map = {c: (p[c] or 0) for c in hour_cols}
+    fav_col   = max(hours_map, key=hours_map.get)
+    fav_hours = hours_map[fav_col]
+    fav_label_map = {
+        "fishing_hours": "Fishing", "herbalism_hours": "Herbalism",
+        "circus_hours": "Circus", "monk_hours": "Monk", "executioner_hours": "Executioner",
+    }
+    fav_job = fav_label_map[fav_col] if fav_hours > 0 else None
+    total_hours = sum(hours_map.values())
+    # top achievement
+    ach = db.execute(
+        "SELECT achievement_id FROM achievements WHERE username=? ORDER BY unlocked_at ASC LIMIT 1",
+        (username,)
+    ).fetchone()
+    # card cosmetics
+    cosmetics = db.execute(
+        "SELECT item_id FROM gear WHERE username=? AND type='cosmetic' AND equipped=1",
+        (username,)
+    ).fetchall()
+    cosmetic_ids = {c["item_id"] for c in cosmetics if c["item_id"]}
+    db.close()
+    level, _, _ = xp_progress(p["xp"] or 0)
+    return {
+        "p": dict(p), "r": dict(r) if r else {}, "gold": gold,
+        "titles": titles, "level": level,
+        "top_contrib": dict(top_contrib) if top_contrib else None,
+        "fav_job": fav_job, "total_hours": round(total_hours, 1),
+        "top_ach": ach["achievement_id"] if ach else None,
+        "cosmetic_ids": cosmetic_ids,
+    }
+
+
+def _generate_card_image(data):
+    d   = data["p"]
+    lv  = data["level"]
+    img = Image.new("RGB", (CARD_W, CARD_H), _COLORS["bg"])
+    draw = ImageDraw.Draw(img)
+
+    has_golden_frame  = "golden_frame"  in data["cosmetic_ids"]
+    has_sparkle       = "animated_sparkle" in data["cosmetic_ids"]
+
+    # Outer border
+    border_col = _COLORS["orange"] if has_golden_frame else _COLORS["purple"]
+    for i in range(3):
+        draw.rectangle([i, i, CARD_W-1-i, CARD_H-1-i], outline=border_col)
+
+    # Divider line
+    for y in range(4, CARD_H-4):
+        draw.point((LEFT_W, y), fill=(50, 50, 50))
+
+    # ── LEFT: sprite + username + title ──
+    try:
+        sprite = Image.open(CARD_SPRITE_PATH).convert("RGBA").resize((80, 80), Image.NEAREST)
+        bg_patch = Image.new("RGB", (80, 80), _COLORS["bg"])
+        bg_patch.paste(sprite, mask=sprite.split()[3])
+        img.paste(bg_patch, (LEFT_W//2 - 40, 40))
+    except Exception:
+        pass
+
+    username = d.get("username", "UNKNOWN")
+    draw.text((LEFT_W//2, 135), username.upper(), font=_font(7), fill=_COLORS["white"], anchor="mm")
+    active_title = d.get("active_title")
+    if active_title:
+        draw.text((LEFT_W//2, 153), active_title, font=_font(6), fill=_COLORS["purple"], anchor="mm")
+
+    prestige = d.get("prestige") or 0
+    if prestige > 0:
+        stars = "★" * prestige
+        draw.text((LEFT_W//2, 170), stars, font=_font(8), fill=_COLORS["pink"], anchor="mm")
+
+    # Gathering bonus chip
+    from level_config import get_total_gathering_bonus
+    gb = get_total_gathering_bonus(lv)
+    if gb > 0:
+        draw.text((LEFT_W//2, CARD_H - 30), f"+{gb}% gather", font=_font(5), fill=_COLORS["green"], anchor="mm")
+
+    # ── RIGHT: stats ──
+    rx = LEFT_W + 18
+    ry = 20
+    draw.text((rx, ry), "PENGUIN VILLAGE", font=_font(9), fill=_COLORS["purple"])
+    ry += 28
+
+    draw.text((rx, ry), f"LEVEL {lv}", font=_font(10), fill=_COLORS["white"])
+    ry += 26
+
+    job_str = _job_label(d.get("job"))
+    draw.text((rx, ry), f"JOB: {job_str.upper()}", font=_font(7), fill=_COLORS["orange"])
+    ry += 20
+
+    gold_val = data.get("gold", 0)
+    draw.text((rx, ry), f"GOLD: {gold_val}", font=_font(7), fill=_COLORS["orange"])
+    ry += 20
+
+    if active_title:
+        draw.text((rx, ry), f'"{active_title}"', font=_font(6), fill=_COLORS["purple"])
+        ry += 18
+
+    fav = data.get("fav_job")
+    if fav:
+        draw.text((rx, ry), f"BEST AT: {fav.upper()}", font=_font(6), fill=_COLORS["gray"])
+        ry += 16
+
+    total_h = data.get("total_hours", 0)
+    draw.text((rx, ry), f"HOURS WORKED: {total_h}", font=_font(5), fill=_COLORS["gray"])
+    ry += 14
+
+    # Sparkle corners
+    if has_sparkle:
+        for cx, cy in [(10,10),(CARD_W-20,10),(10,CARD_H-20),(CARD_W-20,CARD_H-20)]:
+            draw.text((cx, cy), "✦", font=_font(8), fill=_COLORS["pink"])
+
+    # URL footer
+    draw.text((CARD_W//2, CARD_H - 12),
+              f"mbarepingu.com/penguin/{username.lower()}",
+              font=_font(5), fill=_COLORS["gray"], anchor="mm")
+
+    return img
+
+
+@app.route("/penguin/<username>")
+def public_profile(username):
+    data = _get_public_penguin(username)
+    if not data:
+        return render_template("profile.html", exists=False, username=username)
+    d   = data["p"]
+    lv  = data["level"]
+    return render_template(
+        "profile.html",
+        exists=True,
+        username=d["username"],
+        level=lv,
+        prestige=d.get("prestige") or 0,
+        active_title=d.get("active_title"),
+        job=_job_label(d.get("job")),
+        gold=data["gold"],
+        total_hours=data["total_hours"],
+        fav_job=data["fav_job"],
+        top_ach=data["top_ach"],
+        top_contrib=data["top_contrib"],
+        titles=data["titles"],
+        og_image=request.host_url.rstrip("/") + f"/card/{username}/image",
+        og_url=request.host_url.rstrip("/") + f"/penguin/{username}",
+    )
+
+
+@app.route("/card/<username>")
+def card_page(username):
+    data = _get_public_penguin(username)
+    if not data:
+        return f"<h1>Penguin not found</h1>", 404
+    d  = data["p"]
+    lv = data["level"]
+    og_img = request.host_url.rstrip("/") + f"/card/{username}/image"
+    og_url = request.host_url.rstrip("/") + f"/penguin/{username}"
+    desc   = f"Level {lv}"
+    if d.get("active_title"):
+        desc += f" {d['active_title']}"
+    desc += f" | {_job_label(d.get('job'))} | Penguin Village"
+    return render_template(
+        "profile.html",
+        exists=True,
+        username=d["username"],
+        level=lv,
+        prestige=d.get("prestige") or 0,
+        active_title=d.get("active_title"),
+        job=_job_label(d.get("job")),
+        gold=data["gold"],
+        total_hours=data["total_hours"],
+        fav_job=data["fav_job"],
+        top_ach=data["top_ach"],
+        top_contrib=data["top_contrib"],
+        titles=data["titles"],
+        og_image=og_img,
+        og_url=og_url,
+        card_only=True,
+    )
+
+
+@app.route("/card/<username>/image")
+def card_image(username):
+    data = _get_public_penguin(username)
+    if not data:
+        return "Not found", 404
+    img = _generate_card_image(data)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    from flask import send_file
+    return send_file(buf, mimetype="image/png")
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5001)
