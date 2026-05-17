@@ -841,6 +841,7 @@ def work_status():
         "hours_remaining":  round(hours_remaining, 2),
         "complete":         complete,
         "preview":          preview,
+        "produces":         b.get("produces", {}),
         "job_started_ts":   job_started,
         "job_cap_ts":       job_started + int(JOB_CAP_HOURS * 3600),
     })
