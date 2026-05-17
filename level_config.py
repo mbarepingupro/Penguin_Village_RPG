@@ -46,3 +46,27 @@ def get_next_milestone(level):
         if LEVEL_DATA.get(lvl, {}).get("reward"):
             return lvl, LEVEL_DATA[lvl]
     return None, None
+
+
+COSMETIC_SLOTS = {
+    "Basic Scarf":            "accessory",
+    "Wooden Bucket Hat":      "hat",
+    "Striped Socks":          "footwear",
+    "Lantern Accessory":      "accessory",
+    "Village Bandana":        "hat",
+    "Golden Scarf":           "accessory",
+    "Adventurer's Cape":      "back",
+    "Explorer's Goggles":     "hat",
+    "Crystal Pendant":        "accessory",
+    "Cozy Sneakers":          "footwear",
+    "Feathered Hat":          "hat",
+    "Royal Cape":             "back",
+    "Mayor's Apprentice Hat": "hat",
+    "Shadow Cloak":           "back",
+    "Ancient Amulet":         "accessory",
+    "Fluffy Slippers":        "footwear",
+    "Starlight Scarf":        "accessory",
+    "Phoenix Feather":        "accessory",
+    "Prestige Crown":         "hat",
+    "Emperor's Cape":         "back",
+}
