@@ -730,7 +730,7 @@ def building_info(building_id):
     if not b:
         return jsonify({"status": "error", "message": "Building not found."})
     db = get_db()
-    p  = db.execute("SELECT job, job_started, job_duration, energy FROM penguins WHERE username=?", (username,)).fetchone()
+    p  = db.execute("SELECT job, job_started, job_duration, energy, max_energy FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
         db.close()
         return jsonify({"status": "error", "message": "Penguin not found."})
@@ -758,10 +758,11 @@ def building_info(building_id):
         "type":            b["type"],
         "job_label":       b.get("job_label", "WORK"),
         "produces":        b.get("produces", {}),
-        "rest_cost":       b.get("rest_cost", 0),
-        "player_job":      p["job"],
-        "player_energy":   p["energy"] or 0,
-        "player_gold":     gold,
+        "rest_cost":        b.get("rest_cost", 0),
+        "player_job":       p["job"],
+        "player_energy":    p["energy"] or 0,
+        "player_max_energy": p["max_energy"] or 100,
+        "player_gold":      gold,
         "working_here":    working_here,
         "hours_worked":    round(hours_worked, 2),
         "job_started_ts":  job_started_ts,
@@ -912,30 +913,40 @@ def work_status():
 
 # ── REST ─────────────────────────────────────────────────────────────────────
 
-@app.route("/rest", methods=["POST"])
-def rest():
-    data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+@app.route("/hotel/rest/<username>", methods=["POST"])
+def hotel_rest(username):
     db = get_db()
-    p  = db.execute("SELECT energy, max_energy FROM penguins WHERE username=?", (username,)).fetchone()
+    p  = db.execute("SELECT energy, max_energy, job FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
         db.close()
         return jsonify({"status": "error", "message": "Penguin not found."})
-    max_e = p["max_energy"] or 100
-    if (p["energy"] or 0) >= max_e:
+    max_e  = p["max_energy"] or 100
+    energy = p["energy"] or 0
+    if energy >= max_e:
         db.close()
-        return jsonify({"status": "error", "message": "Already at full energy!"})
-    cost = BUILDINGS["hotel"]["rest_cost"]
+        return jsonify({"status": "error", "message": "Your penguin is already fully rested!"})
+    if p["job"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Your penguin needs to finish working first! Collect your job earnings before resting."})
+    to_restore = max_e - energy
+    cost = to_restore * 2
     ensure_resources(db, username)
     gold = get_gold(db, username)
     if gold < cost:
         db.close()
-        return jsonify({"status": "error", "message": f"Need {cost} gold to rest."})
+        return jsonify({"status": "error", "message": f"Not enough gold! Need {cost} gold ({to_restore} energy × 2).", "need": cost, "have": gold})
     add_gold(db, username, -cost)
     db.execute("UPDATE penguins SET energy=? WHERE username=?", (max_e, username))
+    log_event(db, "village", f"{username} rested at the Penguin Hotel (+{to_restore} energy for {cost} gold)", username)
     db.commit()
     db.close()
-    return jsonify({"status": "success", "message": f"Fully rested! Energy restored.", "energy": max_e})
+    return jsonify({
+        "status":          "success",
+        "message":         "Fully rested!",
+        "energy_restored": to_restore,
+        "gold_spent":      cost,
+        "new_energy":      max_e,
+    })
 
 
 # ── COMBAT ───────────────────────────────────────────────────────────────────
