@@ -979,6 +979,12 @@
 
         <div class="work-msg" id="work-msg"></div>
 
+        <!-- STREAM BONUS INDICATOR -->
+        <div id="stream-bonus-section" style="display:none; margin:0 10px 8px; border:1px solid #FF7FE5; padding:7px 8px;">
+          <div style="color:#FF7FE5; font-size:7px; margin-bottom:4px;">🔴 STREAM BONUS ACTIVE</div>
+          <div id="stream-bonus-tier-label" style="font-size:7px; line-height:1.8;"></div>
+        </div>
+
         <!-- WARDROBE — always visible, shows cosmetic gear from level rewards -->
         <div class="wardrobe-slots">
           <div class="section-title">WARDROBE</div>
@@ -1350,6 +1356,32 @@
   }
 
   let _streamIsLive = false;
+  let _streamTier   = 0;
+
+  const STREAM_TIER_INFO = {
+    1: { label: '📺 Stream Live: +25% rate',    color: '#888' },
+    2: { label: '👀 Watching: +50% rate',        color: '#A86EFF' },
+    3: { label: '💬 Active Chatter: +75% rate', color: '#FF7FE5' },
+  };
+
+  function updateStreamBonusUI(tier) {
+    _streamTier = tier || 0;
+    const section = document.getElementById('stream-bonus-section');
+    const tlabel  = document.getElementById('stream-bonus-tier-label');
+    const banner  = document.getElementById('stream-live-banner');
+    if (_streamTier >= 1) {
+      if (section) section.style.display = '';
+      const info = STREAM_TIER_INFO[_streamTier] || STREAM_TIER_INFO[1];
+      if (tlabel) { tlabel.textContent = info.label; tlabel.style.color = info.color; }
+      if (banner) {
+        const bonusPct  = { 1: '+25%', 2: '+50%', 3: '+75%' }[_streamTier] || '';
+        const tierName  = { 1: 'Stream Live', 2: 'Watching', 3: 'Active Chatter' }[_streamTier] || '';
+        banner.innerHTML = `<span class="live-dot-banner"></span>LIVE &mdash; Your bonus: ${bonusPct} gathering (${tierName})`;
+      }
+    } else {
+      if (section) section.style.display = 'none';
+    }
+  }
 
   async function checkLiveStatus() {
     try {
@@ -1365,6 +1397,7 @@
         if (banner) banner.classList.add('show');
       } else {
         if (banner) banner.classList.remove('show');
+        updateStreamBonusUI(0);
       }
     } catch(e) {}
   }
@@ -1671,6 +1704,8 @@
         _currentJob   = p.job || null;
         _jobStartedTs = p.job_started || 0;
 
+        if (p.stream_tier !== undefined) updateStreamBonusUI(p.stream_tier);
+
         const statusEl = document.getElementById('stat-status');
         if (_currentJob) {
           statusEl.textContent = _currentJob.replace(/_/g,' ').toUpperCase();
@@ -1756,13 +1791,21 @@
 
       if (startTs) {
         if (_countdownTimers['sidebar-job-earned']) clearInterval(_countdownTimers['sidebar-job-earned']);
+        const SMULTS = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
         const earnedTick = () => {
           const el = document.getElementById('sidebar-job-earned');
           if (!el) { clearInterval(_countdownTimers['sidebar-job-earned']); return; }
           const elapsed = Math.min(Math.floor(Date.now() / 1000) - startTs, capSecs);
-          const hrs = elapsed / 3600;
-          const parts = Object.entries(produces).filter(([,v]) => v > 0).map(([k,v]) => `~${Math.floor(v * hrs)} ${k}`);
-          el.textContent = parts.length ? parts.join(', ') : '...';
+          const hrs  = elapsed / 3600;
+          const mult = SMULTS[_streamTier] || 1.0;
+          const parts = Object.entries(produces).filter(([,v]) => v > 0).map(([k,v]) => {
+            const base    = Math.floor(v * hrs);
+            const boosted = Math.floor(v * mult * hrs);
+            if (_streamTier > 0 && k !== 'xp')
+              return `~<span style="text-decoration:line-through;color:#555;">${base}</span> <span style="color:#FF7FE5;">${boosted}</span> ${k}`;
+            return `~${base} ${k}`;
+          });
+          el.innerHTML = parts.length ? parts.join(', ') : '...';
         };
         earnedTick();
         _countdownTimers['sidebar-job-earned'] = setInterval(earnedTick, 1000);
@@ -2200,13 +2243,21 @@
           startCountUp('bp-elapsed', startTs, 8 * 3600);
           if (_countdownTimers['bp-earned']) clearInterval(_countdownTimers['bp-earned']);
           const bpProduces = data.produces || {};
+          const BPSMULTS   = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
           const bpEarnedTick = () => {
             const el = document.getElementById('bp-earned');
             if (!el) { clearInterval(_countdownTimers['bp-earned']); return; }
             const elapsed = Math.min(Math.floor(Date.now() / 1000) - startTs, 8 * 3600);
-            const hrs = elapsed / 3600;
-            const parts = Object.entries(bpProduces).filter(([,v]) => v > 0).map(([k,v]) => `~${Math.floor(v * hrs)} ${k}`);
-            el.textContent = parts.length ? parts.join(', ') : '...';
+            const hrs  = elapsed / 3600;
+            const mult = BPSMULTS[_streamTier] || 1.0;
+            const parts = Object.entries(bpProduces).filter(([,v]) => v > 0).map(([k,v]) => {
+              const base    = Math.floor(v * hrs);
+              const boosted = Math.floor(v * mult * hrs);
+              if (_streamTier > 0 && k !== 'xp')
+                return `~<span style="text-decoration:line-through;color:#555;">${base}</span> <span style="color:#FF7FE5;">${boosted}</span> ${k}`;
+              return `~${base} ${k}`;
+            });
+            el.innerHTML = parts.length ? parts.join(', ') : '...';
           };
           bpEarnedTick();
           _countdownTimers['bp-earned'] = setInterval(bpEarnedTick, 1000);
@@ -2221,7 +2272,14 @@
         html += `<div class="bp-info" style="color:#ff6b6b;">Already working elsewhere!<br>Collect first.</div>`;
       } else {
         const produces = data.produces || {};
-        const prodStr  = Object.entries(produces).map(([k,v]) => `${v}/hr ${k}`).join(', ');
+        const BSMULTS  = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
+        const bsMult   = BSMULTS[_streamTier] || 1.0;
+        const prodStr  = Object.entries(produces).map(([k,v]) => {
+          if (_streamTier > 0 && k !== 'xp') {
+            return `<span style="text-decoration:line-through;color:#555;">${v}/hr</span> <span style="color:#FF7FE5;">${(v*bsMult).toFixed(2)}/hr</span> ${k}`;
+          }
+          return `${v}/hr ${k}`;
+        }).join(', ');
         if (prodStr) html += `<div class="bp-info" style="color:#888;">${prodStr}<br>Caps at 8 hours.</div>`;
         html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label || 'WORK'}</button>`;
       }

@@ -19,6 +19,11 @@ SECRET_KEY          = os.getenv("SECRET_KEY")
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
+# ── STREAM MULTIPLIERS ────────────────────────────────────────────────────────
+# Tier 0 = offline, 1 = stream live, 2 = present in chat, 3 = has chatted
+STREAM_RATES      = {0: 1.0, 1: 1.25, 2: 1.50, 3: 1.75}
+_stream_was_live  = None  # tracks previous live state to detect transitions
+
 # ── BUILDINGS ─────────────────────────────────────────────────────────────────
 # produces = per-hour rates. Jobs cap at JOB_CAP_HOURS; earned = floor(rate * hours).
 JOB_CAP_HOURS = 8.0
@@ -634,6 +639,7 @@ def profile(username):
             "next_unlock":     next_unlock,
             "title":           title,
             "mayor_seals":     (r["mayor_seals"] if r and r["mayor_seals"] is not None else 0),
+            "stream_tier":     (p["stream_tier"] if p["stream_tier"] is not None else 0),
         },
         "resources": dict(r) if r else {},
     })
@@ -723,6 +729,7 @@ def leaderboard():
 
 @app.route("/islive")
 def islive():
+    global _stream_was_live
     try:
         res  = http_requests.get(
             "https://api.twitch.tv/helix/streams?user_login=mbarepingu",
@@ -730,9 +737,20 @@ def islive():
                      "Authorization": f"Bearer {os.getenv('TWITCH_APP_TOKEN', '')}"}
         )
         live = len(res.json().get("data", [])) > 0
-        return jsonify({"live": live})
     except Exception:
-        return jsonify({"live": False})
+        live = False
+
+    db = get_db()
+    if live and _stream_was_live is False:
+        # Stream just came online — bump all players to at least tier 1
+        db.execute("UPDATE penguins SET stream_tier=1 WHERE stream_tier=0")
+    elif not live and _stream_was_live is True:
+        # Stream just ended — reset all tiers
+        db.execute("UPDATE penguins SET stream_tier=0, last_chatted=0")
+    _stream_was_live = live
+    db.commit()
+    db.close()
+    return jsonify({"live": live})
 
 
 def _stream_is_live():
@@ -811,6 +829,43 @@ def seals_buy():
     db.commit()
     db.close()
     return jsonify({"status": "success", "item": shop_item})
+
+
+# ── STREAM PRESENCE ──────────────────────────────────────────────────────────
+
+@app.route("/stream/presence", methods=["POST"])
+def stream_presence():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "skip"})
+    db = get_db()
+    p  = db.execute("SELECT id, stream_tier FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "skip"})
+    if (p["stream_tier"] or 0) < 2:
+        db.execute("UPDATE penguins SET stream_tier=2 WHERE username=?", (username,))
+        db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
+
+
+@app.route("/stream/chatted", methods=["POST"])
+def stream_chatted():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "skip"})
+    db = get_db()
+    p  = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "skip"})
+    db.execute("UPDATE penguins SET stream_tier=3, last_chatted=? WHERE username=?", (int(time.time()), username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
 
 
 # ── BUILDING INFO ────────────────────────────────────────────────────────────
@@ -925,6 +980,7 @@ def work_collect():
 
     player_level    = p["level"] or 1
     gathering_bonus = get_total_gathering_bonus(player_level) / 100.0
+    stream_mult     = STREAM_RATES.get(p["stream_tier"] or 0, 1.0)
 
     earned    = {}
     level_ups = []
@@ -932,9 +988,9 @@ def work_collect():
 
     for resource, rate_per_hour in b.get("produces", {}).items():
         if resource == "xp":
-            amount = int(rate_per_hour * hours_worked)
+            amount = int(rate_per_hour * stream_mult * hours_worked)
         else:
-            amount = int(rate_per_hour * (1 + gathering_bonus) * hours_worked)
+            amount = int(rate_per_hour * stream_mult * (1 + gathering_bonus) * hours_worked)
         if amount <= 0:
             continue
         earned[resource] = amount
@@ -966,6 +1022,8 @@ def work_collect():
         "level_ups":        level_ups,
         "new_achievements": new_ach,
         "building":         b["name"],
+        "stream_tier":      p["stream_tier"] or 0,
+        "stream_mult":      stream_mult,
     })
 
 
