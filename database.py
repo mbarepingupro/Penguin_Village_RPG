@@ -145,6 +145,13 @@ def init_db():
     _add_col(c, "resources", "mayor_seals INTEGER DEFAULT 0")
     _add_col(c, "penguins", "stream_tier INTEGER DEFAULT 0")
     _add_col(c, "penguins", "last_chatted INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "active_title TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "fishing_hours REAL DEFAULT 0")
+    _add_col(c, "penguins", "herbalism_hours REAL DEFAULT 0")
+    _add_col(c, "penguins", "circus_hours REAL DEFAULT 0")
+    _add_col(c, "penguins", "monk_hours REAL DEFAULT 0")
+    _add_col(c, "penguins", "executioner_hours REAL DEFAULT 0")
+    _add_col(c, "penguins", "ceremonial_titles TEXT DEFAULT NULL")
 
     conn.commit()
     conn.close()

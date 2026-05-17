@@ -19,6 +19,104 @@ SECRET_KEY          = os.getenv("SECRET_KEY")
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
+# ── JOB TITLES ───────────────────────────────────────────────────────────────
+JOB_TITLES = {
+    "fishing": [
+        {"hours": 5,   "title": "Apprentice Fisher"},
+        {"hours": 20,  "title": "Fisher of the Northern Bay"},
+        {"hours": 50,  "title": "Sea Lion Whisperer"},
+        {"hours": 100, "title": "Master Fisher"},
+        {"hours": 200, "title": "Admiral of the Frozen Seas"},
+    ],
+    "herbalism": [
+        {"hours": 5,   "title": "Herb Picker"},
+        {"hours": 20,  "title": "Club Soda Botanist"},
+        {"hours": 50,  "title": "Potion Apprentice"},
+        {"hours": 100, "title": "Master Herbalist"},
+        {"hours": 200, "title": "Keeper of the Green"},
+    ],
+    "circus": [
+        {"hours": 5,   "title": "Juggling Novice"},
+        {"hours": 20,  "title": "Crowd Pleaser"},
+        {"hours": 50,  "title": "Star Performer"},
+        {"hours": 100, "title": "Ringmaster"},
+        {"hours": 200, "title": "Legend of the Parkmusement"},
+    ],
+    "monk": [
+        {"hours": 5,   "title": "Temple Initiate"},
+        {"hours": 20,  "title": "Cursed Acolyte"},
+        {"hours": 50,  "title": "Spell Weaver"},
+        {"hours": 100, "title": "High Priest"},
+        {"hours": 200, "title": "Enlightened One"},
+    ],
+    "executioner": [
+        {"hours": 5,   "title": "Blood Apprentice"},
+        {"hours": 20,  "title": "Bone Collector"},
+        {"hours": 50,  "title": "Gil's Right Hand"},
+        {"hours": 100, "title": "Master Executioner"},
+        {"hours": 200, "title": "The Guillotine's Shadow"},
+    ],
+}
+
+JOB_HOUR_COL = {
+    "sea_lion_pit":   ("fishing",     "fishing_hours"),
+    "club_soda":      ("herbalism",   "herbalism_hours"),
+    "parkmusement":   ("circus",      "circus_hours"),
+    "cursed_temple":  ("monk",        "monk_hours"),
+    "guillotine":     ("executioner", "executioner_hours"),
+}
+
+LEVEL_TITLES = {3:"Newcomer", 7:"Settler", 10:"Villager", 14:"Explorer",
+                19:"Pathfinder", 20:"Veteran", 24:"Sage", 29:"Elder", 30:"Legend"}
+
+
+def get_earned_job_title(category, hours):
+    """Return highest unlocked title string for a category given hours."""
+    earned = None
+    for tier in JOB_TITLES.get(category, []):
+        if hours >= tier["hours"]:
+            earned = tier["title"]
+    return earned
+
+
+def get_all_earned_titles(db, username):
+    """Return a list of dicts for all titles the player has earned."""
+    p = db.execute(
+        "SELECT level, fishing_hours, herbalism_hours, circus_hours, monk_hours, "
+        "executioner_hours, ceremonial_titles FROM penguins WHERE username=?",
+        (username,)
+    ).fetchone()
+    if not p:
+        return []
+    titles = []
+    level = p["level"] or 1
+    for lvl, name in LEVEL_TITLES.items():
+        if level >= lvl:
+            titles.append({"title": name, "source": f"Level {lvl} Milestone", "category": "level"})
+    hour_cols = [
+        ("fishing",     p["fishing_hours"]     or 0),
+        ("herbalism",   p["herbalism_hours"]   or 0),
+        ("circus",      p["circus_hours"]      or 0),
+        ("monk",        p["monk_hours"]        or 0),
+        ("executioner", p["executioner_hours"] or 0),
+    ]
+    for cat, hrs in hour_cols:
+        for tier in JOB_TITLES.get(cat, []):
+            if hrs >= tier["hours"]:
+                titles.append({
+                    "title": tier["title"],
+                    "source": f"{cat.capitalize()} — {tier['hours']} hours",
+                    "category": cat,
+                })
+    try:
+        cer = json.loads(p["ceremonial_titles"] or "[]")
+        for t in cer:
+            titles.append({"title": t, "source": "Granted by Mayor", "category": "ceremonial"})
+    except Exception:
+        pass
+    return titles
+
+
 # ── STREAM MULTIPLIERS ────────────────────────────────────────────────────────
 # Tier 0 = offline, 1 = stream live, 2 = present in chat, 3 = has chatted
 STREAM_RATES      = {0: 1.0, 1: 1.25, 2: 1.50, 3: 1.75}
@@ -640,6 +738,7 @@ def profile(username):
             "title":           title,
             "mayor_seals":     (r["mayor_seals"] if r and r["mayor_seals"] is not None else 0),
             "stream_tier":     (p["stream_tier"] if p["stream_tier"] is not None else 0),
+            "active_title":    (p["active_title"] if p["active_title"] is not None else None),
         },
         "resources": dict(r) if r else {},
     })
@@ -719,7 +818,7 @@ def get_streak(username):
 def leaderboard():
     db = get_db()
     rows = db.execute(
-        "SELECT p.username, p.level, p.xp, p.prestige, r.gold "
+        "SELECT p.username, p.level, p.xp, p.prestige, p.job, p.active_title, r.gold "
         "FROM penguins p LEFT JOIN resources r ON p.username=r.username "
         "ORDER BY p.level DESC, p.xp DESC LIMIT 20"
     ).fetchall()
@@ -1002,6 +1101,19 @@ def work_collect():
         else:
             db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
 
+    # Track job hours and check for new titles
+    new_title = None
+    if p["job"] in JOB_HOUR_COL:
+        cat, col = JOB_HOUR_COL[p["job"]]
+        old_hours = p[col] or 0
+        new_hours = old_hours + hours_worked
+        db.execute(f"UPDATE penguins SET {col}=? WHERE username=?", (new_hours, username))
+        old_earned = get_earned_job_title(cat, old_hours)
+        new_earned  = get_earned_job_title(cat, new_hours)
+        if new_earned and new_earned != old_earned:
+            new_title = new_earned
+            log_event(db, "title", f"{username} earned the title: {new_earned}!", username)
+
     db.execute("UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?", (username,))
     today = get_today()
     advance_mission(db, username, "collect_1", today)
@@ -1024,6 +1136,7 @@ def work_collect():
         "building":         b["name"],
         "stream_tier":      p["stream_tier"] or 0,
         "stream_mult":      stream_mult,
+        "new_title":        new_title,
     })
 
 
@@ -1653,6 +1766,110 @@ def active(username):
     db.commit()
     db.close()
     return jsonify({"status": "ok", "energy": new_energy})
+
+
+# ── TITLES ────────────────────────────────────────────────────────────────────
+
+@app.route("/titles/<username>")
+def titles_list(username):
+    db = get_db()
+    p  = db.execute(
+        "SELECT level, active_title, fishing_hours, herbalism_hours, circus_hours, "
+        "monk_hours, executioner_hours FROM penguins WHERE username=?", (username,)
+    ).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Not found."})
+    earned = get_all_earned_titles(db, username)
+    db.close()
+
+    level = p["level"] or 1
+    # Progress toward next title in each category
+    progress = {}
+    hour_map = {
+        "fishing":     p["fishing_hours"]     or 0,
+        "herbalism":   p["herbalism_hours"]   or 0,
+        "circus":      p["circus_hours"]      or 0,
+        "monk":        p["monk_hours"]        or 0,
+        "executioner": p["executioner_hours"] or 0,
+    }
+    for cat, hrs in hour_map.items():
+        tiers  = JOB_TITLES.get(cat, [])
+        earned_t = get_earned_job_title(cat, hrs)
+        next_t   = next((t for t in tiers if hrs < t["hours"]), None)
+        progress[cat] = {
+            "current_hours": round(hrs, 2),
+            "current_title": earned_t,
+            "next_title":    next_t["title"] if next_t else None,
+            "hours_needed":  next_t["hours"] if next_t else None,
+            "progress_pct":  min(100, round((hrs / next_t["hours"]) * 100)) if next_t else 100,
+        }
+
+    return jsonify({
+        "status":       "success",
+        "active_title": p["active_title"],
+        "earned":       earned,
+        "progress":     progress,
+    })
+
+
+@app.route("/titles/equip", methods=["POST"])
+def titles_equip():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    title    = data.get("title", "").strip()
+    db = get_db()
+    earned = [t["title"] for t in get_all_earned_titles(db, username)]
+    if title not in earned:
+        db.close()
+        return jsonify({"status": "error", "message": "Title not earned."})
+    db.execute("UPDATE penguins SET active_title=? WHERE username=?", (title, username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "active_title": title})
+
+
+@app.route("/titles/unequip", methods=["POST"])
+def titles_unequip():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    db = get_db()
+    db.execute("UPDATE penguins SET active_title=NULL WHERE username=?", (username,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
+
+
+@app.route("/titles/grant", methods=["POST"])
+def titles_grant():
+    # Localhost-only or secret-key protected
+    secret = os.getenv("ADMIN_SECRET", "")
+    provided = request.headers.get("X-Admin-Secret", "") or (request.get_json(silent=True) or {}).get("secret", "")
+    remote   = request.remote_addr
+    if remote not in ("127.0.0.1", "::1") and (not secret or provided != secret):
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    title    = data.get("title", "").strip()
+    if not username or not title:
+        return jsonify({"status": "error", "message": "username and title required."})
+    db = get_db()
+    p  = db.execute("SELECT id, ceremonial_titles FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    try:
+        existing = json.loads(p["ceremonial_titles"] or "[]")
+    except Exception:
+        existing = []
+    if title not in existing:
+        existing.append(title)
+        db.execute("UPDATE penguins SET ceremonial_titles=? WHERE username=?",
+                   (json.dumps(existing), username))
+    log_event(db, "title", f"The Mayor granted {username} the title: {title}!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "title": title, "username": username})
 
 
 if __name__ == "__main__":

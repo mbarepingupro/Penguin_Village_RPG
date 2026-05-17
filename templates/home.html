@@ -263,6 +263,46 @@
     .seal-shop-close  { font-family: 'Press Start 2P', monospace; font-size: 8px; padding: 6px 14px; border: 2px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 12px; }
     .seal-shop-close:hover { border-color: #FF7FE5; color: #FF7FE5; }
 
+    /* ── MAP PENGUIN TITLE ── */
+    .map-penguin-title { font-size: 6px; color: #A86EFF; white-space: nowrap; text-align: center; }
+
+    /* ── SIDEBAR TITLE DISPLAY ── */
+    .sidebar-title-row { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 6px; flex-wrap: wrap; }
+    .sidebar-active-title { color: #A86EFF; font-size: 8px; text-align: center; }
+    .sidebar-no-title { color: #666; font-size: 8px; }
+    .title-change-btn { font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 3px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
+    .title-change-btn:hover { border-color: #A86EFF; color: #A86EFF; }
+
+    /* ── TITLE SELECTION MODAL ── */
+    #title-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
+    #title-modal.show { display: flex; }
+    .title-modal-box { background: #2E2E2E; border: 3px solid #A86EFF; padding: 16px; max-width: 380px; width: 90%; font-family: 'Press Start 2P', monospace; max-height: 82vh; overflow-y: auto; animation: popIn 0.2s ease; }
+    .title-modal-header { color: #A86EFF; font-size: 11px; margin-bottom: 12px; }
+    .title-section-label { color: #FF7FE5; font-size: 7px; margin: 10px 0 5px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+    .title-section-label.ceremonial { color: #FF7FE5; border-color: #FF7FE5; }
+    .title-item-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px; border-bottom: 1px solid #1a1a1a; gap: 6px; }
+    .title-item-name { color: #fff; font-size: 7px; flex: 1; }
+    .title-item-source { color: #555; font-size: 6px; }
+    .title-equip-btn { font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 3px 7px; border: 1px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; white-space: nowrap; }
+    .title-equip-btn:hover { background: #A86EFF; color: #1C1C1C; }
+    .title-equipped-badge { font-size: 6px; color: #4aff6b; white-space: nowrap; }
+    .title-none-msg { color: #666; font-size: 7px; text-align: center; padding: 12px 0; }
+    .title-unequip-btn { font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 3px 7px; border: 1px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 10px; }
+    .title-unequip-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
+    .title-modal-close { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 6px 14px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; margin-top: 12px; display: block; }
+    .title-modal-close:hover { border-color: #A86EFF; color: #A86EFF; }
+
+    /* ── TITLE PROGRESS (LEVELS TAB) ── */
+    .title-progress-section { padding: 10px 12px; border-top: var(--border-thin); }
+    .title-progress-header { color: #FF7FE5; font-size: 8px; margin-bottom: 8px; }
+    .title-prog-row { margin-bottom: 10px; }
+    .title-prog-label { color: #888; font-size: 7px; margin-bottom: 3px; display: flex; justify-content: space-between; }
+    .title-prog-name { color: #A86EFF; font-size: 7px; }
+    .title-prog-bar-wrap { height: 4px; background: #1C1C1C; margin-bottom: 2px; }
+    .title-prog-bar-fill { height: 100%; background: #A86EFF; }
+    .title-prog-next { color: #555; font-size: 6px; }
+    .title-prog-done { color: #4aff6b; font-size: 7px; }
+
     /* ── MAYOR'S SEALS RESOURCE ROW ── */
     .seals-row { position: relative; cursor: pointer; }
     .seals-row:hover .sb-res-val { color: #FF7FE5; }
@@ -937,6 +977,10 @@
           {% if penguin['prestige'] and penguin['prestige'] > 0 %}
           <div style="color:var(--pink);font-size:8px;">{{ '★' * penguin['prestige'] }} PRESTIGE</div>
           {% endif %}
+          <div class="sidebar-title-row">
+            <span id="sidebar-active-title" class="sidebar-no-title">No title equipped</span>
+            <button class="title-change-btn" onclick="openTitleModal()">CHANGE</button>
+          </div>
           <div class="penguin-level" id="stat-level">★ LEVEL {{ penguin['level'] }}</div>
         </div>
 
@@ -1217,6 +1261,10 @@
             <div style="color:#4aff6b;" id="lv-bonus-line">GATHERING BONUS: +0%</div>
             <div style="color:#A86EFF;margin-top:3px;" id="lv-next-line"></div>
           </div>
+          <div class="title-progress-section">
+            <div class="title-progress-header">🏅 TITLE PROGRESS</div>
+            <div id="title-progress-list"><div style="color:#666;font-size:7px;">LOADING...</div></div>
+          </div>
         </div>
       </div>
 
@@ -1267,6 +1315,14 @@
 </div>
 
 <!-- STREAK REWARD MODAL -->
+<!-- TITLE SELECTION MODAL -->
+<div id="title-modal">
+  <div class="title-modal-box">
+    <div class="title-modal-header">🏅 YOUR TITLES</div>
+    <div id="title-modal-list"></div>
+    <button class="title-modal-close" onclick="closeTitleModal()">CLOSE</button>
+  </div>
+</div>
 <!-- SEAL SHOP MODAL -->
 <div id="seal-shop-modal">
   <div class="seal-shop-box">
@@ -1450,10 +1506,13 @@
       el.className = 'map-penguin';
       el.style.left = start.x + '%';
       el.style.top  = start.y + '%';
-      const jobLabel = p.job || '💤';
+      const jobLabel   = p.job || '💤';
+      const titleHtml  = p.active_title
+        ? `<div class="map-penguin-title">${p.active_title}</div>` : '';
       el.innerHTML = `
         <div class="map-penguin-placeholder">🐧</div>
         <div class="map-penguin-name">${p.username.toUpperCase()}</div>
+        ${titleHtml}
         <div class="map-penguin-job">${jobLabel}</div>`;
       map.appendChild(el);
       const target = randomWaypoint();
@@ -1705,6 +1764,7 @@
         _jobStartedTs = p.job_started || 0;
 
         if (p.stream_tier !== undefined) updateStreamBonusUI(p.stream_tier);
+        if (p.active_title !== undefined) updateSidebarTitle(p.active_title);
 
         const statusEl = document.getElementById('stat-status');
         if (_currentJob) {
@@ -1918,6 +1978,7 @@
         msg += parts.length ? parts.join(', ') : 'nothing (too soon!)';
         showToast(msg, 'ok');
         if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
+        if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         if (data.new_achievements && data.new_achievements.length) {
           data.new_achievements.forEach(aid => {
             setTimeout(() => showToast('🏆 ACHIEVEMENT: ' + aid.replace(/_/g,' ').toUpperCase(), 'ok'), 500);
@@ -2079,6 +2140,138 @@
            `<div class="bp-coming-soon-title">${icon} ${title}</div>` +
            `<div class="bp-coming-soon-desc">${desc}</div>` +
            `</div></div>`;
+  }
+
+  // ── TITLES ──
+  let _activeTitle    = null;
+  let _earnedTitles   = [];
+  let _titleProgress  = {};
+
+  function updateSidebarTitle(title) {
+    _activeTitle = title || null;
+    const el = document.getElementById('sidebar-active-title');
+    if (!el) return;
+    if (_activeTitle) {
+      el.textContent  = _activeTitle;
+      el.className    = 'sidebar-active-title';
+    } else {
+      el.textContent  = 'No title equipped';
+      el.className    = 'sidebar-no-title';
+    }
+  }
+
+  async function openTitleModal() {
+    document.getElementById('title-modal').classList.add('show');
+    await renderTitleModal();
+  }
+
+  function closeTitleModal() {
+    document.getElementById('title-modal').classList.remove('show');
+  }
+
+  async function renderTitleModal() {
+    const list = document.getElementById('title-modal-list');
+    try {
+      const res  = await fetch(`/titles/${CURRENT_USER}`);
+      const data = await res.json();
+      _earnedTitles  = data.earned  || [];
+      _titleProgress = data.progress || {};
+      _activeTitle   = data.active_title || null;
+      updateSidebarTitle(_activeTitle);
+
+      if (_earnedTitles.length === 0) {
+        list.innerHTML = '<div class="title-none-msg">No titles earned yet.<br>Work jobs to earn your first!</div>';
+        return;
+      }
+
+      const grouped = { level: [], fishing: [], herbalism: [], circus: [], monk: [], executioner: [], ceremonial: [] };
+      _earnedTitles.forEach(t => { if (grouped[t.category] !== undefined) grouped[t.category].push(t); });
+
+      const CAT_LABELS = {
+        level: '🏆 LEVEL MILESTONES', fishing: '🐟 FISHING', herbalism: '🌿 HERBALISM',
+        circus: '🎪 CIRCUS', monk: '🕯️ MONK', executioner: '⚔️ EXECUTIONER', ceremonial: '👑 CEREMONIAL'
+      };
+
+      let html = '';
+      if (_activeTitle) {
+        html += `<button class="title-unequip-btn" onclick="equipTitle(null)">REMOVE TITLE</button><br>`;
+      }
+      for (const [cat, items] of Object.entries(grouped)) {
+        if (!items.length) continue;
+        const isCer = cat === 'ceremonial';
+        html += `<div class="title-section-label${isCer ? ' ceremonial' : ''}">${CAT_LABELS[cat] || cat.toUpperCase()}</div>`;
+        items.forEach(t => {
+          const isEquipped = t.title === _activeTitle;
+          const badge = isEquipped
+            ? `<span class="title-equipped-badge">✓ EQUIPPED</span>`
+            : `<button class="title-equip-btn" onclick="equipTitle('${t.title.replace(/'/g, "\\'")}')">EQUIP</button>`;
+          html += `<div class="title-item-row">
+            <div>
+              <div class="title-item-name">${t.title}</div>
+              <div class="title-item-source">${t.source}</div>
+            </div>
+            <div>${badge}</div>
+          </div>`;
+        });
+      }
+      list.innerHTML = html;
+    } catch(e) {
+      list.innerHTML = '<div style="color:#ff6b6b;font-size:7px;text-align:center;padding:12px;">FAILED TO LOAD</div>';
+    }
+  }
+
+  async function equipTitle(title) {
+    try {
+      const url  = title ? '/titles/equip' : '/titles/unequip';
+      const body = title
+        ? { username: CURRENT_USER, title }
+        : { username: CURRENT_USER };
+      const res  = await fetch(url, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        updateSidebarTitle(data.active_title || null);
+        await renderTitleModal();
+      } else {
+        showToast(data.message || 'Error.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function loadTitleProgress() {
+    const container = document.getElementById('title-progress-list');
+    if (!container) return;
+    try {
+      const res  = await fetch(`/titles/${CURRENT_USER}`);
+      const data = await res.json();
+      updateSidebarTitle(data.active_title || null);
+      const prog = data.progress || {};
+      const CAT_ICONS = { fishing:'🐟', herbalism:'🌿', circus:'🎪', monk:'🕯️', executioner:'⚔️' };
+      let html = '';
+      for (const [cat, p] of Object.entries(prog)) {
+        const icon = CAT_ICONS[cat] || '';
+        if (p.hours_needed === null) {
+          html += `<div class="title-prog-row">
+            <div class="title-prog-label"><span>${icon} ${cat.toUpperCase()}</span><span class="title-prog-done">ALL TITLES EARNED ✅</span></div>
+            <div class="title-prog-name">${p.current_title || '—'}</div>
+          </div>`;
+        } else {
+          html += `<div class="title-prog-row">
+            <div class="title-prog-label">
+              <span>${icon} ${cat.toUpperCase()}</span>
+              <span style="color:#888;">${p.current_hours}h / ${p.hours_needed}h</span>
+            </div>
+            <div class="title-prog-name">${p.current_title || 'None yet'}</div>
+            <div class="title-prog-bar-wrap"><div class="title-prog-bar-fill" style="width:${p.progress_pct}%"></div></div>
+            <div class="title-prog-next">Next: ${p.next_title} (${p.hours_needed}h)</div>
+          </div>`;
+        }
+      }
+      container.innerHTML = html || '<div style="color:#666;font-size:7px;">Start working to earn titles!</div>';
+    } catch(e) {}
   }
 
   // ── SEAL SHOP ──
@@ -2368,6 +2561,7 @@
       if (data.status === 'success') {
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         showToast('Collected: ' + (parts.join(', ') || 'nothing yet'), 'ok');
+        if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         await refreshStats();
         closeBuildingPanel();
         if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
@@ -2974,6 +3168,7 @@
     } else {
       nextEl.textContent = _playerLevel >= 30 ? 'MAX LEVEL REACHED!' : '';
     }
+    loadTitleProgress();
   }
 
   function renderLevelsList() {
