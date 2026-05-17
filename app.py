@@ -122,6 +122,87 @@ def get_all_earned_titles(db, username):
 STREAM_RATES      = {0: 1.0, 1: 1.25, 2: 1.50, 3: 1.75}
 _stream_was_live  = None  # tracks previous live state to detect transitions
 
+# ── VILLAGE BUILDING UPGRADES ────────────────────────────────────────────────
+BUILDING_UPGRADES = {
+    "sea_lion_pit": {
+        "name": "Ash's Sea Lion Pit",
+        "levels": {
+            2: {"fish": 500,   "gold": 200,  "benefit": "+10% fish rate for everyone"},
+            3: {"fish": 1500,  "gold": 600,  "benefit": "+25% fish rate for everyone"},
+            4: {"fish": 4000,  "gold": 1500, "benefit": "+50% fish rate for everyone"},
+            5: {"fish": 10000, "gold": 4000, "benefit": "+100% fish rate for everyone, unlocks rare fish events"},
+        },
+    },
+    "club_soda": {
+        "name": "Club Soda",
+        "levels": {
+            2: {"herbs": 500,   "gold": 200,  "benefit": "+10% herb rate for everyone"},
+            3: {"herbs": 1500,  "gold": 600,  "benefit": "+25% herb rate for everyone"},
+            4: {"herbs": 4000,  "gold": 1500, "benefit": "+50% herb rate for everyone"},
+            5: {"herbs": 10000, "gold": 4000, "benefit": "+100% herb rate for everyone, unlocks potion crafting"},
+        },
+    },
+    "parkmusement": {
+        "name": "Ash's Parkmusement",
+        "levels": {
+            2: {"gold": 500,   "benefit": "+10% gold rate for everyone"},
+            3: {"gold": 1500,  "benefit": "+25% gold rate for everyone"},
+            4: {"gold": 4000,  "benefit": "+50% gold rate for everyone"},
+            5: {"gold": 10000, "benefit": "+100% gold rate for everyone, unlocks special performances"},
+        },
+    },
+    "cursed_temple": {
+        "name": "Cursed Temple",
+        "levels": {
+            2: {"spell_fragments": 300,  "gold": 300,  "benefit": "+10% XP rate for everyone"},
+            3: {"spell_fragments": 800,  "gold": 800,  "benefit": "+25% XP rate for everyone"},
+            4: {"spell_fragments": 2000, "gold": 2000, "benefit": "+50% XP rate for everyone"},
+            5: {"spell_fragments": 5000, "gold": 5000, "benefit": "+100% XP rate for everyone, unlocks advanced spells"},
+        },
+    },
+    "guillotine": {
+        "name": "Gil the Guillotine",
+        "levels": {
+            2: {"blood_gems": 200,  "bones": 200,  "gold": 200,  "benefit": "+10% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 600,  "bones": 600,  "gold": 600,  "benefit": "+25% rate for everyone"},
+            4: {"blood_gems": 1500, "bones": 1500, "gold": 1500, "benefit": "+50% rate for everyone"},
+            5: {"blood_gems": 4000, "bones": 4000, "gold": 4000, "benefit": "+100% rate for everyone, unlocks dark rituals"},
+        },
+    },
+    "hotel": {
+        "name": "Penguin Hotel",
+        "levels": {
+            2: {"gold": 500,   "fish": 200,  "benefit": "Rest costs reduced by 20%"},
+            3: {"gold": 1500,  "fish": 600,  "benefit": "Rest costs reduced by 40%"},
+            4: {"gold": 4000,  "fish": 1500, "benefit": "Rest costs reduced by 60%"},
+            5: {"gold": 10000, "fish": 4000, "benefit": "Rest is FREE for everyone"},
+        },
+    },
+}
+
+BUILDING_BONUS_RATES = {1: 0.0, 2: 0.10, 3: 0.25, 4: 0.50, 5: 1.00}
+
+# resource column name in building_upgrades table
+_RES_COL = {
+    "fish": "fish_donated", "herbs": "herbs_donated", "gold": "gold_donated",
+    "blood_gems": "blood_gems_donated", "bones": "bones_donated",
+    "spell_fragments": "spell_fragments_donated",
+}
+
+
+def get_building_level(db, building_id):
+    row = db.execute(
+        "SELECT current_level FROM building_upgrades WHERE building_id=?", (building_id,)
+    ).fetchone()
+    return row["current_level"] if row else 1
+
+
+def ensure_building_row(db, building_id):
+    db.execute(
+        "INSERT OR IGNORE INTO building_upgrades (building_id) VALUES (?)", (building_id,)
+    )
+
+
 # ── BUILDINGS ─────────────────────────────────────────────────────────────────
 # produces = per-hour rates. Jobs cap at JOB_CAP_HOURS; earned = floor(rate * hours).
 JOB_CAP_HOURS = 8.0
@@ -585,6 +666,12 @@ def check_achievements(db, username):
 
 # ── APP INIT ──────────────────────────────────────────────────────────────────
 init_db()
+# Seed building_upgrades rows for each upgradeable building
+_seed_db = get_db()
+for _bid in BUILDING_UPGRADES:
+    _seed_db.execute("INSERT OR IGNORE INTO building_upgrades (building_id) VALUES (?)", (_bid,))
+_seed_db.commit()
+_seed_db.close()
 
 
 # ── ROUTES ───────────────────────────────────────────────────────────────────
@@ -1080,6 +1167,8 @@ def work_collect():
     player_level    = p["level"] or 1
     gathering_bonus = get_total_gathering_bonus(player_level) / 100.0
     stream_mult     = STREAM_RATES.get(p["stream_tier"] or 0, 1.0)
+    ensure_building_row(db, p["job"])
+    building_bonus  = BUILDING_BONUS_RATES.get(get_building_level(db, p["job"]), 0.0)
 
     earned    = {}
     level_ups = []
@@ -1087,9 +1176,9 @@ def work_collect():
 
     for resource, rate_per_hour in b.get("produces", {}).items():
         if resource == "xp":
-            amount = int(rate_per_hour * stream_mult * hours_worked)
+            amount = int(rate_per_hour * stream_mult * (1 + building_bonus) * hours_worked)
         else:
-            amount = int(rate_per_hour * stream_mult * (1 + gathering_bonus) * hours_worked)
+            amount = int(rate_per_hour * stream_mult * (1 + gathering_bonus + building_bonus) * hours_worked)
         if amount <= 0:
             continue
         earned[resource] = amount
@@ -1136,6 +1225,7 @@ def work_collect():
         "building":         b["name"],
         "stream_tier":      p["stream_tier"] or 0,
         "stream_mult":      stream_mult,
+        "building_bonus":   building_bonus,
         "new_title":        new_title,
     })
 
@@ -1870,6 +1960,220 @@ def titles_grant():
     db.commit()
     db.close()
     return jsonify({"status": "success", "title": title, "username": username})
+
+
+# ── VILLAGE BUILDING UPGRADE ENDPOINTS ───────────────────────────────────────
+
+def _building_upgrade_info(db, building_id):
+    """Return full upgrade state for a building (dict, or None if unknown)."""
+    cfg = BUILDING_UPGRADES.get(building_id)
+    if not cfg:
+        return None
+    ensure_building_row(db, building_id)
+    row = db.execute(
+        "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
+    ).fetchone()
+    current_level = row["current_level"] if row else 1
+    max_level     = row["max_level"]     if row else 5
+    levels_cfg    = cfg["levels"]
+    next_level    = current_level + 1 if current_level < max_level else None
+    next_req      = levels_cfg.get(next_level, {}) if next_level else {}
+    donated       = {
+        "fish":            row["fish_donated"]            if row else 0,
+        "herbs":           row["herbs_donated"]           if row else 0,
+        "gold":            row["gold_donated"]            if row else 0,
+        "blood_gems":      row["blood_gems_donated"]      if row else 0,
+        "bones":           row["bones_donated"]           if row else 0,
+        "spell_fragments": row["spell_fragments_donated"] if row else 0,
+    }
+    progress = {}
+    for res, need in next_req.items():
+        if res == "benefit":
+            continue
+        have = donated.get(res, 0)
+        progress[res] = {
+            "needed": need, "donated": have,
+            "pct": min(100, round(have / need * 100)) if need else 100,
+        }
+    # current benefit
+    cur_benefit  = levels_cfg.get(current_level, {}).get("benefit", "Base level") if current_level > 1 else "Base level"
+    next_benefit = next_req.get("benefit") if next_req else None
+    return {
+        "building_id":    building_id,
+        "name":           cfg["name"],
+        "current_level":  current_level,
+        "max_level":      max_level,
+        "current_benefit": cur_benefit,
+        "next_level":     next_level,
+        "next_req":       {k: v for k, v in next_req.items() if k != "benefit"},
+        "next_benefit":   next_benefit,
+        "progress":       progress,
+    }
+
+
+@app.route("/building/upgrade/<building_id>")
+def building_upgrade_info(building_id):
+    username = request.args.get("username", "")
+    db       = get_db()
+    info     = _building_upgrade_info(db, building_id)
+    if not info:
+        db.close()
+        return jsonify({"status": "error", "message": "Not upgradeable."})
+    # Top contributors
+    rows = db.execute(
+        "SELECT username, SUM(amount) AS total FROM building_donations "
+        "WHERE building_id=? GROUP BY username ORDER BY total DESC LIMIT 5",
+        (building_id,)
+    ).fetchall()
+    contributors = [{"rank": i+1, "username": r["username"], "total": r["total"]}
+                    for i, r in enumerate(rows)]
+    # Player resources for donation UI
+    player_resources = {}
+    if username:
+        ensure_resources(db, username)
+        r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+        if r:
+            player_resources = {
+                "fish": r["fish"] or 0, "herbs": r["herbs"] or 0,
+                "gold": r["gold"] or 0, "blood_gems": r["blood_gems"] or 0,
+                "bones": r["bones"] or 0, "spell_fragments": r["spell_fragments"] or 0,
+            }
+        g = get_gold(db, username)
+        player_resources["gold"] = g
+    db.close()
+    return jsonify({"status": "success", **info,
+                    "contributors": contributors,
+                    "player_resources": player_resources})
+
+
+@app.route("/building/donate", methods=["POST"])
+def building_donate():
+    data          = request.get_json(silent=True) or {}
+    username      = data.get("username", "").strip()
+    building_id   = data.get("building_id", "").strip()
+    resource_type = data.get("resource_type", "").strip()
+    amount        = int(data.get("amount", 0))
+
+    if amount <= 0:
+        return jsonify({"status": "error", "message": "Amount must be positive."})
+    cfg = BUILDING_UPGRADES.get(building_id)
+    if not cfg:
+        return jsonify({"status": "error", "message": "Not upgradeable."})
+    if resource_type not in _RES_COL:
+        return jsonify({"status": "error", "message": "Invalid resource."})
+
+    db = get_db()
+    ensure_building_row(db, building_id)
+    row = db.execute(
+        "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
+    ).fetchone()
+    current_level = row["current_level"] if row else 1
+    max_level     = row["max_level"]     if row else 5
+
+    if current_level >= max_level:
+        db.close()
+        return jsonify({"status": "error", "message": "Building is already max level."})
+
+    next_level = current_level + 1
+    next_req   = {k: v for k, v in cfg["levels"][next_level].items() if k != "benefit"}
+    if resource_type not in next_req:
+        db.close()
+        return jsonify({"status": "error", "message": f"{resource_type} is not needed for the next upgrade."})
+
+    # Check player has enough
+    ensure_resources(db, username)
+    if resource_type == "gold":
+        player_have = get_gold(db, username)
+    else:
+        r = db.execute(f"SELECT {resource_type} FROM resources WHERE username=?", (username,)).fetchone()
+        player_have = (r[resource_type] if r else 0) or 0
+
+    if player_have < amount:
+        db.close()
+        return jsonify({"status": "error", "message": f"Not enough {resource_type}. Have {player_have}, need {amount}."})
+
+    # Deduct resource
+    if resource_type == "gold":
+        db.execute("UPDATE resources SET gold=gold-? WHERE username=?", (amount, username))
+    else:
+        db.execute(f"UPDATE resources SET {resource_type}={resource_type}-? WHERE username=?", (amount, username))
+
+    # Add to building total
+    col = _RES_COL[resource_type]
+    db.execute(f"UPDATE building_upgrades SET {col}={col}+? WHERE building_id=?", (amount, building_id))
+
+    # Record donation
+    db.execute(
+        "INSERT INTO building_donations (building_id, username, resource_type, amount, donated_at) VALUES (?,?,?,?,?)",
+        (building_id, username, resource_type, amount, int(time.time()))
+    )
+
+    log_event(db, "village",
+              f"{username} donated {amount} {resource_type} to {cfg['name']}",
+              username)
+
+    # Refresh row and check for level-up
+    row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
+    leveled_up = False
+    new_level  = current_level
+    all_met = all(
+        (row[_RES_COL[res]] or 0) >= need
+        for res, need in next_req.items()
+        if res in _RES_COL
+    )
+    if all_met:
+        new_level = next_level
+        # Reset donated counters
+        db.execute(
+            "UPDATE building_upgrades SET current_level=?, fish_donated=0, herbs_donated=0, "
+            "gold_donated=0, blood_gems_donated=0, bones_donated=0, spell_fragments_donated=0 "
+            "WHERE building_id=?",
+            (new_level, building_id)
+        )
+        benefit = cfg["levels"][new_level].get("benefit", "")
+        log_event(db, "village",
+                  f"🏗️ {cfg['name']} has been upgraded to Level {new_level}! {benefit} Thanks to the village!",
+                  None)
+        leveled_up = True
+
+    db.commit()
+    db.close()
+    return jsonify({
+        "status":          "success",
+        "donated":         amount,
+        "resource":        resource_type,
+        "building_level":  new_level,
+        "level_up":        leveled_up,
+    })
+
+
+@app.route("/building/contributors/<building_id>")
+def building_contributors(building_id):
+    db   = get_db()
+    rows = db.execute(
+        "SELECT username, SUM(amount) AS total FROM building_donations "
+        "WHERE building_id=? GROUP BY username ORDER BY total DESC LIMIT 10",
+        (building_id,)
+    ).fetchall()
+    db.close()
+    return jsonify({
+        "status":       "success",
+        "contributors": [{"rank": i+1, "username": r["username"], "total": r["total"]}
+                         for i, r in enumerate(rows)]
+    })
+
+
+@app.route("/building/all_levels")
+def building_all_levels():
+    """Lightweight endpoint returning current level for every upgradeable building."""
+    db  = get_db()
+    rows = db.execute("SELECT building_id, current_level FROM building_upgrades").fetchall()
+    db.close()
+    levels = {r["building_id"]: r["current_level"] for r in rows}
+    # Fill defaults for any not yet in DB
+    for bid in BUILDING_UPGRADES:
+        levels.setdefault(bid, 1)
+    return jsonify(levels)
 
 
 if __name__ == "__main__":

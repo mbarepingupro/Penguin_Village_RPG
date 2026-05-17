@@ -123,6 +123,31 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS building_upgrades (
+            building_id TEXT PRIMARY KEY,
+            current_level INTEGER DEFAULT 1,
+            max_level INTEGER DEFAULT 5,
+            fish_donated INTEGER DEFAULT 0,
+            herbs_donated INTEGER DEFAULT 0,
+            gold_donated INTEGER DEFAULT 0,
+            blood_gems_donated INTEGER DEFAULT 0,
+            bones_donated INTEGER DEFAULT 0,
+            spell_fragments_donated INTEGER DEFAULT 0
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS building_donations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            building_id TEXT NOT NULL,
+            username TEXT NOT NULL,
+            resource_type TEXT NOT NULL,
+            amount INTEGER NOT NULL,
+            donated_at INTEGER NOT NULL
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
