@@ -645,6 +645,33 @@
     .job-timer { color: #A86EFF; font-size: 9px; }
     .job-timer-complete { color: #4aff6b; font-size: 9px; animation: collectpulse 1.2s infinite; }
 
+    /* ── WELCOME BACK MODAL ── */
+    #wb-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    #wb-overlay.show { display: flex; }
+    .wb-box {
+      background: #2E2E2E; border: 3px solid #A86EFF;
+      padding: 20px; max-width: 400px; width: 90%;
+      font-family: 'Press Start 2P', monospace;
+      animation: popIn 0.25s ease;
+    }
+    .wb-title { color: #A86EFF; font-size: 14px; margin-bottom: 6px; text-align: center; }
+    .wb-subtitle { color: #888; font-size: 9px; margin-bottom: 10px; text-align: center; }
+    .wb-divider { border: none; border-top: 2px solid #A86EFF; margin: 10px 0; }
+    .wb-section { color: #888; font-size: 8px; margin-bottom: 5px; }
+    .wb-row { font-size: 9px; line-height: 2.2; color: #fff; }
+    .wb-total { color: #FF8C00; font-size: 9px; margin-top: 10px; }
+    .wb-collect-btn {
+      display: block; width: 100%; margin-top: 14px;
+      background: none; border: 2px solid #A86EFF;
+      color: #A86EFF; font-family: 'Press Start 2P', monospace;
+      font-size: 10px; padding: 10px; cursor: pointer;
+    }
+    .wb-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
+
     /* ── EVENT LOG ── */
     .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .event-row { display: flex; gap: 8px; padding: 6px 10px; border-left: 3px solid; font-size: 9px; line-height: 1.8; }
@@ -1014,6 +1041,19 @@
 </div>
 
 <!-- STREAK REWARD MODAL -->
+<!-- WELCOME BACK MODAL -->
+<div id="wb-overlay">
+  <div class="wb-box">
+    <div class="wb-title">WELCOME BACK!</div>
+    <div id="wb-subtitle" class="wb-subtitle"></div>
+    <hr class="wb-divider">
+    <div id="wb-job-section"></div>
+    <div id="wb-passive-section"></div>
+    <div id="wb-total" class="wb-total"></div>
+    <button class="wb-collect-btn" onclick="wbDismiss()">COLLECT</button>
+  </div>
+</div>
+
 <div id="streak-modal">
   <div class="streak-modal-box">
     <div class="sm-fire">🔥</div>
@@ -2293,6 +2333,57 @@
     iglooRenderCatalog();
   }
 
+  // ── WELCOME BACK ──
+  let _wbShown = false;
+
+  async function checkWelcomeBack() {
+    if (_wbShown) return;
+    try {
+      const res  = await fetch(`/welcome-back/${CURRENT_USER}`);
+      const data = await res.json();
+      if (!data.show) return;
+      _wbShown = true;
+
+      const ICONS = { fish:'🐟', herbs:'🌿', blood_gems:'💎', bones:'🦴', spell_fragments:'✨', gold:'🪙', xp:'⭐' };
+
+      document.getElementById('wb-subtitle').textContent =
+        `You were away for ${data.hours_away} hour${data.hours_away !== 1 ? 's' : ''}`;
+
+      let jobHtml = '';
+      if (data.job_earnings) {
+        const je = data.job_earnings;
+        jobHtml += `<div class="wb-section">${je.building_icon} FINISHED WORKING AT ${je.building_name.toUpperCase()}!</div>`;
+        for (const [k, v] of Object.entries(je.earned)) {
+          if (v > 0) jobHtml += `<div class="wb-row">${ICONS[k] || '▪'} +${v} ${k.replace(/_/g,' ').toUpperCase()}</div>`;
+        }
+        jobHtml += '<hr class="wb-divider">';
+      }
+      document.getElementById('wb-job-section').innerHTML = jobHtml;
+
+      const pe = data.passive_earnings;
+      let passiveHtml = '<div class="wb-section">WHILE YOU WERE GONE...</div>';
+      if (pe.gold > 0) passiveHtml += `<div class="wb-row">🪙 +${pe.gold} GOLD</div>`;
+      if (pe.xp   > 0) passiveHtml += `<div class="wb-row">⭐ +${pe.xp} XP</div>`;
+      document.getElementById('wb-passive-section').innerHTML = passiveHtml;
+
+      const totals = Object.assign({}, (data.job_earnings && data.job_earnings.earned) || {});
+      totals.gold = (totals.gold || 0) + pe.gold;
+      totals.xp   = (totals.xp   || 0) + pe.xp;
+      const totalStr = Object.entries(totals)
+        .filter(([,v]) => v > 0)
+        .map(([k,v]) => `+${v} ${k.replace(/_/g,' ')}`)
+        .join(', ');
+      document.getElementById('wb-total').textContent = 'TOTAL: ' + totalStr;
+
+      document.getElementById('wb-overlay').classList.add('show');
+      await refreshStats();
+    } catch(e) {}
+  }
+
+  function wbDismiss() {
+    document.getElementById('wb-overlay').classList.remove('show');
+  }
+
   // ── INIT ──
   checkLiveStatus();
   loadMapPenguins();
@@ -2301,6 +2392,7 @@
   loadStreak();
   loadStatsAchievements();
   startMidnightCountdowns();
+  checkWelcomeBack();
   setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
