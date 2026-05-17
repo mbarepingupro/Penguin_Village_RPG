@@ -272,6 +272,36 @@
     .sidebar-no-title { color: #666; font-size: 8px; }
     .title-change-btn { font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 3px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
     .title-change-btn:hover { border-color: #A86EFF; color: #A86EFF; }
+    .view-card-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 5px 10px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
+    .view-card-btn:hover { background: #A86EFF; color: #1C1C1C; }
+
+    /* ── CARD MODAL ── */
+    #card-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9999; align-items: center; justify-content: center; }
+    #card-modal.show { display: flex; }
+    .card-modal-box { background: #1C1C1C; border: 3px solid #A86EFF; padding: 16px; max-width: 420px; width: 90%; font-family: 'Press Start 2P', monospace; animation: popIn 0.2s ease; }
+    .card-modal-title { color: #A86EFF; font-size: 9px; margin-bottom: 12px; }
+    .card-preview { width: 100%; border: 2px solid #2E2E2E; margin-bottom: 12px; }
+    .card-preview-inner { display: flex; background: #1C1C1C; }
+    .card-preview-left { width: 120px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:14px 8px; border-right:1px solid #2E2E2E; gap:6px; }
+    .card-preview-sprite { width:56px; height:56px; image-rendering:pixelated; }
+    .card-preview-username { color:#fff; font-size:7px; text-align:center; }
+    .card-preview-title   { color:#A86EFF; font-size:6px; text-align:center; line-height:1.6; }
+    .card-preview-prestige { color:#FF7FE5; font-size:9px; }
+    .card-preview-right { flex:1; padding:12px 10px; display:flex; flex-direction:column; gap:7px; }
+    .card-preview-header { color:#A86EFF; font-size:8px; }
+    .card-preview-stat { font-size:7px; color:#888; line-height:1.8; }
+    .card-preview-stat span { color:#fff; }
+    .card-preview-stat span.orange { color:#FF8C00; }
+    .card-preview-stat span.purple { color:#A86EFF; }
+    .card-preview-url { color:#555; font-size:5px; margin-top:auto; }
+    .card-modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+    .card-modal-action-btn { font-family:'Press Start 2P',monospace; font-size:7px; padding:6px 12px; border:2px solid #A86EFF; background:transparent; color:#A86EFF; cursor:pointer; }
+    .card-modal-action-btn:hover { background:#A86EFF; color:#1C1C1C; }
+    .card-modal-action-btn.dl { border-color:#FF8C00; color:#FF8C00; }
+    .card-modal-action-btn.dl:hover { background:#FF8C00; color:#1C1C1C; }
+    .card-modal-url { color:#555; font-size:7px; margin-bottom:8px; word-break:break-all; }
+    .card-modal-close { font-family:'Press Start 2P',monospace; font-size:7px; padding:5px 12px; border:2px solid #555; background:transparent; color:#888; cursor:pointer; }
+    .card-modal-close:hover { border-color:#888; }
 
     /* ── TITLE SELECTION MODAL ── */
     #title-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
@@ -1010,6 +1040,9 @@
             <span id="sidebar-active-title" class="sidebar-no-title">No title equipped</span>
             <button class="title-change-btn" onclick="openTitleModal()">CHANGE</button>
           </div>
+          <div style="text-align:center;margin-bottom:4px;">
+            <button class="view-card-btn" onclick="openCardModal()">📋 VIEW CARD</button>
+          </div>
           <div class="penguin-level" id="stat-level">★ LEVEL {{ penguin['level'] }}</div>
         </div>
 
@@ -1361,6 +1394,21 @@
     <div class="seal-shop-count">Your Seals: <span id="seal-shop-player-count">0</span> 👑</div>
     <div id="seal-shop-list"><div style="color:#888;font-size:8px;text-align:center;padding:20px;">LOADING...</div></div>
     <button class="seal-shop-close" onclick="closeSealShop()">CLOSE</button>
+  </div>
+</div>
+<!-- PENGUIN CARD MODAL -->
+<div id="card-modal">
+  <div class="card-modal-box">
+    <div class="card-modal-title">📋 YOUR PENGUIN CARD</div>
+    <div class="card-preview" id="card-preview-container">
+      <div class="card-preview-inner" id="card-preview-inner"></div>
+    </div>
+    <div class="card-modal-actions">
+      <button class="card-modal-action-btn" onclick="shareCard()">🔗 SHARE</button>
+      <button class="card-modal-action-btn dl" onclick="downloadCard()">⬇ DOWNLOAD</button>
+    </div>
+    <div class="card-modal-url" id="card-modal-url"></div>
+    <button class="card-modal-close" onclick="closeCardModal()">CLOSE</button>
   </div>
 </div>
 <!-- COSMETIC EQUIP MODAL -->
@@ -2482,6 +2530,58 @@
 
   function closeSealShop() {
     document.getElementById('seal-shop-modal').classList.remove('show');
+  }
+
+  // ── PENGUIN CARD MODAL ──
+  function openCardModal() {
+    const goldEl = document.getElementById('res-gold');
+    const gold   = goldEl ? goldEl.textContent : '0';
+    const level  = _playerLevel || 1;
+    const job    = (_currentJob || '').replace(/_/g, ' ').toUpperCase() || 'IDLE';
+    const prestige = {{ penguin['prestige'] | tojson }} || 0;
+    const totalHoursEl = document.getElementById('stat-hours');
+    const totalHours = totalHoursEl ? totalHoursEl.textContent : '0';
+    const gatherPct = (level - 1) * 5;
+
+    const inner = document.getElementById('card-preview-inner');
+    const prestigeStars = prestige > 0 ? '★'.repeat(prestige) : '';
+    inner.innerHTML = `
+      <div class="card-preview-left">
+        <img src="/static/penguin.png" class="card-preview-sprite" alt="penguin"
+             onerror="this.style.display='none'">
+        <div class="card-preview-username">${CURRENT_USER.toUpperCase()}</div>
+        ${_activeTitle ? `<div class="card-preview-title">${_activeTitle}</div>` : ''}
+        ${prestigeStars ? `<div class="card-preview-prestige">${prestigeStars}</div>` : ''}
+        ${gatherPct > 0 ? `<div style="color:#4aff6b;font-size:5px;margin-top:auto;">+${gatherPct}% gather</div>` : ''}
+      </div>
+      <div class="card-preview-right">
+        <div class="card-preview-header">PENGUIN VILLAGE</div>
+        <div class="card-preview-stat">LEVEL <span>${level}</span></div>
+        <div class="card-preview-stat">JOB <span class="orange">${job}</span></div>
+        <div class="card-preview-stat">GOLD <span class="orange">${gold}</span></div>
+        ${_activeTitle ? `<div class="card-preview-stat">TITLE <span class="purple">"${_activeTitle}"</span></div>` : ''}
+        <div class="card-preview-url">mbarepingu.com/penguin/${CURRENT_USER.toLowerCase()}</div>
+      </div>`;
+
+    const urlEl = document.getElementById('card-modal-url');
+    urlEl.textContent = window.location.origin + '/penguin/' + CURRENT_USER.toLowerCase();
+
+    document.getElementById('card-modal').classList.add('show');
+  }
+
+  function closeCardModal() {
+    document.getElementById('card-modal').classList.remove('show');
+  }
+
+  function shareCard() {
+    const url = window.location.origin + '/penguin/' + CURRENT_USER.toLowerCase();
+    navigator.clipboard.writeText(url).then(() => showToast('Link copied!', 'ok')).catch(() => {
+      prompt('Copy this link:', url);
+    });
+  }
+
+  function downloadCard() {
+    window.open('/card/' + CURRENT_USER.toLowerCase() + '/image', '_blank');
   }
 
   async function renderSealShop() {
