@@ -350,6 +350,8 @@
     .bp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .bp-btn.collect { background: var(--orange); border-color: #ffa500; color: var(--dark); }
     .bp-btn.collect:hover:not(:disabled) { background: #ffa500; }
+    .bp-btn.rest { border-color: #4aff6b; color: #4aff6b; background: #2E2E2E; }
+    .bp-btn.rest:hover:not(:disabled) { background: #4aff6b; color: #1C1C1C; }
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
 
     /* ── PENGUIN SPRITES ON MAP ── */
@@ -1926,12 +1928,37 @@
         html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label || 'WORK'}</button>`;
       }
     } else if (btype === 'rest') {
-      const cost      = data.rest_cost || 50;
-      const canAfford = (data.player_gold || 0) >= cost;
-      html += `<div class="bp-info">Restore energy to full.<br>Cost: ${cost} gold<br>Your gold: ${data.player_gold || 0}</div>`;
-      html += `<button class="bp-btn" ${canAfford ? '' : 'disabled'} onclick="bpRest()">
-        ${canAfford ? 'REST (' + cost + ' GOLD)' : 'NEED ' + cost + ' GOLD'}
-      </button>`;
+      const energy    = data.player_energy    || 0;
+      const maxEnergy = data.player_max_energy || 100;
+      const gold      = data.player_gold       || 0;
+      const isWorking = !!data.player_job;
+      const isFull    = energy >= maxEnergy;
+      const toRestore = maxEnergy - energy;
+      const cost      = toRestore * 2;
+      const canAfford = gold >= cost;
+      const energyPct = Math.round((energy / maxEnergy) * 100);
+
+      html += `<div style="color:var(--purple);font-size:10px;margin-bottom:6px;">PENGUIN HOTEL</div>`;
+      html += `<div class="bp-info" style="margin-bottom:8px;">Rest those flippers. You've earned it.</div>`;
+      html += `<hr style="border:none;border-top:1px solid #A86EFF;margin:8px 0;">`;
+
+      html += `<div style="font-size:8px;color:#888;margin-bottom:4px;">ENERGY: ${energy} / ${maxEnergy}</div>`;
+      html += `<div style="height:6px;background:#1C1C1C;margin-bottom:10px;">`;
+      html += `<div style="height:100%;width:${energyPct}%;background:#4aff6b;"></div></div>`;
+
+      if (isFull) {
+        html += `<div class="bp-info" style="color:#4aff6b;text-align:center;padding:8px 0;">You're fully rested! 😴</div>`;
+      } else if (isWorking) {
+        html += `<div class="bp-info" style="color:#ff6b6b;">Your penguin needs to finish working first!</div>`;
+        html += `<div class="bp-info" style="margin-top:4px;">Collect your earnings first, then come back to rest.</div>`;
+      } else {
+        html += `<div style="font-size:9px;color:#fff;margin-bottom:3px;">Restore ${toRestore} energy</div>`;
+        html += `<div style="font-size:9px;color:#FF8C00;margin-bottom:10px;">Cost: ${cost} gold 🪙</div>`;
+        html += `<button class="bp-btn rest" ${canAfford ? '' : 'disabled'} onclick="bpRest()">REST NOW</button>`;
+        if (!canAfford) {
+          html += `<div style="color:#ff6b6b;font-size:7px;margin-top:5px;text-align:center;">Not enough gold (have ${gold}, need ${cost})</div>`;
+        }
+      }
     } else if (btype === 'combat') {
       if (FEATURES.combat) {
         html += `<div class="bp-info">Fight monsters. Win loot.<br>Try not to die.</div>`;
@@ -1990,14 +2017,10 @@
 
   async function bpRest() {
     try {
-      const res = await fetch('/rest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER })
-      });
+      const res  = await fetch(`/hotel/rest/${CURRENT_USER}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
-        showToast(data.message, 'ok');
+        showToast(`Fully rested! -${data.gold_spent} gold`, 'ok');
         await refreshStats();
         closeBuildingPanel();
       } else {
