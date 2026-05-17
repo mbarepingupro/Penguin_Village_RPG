@@ -672,6 +672,79 @@
     }
     .wb-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
 
+    /* ── LEVEL-UP MODAL ── */
+    #lvup-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    #lvup-overlay.show { display: flex; }
+    #lvup-box {
+      background: #2E2E2E; border: 3px solid #A86EFF;
+      padding: 22px 20px; max-width: 380px; width: 92%;
+      font-family: 'Press Start 2P', monospace;
+      animation: popIn 0.25s ease;
+    }
+    #lvup-box.milestone-glow {
+      animation: milestoneGlow 1.2s infinite;
+    }
+    @keyframes milestoneGlow {
+      0%,100% { border-color: #A86EFF; box-shadow: 0 0 10px #A86EFF44; }
+      50%     { border-color: #FF7FE5; box-shadow: 0 0 20px #FF7FE577; }
+    }
+    .lvup-title     { font-size: 14px; margin-bottom: 6px; text-align: center; }
+    .lvup-level     { color: #fff; font-size: 10px; margin-bottom: 4px; text-align: center; }
+    .lvup-bonus     { color: #4aff6b; font-size: 9px; margin-bottom: 6px; text-align: center; }
+    .lvup-divider   { border: none; border-top: 2px solid #A86EFF; margin: 10px 0; }
+    .lvup-reward-hdr { color: #888; font-size: 8px; margin-bottom: 6px; }
+    .lvup-reward-row { font-size: 9px; line-height: 2.2; }
+    .lvup-collect-btn {
+      display: block; width: 100%; margin-top: 14px;
+      background: none; border: 2px solid #A86EFF;
+      color: #A86EFF; font-family: 'Press Start 2P', monospace;
+      font-size: 10px; padding: 10px; cursor: pointer;
+    }
+    .lvup-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
+
+    /* ── LEVELS TAB ── */
+    .levels-panel { display: flex; flex-direction: column; height: 100%; }
+    .levels-range-bar { display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0; }
+    .levels-range-btn {
+      flex: 1; padding: 8px 4px; font-size: 8px;
+      font-family: 'Press Start 2P', monospace;
+      background: #1C1C1C; border: none; border-right: 2px solid #A86EFF; color: #555; cursor: pointer;
+    }
+    .levels-range-btn:last-child { border-right: none; }
+    .levels-range-btn.active { color: #A86EFF; background: #2E2E2E; }
+    .levels-range-btn.unlocked { color: #888; }
+    .levels-range-btn.locked { color: #444; cursor: not-allowed; }
+    .levels-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .levels-footer { flex-shrink: 0; padding: 8px 12px; border-top: 2px solid #A86EFF; font-size: 8px; background: #1C1C1C; }
+    .lv-row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px; border-bottom: 1px solid #222; }
+    .lv-num {
+      width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+      font-size: 9px; flex-shrink: 0; border: 2px solid #444;
+    }
+    .lv-num.done    { background: #A86EFF; color: #fff; border-color: #A86EFF; }
+    .lv-num.current { background: none; color: #FF7FE5; animation: lvpulse 1.2s infinite; }
+    .lv-num.locked  { background: #2E2E2E; color: #444; }
+    @keyframes lvpulse { 0%,100% { border-color: #FF7FE5; } 50% { border-color: #A86EFF; } }
+    .lv-info    { flex: 1; }
+    .lv-title   { font-size: 8px; color: #888; margin-bottom: 3px; }
+    .lv-rewards { font-size: 7px; line-height: 1.8; }
+    .lv-status  { flex-shrink: 0; font-size: 9px; display: flex; align-items: center; }
+    .lv-xpbar-wrap { height: 5px; background: #1C1C1C; margin-top: 3px; }
+    .lv-xpbar-fill { height: 100%; background: #A86EFF; transition: width 0.3s; }
+
+    /* ── SIDEBAR NEXT UNLOCK ── */
+    .sb-next-unlock {
+      border-top: 1px solid #A86EFF; padding: 6px 10px;
+      cursor: pointer; margin-top: 4px;
+    }
+    .sb-next-unlock:hover { background: #252525; }
+    .sb-next-lv   { color: #A86EFF; font-size: 8px; margin-bottom: 2px; }
+    .sb-next-prev { color: #888; font-size: 7px; }
+
     /* ── EVENT LOG ── */
     .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .event-row { display: flex; gap: 8px; padding: 6px 10px; border-left: 3px solid; font-size: 9px; line-height: 1.8; }
@@ -782,6 +855,11 @@
           </div>
           <div class="bar-wrap">
             <div class="bar-fill" id="xp-bar" style="width:0%; background:var(--purple);"></div>
+          </div>
+          <div class="sb-next-unlock" id="next-unlock-section" style="display:none;"
+               onclick="switchContentTab('levels', document.querySelector('[data-tab=levels]'))">
+            <div class="sb-next-lv" id="next-unlock-level">NEXT: LV --</div>
+            <div class="sb-next-prev" id="next-unlock-preview"></div>
           </div>
           <div class="stat-row">
             <span class="stat-lbl">ENERGY</span>
@@ -901,6 +979,7 @@
     <div class="content">
       <div class="content-tabs">
         <button class="content-tab active" data-tab="map"     onclick="switchContentTab('map', this)">MAP</button>
+        <button class="content-tab"        data-tab="levels"  onclick="switchContentTab('levels', this)">LEVELS</button>
         {% if features.get("combat", False) %}
         <button class="content-tab"        data-tab="combat"  onclick="switchContentTab('combat', this)">COMBAT</button>
         {% endif %}
@@ -994,6 +1073,24 @@
         </div>
       </div>
 
+      <!-- LEVELS TAB -->
+      <div class="content-panel" id="panel-levels">
+        <div class="levels-panel">
+          <div class="levels-range-bar">
+            <button class="levels-range-btn active" id="lvrange-0" onclick="switchLevelRange(0)">1 – 10</button>
+            <button class="levels-range-btn locked"  id="lvrange-1" onclick="switchLevelRange(1)">🔒 11 – 20</button>
+            <button class="levels-range-btn locked"  id="lvrange-2" onclick="switchLevelRange(2)">🔒 21 – 30</button>
+          </div>
+          <div class="levels-list" id="levels-list">
+            <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
+          </div>
+          <div class="levels-footer">
+            <div style="color:#4aff6b;" id="lv-bonus-line">GATHERING BONUS: +0%</div>
+            <div style="color:#A86EFF;margin-top:3px;" id="lv-next-line"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- EVENT LOG TAB -->
       <div class="content-panel" id="panel-eventlog">
         <div class="eventlog-panel" id="eventlog-list">
@@ -1041,6 +1138,17 @@
 </div>
 
 <!-- STREAK REWARD MODAL -->
+<!-- LEVEL-UP MODAL -->
+<div id="lvup-overlay">
+  <div id="lvup-box">
+    <div id="lvup-title" class="lvup-title" style="color:#A86EFF;">LEVEL UP!</div>
+    <div id="lvup-level" class="lvup-level"></div>
+    <div id="lvup-bonus" class="lvup-bonus"></div>
+    <div id="lvup-rewards"></div>
+    <button class="lvup-collect-btn" onclick="lvupDismiss()">COLLECT</button>
+  </div>
+</div>
+
 <!-- WELCOME BACK MODAL -->
 <div id="wb-overlay">
   <div class="wb-box">
@@ -1096,6 +1204,7 @@
     if (name === 'gear')      loadGear();
     if (name === 'awards')    loadAwards();
     if (name === 'eventlog')  loadEventLog();
+    if (name === 'levels')    loadLevelsTab();
   }
 
   async function checkLiveStatus() {
@@ -1240,8 +1349,10 @@
   }
 
   {% if logged_in %}
-  const CURRENT_USER = {{ penguin["username"] | tojson }};
-  const FEATURES     = {{ features | tojson }};
+  const CURRENT_USER      = {{ penguin["username"] | tojson }};
+  const FEATURES          = {{ features | tojson }};
+  const LEVEL_DATA_CONFIG = {{ level_data | tojson }};
+  let _playerLevel        = {{ penguin['level'] | tojson }};
 
   // ── TOAST ──
   let _toastTimer = null;
@@ -1383,6 +1494,30 @@
         document.getElementById('stat-xp').textContent = xpInto + '/' + xpNeeded;
         document.getElementById('xp-bar').style.width = xpPct + '%';
         document.getElementById('res-gold').textContent = p.gold || 0;
+
+        _playerLevel = p.level || 1;
+
+        // Next-unlock sidebar preview
+        const nuSection = document.getElementById('next-unlock-section');
+        if (p.next_unlock && nuSection) {
+          const nu = p.next_unlock;
+          const parts = [];
+          if (nu.cosmetics && nu.cosmetics.length) parts.push(nu.cosmetics[0]);
+          if (nu.gold)       parts.push('+' + nu.gold + 'G');
+          if (nu.title)      parts.push(nu.title);
+          if (nu.max_energy) parts.push('+' + nu.max_energy + ' energy');
+          document.getElementById('next-unlock-level').textContent   = 'NEXT: LV ' + nu.level;
+          document.getElementById('next-unlock-preview').textContent = parts.join(' · ');
+          nuSection.style.display = '';
+        } else if (nuSection) {
+          nuSection.style.display = 'none';
+        }
+
+        // Refresh levels tab if open
+        if (document.getElementById('panel-levels') &&
+            document.getElementById('panel-levels').classList.contains('active')) {
+          loadLevelsTab();
+        }
 
         _currentJob   = p.job || null;
         _jobStartedTs = p.job_started || 0;
@@ -1581,8 +1716,8 @@
         let msg = `Collected from ${data.building}: `;
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         msg += parts.length ? parts.join(', ') : 'nothing (too soon!)';
-        if (data.leveled_up) msg += ' ★ LEVEL UP!';
         showToast(msg, 'ok');
+        if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
         if (data.new_achievements && data.new_achievements.length) {
           data.new_achievements.forEach(aid => {
             setTimeout(() => showToast('🏆 ACHIEVEMENT: ' + aid.replace(/_/g,' ').toUpperCase(), 'ok'), 500);
@@ -1844,9 +1979,9 @@
       if (data.status === 'success') {
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         showToast('Collected: ' + (parts.join(', ') || 'nothing yet'), 'ok');
-        if (data.leveled_up) setTimeout(() => showToast('★ LEVEL UP!', 'ok'), 800);
         await refreshStats();
         closeBuildingPanel();
+        if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
       } else {
         showToast(data.message, 'err');
       }
@@ -2331,6 +2466,176 @@
     iglooSetHint('SELECT AN ITEM TO MOVE  —  CATALOG TO PLACE NEW ITEMS', false);
     iglooRenderFloor();
     iglooRenderCatalog();
+  }
+
+  // ── LEVEL-UP MODAL ──
+  let _lvupQueue = [];
+
+  function showLevelUpModal(levelUps) {
+    if (!levelUps || !levelUps.length) return;
+    _lvupQueue = _lvupQueue.concat(levelUps);
+    if (!document.getElementById('lvup-overlay').classList.contains('show')) {
+      processLvupQueue();
+    }
+  }
+
+  function processLvupQueue() {
+    if (!_lvupQueue.length) return;
+    renderLvupEntry(_lvupQueue.shift());
+  }
+
+  function renderLvupEntry(entry) {
+    const { level, reward, big_milestone } = entry;
+    const titleEl = document.getElementById('lvup-title');
+    const box     = document.getElementById('lvup-box');
+
+    if (big_milestone) {
+      titleEl.textContent = '🏆 MAJOR MILESTONE!';
+      titleEl.style.color = '#FF8C00';
+      titleEl.style.fontSize = '13px';
+      box.classList.add('milestone-glow');
+    } else {
+      titleEl.textContent = 'LEVEL UP!';
+      titleEl.style.color = '#A86EFF';
+      titleEl.style.fontSize = '14px';
+      box.classList.remove('milestone-glow');
+    }
+
+    const totalBonus = Object.keys(LEVEL_DATA_CONFIG)
+      .filter(k => parseInt(k) <= level)
+      .reduce((sum, k) => sum + (LEVEL_DATA_CONFIG[k].gathering_bonus || 0), 0);
+
+    document.getElementById('lvup-level').textContent = 'Level ' + level + ' reached!';
+    document.getElementById('lvup-bonus').textContent = '+5% gathering speed (total: +' + totalBonus + '%)';
+
+    let rewardHtml = '';
+    if (reward) {
+      rewardHtml += '<hr class="lvup-divider"><div class="lvup-reward-hdr">REWARDS:</div>';
+      for (const c of (reward.cosmetics || [])) {
+        rewardHtml += `<div class="lvup-reward-row" style="color:#FF7FE5;">🎁 ${c}</div>`;
+      }
+      if (reward.gold) {
+        rewardHtml += `<div class="lvup-reward-row" style="color:#FF8C00;">🪙 +${reward.gold} GOLD</div>`;
+      }
+      if (reward.max_energy) {
+        rewardHtml += `<div class="lvup-reward-row" style="color:#4aff6b;">⚡ +${reward.max_energy} MAX ENERGY</div>`;
+      }
+      if (reward.title) {
+        rewardHtml += `<div class="lvup-reward-row" style="color:#A86EFF;">📛 New title: ${reward.title}</div>`;
+      }
+      if (level === 30) {
+        rewardHtml += `<div class="lvup-reward-row" style="color:#FF7FE5;margin-top:6px;">PRESTIGE IS NOW AVAILABLE</div>`;
+      }
+    }
+    document.getElementById('lvup-rewards').innerHTML = rewardHtml;
+    document.getElementById('lvup-overlay').classList.add('show');
+  }
+
+  function lvupDismiss() {
+    document.getElementById('lvup-overlay').classList.remove('show');
+    document.getElementById('lvup-box').classList.remove('milestone-glow');
+    setTimeout(() => processLvupQueue(), 300);
+  }
+
+  // ── LEVELS TAB ──
+  let _currentLevelRange = 0;
+
+  function switchLevelRange(idx) {
+    const btn = document.getElementById('lvrange-' + idx);
+    if (btn.classList.contains('locked')) return;
+    _currentLevelRange = idx;
+    document.querySelectorAll('.levels-range-btn').forEach((b, i) => {
+      b.classList.toggle('active', i === idx);
+    });
+    renderLevelsList();
+  }
+
+  function loadLevelsTab() {
+    // Unlock range buttons based on player level
+    const btn1 = document.getElementById('lvrange-1');
+    const btn2 = document.getElementById('lvrange-2');
+    if (_playerLevel >= 10) {
+      btn1.classList.remove('locked');
+      btn1.classList.add('unlocked');
+      btn1.textContent = '11 – 20';
+    }
+    if (_playerLevel >= 20) {
+      btn2.classList.remove('locked');
+      btn2.classList.add('unlocked');
+      btn2.textContent = '21 – 30';
+    }
+    renderLevelsList();
+
+    // Footer
+    const totalBonus = Object.keys(LEVEL_DATA_CONFIG)
+      .filter(k => parseInt(k) <= _playerLevel)
+      .reduce((sum, k) => sum + (LEVEL_DATA_CONFIG[k].gathering_bonus || 0), 0);
+    document.getElementById('lv-bonus-line').textContent = 'GATHERING BONUS: +' + totalBonus + '%';
+
+    // Next reward preview
+    let nextLv = null;
+    for (let lvl = _playerLevel + 1; lvl <= 30; lvl++) {
+      const d = LEVEL_DATA_CONFIG[String(lvl)];
+      if (d && d.reward) { nextLv = lvl; break; }
+    }
+    const nextEl = document.getElementById('lv-next-line');
+    if (nextLv) {
+      const nr = LEVEL_DATA_CONFIG[String(nextLv)].reward;
+      const parts = [];
+      if (nr.cosmetics && nr.cosmetics.length) parts.push(nr.cosmetics[0]);
+      if (nr.gold)       parts.push('+' + nr.gold + 'G');
+      if (nr.title)      parts.push(nr.title);
+      nextEl.textContent = 'NEXT REWARD AT LV ' + nextLv + ': ' + (parts.join(', ') || '—');
+    } else {
+      nextEl.textContent = _playerLevel >= 30 ? 'MAX LEVEL REACHED!' : '';
+    }
+  }
+
+  function renderLevelsList() {
+    const start = _currentLevelRange * 10 + 1;
+    const end   = start + 9;
+    const list  = document.getElementById('levels-list');
+    let html = '';
+    for (let lvl = start; lvl <= end; lvl++) {
+      const d    = LEVEL_DATA_CONFIG[String(lvl)] || {};
+      const r    = d.reward || null;
+      const done = _playerLevel > lvl;
+      const curr = _playerLevel === lvl;
+      const numCls = done ? 'done' : curr ? 'current' : 'locked';
+      const prefix = d.big_milestone ? '🏆 ' : '';
+
+      let rewardHtml = '';
+      if (r) {
+        const rParts = [];
+        if (r.cosmetics) r.cosmetics.forEach(c => rParts.push(`<span style="color:#FF7FE5;">${c}</span>`));
+        if (r.gold)       rParts.push(`<span style="color:#FF8C00;">+${r.gold}G</span>`);
+        if (r.max_energy) rParts.push(`<span style="color:#4aff6b;">+${r.max_energy} energy</span>`);
+        if (r.title)      rParts.push(`<span style="color:#A86EFF;">${r.title}</span>`);
+        rewardHtml = rParts.join('  ');
+      } else {
+        rewardHtml = `<span style="color:#555;">+5% gathering speed</span>`;
+      }
+
+      let statusHtml = '';
+      if (done) {
+        statusHtml = '<span style="color:#4aff6b;">✅</span>';
+      } else if (curr) {
+        // XP progress bar - needs actual XP data from pData but we approximate from _playerLevel
+        statusHtml = '<span style="color:#A86EFF;font-size:7px;">IN PROGRESS</span>';
+      } else {
+        statusHtml = '<span style="color:#444;">🔒</span>';
+      }
+
+      html += `<div class="lv-row">
+        <div class="lv-num ${numCls}">${lvl}</div>
+        <div class="lv-info">
+          <div class="lv-title">${prefix}LEVEL ${lvl}</div>
+          <div class="lv-rewards">${rewardHtml}</div>
+        </div>
+        <div class="lv-status">${statusHtml}</div>
+      </div>`;
+    }
+    list.innerHTML = html;
   }
 
   // ── WELCOME BACK ──

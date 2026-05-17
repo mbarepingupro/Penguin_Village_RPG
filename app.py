@@ -5,6 +5,7 @@ import random
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db
 from feature_flags import FEATURES
+from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone
 import time
 import requests as http_requests
 
@@ -359,17 +360,51 @@ def get_player_stats(db, username):
     return {"attack": attack, "defense": defense, "speed": speed, "hp": hp, "level": level}
 
 
+def apply_level_rewards(db, username, reward):
+    now = int(time.time())
+    if reward.get("gold"):
+        add_gold(db, username, reward["gold"])
+    if reward.get("max_energy"):
+        db.execute("UPDATE penguins SET max_energy=max_energy+? WHERE username=?",
+                   (reward["max_energy"], username))
+    if reward.get("title"):
+        db.execute("UPDATE penguins SET title=? WHERE username=?", (reward["title"], username))
+    for cosmetic in reward.get("cosmetics", []):
+        item_id = cosmetic.lower().replace(" ", "_").replace("'", "")
+        try:
+            db.execute(
+                "INSERT INTO gear (username, item_id, name, type, slot, rarity, obtained_at) "
+                "VALUES (?,?,?,'cosmetic','cosmetic','milestone',?)",
+                (username, item_id, cosmetic, now)
+            )
+        except Exception:
+            pass
+
+
 def award_xp(db, username, amount):
     p = db.execute("SELECT xp, level FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
-        return False
-    new_xp    = (p["xp"] or 0) + amount
+        return False, []
+    old_xp    = p["xp"] or 0
+    old_level = p["level"] or 1
+    new_xp    = old_xp + amount
     new_level = calc_level(new_xp)
-    leveled   = new_level > (p["level"] or 1)
+    leveled   = new_level > old_level
     db.execute("UPDATE penguins SET xp=?, level=? WHERE username=?", (new_xp, new_level, username))
+    rewards_list = []
     if leveled:
         log_event(db, "village", f"{username} reached level {new_level}! 🎉", username)
-    return leveled
+        for lvl in range(old_level + 1, new_level + 1):
+            lv_data = LEVEL_DATA.get(lvl, {})
+            reward  = lv_data.get("reward")
+            if reward:
+                apply_level_rewards(db, username, reward)
+            rewards_list.append({
+                "level":        lvl,
+                "reward":       reward,
+                "big_milestone": lv_data.get("big_milestone", False),
+            })
+    return leveled, rewards_list
 
 
 def simulate_combat(player_stats, monster):
@@ -465,6 +500,7 @@ def home():
         streak_reward=streak_reward,
         daily_reward=daily_reward,
         features=FEATURES,
+        level_data=LEVEL_DATA,
     )
 
 
@@ -547,23 +583,43 @@ def profile(username):
     db.close()
     xp_val = p["xp"] or 0
     level, xp_into, xp_needed = xp_progress(xp_val)
+    gathering_bonus = get_total_gathering_bonus(level)
+    next_lvl, next_data = get_next_milestone(level)
+    next_unlock = None
+    if next_lvl:
+        nr = next_data.get("reward", {}) or {}
+        next_unlock = {
+            "level":        next_lvl,
+            "cosmetics":    nr.get("cosmetics", []),
+            "gold":         nr.get("gold", 0),
+            "title":        nr.get("title"),
+            "max_energy":   nr.get("max_energy", 0),
+            "big_milestone": next_data.get("big_milestone", False),
+        }
+    try:
+        title = p["title"]
+    except (IndexError, KeyError):
+        title = None
     return jsonify({
         "status": "success",
         "penguin": {
-            "username":    p["username"],
-            "level":       level,
-            "xp":          xp_val,
-            "xp_into":     xp_into,
-            "xp_needed":   xp_needed,
-            "energy":      p["energy"],
-            "max_energy":  p["max_energy"] or 100,
-            "gold":        r["gold"] if r else 0,
-            "prestige":    p["prestige"] or 0,
-            "breed":       p["breed"] or "classic_black",
-            "job":         p["job"],
-            "job_duration":p["job_duration"] or 0,
-            "job_started": p["job_started"] or 0,
-            "login_streak":streak["current_streak"] if streak else 1,
+            "username":        p["username"],
+            "level":           level,
+            "xp":              xp_val,
+            "xp_into":         xp_into,
+            "xp_needed":       xp_needed,
+            "energy":          p["energy"],
+            "max_energy":      p["max_energy"] or 100,
+            "gold":            r["gold"] if r else 0,
+            "prestige":        p["prestige"] or 0,
+            "breed":           p["breed"] or "classic_black",
+            "job":             p["job"],
+            "job_duration":    p["job_duration"] or 0,
+            "job_started":     p["job_started"] or 0,
+            "login_streak":    streak["current_streak"] if streak else 1,
+            "gathering_bonus": gathering_bonus,
+            "next_unlock":     next_unlock,
+            "title":           title,
         },
         "resources": dict(r) if r else {},
     })
@@ -774,20 +830,26 @@ def work_collect():
     elapsed_secs  = int(time.time()) - (p["job_started"] or 0)
     hours_worked  = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
 
-    earned  = {}
-    leveled = False
+    player_level    = p["level"] or 1
+    gathering_bonus = get_total_gathering_bonus(player_level) / 100.0
+
+    earned    = {}
+    level_ups = []
     ensure_resources(db, username)
 
     for resource, rate_per_hour in b.get("produces", {}).items():
-        amount = int(rate_per_hour * hours_worked)
+        if resource == "xp":
+            amount = int(rate_per_hour * hours_worked)
+        else:
+            amount = int(rate_per_hour * (1 + gathering_bonus) * hours_worked)
         if amount <= 0:
             continue
         earned[resource] = amount
         if resource == "gold":
             add_gold(db, username, amount)
         elif resource == "xp":
-            if award_xp(db, username, amount):
-                leveled = True
+            _, rewards = award_xp(db, username, amount)
+            level_ups.extend(rewards)
         else:
             db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
 
@@ -807,7 +869,8 @@ def work_collect():
         "status":           "success",
         "earned":           earned,
         "hours_worked":     round(hours_worked, 2),
-        "leveled_up":       leveled,
+        "leveled_up":       bool(level_ups),
+        "level_ups":        level_ups,
         "new_achievements": new_ach,
         "building":         b["name"],
     })
@@ -1297,17 +1360,22 @@ def welcome_back(username):
             job_started  = p["job_started"] or 0
             elapsed_secs = now - job_started
             hours_worked = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
-            earned       = {}
-            leveled      = False
+            wb_bonus = get_total_gathering_bonus(p["level"] or 1) / 100.0
+            earned   = {}
+            leveled  = False
             for resource, rate in b.get("produces", {}).items():
-                amount = int(rate * hours_worked)
+                if resource == "xp":
+                    amount = int(rate * hours_worked)
+                else:
+                    amount = int(rate * (1 + wb_bonus) * hours_worked)
                 if amount <= 0:
                     continue
                 earned[resource] = amount
                 if resource == "gold":
                     add_gold(db, username, amount)
                 elif resource == "xp":
-                    if award_xp(db, username, amount):
+                    lv, _ = award_xp(db, username, amount)
+                    if lv:
                         leveled = True
                 else:
                     db.execute(
@@ -1340,7 +1408,8 @@ def welcome_back(username):
     if passive_gold > 0:
         add_gold(db, username, passive_gold)
     if passive_xp > 0:
-        if award_xp(db, username, passive_xp):
+        lv, _ = award_xp(db, username, passive_xp)
+        if lv:
             leveled_passive = True
 
     log_event(db, "village",
