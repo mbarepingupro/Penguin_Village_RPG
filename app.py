@@ -159,6 +159,18 @@ FURNITURE_CATALOG = {
 IGLOO_COLS = 11
 IGLOO_ROWS = 8
 
+# ── SEAL SHOP ─────────────────────────────────────────────────────────────────
+SEAL_SHOP = [
+    {"id": "royal_crown",         "name": "Royal Crown",          "cost": 50,  "slot": "hat",         "description": "A crown fit for stream royalty."},
+    {"id": "stream_cape",         "name": "Streamer's Cape",       "cost": 80,  "slot": "back",        "description": "Flows with the energy of live content."},
+    {"id": "neon_scarf",          "name": "Neon Scarf",            "cost": 30,  "slot": "accessory",   "description": "Glows in the dark. Like your dedication."},
+    {"id": "aurora_boots",        "name": "Aurora Sliders",        "cost": 40,  "slot": "footwear",    "description": "Leave sparkly trails. Fancy."},
+    {"id": "penguin_pet",         "name": "Mini Penguin Pet",      "cost": 100, "slot": "accessory",   "description": "A tiny penguin follows you around. Adorable."},
+    {"id": "golden_frame",        "name": "Golden Card Frame",     "cost": 60,  "slot": "card_frame",  "description": "Makes your Penguin Card shine."},
+    {"id": "animated_sparkle",    "name": "Sparkle Effect",        "cost": 120, "slot": "card_effect", "description": "Animated sparkles on your Penguin Card."},
+    {"id": "mayor_council_badge", "name": "Mayor's Council Badge", "cost": 150, "slot": "accessory",   "description": "You have the Mayor's ear. Use it wisely."},
+]
+
 # ── MISSION DEFINITIONS ───────────────────────────────────────────────────────
 MISSION_DEFS = {
     "login_today":  {"title":"SHOW UP",      "desc":"Log in to the village today",       "gold":25,  "target":1, "stream":False, "icon":"🐧"},
@@ -621,6 +633,7 @@ def profile(username):
             "gathering_bonus": gathering_bonus,
             "next_unlock":     next_unlock,
             "title":           title,
+            "mayor_seals":     (r["mayor_seals"] if r and r["mayor_seals"] is not None else 0),
         },
         "resources": dict(r) if r else {},
     })
@@ -720,6 +733,84 @@ def islive():
         return jsonify({"live": live})
     except Exception:
         return jsonify({"live": False})
+
+
+def _stream_is_live():
+    try:
+        res = http_requests.get(
+            "https://api.twitch.tv/helix/streams?user_login=mbarepingu",
+            headers={"Client-Id": TWITCH_CLIENT_ID,
+                     "Authorization": f"Bearer {os.getenv('TWITCH_APP_TOKEN', '')}"},
+            timeout=3
+        )
+        return len(res.json().get("data", [])) > 0
+    except Exception:
+        return False
+
+
+# ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
+
+@app.route("/seals/award", methods=["POST"])
+def seals_award():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "error", "message": "username required"})
+    if not _stream_is_live():
+        return jsonify({"status": "skip", "reason": "stream offline"})
+    db = get_db()
+    p  = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "skip"})
+    ensure_resources(db, username)
+    db.execute("UPDATE resources SET mayor_seals=mayor_seals+1 WHERE username=?", (username,))
+    db.commit()
+    row = db.execute("SELECT mayor_seals FROM resources WHERE username=?", (username,)).fetchone()
+    total = row["mayor_seals"] if row else 1
+    db.close()
+    return jsonify({"status": "success", "seals_awarded": 1, "total_seals": total})
+
+
+@app.route("/seals/shop")
+def seals_shop():
+    return jsonify({"items": SEAL_SHOP})
+
+
+@app.route("/seals/buy", methods=["POST"])
+def seals_buy():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    item_id  = data.get("item_id", "").strip()
+    shop_item = next((i for i in SEAL_SHOP if i["id"] == item_id), None)
+    if not shop_item:
+        return jsonify({"status": "error", "message": "Item not found."})
+    db = get_db()
+    p  = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    ensure_resources(db, username)
+    r = db.execute("SELECT mayor_seals FROM resources WHERE username=?", (username,)).fetchone()
+    seals = r["mayor_seals"] if r else 0
+    if seals < shop_item["cost"]:
+        db.close()
+        return jsonify({"status": "error", "message": f"Not enough Mayor's Seals. Need {shop_item['cost']}, have {seals}."})
+    already = db.execute(
+        "SELECT id FROM gear WHERE username=? AND item_id=?", (username, item_id)
+    ).fetchone()
+    if already:
+        db.close()
+        return jsonify({"status": "error", "message": "You already own this item."})
+    db.execute("UPDATE resources SET mayor_seals=mayor_seals-? WHERE username=?", (shop_item["cost"], username))
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, type, slot, rarity, obtained_at) VALUES (?,?,?,?,?,?,?)",
+        (username, item_id, shop_item["name"], "cosmetic", shop_item["slot"], "exclusive", int(time.time()))
+    )
+    log_event(db, "seal_shop", f"{username} purchased {shop_item['name']} from the Seal Shop!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "item": shop_item})
 
 
 # ── BUILDING INFO ────────────────────────────────────────────────────────────

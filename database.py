@@ -142,6 +142,7 @@ def init_db():
     _add_col(c, "monster_kills", "killed_date TEXT DEFAULT ''")
     _add_col(c, "monster_kills", "loot_summary TEXT DEFAULT NULL")
     _add_col(c, "penguins", "title TEXT DEFAULT NULL")
+    _add_col(c, "resources", "mayor_seals INTEGER DEFAULT 0")
 
     conn.commit()
     conn.close()

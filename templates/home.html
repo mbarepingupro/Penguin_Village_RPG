@@ -238,6 +238,36 @@
     @keyframes livepulse { 0%,100% { border-color: #ff0000; } 50% { border-color: #ff4444; } }
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.1; } }
 
+    /* ── STREAM LIVE BANNER ── */
+    #stream-live-banner { display: none; background: #2E2E2E; border-bottom: 2px solid #FF7FE5; padding: 6px 16px; text-align: center; font-size: 8px; color: #FF7FE5; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; }
+    #stream-live-banner.show { display: flex; }
+    #stream-live-banner .live-dot-banner { width: 7px; height: 7px; background: #ff0000; border-radius: 50%; flex-shrink: 0; animation: blink 1.2s infinite; }
+
+    /* ── SEAL SHOP MODAL ── */
+    #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
+    #seal-shop-modal.show { display: flex; }
+    .seal-shop-box { background: #2E2E2E; border: 3px solid #FF7FE5; padding: 16px; max-width: 360px; width: 90%; font-family: 'Press Start 2P', monospace; max-height: 80vh; overflow-y: auto; animation: popIn 0.2s ease; }
+    .seal-shop-header { color: #FF7FE5; font-size: 11px; margin-bottom: 4px; }
+    .seal-shop-sub    { color: #888; font-size: 7px; margin-bottom: 12px; line-height: 1.8; }
+    .seal-shop-count  { color: #fff; font-size: 8px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+    .seal-shop-count span { color: #FF7FE5; }
+    .seal-item        { padding: 8px 4px; border-bottom: 1px solid #222; display: flex; flex-direction: column; gap: 4px; }
+    .seal-item-name   { color: #fff; font-size: 8px; }
+    .seal-item-cost   { color: #FF7FE5; font-size: 7px; }
+    .seal-item-desc   { color: #888; font-size: 7px; line-height: 1.7; }
+    .seal-item-footer { display: flex; justify-content: flex-end; margin-top: 4px; }
+    .seal-buy-btn     { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 4px 8px; border: 2px solid #FF7FE5; background: transparent; color: #FF7FE5; cursor: pointer; }
+    .seal-buy-btn:hover:not(:disabled) { background: #FF7FE5; color: #1C1C1C; }
+    .seal-buy-btn:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+    .seal-owned-badge { font-size: 7px; color: #4aff6b; padding: 4px 8px; border: 2px solid #4aff6b; }
+    .seal-shop-close  { font-family: 'Press Start 2P', monospace; font-size: 8px; padding: 6px 14px; border: 2px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 12px; }
+    .seal-shop-close:hover { border-color: #FF7FE5; color: #FF7FE5; }
+
+    /* ── MAYOR'S SEALS RESOURCE ROW ── */
+    .seals-row { position: relative; cursor: pointer; }
+    .seals-row:hover .sb-res-val { color: #FF7FE5; }
+    .seals-shop-link { font-size: 6px; color: #A86EFF; margin-left: 4px; }
+
     /* ── RESOURCES GRID ── */
     .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px 10px; }
     .res-item { display: flex; align-items: center; gap: 4px; }
@@ -868,6 +898,11 @@
     </div>
   </nav>
 
+  <div id="stream-live-banner">
+    <span class="live-dot-banner"></span>
+    STREAM IS LIVE &mdash; EARNING MAYOR'S SEALS!
+  </div>
+
   {% if not logged_in %}
   <!-- LOGIN SCREEN -->
   <div class="login-screen">
@@ -1010,6 +1045,11 @@
           <div class="sb-res-row"><span class="sb-res-lbl">💎 BLOOD GEMS</span><span class="sb-res-val" id="res-blood-gems">0</span></div>
           <div class="sb-res-row"><span class="sb-res-lbl">🦴 BONES</span><span class="sb-res-val" id="res-bones">0</span></div>
           <div class="sb-res-row"><span class="sb-res-lbl">✨ SPELL FRAGS</span><span class="sb-res-val" id="res-frags">0</span></div>
+          <div class="sb-res-row seals-row" onclick="openSealShop()" title="Earned exclusively by watching the stream!">
+            <span class="sb-res-lbl">👑 MAYOR'S SEALS</span>
+            <span class="sb-res-val" id="res-seals" style="color:#FF7FE5;">0</span>
+            <span class="seals-shop-link">[SHOP]</span>
+          </div>
         </div>
 
         <!-- DAILY MISSIONS -->
@@ -1221,6 +1261,16 @@
 </div>
 
 <!-- STREAK REWARD MODAL -->
+<!-- SEAL SHOP MODAL -->
+<div id="seal-shop-modal">
+  <div class="seal-shop-box">
+    <div class="seal-shop-header">👑 MAYOR'S SEAL SHOP</div>
+    <div class="seal-shop-sub">Exclusive items for dedicated stream viewers</div>
+    <div class="seal-shop-count">Your Seals: <span id="seal-shop-player-count">0</span> 👑</div>
+    <div id="seal-shop-list"><div style="color:#888;font-size:8px;text-align:center;padding:20px;">LOADING...</div></div>
+    <button class="seal-shop-close" onclick="closeSealShop()">CLOSE</button>
+  </div>
+</div>
 <!-- COSMETIC EQUIP MODAL -->
 <div id="cosmetic-modal">
   <div class="cosmetic-modal-box">
@@ -1299,15 +1349,22 @@
     if (name === 'levels')    loadLevelsTab();
   }
 
+  let _streamIsLive = false;
+
   async function checkLiveStatus() {
     try {
       const res = await fetch('/islive');
       const data = await res.json();
-      const btn   = document.getElementById('twitch-link');
-      const label = document.getElementById('twitch-label');
+      const btn    = document.getElementById('twitch-link');
+      const label  = document.getElementById('twitch-label');
+      const banner = document.getElementById('stream-live-banner');
+      _streamIsLive = !!data.live;
       if (data.live) {
-        btn.classList.add('live');
-        label.innerHTML = '<span class="live-label">● LIVE NOW</span>';
+        if (btn) btn.classList.add('live');
+        if (label) label.innerHTML = '<span class="live-label">● LIVE NOW</span>';
+        if (banner) banner.classList.add('show');
+      } else {
+        if (banner) banner.classList.remove('show');
       }
     } catch(e) {}
   }
@@ -1635,6 +1692,13 @@
         document.getElementById('res-blood-gems').textContent = rData.blood_gems || 0;
         document.getElementById('res-bones').textContent     = rData.bones || 0;
         document.getElementById('res-frags').textContent     = rData.spell_fragments || 0;
+        const sealsEl = document.getElementById('res-seals');
+        if (sealsEl) sealsEl.textContent = rData.mayor_seals || 0;
+      }
+      if (pData.penguin && pData.penguin.mayor_seals !== undefined) {
+        const sealsEl = document.getElementById('res-seals');
+        if (sealsEl) sealsEl.textContent = pData.penguin.mayor_seals || 0;
+        _playerSeals = pData.penguin.mayor_seals || 0;
       }
 
       if (gData.gear && FEATURES.gear_equip) {
@@ -1972,6 +2036,73 @@
            `<div class="bp-coming-soon-title">${icon} ${title}</div>` +
            `<div class="bp-coming-soon-desc">${desc}</div>` +
            `</div></div>`;
+  }
+
+  // ── SEAL SHOP ──
+  let _playerSeals = 0;
+  let _sealShopItems = [];
+  let _ownedSealIds  = new Set();
+
+  async function openSealShop() {
+    document.getElementById('seal-shop-player-count').textContent = _playerSeals;
+    document.getElementById('seal-shop-modal').classList.add('show');
+    await renderSealShop();
+  }
+
+  function closeSealShop() {
+    document.getElementById('seal-shop-modal').classList.remove('show');
+  }
+
+  async function renderSealShop() {
+    const list = document.getElementById('seal-shop-list');
+    try {
+      const [shopRes, cosRes] = await Promise.all([
+        fetch('/seals/shop'),
+        fetch(`/gear/cosmetics/${CURRENT_USER}`)
+      ]);
+      const shopData = await shopRes.json();
+      const cosData  = await cosRes.json();
+      _sealShopItems = shopData.items || [];
+      _ownedSealIds  = new Set((cosData.cosmetics || []).filter(c => c.rarity === 'exclusive').map(c => c.item_id));
+      document.getElementById('seal-shop-player-count').textContent = _playerSeals;
+      if (_sealShopItems.length === 0) {
+        list.innerHTML = '<div style="color:#888;font-size:8px;text-align:center;padding:20px;">NO ITEMS AVAILABLE</div>';
+        return;
+      }
+      list.innerHTML = _sealShopItems.map(item => {
+        const owned    = _ownedSealIds.has(item.id);
+        const afford   = _playerSeals >= item.cost;
+        const footer   = owned
+          ? `<span class="seal-owned-badge">✓ OWNED</span>`
+          : `<button class="seal-buy-btn" ${afford ? '' : 'disabled'} onclick="buySealItem('${item.id}')">BUY</button>`;
+        return `<div class="seal-item">
+          <div class="seal-item-name">${item.name}</div>
+          <div class="seal-item-cost">👑 ${item.cost} Seals</div>
+          <div class="seal-item-desc">${item.description}</div>
+          <div class="seal-item-footer">${footer}</div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div style="color:#ff6666;font-size:8px;text-align:center;padding:20px;">FAILED TO LOAD</div>';
+    }
+  }
+
+  async function buySealItem(itemId) {
+    try {
+      const res  = await fetch('/seals/buy', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username: CURRENT_USER, item_id: itemId }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(`${data.item.name} purchased!`, 'ok');
+        await refreshStats();
+        await renderSealShop();
+      } else {
+        showToast(data.message || 'Purchase failed.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
   }
 
   // ── WARDROBE ──
