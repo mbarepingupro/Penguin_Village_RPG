@@ -141,6 +141,7 @@ def init_db():
     _add_col(c, "login_streaks", "daily_reward_claimed TEXT DEFAULT NULL")
     _add_col(c, "monster_kills", "killed_date TEXT DEFAULT ''")
     _add_col(c, "monster_kills", "loot_summary TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "title TEXT DEFAULT NULL")
 
     conn.commit()
     conn.close()
