@@ -480,6 +480,35 @@
     .cosmetic-modal-close:hover { border-color: #888; color: #888; }
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
 
+    /* ── BUILDING UPGRADE PANEL ── */
+    .bp-upgrade-section { border-top: 1px solid #333; margin-top: 10px; padding-top: 10px; }
+    .bp-upgrade-title { font-size: 8px; color: #A86EFF; margin-bottom: 6px; }
+    .bp-upgrade-benefit { font-size: 7px; color: #4aff6b; line-height: 1.8; margin-bottom: 8px; }
+    .bp-upgrade-next-title { font-size: 8px; color: #FF7FE5; margin-bottom: 6px; }
+    .bp-upgrade-req-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font-size: 7px; color: #888; }
+    .bp-upgrade-req-label { width: 80px; flex-shrink: 0; }
+    .bp-upgrade-req-bar { flex: 1; height: 4px; background: #1C1C1C; }
+    .bp-upgrade-req-fill { height: 100%; background: #A86EFF; }
+    .bp-upgrade-req-pct { width: 28px; text-align: right; flex-shrink: 0; }
+    .bp-donate-row { display: flex; gap: 4px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+    .bp-donate-input { font-family: 'Press Start 2P', monospace; font-size: 8px; background: #1C1C1C; border: 1px solid #555; color: #fff; padding: 4px 6px; width: 60px; }
+    .bp-donate-quick { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 3px 5px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
+    .bp-donate-quick:hover { border-color: #A86EFF; color: #A86EFF; }
+    .bp-donate-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 5px 10px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
+    .bp-donate-btn:hover:not(:disabled) { background: #A86EFF; color: #1C1C1C; }
+    .bp-donate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .bp-contrib-title { font-size: 7px; color: #FF8C00; margin: 10px 0 5px; }
+    .bp-contrib-row { display: flex; gap: 6px; font-size: 7px; padding: 3px 0; border-bottom: 1px solid #1a1a1a; }
+    .bp-contrib-rank { color: #888; width: 16px; flex-shrink: 0; }
+    .bp-contrib-name { color: #fff; flex: 1; }
+    .bp-contrib-total { color: #888; }
+    .bp-max-level { text-align: center; padding: 8px 0; }
+    .bp-max-badge { color: #4aff6b; font-size: 9px; margin-bottom: 6px; }
+    .bp-max-msg { color: #888; font-size: 7px; line-height: 1.8; }
+    /* building level badge on map hotspot */
+    .hotspot-level { position: absolute; top: -8px; right: -6px; font-size: 6px; color: #A86EFF; background: rgba(0,0,0,0.9); padding: 1px 3px; border: 1px solid #A86EFF; pointer-events: none; }
+    .hotspot-level.max { color: #FF8C00; border-color: #FF8C00; }
+
     /* ── PENGUIN SPRITES ON MAP ── */
     .map-penguin {
       position: absolute;
@@ -1183,6 +1212,7 @@
           <div class="bp-name"    id="bp-name"></div>
           <div class="bp-desc"    id="bp-desc"></div>
           <div class="bp-actions" id="bp-actions"></div>
+          <div id="bp-upgrade-section"></div>
         </div>
       </div>
 
@@ -1997,6 +2027,11 @@
   }
 
   // ── VILLAGE BUILDINGS ──
+  let _buildingLevels = {};
+  const BUILDING_UPGRADES_IDS = new Set([
+    'sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine','hotel'
+  ]);
+
   const VILLAGE_BUILDINGS = {
     cursed_temple: { name:"Cursed Temple",        icon:"⛩️",  type:"job",          pos:{x:9,  y:30} },
     hotel:         { name:"Penguin Hotel",         icon:"🏨",  type:"rest",         pos:{x:12, y:62} },
@@ -2025,11 +2060,37 @@
       el.style.left = pos.x + '%';
       el.style.top  = pos.y + '%';
       el.dataset.buildingId = id;
-      el.innerHTML = `${b.icon}<span class="building-hotspot-label">${b.name.toUpperCase()}</span>`;
+      const lvl = _buildingLevels[id] || 1;
+      const isMax = lvl >= 5;
+      const lvlBadge = BUILDING_UPGRADES_IDS.has(id)
+        ? `<span class="hotspot-level${isMax ? ' max' : ''}">${isMax ? '⭐' : 'LV' + lvl}</span>` : '';
+      el.innerHTML = `${b.icon}<span class="building-hotspot-label">${b.name.toUpperCase()}</span>${lvlBadge}`;
       el.onclick = () => { if (!_calibrateMode) openBuilding(id); };
       map.appendChild(el);
     });
     if (_calibrateMode) initCalibrate();
+  }
+
+  async function loadBuildingLevels() {
+    try {
+      const res  = await fetch('/building/all_levels');
+      const data = await res.json();
+      Object.assign(_buildingLevels, data);
+      // Re-render level badges on hotspots
+      Object.keys(data).forEach(id => {
+        const el = document.getElementById('hotspot-' + id);
+        if (!el) return;
+        const lvl   = data[id] || 1;
+        const isMax = lvl >= 5;
+        let badge   = el.querySelector('.hotspot-level');
+        if (!badge) {
+          badge = document.createElement('span');
+          el.appendChild(badge);
+        }
+        badge.className   = 'hotspot-level' + (isMax ? ' max' : '');
+        badge.textContent = isMax ? '⭐' : 'LV' + lvl;
+      });
+    } catch(e) {}
   }
 
   // ── CALIBRATION MODE ──
@@ -2120,6 +2181,8 @@
     document.getElementById('bp-name').textContent    = '';
     document.getElementById('bp-desc').textContent    = '';
     document.getElementById('bp-actions').innerHTML   = '';
+    document.getElementById('bp-upgrade-section').innerHTML = '';
+    _currentDonateBuilding = null;
     try {
       const res  = await fetch(`/building/${buildingId}?username=${CURRENT_USER}`);
       const data = await res.json();
@@ -2128,11 +2191,143 @@
       document.getElementById('bp-name').textContent = (data.name || '').toUpperCase();
       document.getElementById('bp-desc').textContent = data.desc || '';
       renderBuildingActions(data);
+      if (BUILDING_UPGRADES_IDS.has(buildingId)) {
+        renderBuildingUpgradeSection(buildingId);
+      }
     } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
   }
 
   function closeBuildingPanel() {
     document.getElementById('building-panel').classList.remove('open');
+    document.getElementById('bp-upgrade-section').innerHTML = '';
+    _currentDonateBuilding = null;
+  }
+
+  // ── BUILDING UPGRADE PANEL ──
+  let _currentDonateBuilding = null;
+  let _currentDonateResource = null;
+  let _currentDonatePlayerHave = 0;
+
+  async function renderBuildingUpgradeSection(buildingId) {
+    const container = document.getElementById('bp-upgrade-section');
+    if (!container) return;
+    try {
+      const res  = await fetch(`/building/upgrade/${buildingId}?username=${CURRENT_USER}`);
+      const data = await res.json();
+      if (data.status !== 'success') { container.innerHTML = ''; return; }
+
+      _currentDonateBuilding = buildingId;
+      const lvl      = data.current_level;
+      const maxLvl   = data.max_level;
+      const isMax    = lvl >= maxLvl;
+      _buildingLevels[buildingId] = lvl;
+
+      // Stars
+      const stars = Array.from({length: maxLvl}, (_, i) =>
+        `<span style="color:${i < lvl ? '#FF8C00' : '#333'};">★</span>`
+      ).join('');
+
+      let html = `<div class="bp-upgrade-section">`;
+      html += `<div class="bp-upgrade-title">BUILDING LEVEL ${stars}</div>`;
+      html += `<div class="bp-upgrade-benefit">${data.current_benefit || 'Base level — no bonus yet'}</div>`;
+
+      if (isMax) {
+        html += `<div class="bp-max-level"><div class="bp-max-badge">MAX LEVEL ✅</div>`;
+        html += `<div class="bp-max-msg">This building stands as a monument to the village.</div></div>`;
+      } else {
+        html += `<div class="bp-upgrade-next-title">UPGRADE TO LEVEL ${data.next_level}</div>`;
+        html += `<div style="font-size:7px;color:#4aff6b;margin-bottom:8px;">${data.next_benefit}</div>`;
+        for (const [res, p] of Object.entries(data.progress || {})) {
+          html += `<div class="bp-upgrade-req-row">
+            <span class="bp-upgrade-req-label">${res.replace('_',' ')}</span>
+            <div class="bp-upgrade-req-bar"><div class="bp-upgrade-req-fill" style="width:${p.pct}%"></div></div>
+            <span class="bp-upgrade-req-pct">${p.donated}/${p.needed}</span>
+          </div>`;
+        }
+        // Donate UI — resource selector
+        const donateResources = Object.keys(data.next_req || {});
+        if (donateResources.length) {
+          const pr = data.player_resources || {};
+          // Default to first needed resource
+          if (!_currentDonateResource || !donateResources.includes(_currentDonateResource)) {
+            _currentDonateResource = donateResources[0];
+          }
+          _currentDonatePlayerHave = pr[_currentDonateResource] || 0;
+          html += `<div style="margin-top:10px;font-size:7px;color:#888;margin-bottom:5px;">DONATE</div>`;
+          if (donateResources.length > 1) {
+            html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">`;
+            donateResources.forEach(r => {
+              const sel = r === _currentDonateResource;
+              html += `<button class="bp-donate-quick" style="${sel?'border-color:#A86EFF;color:#A86EFF;':''}" onclick="bpSelectResource('${r}',${pr[r]||0})">${r.replace('_',' ')} (${pr[r]||0})</button>`;
+            });
+            html += `</div>`;
+          } else {
+            html += `<div style="font-size:7px;color:#888;margin-bottom:6px;">${_currentDonateResource.replace('_',' ')}: ${_currentDonatePlayerHave} available</div>`;
+          }
+          html += `<div class="bp-donate-row">`;
+          html += `<input class="bp-donate-input" type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" />`;
+          [10, 50, 100].forEach(q => {
+            if (q <= _currentDonatePlayerHave)
+              html += `<button class="bp-donate-quick" onclick="document.getElementById('bp-donate-amount').value=${q}">${q}</button>`;
+          });
+          if (_currentDonatePlayerHave > 0)
+            html += `<button class="bp-donate-quick" onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave}">ALL</button>`;
+          html += `<button class="bp-donate-btn" onclick="bpDonate()">DONATE</button>`;
+          html += `</div>`;
+        }
+      }
+
+      // Top contributors
+      const contribs = data.contributors || [];
+      if (contribs.length) {
+        const medals = ['🥇','🥈','🥉','#4','#5'];
+        html += `<div class="bp-contrib-title">TOP CONTRIBUTORS</div>`;
+        contribs.forEach((c, i) => {
+          html += `<div class="bp-contrib-row"><span class="bp-contrib-rank">${medals[i]||'#'+(i+1)}</span><span class="bp-contrib-name">${c.username.toUpperCase()}</span><span class="bp-contrib-total">${c.total}</span></div>`;
+        });
+        html += `<div style="color:#555;font-size:6px;margin-top:6px;font-style:italic;">This building remembers its builders.</div>`;
+      }
+
+      html += `</div>`;
+      container.innerHTML = html;
+    } catch(e) { container.innerHTML = ''; }
+  }
+
+  function bpSelectResource(res, have) {
+    _currentDonateResource = res;
+    _currentDonatePlayerHave = have;
+    if (_currentDonateBuilding) renderBuildingUpgradeSection(_currentDonateBuilding);
+  }
+
+  async function bpDonate() {
+    const amtEl = document.getElementById('bp-donate-amount');
+    if (!amtEl || !_currentDonateBuilding || !_currentDonateResource) return;
+    const amount = parseInt(amtEl.value, 10);
+    if (!amount || amount <= 0) { showToast('Enter a valid amount.', 'err'); return; }
+    try {
+      const res  = await fetch('/building/donate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: CURRENT_USER,
+          building_id: _currentDonateBuilding,
+          resource_type: _currentDonateResource,
+          amount,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(`Donated ${data.donated} ${data.resource}!`, 'ok');
+        if (data.level_up) {
+          setTimeout(() => showToast(`🏗️ Building upgraded to Level ${data.building_level}!`, 'ok'), 400);
+          loadBuildingLevels();
+        }
+        await refreshStats();
+        await renderBuildingUpgradeSection(_currentDonateBuilding);
+      } else {
+        showToast(data.message || 'Donation failed.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
   }
 
   function bpComingSoon(icon, title, desc) {
@@ -3272,7 +3467,7 @@
   // ── INIT ──
   checkLiveStatus();
   loadMapPenguins();
-  injectBuildingHotspots();
+  loadBuildingLevels().then(injectBuildingHotspots);
   refreshStats();
   loadStreak();
   loadStatsAchievements();
@@ -3281,6 +3476,7 @@
   setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
+  setInterval(loadBuildingLevels, 300000); // refresh building levels every 5 min
 
   // ── DAILY LOGIN STREAK POPUP ──
   let _dailyPopupShown = false;
