@@ -2423,5 +2423,72 @@ def card_image(username):
     return send_file(buf, mimetype="image/png")
 
 
+_VILLAGE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout.json")
+
+_BUILDING_HOME_TILES = {
+    "hotel":         (4,  6),
+    "sea_lion_pit":  (3, 11),
+    "club_soda":     (8,  5),
+    "cursed_temple": (15, 5),
+    "parkmusement":  (9, 11),
+    "guillotine":    (15,10),
+    "award_hall":    (6, 16),
+    "bank":          (11,15),
+    "barracks":      (16,16),
+    "horny_jail":    (1, 13),
+}
+_DEFAULT_HOME_TILE = (5, 10)
+
+
+@app.route("/village/layout")
+def village_layout():
+    try:
+        with open(_VILLAGE_LAYOUT_PATH) as f:
+            layout = json.load(f)
+    except FileNotFoundError:
+        return jsonify({"error": "layout not found"}), 404
+
+    db = get_db()
+    rows = db.execute("SELECT building_id, current_level FROM building_upgrades").fetchall()
+    db.close()
+    levels = {r["building_id"]: r["current_level"] for r in rows}
+    for bid in BUILDING_UPGRADES:
+        levels.setdefault(bid, 1)
+
+    layout["building_levels"] = levels
+    return jsonify(layout)
+
+
+@app.route("/village/penguins")
+def village_penguins():
+    cutoff = int(time.time()) - 1800
+    db = get_db()
+    rows = db.execute(
+        """SELECT p.username, p.job, p.level, p.prestige, p.active_title
+           FROM penguins p
+           WHERE p.last_active > ?
+           ORDER BY p.last_active DESC
+           LIMIT 50""",
+        (cutoff,)
+    ).fetchall()
+    db.close()
+
+    penguins = []
+    for r in rows:
+        job = r["job"]
+        home = _BUILDING_HOME_TILES.get(job, _DEFAULT_HOME_TILE)
+        penguins.append({
+            "username":     r["username"],
+            "job":          job,
+            "level":        r["level"] or 1,
+            "prestige":     r["prestige"] or 0,
+            "active_title": r["active_title"],
+            "startGridX":   home[0],
+            "startGridY":   home[1],
+        })
+
+    return jsonify({"penguins": penguins})
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5001)

@@ -380,41 +380,14 @@
       overflow: hidden;
       background: #0a0a14;
     }
-    .map-img {
+    #village-canvas {
+      display: block;
       width: 100%;
       height: 100%;
-      object-fit: cover;
       image-rendering: pixelated;
-      opacity: 0.9;
+      cursor: grab;
     }
-
-    /* ── BUILDING HOTSPOTS ── */
-    .building-hotspot {
-      position: absolute;
-      width: 36px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transform: translate(-50%, -50%);
-      background: rgba(168,110,255,0.12);
-    }
-    .building-hotspot:hover { border-color: var(--purple); background: rgba(168,110,255,0.3); }
-    .building-hotspot-label {
-      position: absolute;
-      bottom: -16px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 7px;
-      white-space: nowrap;
-      color: var(--white);
-      background: rgba(0,0,0,0.8);
-      padding: 2px 4px;
-      pointer-events: none;
-    }
+    #village-canvas:active { cursor: grabbing; }
 
     /* ── BUILDING PANEL ── */
     .building-panel {
@@ -535,36 +508,6 @@
     .bp-max-level { text-align: center; padding: 8px 0; }
     .bp-max-badge { color: #4aff6b; font-size: 9px; margin-bottom: 6px; }
     .bp-max-msg { color: #888; font-size: 7px; line-height: 1.8; }
-    /* building level badge on map hotspot */
-    .hotspot-level { position: absolute; top: -8px; right: -6px; font-size: 6px; color: #A86EFF; background: rgba(0,0,0,0.9); padding: 1px 3px; border: 1px solid #A86EFF; pointer-events: none; }
-    .hotspot-level.max { color: #FF8C00; border-color: #FF8C00; }
-
-    /* ── PENGUIN SPRITES ON MAP ── */
-    .map-penguin {
-      position: absolute;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      cursor: pointer;
-      transition: transform 0.1s;
-    }
-    .map-penguin:hover { transform: scale(1.1); }
-    .map-penguin img { width: 28px; height: 28px; image-rendering: pixelated; }
-    .map-penguin-placeholder {
-      width: 28px; height: 28px;
-      background: var(--dark);
-      border: 2px solid var(--purple);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
-    }
-    .map-penguin-name {
-      font-size: 8px; color: var(--white);
-      background: rgba(0,0,0,0.85);
-      padding: 2px 4px; white-space: nowrap;
-      border: 1px solid var(--purple);
-    }
-    .map-penguin-job { font-size: 7px; color: var(--orange); white-space: nowrap; }
 
     /* ── IGLOO GHOST (used also in map for building hotspot injection) ── */
     .igloo-ghost {
@@ -949,22 +892,6 @@
     .gear-card.epic      { border-color: #6030a0; }
     .gear-card.legendary { border-color: #a06000; }
 
-    /* ── CALIBRATION TOOL ── */
-    .calibrate-panel {
-      position: fixed; right: 0; top: 0; bottom: 0; width: 280px;
-      background: rgba(10,10,10,0.97); border-left: 3px solid var(--orange);
-      z-index: 8000; display: flex; flex-direction: column; font-size: 7px;
-    }
-    .calibrate-header { background: var(--orange); color: var(--dark); padding: 8px 10px; font-size: 9px; flex-shrink: 0; }
-    .calibrate-json { flex: 1; overflow-y: auto; padding: 8px; }
-    .calibrate-json pre { color: #4aff6b; font-size: 7px; white-space: pre-wrap; word-break: break-all; font-family: monospace; }
-    .calibrate-btns { display: flex; gap: 6px; padding: 8px; flex-shrink: 0; border-top: 1px solid var(--orange); }
-    .calibrate-btn {
-      flex: 1; padding: 8px; font-size: 8px; font-family: 'Press Start 2P', monospace;
-      border: 2px solid var(--orange); background: var(--dark); color: var(--orange); cursor: pointer;
-    }
-    .calibrate-btn:hover { background: var(--orange); color: var(--dark); }
-    .calibrate-hotspot { cursor: move !important; border: 2px dashed var(--orange) !important; background: rgba(255,140,0,0.25) !important; }
 
     /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 6px; }
@@ -1234,8 +1161,7 @@
       <!-- MAP TAB -->
       <div class="content-panel active" id="panel-map">
         <div class="map-area" id="map-area">
-          <img src="/static/village.png" class="map-img" alt="Village Map"/>
-          <!-- hotspots injected by JS from VILLAGE_BUILDINGS const -->
+          <canvas id="village-canvas"></canvas>
           <div class="igloo-ghost" id="igloo-ghost"></div>
         </div>
         <!-- Building panel overlay -->
@@ -1559,73 +1485,6 @@
       });
       list.innerHTML = html;
     } catch(e) {}
-  }
-
-  const PATH_WAYPOINTS = [
-    {x:  6, y: 70}, {x: 12, y: 64}, {x: 19, y: 64}, {x: 26, y: 62},
-    {x: 33, y: 62}, {x: 38, y: 57}, {x: 44, y: 64}, {x: 50, y: 65},
-    {x: 57, y: 63}, {x: 64, y: 61}, {x: 71, y: 60}, {x: 79, y: 59},
-    {x: 87, y: 61}, {x: 30, y: 50}, {x: 46, y: 49},
-  ];
-
-  const activePenguins = [];
-  const PENGUIN_SPEED = 0.07;
-  const ARRIVAL_THRESHOLD = 0.5;
-
-  function randomWaypoint() {
-    return PATH_WAYPOINTS[Math.floor(Math.random() * PATH_WAYPOINTS.length)];
-  }
-
-  function spawnPenguins(penguins) {
-    const map = document.getElementById('map-area');
-    penguins.forEach(p => {
-      const start = randomWaypoint();
-      const el = document.createElement('div');
-      el.className = 'map-penguin';
-      el.style.left = start.x + '%';
-      el.style.top  = start.y + '%';
-      const jobLabel   = p.job || '💤';
-      const titleHtml  = p.active_title
-        ? `<div class="map-penguin-title">${p.active_title}</div>` : '';
-      el.innerHTML = `
-        <div class="map-penguin-placeholder">🐧</div>
-        <div class="map-penguin-name">${p.username.toUpperCase()}</div>
-        ${titleHtml}
-        <div class="map-penguin-job">${jobLabel}</div>`;
-      map.appendChild(el);
-      const target = randomWaypoint();
-      activePenguins.push({ el, cx: start.x, cy: start.y, tx: target.x, ty: target.y });
-    });
-  }
-
-  function tickPenguins() {
-    activePenguins.forEach(p => {
-      const dx = p.tx - p.cx;
-      const dy = p.ty - p.cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < ARRIVAL_THRESHOLD) {
-        const wp = randomWaypoint();
-        p.tx = wp.x;
-        p.ty = wp.y;
-      } else {
-        p.cx += (dx / dist) * PENGUIN_SPEED;
-        p.cy += (dy / dist) * PENGUIN_SPEED;
-        p.el.style.left = p.cx + '%';
-        p.el.style.top  = p.cy + '%';
-      }
-    });
-  }
-
-  async function loadMapPenguins() {
-    try {
-      const res = await fetch('/leaderboard');
-      const data = await res.json();
-      if (data.penguins) spawnPenguins(data.penguins);
-    } catch(e) {
-      {% if logged_in %}
-      spawnPenguins([{ username: {{ penguin["username"] | tojson }}, job: {{ (penguin["job"] or "") | tojson }} }]);
-      {% endif %}
-    }
   }
 
   // ── MISSIONS ──────────────────────────────────────────
@@ -2080,145 +1939,13 @@
     'sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine','hotel'
   ]);
 
-  const VILLAGE_BUILDINGS = {
-    cursed_temple: { name:"Cursed Temple",        icon:"⛩️",  type:"job",          pos:{x:9,  y:30} },
-    hotel:         { name:"Penguin Hotel",         icon:"🏨",  type:"rest",         pos:{x:12, y:62} },
-    horny_jail:    { name:"Horny Jail",            icon:"🔒",  type:"placeholder",  pos:{x:24, y:63} },
-    award_hall:    { name:"Award Hall",            icon:"🏆",  type:"achievements", pos:{x:30, y:48} },
-    sea_lion_pit:  { name:"Ash's Sea Lion Pit",    icon:"🦭",  type:"job",          pos:{x:36, y:62} },
-    parkmusement:  { name:"Ash's Parkmusement",    icon:"🎪",  type:"job",          pos:{x:47, y:48} },
-    club_soda:     { name:"Club Soda",             icon:"🌿",  type:"job",          pos:{x:67, y:58} },
-    barracks:      { name:"Penguin Barracks",      icon:"⚔️",  type:"combat",       pos:{x:79, y:57} },
-    guillotine:    { name:"Gil the Guillotine",    icon:"💀",  type:"job",          pos:{x:84, y:58} },
-  };
-
-  // Inject hotspots into map (loads saved positions from server first)
-  async function injectBuildingHotspots() {
-    const map = document.getElementById('map-area');
-    let overrides = {};
-    try {
-      const res = await fetch('/buildings/config');
-      overrides = await res.json();
-    } catch(e) {}
-    Object.entries(VILLAGE_BUILDINGS).forEach(([id, b]) => {
-      const pos = overrides[id] || b.pos;
-      const el = document.createElement('div');
-      el.className = 'building-hotspot';
-      el.id = 'hotspot-' + id;
-      el.style.left = pos.x + '%';
-      el.style.top  = pos.y + '%';
-      el.dataset.buildingId = id;
-      const lvl = _buildingLevels[id] || 1;
-      const isMax = lvl >= 5;
-      const lvlBadge = BUILDING_UPGRADES_IDS.has(id)
-        ? `<span class="hotspot-level${isMax ? ' max' : ''}">${isMax ? '⭐' : 'LV' + lvl}</span>` : '';
-      el.innerHTML = `${b.icon}<span class="building-hotspot-label">${b.name.toUpperCase()}</span>${lvlBadge}`;
-      el.onclick = () => { if (!_calibrateMode) openBuilding(id); };
-      map.appendChild(el);
-    });
-    if (_calibrateMode) initCalibrate();
-  }
-
   async function loadBuildingLevels() {
     try {
       const res  = await fetch('/building/all_levels');
       const data = await res.json();
       Object.assign(_buildingLevels, data);
-      // Re-render level badges on hotspots
-      Object.keys(data).forEach(id => {
-        const el = document.getElementById('hotspot-' + id);
-        if (!el) return;
-        const lvl   = data[id] || 1;
-        const isMax = lvl >= 5;
-        let badge   = el.querySelector('.hotspot-level');
-        if (!badge) {
-          badge = document.createElement('span');
-          el.appendChild(badge);
-        }
-        badge.className   = 'hotspot-level' + (isMax ? ' max' : '');
-        badge.textContent = isMax ? '⭐' : 'LV' + lvl;
-      });
+      if (window.VillageMap) VillageMap.updateBuildingLevels(data);
     } catch(e) {}
-  }
-
-  // ── CALIBRATION MODE ──
-  const _calibrateMode = new URLSearchParams(location.search).has('calibrate');
-  let _calibratePositions = {};
-
-  function initCalibrate() {
-    document.querySelectorAll('.building-hotspot').forEach(el => {
-      const id = el.dataset.buildingId;
-      const b  = VILLAGE_BUILDINGS[id];
-      _calibratePositions[id] = {
-        x: parseFloat(el.style.left),
-        y: parseFloat(el.style.top)
-      };
-      el.classList.add('calibrate-hotspot');
-      let dragging = false, startX, startY, startLeft, startTop;
-      el.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        dragging = true;
-        startX = e.clientX; startY = e.clientY;
-        startLeft = parseFloat(el.style.left);
-        startTop  = parseFloat(el.style.top);
-        const map  = document.getElementById('map-area');
-        const rect = map.getBoundingClientRect();
-        function onMove(ev) {
-          if (!dragging) return;
-          const dx = ((ev.clientX - startX) / rect.width) * 100;
-          const dy = ((ev.clientY - startY) / rect.height) * 100;
-          const nx = Math.round((startLeft + dx) * 10) / 10;
-          const ny = Math.round((startTop  + dy) * 10) / 10;
-          el.style.left = nx + '%';
-          el.style.top  = ny + '%';
-          _calibratePositions[id] = { x: nx, y: ny };
-          updateCalibrateJson();
-        }
-        function onUp() {
-          dragging = false;
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-        }
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    });
-    // Build calibration panel
-    const panel = document.createElement('div');
-    panel.className = 'calibrate-panel';
-    panel.id = 'calibrate-panel';
-    panel.innerHTML = `
-      <div class="calibrate-header">🔧 CALIBRATION MODE</div>
-      <div class="calibrate-json"><pre id="calibrate-json-out"></pre></div>
-      <div class="calibrate-btns">
-        <button class="calibrate-btn" onclick="copyCalibrate()">COPY JSON</button>
-        <button class="calibrate-btn" onclick="saveCalibrate()">SAVE</button>
-      </div>`;
-    document.body.appendChild(panel);
-    updateCalibrateJson();
-  }
-
-  function updateCalibrateJson() {
-    const el = document.getElementById('calibrate-json-out');
-    if (el) el.textContent = JSON.stringify(_calibratePositions, null, 2);
-  }
-
-  function copyCalibrate() {
-    navigator.clipboard.writeText(JSON.stringify(_calibratePositions, null, 2))
-      .then(() => showToast('JSON copied!', 'ok'))
-      .catch(() => showToast('Copy failed', 'err'));
-  }
-
-  async function saveCalibrate() {
-    try {
-      const res = await fetch('/buildings/positions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(_calibratePositions)
-      });
-      const data = await res.json();
-      showToast(data.status === 'success' ? 'Positions saved!' : 'Save failed', data.status === 'success' ? 'ok' : 'err');
-    } catch(e) { showToast('Save error', 'err'); }
   }
 
   // ── BUILDING PANEL ──
@@ -3566,17 +3293,24 @@
 
   // ── INIT ──
   checkLiveStatus();
-  loadMapPenguins();
-  loadBuildingLevels().then(injectBuildingHotspots);
+  loadBuildingLevels();
   refreshStats();
   loadStreak();
   loadStatsAchievements();
   startMidnightCountdowns();
   checkWelcomeBack();
-  setInterval(tickPenguins, 50);
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
-  setInterval(loadBuildingLevels, 300000); // refresh building levels every 5 min
+  setInterval(loadBuildingLevels, 300000);
+
+  // Initialize isometric village map
+  if (document.getElementById('village-canvas')) {
+    VillageMap.init(
+      document.getElementById('village-canvas'),
+      {{ penguin["username"] | tojson if logged_in else "null" }},
+      openBuilding
+    );
+  }
 
   // ── DAILY LOGIN STREAK POPUP ──
   let _dailyPopupShown = false;
@@ -3647,5 +3381,6 @@
 </script>
 
 <div id="sb-tooltip"></div>
+<script src="/static/village_map.js"></script>
 </body>
 </html>
