@@ -1248,6 +1248,120 @@ def igloo_remove(username, item_id):
     return jsonify({"status": "success", "refund": refund, "coins": new_gold})
 
 
+# ── WELCOME BACK / OFFLINE PROGRESS ──────────────────────────────────────────
+
+RESOURCE_ICONS = {
+    "fish":            "🐟",
+    "herbs":           "🌿",
+    "blood_gems":      "💎",
+    "bones":           "🦴",
+    "spell_fragments": "✨",
+    "gold":            "🪙",
+    "xp":              "⭐",
+}
+
+@app.route("/welcome-back/<username>")
+def welcome_back(username):
+    db = get_db()
+    p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"show": False})
+
+    now         = int(time.time())
+    last_active = p["last_active"] or 0
+
+    # Brand-new account — just set last_active, no popup
+    if last_active == 0:
+        db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
+        db.commit()
+        db.close()
+        return jsonify({"show": False})
+
+    hours_away = min((now - last_active) / 3600.0, 12.0)
+
+    # Under 30 minutes — refresh silently
+    if hours_away < 0.5:
+        db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
+        db.commit()
+        db.close()
+        return jsonify({"show": False})
+
+    ensure_resources(db, username)
+    job_earnings = None
+
+    # Auto-collect any active job
+    if p["job"]:
+        b = BUILDINGS.get(p["job"])
+        if b and b.get("type") == "job":
+            job_started  = p["job_started"] or 0
+            elapsed_secs = now - job_started
+            hours_worked = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
+            earned       = {}
+            leveled      = False
+            for resource, rate in b.get("produces", {}).items():
+                amount = int(rate * hours_worked)
+                if amount <= 0:
+                    continue
+                earned[resource] = amount
+                if resource == "gold":
+                    add_gold(db, username, amount)
+                elif resource == "xp":
+                    if award_xp(db, username, amount):
+                        leveled = True
+                else:
+                    db.execute(
+                        f"UPDATE resources SET {resource}={resource}+? WHERE username=?",
+                        (amount, username)
+                    )
+            db.execute(
+                "UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?",
+                (username,)
+            )
+            today = get_today()
+            advance_mission(db, username, "collect_1", today)
+            advance_mission(db, username, "collect_3", today)
+            parts = [f"+{v} {k}" for k, v in earned.items() if v > 0]
+            log_event(db, "job",
+                      f"{username} (offline) collected from {b['name']}: {', '.join(parts) or 'nothing'}",
+                      username)
+            job_earnings = {
+                "building_name": b["name"],
+                "building_icon": b.get("icon", "🏢"),
+                "earned":        earned,
+                "hours_worked":  round(hours_worked, 2),
+                "leveled_up":    leveled,
+            }
+
+    # Passive offline earnings
+    passive_gold = int(hours_away * 0.8)
+    passive_xp   = int(hours_away * 1.5)
+    leveled_passive = False
+    if passive_gold > 0:
+        add_gold(db, username, passive_gold)
+    if passive_xp > 0:
+        if award_xp(db, username, passive_xp):
+            leveled_passive = True
+
+    log_event(db, "village",
+              f"{username} returned after {round(hours_away, 1)}h — {passive_gold} gold + {passive_xp} XP offline",
+              username)
+    db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
+    db.commit()
+    db.close()
+
+    return jsonify({
+        "show":             True,
+        "hours_away":       round(hours_away, 1),
+        "job_earnings":     job_earnings,
+        "passive_earnings": {
+            "gold":       passive_gold,
+            "xp":         passive_xp,
+            "leveled_up": leveled_passive,
+        },
+    })
+
+
 # ── ACTIVE PING ───────────────────────────────────────────────────────────────
 
 @app.route("/active/<username>")
