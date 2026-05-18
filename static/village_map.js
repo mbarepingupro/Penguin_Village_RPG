@@ -754,6 +754,13 @@ function updateBuildingLevels(levels) {
     buildingLevels = Object.assign(buildingLevels, levels);
 }
 
-window.VillageMap = { init: initEngine, updateBuildingLevels: updateBuildingLevels };
+function resizeViewport() {
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    canvas.width  = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+}
+
+window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport };
 
 })();
