@@ -39,6 +39,11 @@ const JOB_ICONS = {
 
 let canvas, ctx, currentUser, openBuildingFn;
 let cameraX = 0, cameraY = 50;
+let zoomLevel = 1.0;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.0;
+const ZOOM_STEP = 0.1;
+let _pinchDist = 0;
 let grid = [];
 let buildingLayout = {};
 let buildingLevels = {};
@@ -70,19 +75,42 @@ function darken(hex, amt) {
     return toHex(r - amt, g - amt, b - amt);
 }
 
+// Returns world-space coordinates (no camera/zoom). Canvas transform handles the rest.
 function gridToScreen(gx, gy) {
     return {
-        x: (gx - gy) * (TILE_W / 2) + cameraX,
-        y: (gx + gy) * (TILE_H / 2) + cameraY,
+        x: (gx - gy) * (TILE_W / 2),
+        y: (gx + gy) * (TILE_H / 2),
     };
 }
 
+// Converts screen pixel → grid cell (accounts for camera and zoom).
 function screenToGrid(sx, sy) {
-    const rx = sx - cameraX;
-    const ry = sy - cameraY;
+    const rx = (sx - cameraX) / zoomLevel;
+    const ry = (sy - cameraY) / zoomLevel;
     const gx = Math.floor((rx / (TILE_W / 2) + ry / (TILE_H / 2)) / 2);
     const gy = Math.floor((ry / (TILE_H / 2) - rx / (TILE_W / 2)) / 2);
     return { x: gx, y: gy };
+}
+
+// Converts world-space point → screen pixel (used for click detection and popups).
+function worldToScreen(wx, wy) {
+    return { x: wx * zoomLevel + cameraX, y: wy * zoomLevel + cameraY };
+}
+
+function drawZoomIndicator() {
+    const pct = Math.round(zoomLevel * 100) + '%';
+    ctx.save();
+    ctx.font = "8px 'Press Start 2P', monospace";
+    const tw = ctx.measureText(pct).width;
+    const pad = 6, bw = tw + pad * 2, bh = 20;
+    const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#888888';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pct, bx + pad, by + bh / 2);
+    ctx.restore();
 }
 
 function drawTile(sx, sy, color) {
@@ -572,10 +600,11 @@ function attachEvents() {
                 x: p.gridX + (p.targetGridX - p.gridX) * p.progress,
                 y: p.gridY + (p.targetGridY - p.gridY) * p.progress,
             };
-            const pos = gridToScreen(interp.x, interp.y);
-            const dist = Math.sqrt((sx - pos.x) ** 2 + (sy - pos.y) ** 2);
+            const wpos = gridToScreen(interp.x, interp.y);
+            const spos = worldToScreen(wpos.x, wpos.y);
+            const dist = Math.sqrt((sx - spos.x) ** 2 + (sy - spos.y) ** 2);
             if (dist <= 16) {
-                showPenguinPopup(p, pos.x, pos.y);
+                showPenguinPopup(p, spos.x, spos.y);
                 return;
             }
         }
@@ -604,7 +633,17 @@ function attachEvents() {
     }, { passive: true });
 
     canvas.addEventListener('touchmove', function (e) {
-        if (e.touches.length === 1) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (_pinchDist > 0) {
+                const delta = dist - _pinchDist;
+                zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel + delta * 0.005));
+            }
+            _pinchDist = dist;
+        } else if (e.touches.length === 1) {
             const dx = e.touches[0].clientX - touchStartX;
             const dy = e.touches[0].clientY - touchStartY;
             if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
@@ -613,9 +652,10 @@ function attachEvents() {
                 cameraY = touchCamY + dy;
             }
         }
-    }, { passive: true });
+    }, { passive: false });
 
     canvas.addEventListener('touchend', function (e) {
+        _pinchDist = 0;
         if (!touchMoved && e.changedTouches.length === 1) {
             const rect = canvas.getBoundingClientRect();
             const sx = e.changedTouches[0].clientX - rect.left;
@@ -626,10 +666,11 @@ function attachEvents() {
                     x: p.gridX + (p.targetGridX - p.gridX) * p.progress,
                     y: p.gridY + (p.targetGridY - p.gridY) * p.progress,
                 };
-                const pos = gridToScreen(interp.x, interp.y);
-                const dist = Math.sqrt((sx - pos.x) ** 2 + (sy - pos.y) ** 2);
+                const wpos = gridToScreen(interp.x, interp.y);
+                const spos = worldToScreen(wpos.x, wpos.y);
+                const dist = Math.sqrt((sx - spos.x) ** 2 + (sy - spos.y) ** 2);
                 if (dist <= 16) {
-                    showPenguinPopup(p, pos.x, pos.y);
+                    showPenguinPopup(p, spos.x, spos.y);
                     return;
                 }
             }
@@ -643,6 +684,30 @@ function attachEvents() {
             }
         }
     });
+
+    // Wheel zoom — zoom toward mouse position
+    canvas.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        const oldZoom = zoomLevel;
+        if (e.deltaY < 0) {
+            zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+        } else {
+            zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+        }
+        if (zoomLevel !== oldZoom) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            cameraX = mouseX - (mouseX - cameraX) * (zoomLevel / oldZoom);
+            cameraY = mouseY - (mouseY - cameraY) * (zoomLevel / oldZoom);
+        }
+    }, { passive: false });
+
+    // Double-click to reset zoom and re-center
+    canvas.addEventListener('dblclick', function () {
+        zoomLevel = 1.0;
+        initCamera();
+    });
 }
 
 function gameLoop(ts) {
@@ -652,16 +717,23 @@ function gameLoop(ts) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Apply pan + zoom transform for world rendering
+    ctx.save();
+    ctx.translate(cameraX, cameraY);
+    ctx.scale(zoomLevel, zoomLevel);
+
+    const margin = TILE_W * 2;
     for (let diag = 0; diag < 2 * GRID_SIZE - 1; diag++) {
         for (let xi = Math.max(0, diag - GRID_SIZE + 1); xi <= Math.min(diag, GRID_SIZE - 1); xi++) {
             const x = xi;
             const y = diag - xi;
             const pos = gridToScreen(x, y);
 
-            if (
-                pos.x < -TILE_W * 2 || pos.x > canvas.width + TILE_W * 2 ||
-                pos.y < -TILE_H * 4 || pos.y > canvas.height + 80
-            ) continue;
+            // Cull in screen space
+            const sx = pos.x * zoomLevel + cameraX;
+            const sy = pos.y * zoomLevel + cameraY;
+            if (sx < -margin || sx > canvas.width + margin ||
+                sy < -TILE_H * 4 || sy > canvas.height + 80) continue;
 
             const tileType = (grid[y] && grid[y][x] !== undefined) ? grid[y][x] : TILE_SNOW;
 
@@ -705,6 +777,11 @@ function gameLoop(ts) {
         const pos = gridToScreen(ix, iy);
         drawPenguinAt(pos.x, pos.y, p, pulse);
     }
+
+    ctx.restore();
+
+    // HUD (screen space, drawn on top)
+    drawZoomIndicator();
 
     requestAnimationFrame(gameLoop);
 }
