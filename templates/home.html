@@ -1385,6 +1385,7 @@
 <!-- TOAST -->
 <div id="toast"></div>
 
+<script src="/static/village_map.js"></script>
 <script>
   function switchSidebarTab(name, btn) {
     document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
@@ -1413,6 +1414,16 @@
     if (name === 'awards')    loadAwards();
     if (name === 'eventlog')  loadEventLog();
     if (name === 'levels')    loadLevelsTab();
+    if (name === 'map' && !window._mapInitialized) {
+      window._mapInitialized = true;
+      if (window.VillageMap && document.getElementById('village-canvas')) {
+        VillageMap.init(
+          document.getElementById('village-canvas'),
+          {{ penguin["username"] | tojson if logged_in else "null" }},
+          openBuilding
+        );
+      }
+    }
   }
 
   let _streamIsLive = false;
@@ -1488,7 +1499,7 @@
   }
 
   // ── MISSIONS ──────────────────────────────────────────
-  function renderMissions(missions, date, container) {
+  function renderMissions(missions, date, container, isLive) {
     let html = `<div class="missions-date">DAILY MISSIONS &mdash; ${date} &mdash; RESETS AT MIDNIGHT</div>`;
     missions.forEach(m => {
       const pct  = m.target > 0 ? Math.round((m.progress / m.target) * 100) : 0;
@@ -1503,8 +1514,10 @@
         footer = `<span class="mission-reward">+${m.gold} GOLD EARNED</span>
                   <span class="mission-prog">${m.progress}/${m.target}</span>`;
       } else if (stream) {
-        footer = `<span class="mission-reward">+${m.gold} GOLD</span>
-                  <button class="mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>`;
+        const claimBtn = isLive
+          ? `<button class="mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>`
+          : `<span class="mission-prog" style="color:#666;">STREAM OFFLINE</span>`;
+        footer = `<span class="mission-reward">+${m.gold} GOLD</span>${claimBtn}`;
       } else {
         footer = `<span class="mission-reward">+${m.gold} GOLD</span>
                   <span class="mission-prog">${m.progress}/${m.target}</span>`;
@@ -1562,7 +1575,7 @@
     try {
       const res  = await fetch(`/missions/${CURRENT_USER}`);
       const data = await res.json();
-      renderMissions(data.missions, data.date, container);
+      renderMissions(data.missions, data.date, container, data.is_live);
     } catch(e) {
       container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">ERROR LOADING MISSIONS</div>';
     }
@@ -1591,6 +1604,7 @@
     try {
       const res  = await fetch(`/missions/${CURRENT_USER}`);
       const data = await res.json();
+      const isLive = data.is_live;
       let html = '';
       (data.missions || []).forEach(m => {
         const done  = m.completed;
@@ -1599,13 +1613,18 @@
         const titleColor = done ? '#555' : stream ? '#9b72d8' : 'var(--white)';
         const checkColor = done ? '#4aff6b' : stream ? '#9b72d8' : '#555';
         const desc = (m.desc || '').replace(/'/g, "\\'");
+        const claimEl = stream && !done
+          ? (isLive
+              ? `<button class="sb-mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>`
+              : `<span style="font-size:6px;color:#555;">OFFLINE</span>`)
+          : '';
         html += `<div class="sb-mission-row" onmouseenter="showSbTooltip(this,'${desc}')" onmouseleave="hideSbTooltip()">
           <span class="sb-mission-check" style="color:${checkColor}">${check}</span>
           <div class="sb-mission-info">
             <div class="sb-mission-title" style="color:${titleColor}">${m.icon} ${m.title}</div>
             <div class="sb-mission-reward">+${m.gold}G</div>
           </div>
-          ${stream && !done ? `<button class="sb-mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>` : ''}
+          ${claimEl}
         </div>`;
       });
       el.innerHTML = html || '<span style="color:#555;font-size:7px;">NO MISSIONS</span>';
@@ -3303,14 +3322,8 @@
   setInterval(refreshStats, 60000);
   setInterval(loadBuildingLevels, 300000);
 
-  // Initialize isometric village map
-  if (document.getElementById('village-canvas')) {
-    VillageMap.init(
-      document.getElementById('village-canvas'),
-      {{ penguin["username"] | tojson if logged_in else "null" }},
-      openBuilding
-    );
-  }
+  // Map tab is active by default — trigger init now
+  switchContentTab('map', null);
 
   // ── DAILY LOGIN STREAK POPUP ──
   let _dailyPopupShown = false;
@@ -3381,6 +3394,5 @@
 </script>
 
 <div id="sb-tooltip"></div>
-<script src="/static/village_map.js"></script>
 </body>
 </html>
