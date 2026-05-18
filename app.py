@@ -695,10 +695,29 @@ def home():
         db.close()
         return render_template("home.html", logged_in=False, features=FEATURES)
     ensure_resources(db, username)
+
+    # ── Streak + daily mission — trigger once per calendar day ──────────────
+    today = get_today()
+    streak_row_pre = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
+    is_new_day = not streak_row_pre or streak_row_pre["last_login_date"] != today
+    if is_new_day:
+        streak = update_login_streak(db, username, today)
+        if not session.get("daily_reward"):
+            session["daily_reward"] = compute_daily_reward()
+        milestone = award_streak_milestone(db, username, streak)
+        if milestone and not session.get("streak_reward"):
+            session["streak_reward"] = milestone
+        advance_mission(db, username, "login_today", today)
+        check_achievements(db, username)
+
+    # Always update last_active so welcome-back and active-ping work correctly
+    db.execute("UPDATE penguins SET last_active=? WHERE username=?", (int(time.time()), username))
+
     db.commit()
-    resources     = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-    streak_row    = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
+    resources  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    streak_row = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
     db.close()
+
     streak_reward = session.pop("streak_reward", None)
     daily_reward  = session.pop("daily_reward",  None)
     return render_template(
@@ -747,28 +766,13 @@ def callback():
         db.execute("INSERT INTO penguins (username) VALUES (?)", (username,))
         session["new_user"] = True
         log_event(db, "village", f"{username} joined the village! 🐧", username)
-    except Exception:
-        session["new_user"] = False
-
-    today = get_today()
-    ensure_resources(db, username)
-    streak_row_pre = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
-    is_new_day = not streak_row_pre or streak_row_pre["last_login_date"] != today
-    streak = update_login_streak(db, username, today)
-    if is_new_day:
-        session["daily_reward"] = compute_daily_reward()
-    streak_reward = award_streak_milestone(db, username, streak)
-    if streak_reward:
-        session["streak_reward"] = streak_reward
-    advance_mission(db, username, "login_today", today)
-    try:
+        ensure_resources(db, username)
         db.execute(
             "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
             (username, "first_login", int(time.time()))
         )
     except Exception:
-        pass
-    check_achievements(db, username)
+        session["new_user"] = False
     db.commit()
     db.close()
     return redirect(url_for("home"))
@@ -1747,7 +1751,6 @@ def welcome_back(username):
     now         = int(time.time())
     last_active = p["last_active"] or 0
 
-    # Brand-new account — just set last_active, no popup
     if last_active == 0:
         db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
         db.commit()
@@ -1756,7 +1759,6 @@ def welcome_back(username):
 
     hours_away = min((now - last_active) / 3600.0, 12.0)
 
-    # Under 30 minutes — refresh silently
     if hours_away < 0.5:
         db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
         db.commit()
@@ -1764,59 +1766,42 @@ def welcome_back(username):
         return jsonify({"show": False})
 
     ensure_resources(db, username)
-    job_earnings = None
 
-    # Auto-collect any active job
+    # ── Active job preview (READ ONLY — never auto-collect) ──────────────────
+    active_job = None
     if p["job"]:
         b = BUILDINGS.get(p["job"])
         if b and b.get("type") == "job":
             job_started  = p["job_started"] or 0
             elapsed_secs = now - job_started
             hours_worked = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
+            hours_remaining = max(0.0, JOB_CAP_HOURS - hours_worked)
             wb_bonus = get_total_gathering_bonus(p["level"] or 1) / 100.0
-            earned   = {}
-            leveled  = False
-            for resource, rate in b.get("produces", {}).items():
-                if resource == "xp":
-                    amount = int(rate * hours_worked)
-                else:
-                    amount = int(rate * (1 + wb_bonus) * hours_worked)
-                if amount <= 0:
-                    continue
-                earned[resource] = amount
-                if resource == "gold":
-                    add_gold(db, username, amount)
-                elif resource == "xp":
-                    lv, _ = award_xp(db, username, amount)
-                    if lv:
-                        leveled = True
-                else:
-                    db.execute(
-                        f"UPDATE resources SET {resource}={resource}+? WHERE username=?",
-                        (amount, username)
-                    )
-            db.execute(
-                "UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?",
-                (username,)
-            )
-            today = get_today()
-            advance_mission(db, username, "collect_1", today)
-            advance_mission(db, username, "collect_3", today)
-            parts = [f"+{v} {k}" for k, v in earned.items() if v > 0]
-            log_event(db, "job",
-                      f"{username} (offline) collected from {b['name']}: {', '.join(parts) or 'nothing'}",
-                      username)
-            job_earnings = {
-                "building_name": b["name"],
-                "building_icon": b.get("icon", "🏢"),
-                "earned":        earned,
-                "hours_worked":  round(hours_worked, 2),
-                "leveled_up":    leveled,
+            produces  = b.get("produces", {})
+            # Pick the primary non-gold, non-xp resource for the preview
+            resource_type   = next((r for r in produces if r not in ("gold", "xp")), None)
+            res_rate        = produces.get(resource_type, 0) if resource_type else 0
+            gold_rate       = produces.get("gold", 0)
+            xp_rate         = produces.get("xp", 0)
+            resources_so_far = int(res_rate * (1 + wb_bonus) * hours_worked) if resource_type else 0
+            gold_so_far      = int(gold_rate * (1 + wb_bonus) * hours_worked)
+            xp_so_far        = int(xp_rate * hours_worked)
+            active_job = {
+                "building":        p["job"],
+                "building_name":   b["name"],
+                "building_icon":   b.get("icon", "🏢"),
+                "hours_worked":    round(hours_worked, 2),
+                "hours_remaining": round(hours_remaining, 2),
+                "resources_so_far": resources_so_far,
+                "resource_type":    resource_type,
+                "gold_so_far":      gold_so_far,
+                "xp_so_far":        xp_so_far,
+                "complete":         hours_worked >= JOB_CAP_HOURS,
             }
 
-    # Passive offline earnings
-    passive_gold = int(hours_away * 0.8)
-    passive_xp   = int(hours_away * 1.5)
+    # ── Passive earnings (always awarded) ────────────────────────────────────
+    passive_gold = int(min(hours_away, 12.0) * 0.5)
+    passive_xp   = int(min(hours_away, 12.0) * 1.0)
     leveled_passive = False
     if passive_gold > 0:
         add_gold(db, username, passive_gold)
@@ -1825,9 +1810,21 @@ def welcome_back(username):
         if lv:
             leveled_passive = True
 
-    log_event(db, "village",
-              f"{username} returned after {round(hours_away, 1)}h — {passive_gold} gold + {passive_xp} XP offline",
-              username)
+    # ── Village news (notable events since last_active) ───────────────────────
+    notable_types = ("village", "prestige", "mayor", "milestone")
+    news_rows = db.execute(
+        f"SELECT message FROM event_log WHERE event_type IN ({','.join('?'*len(notable_types))})"
+        " AND created_at > ? AND username != ? ORDER BY created_at DESC LIMIT 5",
+        (*notable_types, last_active, username)
+    ).fetchall()
+    village_news = [r["message"] for r in news_rows]
+
+    # ── Streak check (ensure home-route streak is up-to-date) ────────────────
+    today = get_today()
+    streak_row = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
+    if not streak_row or streak_row["last_login_date"] != today:
+        update_login_streak(db, username, today)
+
     db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
     db.commit()
     db.close()
@@ -1835,12 +1832,13 @@ def welcome_back(username):
     return jsonify({
         "show":             True,
         "hours_away":       round(hours_away, 1),
-        "job_earnings":     job_earnings,
+        "active_job":       active_job,
         "passive_earnings": {
             "gold":       passive_gold,
             "xp":         passive_xp,
             "leveled_up": leveled_passive,
         },
+        "village_news": village_news,
     })
 
 

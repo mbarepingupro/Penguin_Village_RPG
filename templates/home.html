@@ -789,9 +789,11 @@
     .wb-title { color: #A86EFF; font-size: 14px; margin-bottom: 6px; text-align: center; }
     .wb-subtitle { color: #888; font-size: 9px; margin-bottom: 10px; text-align: center; }
     .wb-divider { border: none; border-top: 2px solid #A86EFF; margin: 10px 0; }
-    .wb-section { color: #888; font-size: 8px; margin-bottom: 5px; }
+    .wb-section { color: #A86EFF; font-size: 8px; margin-bottom: 5px; }
     .wb-row { font-size: 9px; line-height: 2.2; color: #fff; }
     .wb-total { color: #FF8C00; font-size: 9px; margin-top: 10px; }
+    .wb-job-complete { color: #FF7FE5; font-size: 9px; font-weight: bold; animation: pulse 1s infinite; }
+    .wb-news-row { color: #888; font-size: 8px; line-height: 2; }
     .wb-collect-btn {
       display: block; width: 100%; margin-top: 14px;
       background: none; border: 2px solid #A86EFF;
@@ -799,6 +801,8 @@
       font-size: 10px; padding: 10px; cursor: pointer;
     }
     .wb-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
+    .wb-collect-btn.green { border-color: #4aff6b; color: #4aff6b; }
+    .wb-collect-btn.green:hover { background: #4aff6b; color: #1C1C1C; }
 
     /* ── LEVEL-UP MODAL ── */
     #lvup-overlay {
@@ -1363,8 +1367,8 @@
     <hr class="wb-divider">
     <div id="wb-job-section"></div>
     <div id="wb-passive-section"></div>
-    <div id="wb-total" class="wb-total"></div>
-    <button class="wb-collect-btn" onclick="wbDismiss()">COLLECT</button>
+    <div id="wb-news-section"></div>
+    <button id="wb-ok-btn" class="wb-collect-btn" onclick="wbDismiss()">OK</button>
   </div>
 </div>
 
@@ -3260,6 +3264,14 @@
   // ── WELCOME BACK ──
   let _wbShown = false;
 
+  function _fmtHours(h) {
+    const hrs = Math.floor(h);
+    const min = Math.round((h - hrs) * 60);
+    if (hrs > 0 && min > 0) return `${hrs}h ${min}m`;
+    if (hrs > 0) return `${hrs}h`;
+    return `${min}m`;
+  }
+
   async function checkWelcomeBack() {
     if (_wbShown) return;
     try {
@@ -3271,33 +3283,51 @@
       const ICONS = { fish:'🐟', herbs:'🌿', blood_gems:'💎', bones:'🦴', spell_fragments:'✨', gold:'🪙', xp:'⭐' };
 
       document.getElementById('wb-subtitle').textContent =
-        `You were away for ${data.hours_away} hour${data.hours_away !== 1 ? 's' : ''}`;
+        `You were away for ${_fmtHours(data.hours_away)}`;
 
+      // ── Section 1: active job status ──
       let jobHtml = '';
-      if (data.job_earnings) {
-        const je = data.job_earnings;
-        jobHtml += `<div class="wb-section">${je.building_icon} FINISHED WORKING AT ${je.building_name.toUpperCase()}!</div>`;
-        for (const [k, v] of Object.entries(je.earned)) {
-          if (v > 0) jobHtml += `<div class="wb-row">${ICONS[k] || '▪'} +${v} ${k.replace(/_/g,' ').toUpperCase()}</div>`;
+      const aj = data.active_job;
+      if (aj) {
+        jobHtml += `<div class="wb-section">${aj.building_icon} WORKING AT ${aj.building_name.toUpperCase()}</div>`;
+        jobHtml += `<div class="wb-row" style="color:#FF8C00;">Time worked: ${_fmtHours(aj.hours_worked)}</div>`;
+        if (aj.resource_type && aj.resources_so_far > 0)
+          jobHtml += `<div class="wb-row" style="color:#4aff6b;">${ICONS[aj.resource_type]||'▪'} ${aj.resources_so_far} ${aj.resource_type.replace(/_/g,' ')}</div>`;
+        if (aj.gold_so_far > 0)
+          jobHtml += `<div class="wb-row" style="color:#4aff6b;">🪙 ${aj.gold_so_far} gold so far</div>`;
+        if (aj.xp_so_far > 0)
+          jobHtml += `<div class="wb-row" style="color:#4aff6b;">⭐ ${aj.xp_so_far} XP so far</div>`;
+        if (aj.complete) {
+          jobHtml += `<div class="wb-job-complete">✅ JOB COMPLETE — ready to collect!</div>`;
+        } else {
+          jobHtml += `<div class="wb-row" style="color:#888;">⏳ ${_fmtHours(aj.hours_remaining)} until cap</div>`;
         }
         jobHtml += '<hr class="wb-divider">';
       }
       document.getElementById('wb-job-section').innerHTML = jobHtml;
 
+      // ── Section 2: passive earnings ──
       const pe = data.passive_earnings;
-      let passiveHtml = '<div class="wb-section">WHILE YOU WERE GONE...</div>';
+      let passiveHtml = '<div class="wb-section">PASSIVE EARNINGS</div>';
       if (pe.gold > 0) passiveHtml += `<div class="wb-row">🪙 +${pe.gold} GOLD</div>`;
       if (pe.xp   > 0) passiveHtml += `<div class="wb-row">⭐ +${pe.xp} XP</div>`;
       document.getElementById('wb-passive-section').innerHTML = passiveHtml;
 
-      const totals = Object.assign({}, (data.job_earnings && data.job_earnings.earned) || {});
-      totals.gold = (totals.gold || 0) + pe.gold;
-      totals.xp   = (totals.xp   || 0) + pe.xp;
-      const totalStr = Object.entries(totals)
-        .filter(([,v]) => v > 0)
-        .map(([k,v]) => `+${v} ${k.replace(/_/g,' ')}`)
-        .join(', ');
-      document.getElementById('wb-total').textContent = 'TOTAL: ' + totalStr;
+      // ── Section 3: village news ──
+      let newsHtml = '';
+      if (data.village_news && data.village_news.length > 0) {
+        newsHtml += '<hr class="wb-divider"><div class="wb-section">VILLAGE NEWS</div>';
+        for (const msg of data.village_news) {
+          newsHtml += `<div class="wb-news-row">${msg}</div>`;
+        }
+      }
+      document.getElementById('wb-news-section').innerHTML = newsHtml;
+
+      // If job is complete, tint the OK button to hint at collecting
+      if (aj && aj.complete) {
+        document.getElementById('wb-ok-btn').classList.add('green');
+        document.getElementById('wb-ok-btn').textContent = 'OK (COLLECT MANUALLY)';
+      }
 
       document.getElementById('wb-overlay').classList.add('show');
       await refreshStats();
