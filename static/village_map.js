@@ -314,26 +314,54 @@ function drawPenguinAt(sx, sy, penguin, pulse) {
     }
 }
 
+function isWalkable(gx, gy) {
+    if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return false;
+    const t = grid[gy] && grid[gy][gx];
+    return t === TILE_SNOW || t === TILE_PATH;
+}
+
+function getWalkableNeighbors(gx, gy) {
+    const neighbors = [];
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+        if (isWalkable(gx + dx, gy + dy)) neighbors.push({ x: gx + dx, y: gy + dy });
+    }
+    return neighbors;
+}
+
+function nearestWalkable(gx, gy) {
+    if (isWalkable(gx, gy)) return { x: gx, y: gy };
+    for (let r = 1; r < GRID_SIZE; r++) {
+        for (let dx = -r; dx <= r; dx++) {
+            for (let dy = -r; dy <= r; dy++) {
+                if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+                if (isWalkable(gx + dx, gy + dy)) return { x: gx + dx, y: gy + dy };
+            }
+        }
+    }
+    return { x: 0, y: 0 };
+}
+
 function pickNextTarget(penguin) {
     const radius = penguin.working ? 3 : 6;
-    const candidates = [];
     const hx = penguin.homeX;
     const hy = penguin.homeY;
 
+    const pathTiles = [], snowTiles = [];
     for (let dx = -radius; dx <= radius; dx++) {
         for (let dy = -radius; dy <= radius; dy++) {
             const nx = hx + dx;
             const ny = hy + dy;
-            if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) continue;
-            const t = grid[ny] && grid[ny][nx];
-            if (t === TILE_SNOW || t === TILE_PATH) {
-                candidates.push({ x: nx, y: ny });
-            }
+            if (!isWalkable(nx, ny)) continue;
+            const t = grid[ny][nx];
+            if (t === TILE_PATH) pathTiles.push({ x: nx, y: ny });
+            else snowTiles.push({ x: nx, y: ny });
         }
     }
 
-    if (candidates.length === 0) return { x: penguin.gridX, y: penguin.gridY };
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    // Prefer path tiles (penguins walk on roads), fall back to snow
+    const pool = pathTiles.length > 0 ? pathTiles : snowTiles;
+    if (pool.length === 0) return nearestWalkable(penguin.gridX, penguin.gridY);
+    return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function updatePenguins(dt) {
@@ -373,8 +401,10 @@ function mergePenguins(incoming) {
             ep.working = !!p.job;
             ep.isCurrentUser = p.username === currentUser;
         } else {
-            const gx = p.startGridX !== undefined ? p.startGridX : Math.floor(Math.random() * GRID_SIZE);
-            const gy = p.startGridY !== undefined ? p.startGridY : Math.floor(Math.random() * GRID_SIZE);
+            let gx = p.startGridX !== undefined ? p.startGridX : Math.floor(Math.random() * GRID_SIZE);
+            let gy = p.startGridY !== undefined ? p.startGridY : Math.floor(Math.random() * GRID_SIZE);
+            const safe = nearestWalkable(gx, gy);
+            gx = safe.x; gy = safe.y;
             existingMap[p.username] = {
                 username: p.username,
                 job: p.job,

@@ -678,6 +678,13 @@ _seed_db.close()
 
 @app.route("/")
 def home():
+    # Editor mode — only available from localhost
+    if request.args.get("editor") == "true":
+        host = request.host.split(":")[0]
+        if host not in ("localhost", "127.0.0.1"):
+            return redirect(url_for("home"))
+        return render_template("editor.html")
+
     username = session.get("username")
     if not username:
         return render_template("home.html", logged_in=False, features=FEATURES)
@@ -2440,6 +2447,18 @@ _BUILDING_HOME_TILES = {
     "horny_jail":    (1, 13),
 }
 _DEFAULT_HOME_TILE = (5, 10)
+
+
+@app.route("/village/layout/save", methods=["POST"])
+def save_village_layout():
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        return jsonify({"status": "error", "message": "Only accessible from localhost"}), 403
+    data = request.get_json(silent=True)
+    if not data or "grid" not in data or "buildings" not in data:
+        return jsonify({"status": "error", "message": "Invalid data"}), 400
+    with open(_VILLAGE_LAYOUT_PATH, "w") as f:
+        json.dump(data, f, indent=2)
+    return jsonify({"status": "success"})
 
 
 @app.route("/village/layout")
