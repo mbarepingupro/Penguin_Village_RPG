@@ -1585,7 +1585,7 @@ def get_missions(username):
         }
         for r in rows if r["mission_key"] in MISSION_DEFS
     ], key=lambda m: key_order.get(m["key"], 99))
-    return jsonify({"missions": missions, "date": today})
+    return jsonify({"missions": missions, "date": today, "is_live": bool(_stream_was_live)})
 
 
 @app.route("/missions/<username>/claim/<key>", methods=["POST"])
@@ -1593,6 +1593,8 @@ def claim_stream_mission(username, key):
     defn = MISSION_DEFS.get(key)
     if not defn or not defn.get("stream"):
         return jsonify({"status": "error", "message": "Not a claimable stream mission."})
+    if not _stream_was_live:
+        return jsonify({"status": "error", "message": "Stream must be live to claim this mission."})
     today = get_today()
     db    = get_db()
     done  = advance_mission(db, username, key, today)
