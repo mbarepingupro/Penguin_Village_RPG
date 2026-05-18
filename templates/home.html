@@ -77,22 +77,8 @@
     .main { display: flex; flex: 1; overflow: hidden; }
 
     /* ── SIDEBAR ── */
-    .resize-handle {
-      width: 6px;
-      background: #2E2E2E;
-      border-left: 2px solid #A86EFF;
-      border-right: 2px solid #A86EFF;
-      cursor: col-resize;
-      flex-shrink: 0;
-      transition: background 0.1s;
-    }
-    .resize-handle:hover { background: #A86EFF; }
-    .resize-handle:active { background: #FF7FE5; }
-
     .sidebar {
       width: 240px;
-      min-width: 180px;
-      max-width: 400px;
       flex-shrink: 0;
       background: var(--panel);
       border-right: var(--border);
@@ -363,7 +349,7 @@
     .gear-slot-val { color: var(--white); font-size: 8px; flex: 1; }
 
     /* ── CONTENT AREA ── */
-    .content { flex: 1; min-width: 300px; display: flex; flex-direction: column; overflow: hidden; }
+    .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     .content-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; overflow-x: auto; }
     .content-tab {
       padding: 11px 12px;
@@ -404,22 +390,23 @@
     .building-panel {
       position: absolute;
       right: 0; top: 0; bottom: 0;
-      width: 240px;
-      background: rgba(18,18,18,0.97);
+      width: 350px;
+      background: #2E2E2E;
       border-left: 3px solid var(--purple);
-      z-index: 50;
+      box-shadow: -4px 0 12px rgba(0,0,0,0.5);
+      z-index: 100;
       display: none;
       flex-direction: column;
       padding: 0;
       overflow-y: auto;
     }
     .building-panel.open { display: flex; }
-    .bp-close { align-self: flex-end; padding: 6px 10px; font-size: 14px; color: var(--pink); cursor: pointer; font-family: monospace; }
+    .bp-close { align-self: flex-end; padding: 8px 14px; font-size: 14px; color: var(--pink); cursor: pointer; font-family: monospace; }
     .bp-close:hover { color: var(--white); }
     .bp-icon { font-size: 36px; text-align: center; padding: 10px; }
-    .bp-name { color: var(--purple); font-size: 10px; text-align: center; padding: 0 10px 6px; }
-    .bp-desc { color: #666; font-size: 8px; text-align: center; padding: 0 10px 10px; line-height: 2; border-bottom: 1px solid #2a2a2a; }
-    .bp-actions { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .bp-name { color: var(--purple); font-size: 10px; text-align: center; padding: 0 16px 6px; word-wrap: break-word; }
+    .bp-desc { color: #666; font-size: 8px; text-align: center; padding: 0 16px 12px; line-height: 2; border-bottom: 1px solid #2a2a2a; word-wrap: break-word; }
+    .bp-actions { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
     .bp-btn {
       width: 100%;
       padding: 11px;
@@ -495,27 +482,27 @@
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
 
     /* ── BUILDING UPGRADE PANEL ── */
-    .bp-upgrade-section { border-top: 1px solid #333; margin-top: 10px; padding-top: 10px; }
+    .bp-upgrade-section { border-top: 1px solid #333; margin-top: 10px; padding: 16px 20px 0; }
     .bp-upgrade-title { font-size: 8px; color: #A86EFF; margin-bottom: 6px; }
-    .bp-upgrade-benefit { font-size: 7px; color: #4aff6b; line-height: 1.8; margin-bottom: 8px; }
+    .bp-upgrade-benefit { font-size: 7px; color: #4aff6b; line-height: 1.8; margin-bottom: 8px; word-wrap: break-word; }
     .bp-upgrade-next-title { font-size: 8px; color: #FF7FE5; margin-bottom: 6px; }
-    .bp-upgrade-req-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font-size: 7px; color: #888; }
+    .bp-upgrade-req-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 7px; color: #888; }
     .bp-upgrade-req-label { width: 80px; flex-shrink: 0; }
     .bp-upgrade-req-bar { flex: 1; height: 4px; background: #1C1C1C; }
     .bp-upgrade-req-fill { height: 100%; background: #A86EFF; }
     .bp-upgrade-req-pct { width: 28px; text-align: right; flex-shrink: 0; }
-    .bp-donate-row { display: flex; gap: 4px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
-    .bp-donate-input { font-family: 'Press Start 2P', monospace; font-size: 8px; background: #1C1C1C; border: 1px solid #555; color: #fff; padding: 4px 6px; width: 60px; }
-    .bp-donate-quick { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 3px 5px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
+    .bp-donate-row { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; padding: 0 20px; }
+    .bp-donate-input { font-family: 'Press Start 2P', monospace; font-size: 8px; background: #1C1C1C; border: 1px solid #555; color: #fff; padding: 5px 8px; width: 65px; }
+    .bp-donate-quick { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 4px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
     .bp-donate-quick:hover { border-color: #A86EFF; color: #A86EFF; }
-    .bp-donate-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 5px 10px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
+    .bp-donate-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 6px 12px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
     .bp-donate-btn:hover:not(:disabled) { background: #A86EFF; color: #1C1C1C; }
     .bp-donate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .bp-contrib-title { font-size: 7px; color: #FF8C00; margin: 10px 0 5px; }
-    .bp-contrib-row { display: flex; gap: 6px; font-size: 7px; padding: 3px 0; border-bottom: 1px solid #1a1a1a; }
-    .bp-contrib-rank { color: #888; width: 16px; flex-shrink: 0; }
-    .bp-contrib-name { color: #fff; flex: 1; }
-    .bp-contrib-total { color: #888; }
+    .bp-contrib-title { font-size: 7px; color: #FF8C00; margin: 12px 0 6px; }
+    .bp-contrib-row { display: flex; gap: 8px; font-size: 7px; padding: 4px 0; border-bottom: 1px solid #1a1a1a; }
+    .bp-contrib-rank { color: #888; width: 20px; flex-shrink: 0; }
+    .bp-contrib-name { color: #fff; flex: 1; word-wrap: break-word; min-width: 0; }
+    .bp-contrib-total { color: #888; flex-shrink: 0; }
     .bp-max-level { text-align: center; padding: 8px 0; }
     .bp-max-badge { color: #4aff6b; font-size: 9px; margin-bottom: 6px; }
     .bp-max-msg { color: #888; font-size: 7px; line-height: 1.8; }
@@ -1148,8 +1135,6 @@
 
     </div>
 
-    <div class="resize-handle" id="resize-handle"></div>
-
     <!-- CONTENT -->
     <div class="content">
       <div class="content-tabs">
@@ -1438,60 +1423,6 @@
       }
     }
   }
-
-  // ── SIDEBAR RESIZE ──
-  (function () {
-    const handle  = document.getElementById('resize-handle');
-    const sidebar = document.getElementById('sidebar');
-    if (!handle || !sidebar) return;
-
-    let isResizing = false, startX = 0, startWidth = 0;
-
-    function applyWidth(w) {
-      w = Math.max(180, Math.min(400, w));
-      sidebar.style.width = w + 'px';
-      if (window._mapInitialized && window.VillageMap && VillageMap.resize) VillageMap.resize();
-    }
-
-    handle.addEventListener('mousedown', function (e) {
-      isResizing = true;
-      startX     = e.clientX;
-      startWidth = sidebar.offsetWidth;
-      document.body.style.cursor    = 'col-resize';
-      document.body.style.userSelect = 'none';
-      e.preventDefault();
-    });
-
-    document.addEventListener('mousemove', function (e) {
-      if (!isResizing) return;
-      applyWidth(startWidth + (e.clientX - startX));
-    });
-
-    document.addEventListener('mouseup', function () {
-      if (!isResizing) return;
-      isResizing = false;
-      document.body.style.cursor    = '';
-      document.body.style.userSelect = '';
-    });
-
-    // Touch support
-    handle.addEventListener('touchstart', function (e) {
-      if (e.touches.length !== 1) return;
-      isResizing = true;
-      startX     = e.touches[0].clientX;
-      startWidth = sidebar.offsetWidth;
-      e.preventDefault();
-    }, { passive: false });
-
-    document.addEventListener('touchmove', function (e) {
-      if (!isResizing || e.touches.length !== 1) return;
-      applyWidth(startWidth + (e.touches[0].clientX - startX));
-    }, { passive: true });
-
-    document.addEventListener('touchend', function () {
-      isResizing = false;
-    });
-  })();
 
   let _streamIsLive = false;
   let _streamTier   = 0;
