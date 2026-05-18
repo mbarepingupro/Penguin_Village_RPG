@@ -341,43 +341,51 @@ function nearestWalkable(gx, gy) {
     return { x: 0, y: 0 };
 }
 
-function pickNextTarget(penguin) {
-    const radius = penguin.working ? 3 : 6;
-    const hx = penguin.homeX;
-    const hy = penguin.homeY;
-
-    const pathTiles = [], snowTiles = [];
-    for (let dx = -radius; dx <= radius; dx++) {
-        for (let dy = -radius; dy <= radius; dy++) {
-            const nx = hx + dx;
-            const ny = hy + dy;
-            if (!isWalkable(nx, ny)) continue;
-            const t = grid[ny][nx];
-            if (t === TILE_PATH) pathTiles.push({ x: nx, y: ny });
-            else snowTiles.push({ x: nx, y: ny });
+function randomWalkableTile() {
+    const walkable = [];
+    for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+            if (isWalkable(x, y)) walkable.push({ x, y });
         }
     }
+    return walkable.length > 0 ? walkable[Math.floor(Math.random() * walkable.length)] : { x: 0, y: 0 };
+}
 
-    // Prefer path tiles (penguins walk on roads), fall back to snow
-    const pool = pathTiles.length > 0 ? pathTiles : snowTiles;
-    if (pool.length === 0) return nearestWalkable(penguin.gridX, penguin.gridY);
-    return pool[Math.floor(Math.random() * pool.length)];
+function stepPenguin(penguin) {
+    const neighbors = getWalkableNeighbors(penguin.gridX, penguin.gridY);
+    if (neighbors.length === 0) return;
+
+    let candidates = neighbors;
+    if (penguin.working && penguin.homeX !== undefined) {
+        // Stay within manhattan distance 4 of building home tile
+        const nearby = neighbors.filter(n =>
+            Math.abs(n.x - penguin.homeX) + Math.abs(n.y - penguin.homeY) <= 4
+        );
+        if (nearby.length > 0) candidates = nearby;
+    }
+
+    // 70% chance to prefer path tiles over snow
+    const pathCandidates = candidates.filter(n => grid[n.y] && grid[n.y][n.x] === TILE_PATH);
+    const target = (pathCandidates.length > 0 && Math.random() < 0.7)
+        ? pathCandidates[Math.floor(Math.random() * pathCandidates.length)]
+        : candidates[Math.floor(Math.random() * candidates.length)];
+
+    penguin.targetGridX = target.x;
+    penguin.targetGridY = target.y;
+    penguin.progress = 0;
 }
 
 function updatePenguins(dt) {
     for (const p of penguins) {
         if (p.progress < 1) {
-            p.progress = Math.min(1, p.progress + dt / 900);
+            p.progress = Math.min(1, p.progress + dt / 1000);
         } else {
             p.gridX = p.targetGridX;
             p.gridY = p.targetGridY;
             p.nextMoveIn -= dt;
             if (p.nextMoveIn <= 0) {
-                const target = pickNextTarget(p);
-                p.targetGridX = target.x;
-                p.targetGridY = target.y;
-                p.progress = 0;
-                p.nextMoveIn = 2000 + Math.random() * 3000;
+                stepPenguin(p);
+                p.nextMoveIn = 2000 + Math.random() * 2000;
             }
         }
     }
@@ -401,10 +409,15 @@ function mergePenguins(incoming) {
             ep.working = !!p.job;
             ep.isCurrentUser = p.username === currentUser;
         } else {
-            let gx = p.startGridX !== undefined ? p.startGridX : Math.floor(Math.random() * GRID_SIZE);
-            let gy = p.startGridY !== undefined ? p.startGridY : Math.floor(Math.random() * GRID_SIZE);
-            const safe = nearestWalkable(gx, gy);
-            gx = safe.x; gy = safe.y;
+            let spawn;
+            if (p.startGridX !== undefined) {
+                // Working penguin — snap building home tile to nearest walkable
+                spawn = nearestWalkable(p.startGridX, p.startGridY);
+            } else {
+                // Resting penguin — pick any walkable tile on the map
+                spawn = randomWalkableTile();
+            }
+            const gx = spawn.x, gy = spawn.y;
             existingMap[p.username] = {
                 username: p.username,
                 job: p.job,
