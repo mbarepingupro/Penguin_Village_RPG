@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>VILLAGE EDITOR</title>
+  <style>
+    @font-face {
+      font-family: 'Press Start 2P';
+      src: url('/static/fonts/PressStart2P-Regular.ttf');
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #1C1C1C;
+      color: #FFFFFF;
+      font-family: 'Press Start 2P', monospace;
+      overflow: hidden;
+    }
+
+    /* ── TOOLBAR ── */
+    #toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 56px;
+      background: #2E2E2E;
+      border-bottom: 2px solid #A86EFF;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 4px;
+      z-index: 100;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+    }
+
+    #toolbar::-webkit-scrollbar { height: 4px; }
+    #toolbar::-webkit-scrollbar-track { background: #2E2E2E; }
+    #toolbar::-webkit-scrollbar-thumb { background: #A86EFF; }
+
+    .toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 8px;
+      background: #2E2E2E;
+      border: 2px solid #A86EFF;
+      color: #FFFFFF;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border-radius: 0;
+      outline: none;
+    }
+
+    .toolbar-btn:hover {
+      border-color: #FF7FE5;
+    }
+
+    .toolbar-btn.active {
+      background: #A86EFF;
+      color: #1C1C1C;
+    }
+
+    .toolbar-btn.active:hover {
+      border-color: #FF7FE5;
+    }
+
+    .tile-swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 1px solid rgba(255,255,255,0.3);
+      flex-shrink: 0;
+    }
+
+    .toolbar-sep {
+      color: #A86EFF;
+      font-size: 14px;
+      padding: 0 4px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    #btn-save.dirty {
+      border-color: #4aff6b;
+    }
+
+    #btn-reset {
+      border-color: #FF4444;
+    }
+
+    #btn-reset:hover {
+      border-color: #FF7FE5;
+    }
+
+    #coord-display {
+      margin-left: auto;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: #888888;
+      flex-shrink: 0;
+      padding-left: 12px;
+    }
+
+    /* ── MAIN AREA ── */
+    #main-area {
+      position: fixed;
+      top: 56px;
+      bottom: 36px;
+      left: 0;
+      right: 0;
+      display: flex;
+    }
+
+    /* ── CANVAS WRAPPER ── */
+    #canvas-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #1C1C1C;
+    }
+
+    #editor-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    #editor-canvas.building-mode {
+      cursor: pointer;
+    }
+
+    /* ── FLASH MESSAGE ── */
+    #flash-msg {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1C1C1C;
+      border: 2px solid #4aff6b;
+      color: #4aff6b;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      padding: 8px 16px;
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #flash-msg.error {
+      border-color: #FF4444;
+      color: #FF4444;
+    }
+
+    #flash-msg.visible {
+      opacity: 1;
+    }
+
+    /* ── BUILDINGS SIDEBAR ── */
+    #buildings-sidebar {
+      width: 220px;
+      background: #1C1C1C;
+      border-left: 2px solid #A86EFF;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #buildings-sidebar.visible {
+      display: flex;
+    }
+
+    #buildings-sidebar-title {
+      padding: 10px;
+      font-size: 9px;
+      color: #A86EFF;
+      border-bottom: 1px solid #A86EFF;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    #buildings-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+    }
+
+    #buildings-list::-webkit-scrollbar { width: 4px; }
+    #buildings-list::-webkit-scrollbar-track { background: #1C1C1C; }
+    #buildings-list::-webkit-scrollbar-thumb { background: #A86EFF; }
+
+    .building-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 7px 8px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      margin-bottom: 3px;
+    }
+
+    .building-item:hover {
+      border-color: #FF7FE5;
+    }
+
+    .building-item.selected {
+      background: #A86EFF;
+      color: #1C1C1C;
+    }
+
+    .building-item.selected .building-placed-label {
+      color: #1C1C1C;
+    }
+
+    .building-item-name {
+      font-size: 7px;
+      line-height: 1.4;
+    }
+
+    .building-item-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .building-item-size {
+      font-size: 6px;
+      color: #888888;
+    }
+
+    .building-item.selected .building-item-size {
+      color: #1C1C1C;
+    }
+
+    .building-placed-label {
+      font-size: 6px;
+      color: #4aff6b;
+    }
+
+    .building-color-dot {
+      width: 8px;
+      height: 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+      flex-shrink: 0;
+    }
+
+    #buildings-right-click-hint {
+      padding: 8px;
+      font-size: 6px;
+      color: #888888;
+      border-top: 1px solid #333333;
+      text-align: center;
+      flex-shrink: 0;
+      line-height: 1.6;
+    }
+
+    /* ── INFO PANEL ── */
+    #info-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 36px;
+      background: #2E2E2E;
+      border-top: 2px solid #A86EFF;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 8px;
+      color: #CCCCCC;
+      z-index: 100;
+      gap: 0;
+    }
+
+    #info-stats {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: #CCCCCC;
+    }
+
+    #info-all-placed {
+      color: #4aff6b;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <button class="toolbar-btn active" data-tile="0" id="btn-tile-0">
+      <span class="tile-swatch" style="background:#C8DADA;"></span>SNOW
+    </button>
+    <button class="toolbar-btn" data-tile="1" id="btn-tile-1">
+      <span class="tile-swatch" style="background:#8B7355;"></span>PATH
+    </button>
+    <button class="toolbar-btn" data-tile="2" id="btn-tile-2">
+      <span class="tile-swatch" style="background:#4A8FAA;"></span>WATER
+    </button>
+    <button class="toolbar-btn" data-tile="3" id="btn-tile-3">
+      <span class="tile-swatch" style="background:#1E4520;"></span>TREE
+    </button>
+    <button class="toolbar-btn" data-tile="4" id="btn-tile-4">
+      <span class="tile-swatch" style="background:#2E2E2E;"></span>BUILDING
+    </button>
+    <button class="toolbar-btn" data-tile="5" id="btn-tile-5">
+      <span class="tile-swatch" style="background:#555555;"></span>FENCE
+    </button>
+
+    <span class="toolbar-sep">|</span>
+
+    <button class="toolbar-btn" data-tool="fill" id="btn-tool-fill">FILL</button>
+    <button class="toolbar-btn" data-tool="eraser" id="btn-tool-eraser">ERASER</button>
+
+    <span class="toolbar-sep">|</span>
+
+    <button class="toolbar-btn" id="btn-buildings-toggle">BUILDINGS</button>
+
+    <span class="toolbar-sep">|</span>
+
+    <button class="toolbar-btn" id="btn-show-paths">SHOW PATHS</button>
+
+    <span class="toolbar-sep">|</span>
+
+    <button class="toolbar-btn" id="btn-load">LOAD</button>
+    <button class="toolbar-btn" id="btn-save">SAVE</button>
+    <button class="toolbar-btn" id="btn-reset">RESET</button>
+
+    <span id="coord-display">[-, -]</span>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+    <div id="canvas-wrapper">
+      <canvas id="editor-canvas"></canvas>
+      <div id="flash-msg"></div>
+    </div>
+    <div id="buildings-sidebar">
+      <div id="buildings-sidebar-title">BUILDINGS</div>
+      <div id="buildings-list"></div>
+      <div id="buildings-right-click-hint">RIGHT-CLICK TO REMOVE</div>
+    </div>
+  </div>
+
+  <!-- INFO PANEL -->
+  <div id="info-panel">
+    <span id="info-stats">WALKABLE: 0 | PATH: 0 | TREES: 0 | WATER: 0 | BUILDINGS: 0/10</span>
+    <span id="info-all-placed" style="display:none;">| ALL PLACED ✅</span>
+  </div>
+
+  <script src="/static/village_editor.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      EditorMain.init();
+    });
+  </script>
+</body>
+</html>
