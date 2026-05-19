@@ -1323,7 +1323,20 @@ def gear_cosmetics(username):
         (username,)
     ).fetchall()
     db.close()
-    return jsonify({"cosmetics": [dict(g) for g in rows]})
+    seal_ids = {s["id"] for s in SEAL_SHOP}
+    cosmetics = []
+    for g in rows:
+        d = dict(g)
+        if d.get("rarity") == "milestone":
+            d["source"] = "Level Reward"
+        elif d.get("item_id") in seal_ids:
+            d["source"] = "Seal Shop"
+        elif d.get("rarity") == "achievement":
+            d["source"] = "Achievement"
+        else:
+            d["source"] = "Gear Shop"
+        cosmetics.append(d)
+    return jsonify({"cosmetics": cosmetics})
 
 
 @app.route("/gear/cosmetics/equip", methods=["POST"])
