@@ -187,3 +187,38 @@ def get_db():
     conn = sqlite3.connect("village.db")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def backfill_cosmetics(LEVEL_DATA, COSMETIC_SLOTS):
+    import time as _time
+    conn = sqlite3.connect("village.db")
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    try:
+        players = c.execute("SELECT username, level FROM penguins").fetchall()
+    except Exception:
+        conn.close()
+        return
+    now = int(_time.time())
+    for player in players:
+        username = player["username"]
+        player_level = player["level"] or 1
+        for lvl, data in LEVEL_DATA.items():
+            if lvl > player_level:
+                continue
+            reward = data.get("reward") or {}
+            for cosmetic in reward.get("cosmetics", []):
+                item_id = cosmetic.lower().replace(" ", "_").replace("'", "")
+                cosm_slot = COSMETIC_SLOTS.get(cosmetic, "accessory")
+                existing = c.execute(
+                    "SELECT COUNT(*) as cnt FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+                    (username, item_id)
+                ).fetchone()
+                if not existing or existing["cnt"] == 0:
+                    c.execute(
+                        "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+                        "VALUES (?,?,?,'cosmetic',?,'milestone',0,?)",
+                        (username, item_id, cosmetic, cosm_slot, now)
+                    )
+    conn.commit()
+    conn.close()

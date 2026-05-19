@@ -3,7 +3,7 @@ import os
 import datetime
 import random
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
-from database import init_db, get_db
+from database import init_db, get_db, backfill_cosmetics
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
 import time
@@ -18,6 +18,12 @@ SECRET_KEY          = os.getenv("SECRET_KEY")
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
+
+# Reverse lookup: cosmetic name → level that awards it
+_COSMETIC_LEVEL_MAP = {}
+for _lvl, _ldata in LEVEL_DATA.items():
+    for _c in (_ldata.get("reward") or {}).get("cosmetics", []):
+        _COSMETIC_LEVEL_MAP[_c] = _lvl
 
 # ── JOB TITLES ───────────────────────────────────────────────────────────────
 JOB_TITLES = {
@@ -666,6 +672,7 @@ def check_achievements(db, username):
 
 # ── APP INIT ──────────────────────────────────────────────────────────────────
 init_db()
+backfill_cosmetics(LEVEL_DATA, COSMETIC_SLOTS)
 # Seed building_upgrades rows for each upgradeable building
 _seed_db = get_db()
 for _bid in BUILDING_UPGRADES:
@@ -1328,7 +1335,8 @@ def gear_cosmetics(username):
     for g in rows:
         d = dict(g)
         if d.get("rarity") == "milestone":
-            d["source"] = "Level Reward"
+            lvl = _COSMETIC_LEVEL_MAP.get(d.get("name", ""), "?")
+            d["source"] = f"Level {lvl} Reward"
         elif d.get("item_id") in seal_ids:
             d["source"] = "Seal Shop"
         elif d.get("rarity") == "achievement":

@@ -103,6 +103,27 @@ function drawZoomIndicator() {
     ctx.restore();
 }
 
+function resetView() {
+    zoomLevel = 1.0;
+    initCamera();
+}
+
+function drawZoomIndicator() {
+    const pct = Math.round(zoomLevel * 100) + '%';
+    ctx.save();
+    ctx.font = "8px 'Press Start 2P', monospace";
+    const tw = ctx.measureText(pct).width;
+    const pad = 6, bw = tw + pad * 2, bh = 20;
+    const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#888888';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pct, bx + pad, by + bh / 2);
+    ctx.restore();
+}
+
 function inBounds(x, y) {
     return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
 }
