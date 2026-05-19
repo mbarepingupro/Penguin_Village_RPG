@@ -479,6 +479,78 @@
       padding: 8px; border: 1px solid #555; color: #555; background: none; cursor: pointer;
     }
     .cosmetic-modal-close:hover { border-color: #888; color: #888; }
+
+    /* ── INVENTORY MODAL ── */
+    #inventory-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88); z-index: 9999;
+      align-items: center; justify-content: center;
+    }
+    #inventory-overlay.show { display: flex; }
+    .inv-box {
+      background: #2E2E2E; border: 3px solid #A86EFF;
+      max-width: 450px; width: 95%; max-height: 80vh;
+      display: flex; flex-direction: column;
+      font-family: 'Press Start 2P', monospace;
+      animation: popIn 0.2s ease;
+    }
+    .inv-header { padding: 16px 16px 0; flex-shrink: 0; position: relative; }
+    .inv-title { color: #A86EFF; font-size: 11px; margin-bottom: 12px; padding-right: 24px; }
+    .inv-close-x {
+      position: absolute; top: 12px; right: 12px;
+      background: none; border: none; color: #FF7FE5; font-size: 14px;
+      cursor: pointer; font-family: 'Press Start 2P', monospace; line-height: 1;
+    }
+    .inv-close-x:hover { color: #fff; }
+    .inv-tabs { display: flex; border-bottom: 2px solid #444; margin-top: 4px; }
+    .inv-tab {
+      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      padding: 8px 12px; border: none; background: none;
+      color: #555; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
+    }
+    .inv-tab.active { color: #A86EFF; border-bottom-color: #A86EFF; }
+    .inv-tab:hover:not(.active) { color: #888; }
+    .inv-body { flex: 1; overflow-y: auto; padding: 12px 16px 16px; }
+    .inv-slot-group { margin-bottom: 16px; }
+    .inv-slot-title {
+      color: #888; font-size: 8px; margin-bottom: 8px;
+      padding-bottom: 4px; border-bottom: 1px solid #333;
+    }
+    .inv-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px; margin-bottom: 4px;
+      border: 2px solid #333; background: #1C1C1C;
+    }
+    .inv-item.rarity-milestone { border-color: #A86EFF; }
+    .inv-item.rarity-seal      { border-color: #FF7FE5; }
+    .inv-item.rarity-achieve   { border-color: #FF8C00; }
+    .inv-item.rarity-rare      { border-color: #4488FF; }
+    .inv-item.rarity-epic      { border-color: #A86EFF; }
+    .inv-item.rarity-uncommon  { border-color: #4aff6b; }
+    .inv-item-info { flex: 1; min-width: 0; }
+    .inv-item-name { color: #fff; font-size: 9px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inv-item-source { color: #666; font-size: 7px; margin-bottom: 2px; }
+    .inv-item-equipped { color: #4aff6b; font-size: 7px; margin-top: 2px; }
+    .inv-item-stats { color: #888; font-size: 7px; margin-top: 2px; }
+    .inv-set-line { color: #FF8C00; font-size: 7px; margin-top: 2px; }
+    .inv-btn {
+      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      padding: 5px 8px; border: 1px solid; cursor: pointer; background: none; flex-shrink: 0;
+    }
+    .inv-btn.equip   { border-color: #A86EFF; color: #A86EFF; }
+    .inv-btn.equip:hover   { background: #A86EFF; color: #1C1C1C; }
+    .inv-btn.unequip { border-color: #4aff6b; color: #4aff6b; }
+    .inv-btn.unequip:hover { background: #4aff6b; color: #1C1C1C; }
+    .inv-empty { color: #555; font-size: 8px; padding: 8px 0; text-align: center; line-height: 2.2; }
+    /* Button that opens inventory from sidebar */
+    .inv-open-btn {
+      display: block; width: calc(100% - 24px); margin: 0 12px 8px;
+      font-family: 'Press Start 2P', monospace; font-size: 9px;
+      padding: 8px; border: 2px solid #A86EFF; color: #A86EFF;
+      background: #1C1C1C; cursor: pointer; text-align: center;
+    }
+    .inv-open-btn:hover { background: #A86EFF; color: #1C1C1C; }
+
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
 
     /* ── BUILDING UPGRADE PANEL ── */
@@ -1020,6 +1092,9 @@
           <div id="stream-bonus-tier-label" style="font-size:7px; line-height:1.8;"></div>
         </div>
 
+        <!-- INVENTORY button -->
+        <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
+
         <!-- WARDROBE — always visible, shows cosmetic gear from level rewards -->
         <div class="wardrobe-slots">
           <div class="section-title">WARDROBE</div>
@@ -1345,6 +1420,23 @@
     <div id="cosmetic-modal-title" class="cosmetic-modal-title">SELECT ITEM</div>
     <div id="cosmetic-modal-list"></div>
     <button class="cosmetic-modal-close" onclick="closeCosmeticModal()">CLOSE</button>
+  </div>
+</div>
+
+<!-- INVENTORY MODAL -->
+<div id="inventory-overlay">
+  <div class="inv-box">
+    <div class="inv-header">
+      <div class="inv-title">📦 INVENTORY</div>
+      <button class="inv-close-x" onclick="closeInventory()">✕</button>
+      <div class="inv-tabs">
+        <button class="inv-tab active" id="inv-tab-cosmetics" onclick="switchInvTab('cosmetics')">COSMETICS</button>
+        {% if features.get("gear_equip", False) %}
+        <button class="inv-tab" id="inv-tab-gear" onclick="switchInvTab('gear')">COMBAT GEAR</button>
+        {% endif %}
+      </div>
+    </div>
+    <div class="inv-body" id="inv-body"></div>
   </div>
 </div>
 
@@ -2451,6 +2543,181 @@
 
   function closeCosmeticModal() {
     document.getElementById('cosmetic-modal').classList.remove('show');
+  }
+
+  // ── INVENTORY MODAL ──
+  let _invTab = 'cosmetics';
+  let _invCosmeticData = [];
+  let _invGearData = [];
+
+  async function openInventory() {
+    try {
+      const res = await fetch(`/gear/cosmetics/${CURRENT_USER}`);
+      const data = await res.json();
+      _invCosmeticData = data.cosmetics || [];
+    } catch(e) { _invCosmeticData = []; }
+
+    if (FEATURES.gear_equip) {
+      try {
+        const res = await fetch(`/gear/inventory?username=${CURRENT_USER}`);
+        const data = await res.json();
+        _invGearData = (data.gear || []).filter(g => g.type !== 'cosmetic');
+      } catch(e) { _invGearData = []; }
+    }
+
+    _invTab = 'cosmetics';
+    document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
+    const cosTab = document.getElementById('inv-tab-cosmetics');
+    if (cosTab) cosTab.classList.add('active');
+    renderInventory();
+    document.getElementById('inventory-overlay').classList.add('show');
+  }
+
+  function closeInventory() {
+    document.getElementById('inventory-overlay').classList.remove('show');
+  }
+
+  function switchInvTab(tab) {
+    _invTab = tab;
+    document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
+    const tabEl = document.getElementById(`inv-tab-${tab}`);
+    if (tabEl) tabEl.classList.add('active');
+    renderInventory();
+  }
+
+  function renderInventory() {
+    const body = document.getElementById('inv-body');
+    if (!body) return;
+    body.innerHTML = _invTab === 'cosmetics' ? renderCosmeticsTab() : renderCombatGearTab();
+  }
+
+  function _invRarityClass(item) {
+    if (item.rarity === 'milestone') return 'rarity-milestone';
+    if (item.source === 'Seal Shop') return 'rarity-seal';
+    if (item.rarity === 'achievement') return 'rarity-achieve';
+    if (item.rarity === 'epic') return 'rarity-epic';
+    if (item.rarity === 'rare') return 'rarity-rare';
+    if (item.rarity === 'uncommon') return 'rarity-uncommon';
+    return '';
+  }
+
+  function renderCosmeticsTab() {
+    const COSMETIC_SLOTS = [
+      { key: 'hat',         label: 'HAT',        icon: '🎩' },
+      { key: 'back',        label: 'BACK',        icon: '🧥' },
+      { key: 'accessory',   label: 'ACCESSORY',   icon: '💎' },
+      { key: 'footwear',    label: 'FOOTWEAR',    icon: '👟' },
+      { key: 'card_frame',  label: 'CARD FRAME',  icon: '🖼️' },
+      { key: 'card_effect', label: 'CARD EFFECT', icon: '✨' },
+    ];
+    let html = '';
+    for (const slot of COSMETIC_SLOTS) {
+      const items = _invCosmeticData.filter(c => c.slot === slot.key);
+      if (items.length === 0) continue;
+      html += `<div class="inv-slot-group"><div class="inv-slot-title">${slot.icon} ${slot.label}</div>`;
+      for (const item of items) {
+        const rc = _invRarityClass(item);
+        const equippedLabel = item.equipped ? '<div class="inv-item-equipped">▶ EQUIPPED</div>' : '';
+        const btn = item.equipped
+          ? `<button class="inv-btn unequip" onclick="invCosmeticAction(${item.id},'unequip')">UNEQUIP</button>`
+          : `<button class="inv-btn equip"   onclick="invCosmeticAction(${item.id},'equip')">EQUIP</button>`;
+        html += `<div class="inv-item ${rc}">
+          <div class="inv-item-info">
+            <div class="inv-item-name">${item.name}</div>
+            <div class="inv-item-source">${item.source || ''}</div>
+            ${equippedLabel}
+          </div>${btn}</div>`;
+      }
+      html += `</div>`;
+    }
+    if (!html) html = '<div class="inv-empty">No cosmetics owned yet.<br>Earn them from level rewards,<br>achievements, and the Seal Shop!</div>';
+    return html;
+  }
+
+  function renderCombatGearTab() {
+    if (!FEATURES.gear_equip) return '<div class="inv-empty">Combat gear coming soon!</div>';
+    const COMBAT_SLOTS = [
+      { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
+      { key: 'chest',  label: 'ARMOR',  icon: '🛡️' },
+      { key: 'head',   label: 'HELMET', icon: '🎩' },
+      { key: 'boots',  label: 'BOOTS',  icon: '👢' },
+    ];
+    let html = '';
+    for (const slot of COMBAT_SLOTS) {
+      const items = _invGearData.filter(g => g.slot === slot.key);
+      if (items.length === 0) continue;
+      html += `<div class="inv-slot-group"><div class="inv-slot-title">${slot.icon} ${slot.label}</div>`;
+      for (const item of items) {
+        const rc = _invRarityClass(item);
+        const equippedLabel = item.equipped ? '<div class="inv-item-equipped">▶ EQUIPPED</div>' : '';
+        const stats = [];
+        if (item.attack_bonus)  stats.push(`ATK +${item.attack_bonus}`);
+        if (item.defense_bonus) stats.push(`DEF +${item.defense_bonus}`);
+        if (item.speed_bonus)   stats.push(`SPD +${item.speed_bonus}`);
+        if (item.hp_bonus)      stats.push(`HP +${item.hp_bonus}`);
+        const statsLine = stats.length ? `<div class="inv-item-stats">${stats.join(' · ')}</div>` : '';
+        const setLine   = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
+        const btn = item.equipped
+          ? `<button class="inv-btn unequip" onclick="invGearAction(${item.id})">UNEQUIP</button>`
+          : `<button class="inv-btn equip"   onclick="invGearAction(${item.id})">EQUIP</button>`;
+        html += `<div class="inv-item ${rc}">
+          <div class="inv-item-info">
+            <div class="inv-item-name">${item.name}</div>
+            ${statsLine}${setLine}${equippedLabel}
+          </div>${btn}</div>`;
+      }
+      html += `</div>`;
+    }
+    if (!html) html = '<div class="inv-empty">No combat gear owned yet.</div>';
+    return html;
+  }
+
+  async function invCosmeticAction(gearId, action) {
+    try {
+      const res = await fetch('/gear/cosmetics/equip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, gear_id: gearId, action }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(action === 'equip' ? 'Item equipped!' : 'Item unequipped!', 'ok');
+        const target = _invCosmeticData.find(c => c.id === gearId);
+        if (target) {
+          _invCosmeticData.filter(c => c.slot === target.slot).forEach(c => c.equipped = 0);
+          if (action === 'equip') target.equipped = 1;
+        }
+        renderInventory();
+        await loadWardrobe();
+      } else {
+        showToast(data.message || 'Error.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function invGearAction(gearId) {
+    if (!FEATURES.gear_equip) return;
+    try {
+      const res = await fetch('/gear/equip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, gear_id: gearId }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        const target = _invGearData.find(g => g.id === gearId);
+        const wasEquipped = target?.equipped;
+        if (target) {
+          _invGearData.filter(g => g.slot === target.slot).forEach(g => g.equipped = 0);
+          if (!wasEquipped) target.equipped = 1;
+        }
+        showToast(wasEquipped ? 'Item unequipped!' : 'Item equipped!', 'ok');
+        renderInventory();
+        await refreshStats();
+      } else {
+        showToast(data.message || 'Error.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
   }
 
   function renderBuildingActions(data) {
