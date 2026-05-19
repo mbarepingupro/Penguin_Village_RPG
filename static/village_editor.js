@@ -77,7 +77,9 @@ function screenToGrid(sx, sy) {
 
 function initCamera() {
     camX = canvas.width / 2;
-    camY = 50;
+    // Center the grid vertically. Grid spans world-y −16 to 624 (height 640 px
+    // at zoom 1). Grid center = (GRID_SIZE-1) * TILE_H/2 = 19*16 = 304.
+    camY = canvas.height / 2 - (GRID_SIZE - 1) * (TILE_H / 2);
 }
 
 function resetView() {
@@ -766,9 +768,10 @@ function setupCanvas() {
         const oldHeight = canvas.height;
         canvas.width = wrapper.clientWidth;
         canvas.height = wrapper.clientHeight;
-        // Adjust camera if canvas was resized
+        // Keep the view centred when the canvas is resized
         if (oldWidth && oldHeight) {
             camX += (canvas.width - oldWidth) / 2;
+            camY += (canvas.height - oldHeight) / 2;
         }
     }
 
