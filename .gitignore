@@ -1,4 +1,5 @@
 .env
 venv/
 village.db
+penguin_village.db
 __pycache__/
