@@ -983,6 +983,116 @@
     }
     #toast.ok  { border-color: #4aff6b; color: #4aff6b; }
     #toast.err { border-color: #ff6b6b; color: #ff6b6b; }
+
+    /* ══════════════════════════════════════════════════════════
+       TABLET  768px – 1024px
+    ══════════════════════════════════════════════════════════ */
+    @media (max-width: 1024px) {
+      .sidebar { width: 200px; }
+      .building-panel { width: 300px; }
+      .content-tab { padding: 10px 10px; font-size: 8px; }
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       MOBILE  ≤ 768px
+    ══════════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      /* ── Overall layout ── */
+      .main { flex-direction: column; overflow: auto; }
+
+      /* ── Nav ── */
+      nav { padding: 8px 12px; }
+      .nav-logo { font-size: 10px; }
+      .nav-user { font-size: 9px; }
+      .nav-logout { min-height: 44px; display: flex; align-items: center; padding: 0 10px; }
+
+      /* ── Sidebar becomes a scrollable top strip ── */
+      .sidebar {
+        width: 100%;
+        max-height: 45vh;
+        overflow-y: auto;
+        border-right: none;
+        border-bottom: 3px solid var(--purple);
+        flex-shrink: 0;
+      }
+      .sidebar-panel { overflow-y: auto; }
+      .sidebar-tab { min-height: 44px; padding: 10px 4px; }
+      .sidebar-panel.active { flex: none; }
+
+      /* ── Content area fills rest ── */
+      .content { flex: 1; min-height: 0; }
+      .content-tabs { -webkit-overflow-scrolling: touch; }
+      .content-tab { min-height: 44px; padding: 10px 12px; }
+
+      /* ── Building panel slides up from bottom ── */
+      .building-panel {
+        position: fixed;
+        bottom: 0; left: 0; right: 0; top: auto;
+        width: 100%;
+        max-height: 60vh;
+        border-left: none;
+        border-right: none;
+        border-top: 3px solid var(--purple);
+        border-bottom: none;
+        box-shadow: 0 -4px 16px rgba(0,0,0,0.6);
+        overflow-y: auto;
+      }
+
+      /* ── Canvas — prevent browser gestures ── */
+      #village-canvas { touch-action: none; }
+
+      /* ── Modals ── */
+      .inv-box {
+        width: 98%; max-width: none; max-height: 90vh; margin: 0;
+      }
+      .wb-box {
+        width: 95%; max-width: none; max-height: 85vh; overflow-y: auto;
+      }
+      #lvup-box {
+        width: 95%; max-width: none; max-height: 85vh; overflow-y: auto;
+      }
+      .cosmetic-modal-box { width: 95%; max-width: none; }
+      .seal-shop-box { width: 95%; max-width: none; max-height: 85vh; }
+      .streak-modal-box { width: 95%; max-width: none; max-height: 85vh; overflow-y: auto; }
+      .title-modal-box { width: 95%; max-width: none; }
+      .card-modal-box { width: 95%; max-width: none; max-height: 85vh; overflow-y: auto; }
+
+      /* ── Modal close buttons ── */
+      .inv-close-x {
+        min-height: 44px; min-width: 44px; font-size: 18px;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .bp-close { padding: 12px 18px; font-size: 18px; min-height: 44px; }
+
+      /* ── Touch targets — all interactive elements ≥ 44px ── */
+      .bp-btn { min-height: 44px; }
+      .collect-btn { min-height: 44px; }
+      .inv-btn { min-height: 40px; padding: 8px 12px; }
+      .wardrobe-slot-row { min-height: 44px; padding: 8px 2px; }
+      .gear-slot-row { min-height: 44px; }
+      .cosmetic-action-btn { min-height: 40px; padding: 6px 10px; }
+      .seal-buy-btn { min-height: 40px; padding: 6px 10px; }
+      .sm-close { min-height: 44px; }
+      .title-modal-close { min-height: 44px; }
+      .seal-shop-close { min-height: 44px; }
+      .cosmetic-modal-close { min-height: 44px; }
+      .lvup-collect-btn { min-height: 44px; }
+      .wb-collect-btn { min-height: 44px; }
+
+      /* ── Social buttons ── */
+      .social-btn { min-height: 44px; padding: 12px 10px; }
+
+      /* ── Font sizes for readability ── */
+      .stat-lbl, .stat-val { font-size: 10px; }
+      .section-title { font-size: 11px; }
+      .news-label { font-size: 8px; }
+      .news-ticker-item { font-size: 8px; }
+
+      /* ── Login screen ── */
+      .login-title { font-size: 16px; }
+      .login-sub { font-size: 9px; }
+      .login-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+    }
   </style>
 </head>
 <body>
