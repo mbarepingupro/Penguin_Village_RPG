@@ -24,6 +24,8 @@ const TILE_NAMES = {
     5: "FENCE",
 };
 
+const MIN_ZOOM = 0.5, MAX_ZOOM = 2.0, ZOOM_STEP = 0.1;
+
 const BUILDING_DEFS = {
     hotel:         { name: "PENGUIN HOTEL",      color: "#C0392B", width: 3, height: 3 },
     sea_lion_pit:  { name: "ASH'S SEA LION PIT", color: "#2471A3", width: 3, height: 3 },
@@ -50,21 +52,24 @@ let hoverGrid = null;
 let isPainting = false;
 let isDirty = false;
 let camX, camY;
+let zoomLevel = 1.0;
 let canvas, ctx;
 let fontReady = false;
 let flashTimeout = null;
 
 // ── COORDINATE MATH ──────────────────────────────────────────────────────────
+// Returns world-space coordinates. The canvas transform (translate+scale) maps
+// these to screen pixels, so drawing functions need no camera/zoom adjustments.
 function gridToScreen(gx, gy) {
     return {
-        x: (gx - gy) * (TILE_W / 2) + camX,
-        y: (gx + gy) * (TILE_H / 2) + camY,
+        x: (gx - gy) * (TILE_W / 2),
+        y: (gx + gy) * (TILE_H / 2),
     };
 }
 
 function screenToGrid(sx, sy) {
-    const rx = sx - camX;
-    const ry = sy - camY;
+    const rx = (sx - camX) / zoomLevel;
+    const ry = (sy - camY) / zoomLevel;
     const gx = Math.floor((rx / (TILE_W / 2) + ry / (TILE_H / 2)) / 2);
     const gy = Math.floor((ry / (TILE_H / 2) - rx / (TILE_W / 2)) / 2);
     return { x: gx, y: gy };
@@ -73,6 +78,27 @@ function screenToGrid(sx, sy) {
 function initCamera() {
     camX = canvas.width / 2;
     camY = 50;
+}
+
+function resetView() {
+    zoomLevel = 1.0;
+    initCamera();
+}
+
+function drawZoomIndicator() {
+    const pct = Math.round(zoomLevel * 100) + '%';
+    ctx.save();
+    ctx.font = "8px 'Press Start 2P', monospace";
+    const tw = ctx.measureText(pct).width;
+    const pad = 6, bw = tw + pad * 2, bh = 20;
+    const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = '#888888';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pct, bx + pad, by + bh / 2);
+    ctx.restore();
 }
 
 function inBounds(x, y) {
@@ -277,6 +303,11 @@ function render() {
     ctx.fillStyle = "#1C1C1C";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Apply pan + zoom — all drawing below uses world-space coordinates
+    ctx.save();
+    ctx.translate(camX, camY);
+    ctx.scale(zoomLevel, zoomLevel);
+
     const buildingTileSet = getBuildingTileSet();
 
     // Determine building footprint preview position (building mode)
@@ -334,6 +365,11 @@ function render() {
     if (previewGX !== null) {
         drawBuildingFootprintPreview(selectedBuilding, previewGX, previewGY);
     }
+
+    ctx.restore();
+
+    // Screen-space overlay (not affected by zoom)
+    drawZoomIndicator();
 
     requestAnimationFrame(render);
 }
@@ -667,10 +703,13 @@ function setupToolbar() {
         this.classList.toggle('active', showPaths);
     });
 
-    // Load / Save / Reset
+    // Load / Save / Reset layout
     document.getElementById('btn-load').addEventListener('click', loadLayout);
     document.getElementById('btn-save').addEventListener('click', saveLayout);
     document.getElementById('btn-reset').addEventListener('click', resetLayout);
+
+    // Reset view
+    document.getElementById('btn-reset-view').addEventListener('click', resetView);
 }
 
 function setBuildingMode(val) {
@@ -817,6 +856,30 @@ function setupCanvas() {
 
     canvas.addEventListener('mouseup', function (e) {
         if (e.button === 1) panStart = null;
+    });
+
+    // Mouse wheel zoom toward cursor
+    canvas.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        const { x: mx, y: my } = getCanvasPos(e);
+        const oldZoom = zoomLevel;
+        if (e.deltaY < 0) {
+            zoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
+        } else {
+            zoomLevel = Math.max(MIN_ZOOM, zoomLevel - ZOOM_STEP);
+        }
+        if (zoomLevel !== oldZoom) {
+            camX = mx - (mx - camX) * (zoomLevel / oldZoom);
+            camY = my - (my - camY) * (zoomLevel / oldZoom);
+        }
+    }, { passive: false });
+
+    // Keyboard shortcut: R = reset view
+    document.addEventListener('keydown', function (e) {
+        if ((e.key === 'r' || e.key === 'R') &&
+            e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            resetView();
+        }
     });
 }
 
