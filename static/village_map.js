@@ -200,11 +200,12 @@ function drawBuilding(id, bdef, level) {
     const BOX_H = 32 + bdef.width * 6;
     const color = cfg.color;
 
+    // Left face: bottom edge at ground, walls rise upward
     ctx.beginPath();
-    ctx.moveTo(lPt.x, lPt.y + BOX_H);
-    ctx.lineTo(bPt.x, bPt.y + BOX_H);
+    ctx.moveTo(lPt.x, lPt.y);
     ctx.lineTo(bPt.x, bPt.y);
-    ctx.lineTo(lPt.x, lPt.y);
+    ctx.lineTo(bPt.x, bPt.y - BOX_H);
+    ctx.lineTo(lPt.x, lPt.y - BOX_H);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
@@ -212,11 +213,12 @@ function drawBuilding(id, bdef, level) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
+    // Right face: bottom edge at ground, walls rise upward
     ctx.beginPath();
-    ctx.moveTo(bPt.x, bPt.y + BOX_H);
-    ctx.lineTo(rPt.x, rPt.y + BOX_H);
+    ctx.moveTo(bPt.x, bPt.y);
     ctx.lineTo(rPt.x, rPt.y);
-    ctx.lineTo(bPt.x, bPt.y);
+    ctx.lineTo(rPt.x, rPt.y - BOX_H);
+    ctx.lineTo(bPt.x, bPt.y - BOX_H);
     ctx.closePath();
     ctx.fillStyle = darken(color, 40);
     ctx.fill();
@@ -224,11 +226,12 @@ function drawBuilding(id, bdef, level) {
     ctx.lineWidth = 1;
     ctx.stroke();
 
+    // Top face: BOX_H above the tile footprint
     ctx.beginPath();
-    ctx.moveTo(tPt.x, tPt.y);
-    ctx.lineTo(rPt.x, rPt.y);
-    ctx.lineTo(bPt.x, bPt.y);
-    ctx.lineTo(lPt.x, lPt.y);
+    ctx.moveTo(tPt.x, tPt.y - BOX_H);
+    ctx.lineTo(rPt.x, rPt.y - BOX_H);
+    ctx.lineTo(bPt.x, bPt.y - BOX_H);
+    ctx.lineTo(lPt.x, lPt.y - BOX_H);
     ctx.closePath();
     ctx.fillStyle = lighten(color, 50);
     ctx.fill();
@@ -237,7 +240,7 @@ function drawBuilding(id, bdef, level) {
     ctx.stroke();
 
     const faceCenterX = (tPt.x + rPt.x + bPt.x + lPt.x) / 4;
-    const faceCenterY = (tPt.y + rPt.y + bPt.y + lPt.y) / 4;
+    const faceCenterY = (tPt.y + rPt.y + bPt.y + lPt.y) / 4 - BOX_H;
 
     if (fontReady) {
         ctx.save();
@@ -548,6 +551,43 @@ function getBuildingAtTile(gx, gy) {
     return null;
 }
 
+function _pointInPoly(px, py, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+        if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi))
+            inside = !inside;
+    }
+    return inside;
+}
+
+// Returns the building id whose rendered 3D block contains world-space point (wx, wy).
+function getBuildingAtScreenPos(wx, wy) {
+    const sorted = Object.entries(buildingLayout).sort(
+        ([, a], [, b]) => (b.gridX + b.gridY) - (a.gridX + a.gridY)
+    );
+    for (const [id, bdef] of sorted) {
+        const gs = gridToScreen;
+        const gx = bdef.gridX, gy = bdef.gridY, gw = bdef.width, gh = bdef.height;
+        const BOX_H = 32 + gw * 6;
+        const tPt = { x: gs(gx,    gy   ).x, y: gs(gx,    gy   ).y - TILE_H / 2 };
+        const rPt = { x: gs(gx+gw, gy   ).x, y: gs(gx+gw, gy   ).y - TILE_H / 2 };
+        const bPt = { x: gs(gx+gw, gy+gh).x, y: gs(gx+gw, gy+gh).y - TILE_H / 2 };
+        const lPt = { x: gs(gx,    gy+gh).x, y: gs(gx,    gy+gh).y - TILE_H / 2 };
+        // Six-point outline enclosing top face + both visible walls
+        const poly = [
+            { x: tPt.x, y: tPt.y - BOX_H },
+            { x: rPt.x, y: rPt.y - BOX_H },
+            { x: rPt.x, y: rPt.y },
+            { x: bPt.x, y: bPt.y },
+            { x: lPt.x, y: lPt.y },
+            { x: lPt.x, y: lPt.y - BOX_H },
+        ];
+        if (_pointInPoly(wx, wy, poly)) return id;
+    }
+    return null;
+}
+
 function attachEvents() {
     let isDragging = false;
     let _clickValid = false;
@@ -610,12 +650,14 @@ function attachEvents() {
         }
 
         const g = screenToGrid(sx, sy);
-        if (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE) {
-            const bid = getBuildingAtTile(g.x, g.y);
-            if (bid && openBuildingFn) {
-                openBuildingFn(bid);
-            }
+        let bid = (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE)
+            ? getBuildingAtTile(g.x, g.y) : null;
+        if (!bid) {
+            const wx = (sx - cameraX) / zoomLevel;
+            const wy = (sy - cameraY) / zoomLevel;
+            bid = getBuildingAtScreenPos(wx, wy);
         }
+        if (bid && openBuildingFn) openBuildingFn(bid);
     });
 
     let touchStartX = 0, touchStartY = 0;
@@ -676,12 +718,14 @@ function attachEvents() {
             }
 
             const g = screenToGrid(sx, sy);
-            if (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE) {
-                const bid = getBuildingAtTile(g.x, g.y);
-                if (bid && openBuildingFn) {
-                    openBuildingFn(bid);
-                }
+            let bid = (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE)
+                ? getBuildingAtTile(g.x, g.y) : null;
+            if (!bid) {
+                const wx = (sx - cameraX) / zoomLevel;
+                const wy = (sy - cameraY) / zoomLevel;
+                bid = getBuildingAtScreenPos(wx, wy);
             }
+            if (bid && openBuildingFn) openBuildingFn(bid);
         }
     });
 
