@@ -192,6 +192,12 @@
     .not-found p  { color: #888; font-size: 8px; margin-bottom: 24px; line-height: 2; }
 
     /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      body { padding: 16px 10px 32px; }
+      .cta-btn { min-height: 44px; display: flex; align-items: center; padding: 10px 14px; }
+      .cta-buttons { flex-direction: column; align-items: stretch; gap: 8px; }
+      .cta-btn { justify-content: center; }
+    }
     @media (max-width: 480px) {
       .card { flex-direction: column; }
       .card-left { width: 100%; border-right: none; border-bottom: 1px solid #2E2E2E; padding-bottom: 14px; }
