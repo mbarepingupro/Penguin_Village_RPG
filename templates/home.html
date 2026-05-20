@@ -243,6 +243,11 @@
     #stream-live-banner.show { display: flex; }
     #stream-live-banner .live-dot-banner { width: 7px; height: 7px; background: #ff0000; border-radius: 50%; flex-shrink: 0; animation: blink 1.2s infinite; }
 
+    /* ── BUFF BANNER ── */
+    #buff-banner { display: none; background: #1a0a1a; border-bottom: 2px solid #FF7FE5; padding: 5px 16px; font-size: 8px; color: #FF7FE5; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; animation: buffpulse 2s infinite; }
+    #buff-banner.show { display: flex; }
+    @keyframes buffpulse { 0%,100%{border-color:#FF7FE5} 50%{border-color:#A86EFF} }
+
     /* ── SEAL SHOP MODAL ── */
     #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
     #seal-shop-modal.show { display: flex; }
@@ -1113,6 +1118,7 @@
     <span class="live-dot-banner"></span>
     STREAM IS LIVE &mdash; EARNING MAYOR'S SEALS!
   </div>
+  <div id="buff-banner"></div>
 
   {% if not logged_in %}
   <!-- LOGIN SCREEN -->
@@ -1677,6 +1683,51 @@
       }
     } catch(e) {}
   }
+
+  // ── BUFF BANNER ──
+  let _buffCountdownTimer = null;
+  let _activeBuff = null;
+
+  function _fmtBuffTimer(secondsLeft) {
+    if (secondsLeft <= 0) return '00:00';
+    const m = Math.floor(secondsLeft / 60);
+    const s = secondsLeft % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  async function checkActiveBuff() {
+    try {
+      const res  = await fetch('/buffs/active');
+      const data = await res.json();
+      const buffs = data.buffs || [];
+      const banner = document.getElementById('buff-banner');
+      if (!banner) return;
+      if (buffs.length === 0) {
+        banner.classList.remove('show');
+        banner.innerHTML = '';
+        _activeBuff = null;
+        if (_buffCountdownTimer) { clearInterval(_buffCountdownTimer); _buffCountdownTimer = null; }
+        return;
+      }
+      _activeBuff = buffs[0];
+      banner.classList.add('show');
+      if (_buffCountdownTimer) clearInterval(_buffCountdownTimer);
+      function updateBanner() {
+        const left = Math.max(0, _activeBuff.expires_at - Math.floor(Date.now()/1000));
+        const names = buffs.map(b => b.name).join(' + ');
+        banner.innerHTML = `⚡ ${names.toUpperCase()} ACTIVE! Ends in: <span style="color:#4aff6b">${_fmtBuffTimer(left)}</span>`;
+        if (left <= 0) {
+          clearInterval(_buffCountdownTimer);
+          banner.classList.remove('show');
+        }
+      }
+      updateBanner();
+      _buffCountdownTimer = setInterval(updateBanner, 1000);
+    } catch(e) {}
+  }
+
+  checkActiveBuff();
+  setInterval(checkActiveBuff, 60000);
 
   async function loadLeaderboard() {
     try {

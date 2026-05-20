@@ -15,6 +15,16 @@ TWITCH_CLIENT_ID    = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
 TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
 SECRET_KEY          = os.getenv("SECRET_KEY")
+MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
+MAYOR_USERNAME      = "mbarepingu"
+
+BUFF_NAMES = {
+    "double_resources": "2x Resources",
+    "double_xp":        "2x XP",
+    "double_gold":      "2x Gold",
+    "half_energy":      "Half Energy Costs",
+    "festival":         "Festival (2x XP + 2x Gold)",
+}
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -439,6 +449,22 @@ def log_event(db, event_type, message, username=None):
         "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
         (event_type, message, username, int(time.time()))
     )
+
+
+def get_active_buffs(db):
+    now = int(time.time())
+    rows = db.execute(
+        "SELECT * FROM active_buffs WHERE expires_at > ? ORDER BY activated_at",
+        (now,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _is_mayor_authed():
+    if session.get("username") == MAYOR_USERNAME:
+        return True
+    key = request.args.get("key", "") or (request.get_json(silent=True) or {}).get("key", "")
+    return bool(MAYOR_KEY and key == MAYOR_KEY)
 
 
 import json
@@ -1188,15 +1214,26 @@ def work_collect():
     ensure_building_row(db, p["job"])
     building_bonus  = BUILDING_BONUS_RATES.get(get_building_level(db, p["job"]), 0.0)
 
+    # Apply active mayor buffs
+    xp_mult = resource_mult = gold_mult = 1.0
+    for _buff in get_active_buffs(db):
+        bt = _buff["buff_type"]
+        if bt == "double_resources": resource_mult *= 2.0; gold_mult *= 2.0
+        elif bt == "double_xp":     xp_mult        *= 2.0
+        elif bt == "double_gold":   gold_mult       *= 2.0
+        elif bt == "festival":      xp_mult *= 2.0; gold_mult *= 2.0
+
     earned    = {}
     level_ups = []
     ensure_resources(db, username)
 
     for resource, rate_per_hour in b.get("produces", {}).items():
         if resource == "xp":
-            amount = int(rate_per_hour * stream_mult * (1 + building_bonus) * hours_worked)
+            amount = int(rate_per_hour * stream_mult * (1 + building_bonus) * hours_worked * xp_mult)
+        elif resource == "gold":
+            amount = int(rate_per_hour * stream_mult * (1 + gathering_bonus + building_bonus) * hours_worked * gold_mult)
         else:
-            amount = int(rate_per_hour * stream_mult * (1 + gathering_bonus + building_bonus) * hours_worked)
+            amount = int(rate_per_hour * stream_mult * (1 + gathering_bonus + building_bonus) * hours_worked * resource_mult)
         if amount <= 0:
             continue
         earned[resource] = amount
@@ -2528,6 +2565,349 @@ def village_penguins():
         })
 
     return jsonify({"penguins": penguins})
+
+
+# ── BUFFS/ACTIVE (public endpoint for player buff banner) ────────────────────
+
+@app.route("/buffs/active")
+def buffs_active():
+    db = get_db()
+    buffs = get_active_buffs(db)
+    db.close()
+    now = int(time.time())
+    return jsonify({"buffs": [{
+        "buff_type":    b["buff_type"],
+        "name":         BUFF_NAMES.get(b["buff_type"], b["buff_type"]),
+        "expires_at":   b["expires_at"],
+        "seconds_left": max(0, b["expires_at"] - now),
+    } for b in buffs]})
+
+
+# ── MAYOR DASHBOARD ──────────────────────────────────────────────────────────
+
+@app.route("/mayor")
+def mayor_dashboard():
+    if not _is_mayor_authed():
+        return redirect(url_for("home"))
+    db = get_db()
+    now = int(time.time())
+    total_players   = db.execute("SELECT COUNT(*) as c FROM penguins").fetchone()["c"]
+    online_players  = db.execute(
+        "SELECT COUNT(*) as c FROM penguins WHERE last_active > ?", (now - 1800,)
+    ).fetchone()["c"]
+    active_24h      = db.execute(
+        "SELECT COUNT(*) as c FROM penguins WHERE last_active > ?", (now - 86400,)
+    ).fetchone()["c"]
+    active_buffs    = get_active_buffs(db)
+    recent_events   = db.execute(
+        "SELECT * FROM event_log ORDER BY created_at DESC LIMIT 20"
+    ).fetchall()
+    building_levels = {}
+    for bid in BUILDING_UPGRADES:
+        row = db.execute("SELECT current_level FROM building_upgrades WHERE building_id=?", (bid,)).fetchone()
+        building_levels[bid] = row["current_level"] if row else 1
+    db.close()
+    is_live = _stream_is_live()
+    return render_template(
+        "mayor.html",
+        total_players=total_players,
+        online_players=online_players,
+        active_24h=active_24h,
+        active_buffs=active_buffs,
+        recent_events=[dict(e) for e in recent_events],
+        building_levels=building_levels,
+        building_upgrades=BUILDING_UPGRADES,
+        buff_names=BUFF_NAMES,
+        is_live=is_live,
+        mayor_key=MAYOR_KEY,
+    )
+
+
+@app.route("/mayor/stats")
+def mayor_stats():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db  = get_db()
+    now = int(time.time())
+    total   = db.execute("SELECT COUNT(*) as c FROM penguins").fetchone()["c"]
+    online  = db.execute("SELECT COUNT(*) as c FROM penguins WHERE last_active > ?", (now - 1800,)).fetchone()["c"]
+    active  = db.execute("SELECT COUNT(*) as c FROM penguins WHERE last_active > ?", (now - 86400,)).fetchone()["c"]
+    top5    = db.execute(
+        "SELECT username, level, prestige FROM penguins ORDER BY level DESC, prestige DESC LIMIT 5"
+    ).fetchall()
+    today_events = db.execute(
+        "SELECT COUNT(*) as c FROM event_log WHERE created_at > ?", (now - 86400,)
+    ).fetchone()["c"]
+    buffs   = get_active_buffs(db)
+    db.close()
+    return jsonify({
+        "total_players": total,
+        "online_players": online,
+        "active_24h": active,
+        "is_live": _stream_is_live(),
+        "active_buffs": [{
+            "buff_type": b["buff_type"],
+            "name": BUFF_NAMES.get(b["buff_type"], b["buff_type"]),
+            "seconds_left": max(0, b["expires_at"] - now),
+        } for b in buffs],
+        "top_players": [dict(r) for r in top5],
+        "today_events": today_events,
+    })
+
+
+@app.route("/mayor/buff", methods=["POST"])
+def mayor_buff():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data     = request.get_json(silent=True) or {}
+    buff_type = data.get("buff_type", "").strip()
+    duration  = int(data.get("duration_minutes", 30))
+    if buff_type not in BUFF_NAMES:
+        return jsonify({"status": "error", "message": "Unknown buff type."})
+    if duration < 1 or duration > 480:
+        return jsonify({"status": "error", "message": "Duration must be 1–480 minutes."})
+    now       = int(time.time())
+    expires   = now + duration * 60
+    db = get_db()
+    db.execute(
+        "INSERT INTO active_buffs (buff_type, multiplier, activated_at, expires_at, activated_by) VALUES (?,?,?,?,?)",
+        (buff_type, 2.0, now, expires, MAYOR_USERNAME)
+    )
+    log_event(db, "village",
+              f"👑 The Mayor activated {BUFF_NAMES[buff_type]} for {duration} minutes!",
+              MAYOR_USERNAME)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "buff_type": buff_type, "expires_at": expires,
+                    "duration_minutes": duration})
+
+
+@app.route("/mayor/grant-title", methods=["POST"])
+def mayor_grant_title():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    title    = data.get("title", "").strip()
+    if not username or not title:
+        return jsonify({"status": "error", "message": "username and title required."})
+    db = get_db()
+    p  = db.execute("SELECT id, ceremonial_titles FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": f"Player '{username}' not found."})
+    try:
+        existing = json.loads(p["ceremonial_titles"] or "[]")
+    except Exception:
+        existing = []
+    if title not in existing:
+        existing.append(title)
+        db.execute("UPDATE penguins SET ceremonial_titles=? WHERE username=?",
+                   (json.dumps(existing), username))
+    log_event(db, "village", f"👑 The Mayor granted {username} the title: {title}!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "username": username, "title": title})
+
+
+@app.route("/mayor/gift", methods=["POST"])
+def mayor_gift():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data       = request.get_json(silent=True) or {}
+    username   = data.get("username", "").strip()
+    gift_type  = data.get("gift_type", "gold").strip()
+    amount     = int(data.get("amount", 0))
+    resource_t = data.get("resource_type", "fish").strip()
+    cosmetic_n = data.get("cosmetic_name", "").strip()
+
+    db = get_db()
+    # Random active player
+    if username.lower() == "random":
+        cutoff = int(time.time()) - 86400
+        rows = db.execute(
+            "SELECT username FROM penguins WHERE last_active > ? ORDER BY RANDOM() LIMIT 1", (cutoff,)
+        ).fetchall()
+        if not rows:
+            db.close()
+            return jsonify({"status": "error", "message": "No active players in last 24h."})
+        username = rows[0]["username"]
+
+    p = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": f"Player '{username}' not found."})
+
+    ensure_resources(db, username)
+    if gift_type == "gold":
+        if amount <= 0:
+            db.close(); return jsonify({"status": "error", "message": "Amount must be positive."})
+        add_gold(db, username, amount)
+        log_event(db, "village", f"👑 The Mayor gifted {amount} gold to {username}! 🪙", username)
+    elif gift_type == "seals":
+        if amount <= 0:
+            db.close(); return jsonify({"status": "error", "message": "Amount must be positive."})
+        db.execute("UPDATE resources SET mayor_seals=mayor_seals+? WHERE username=?", (amount, username))
+        log_event(db, "village", f"👑 The Mayor gifted {amount} Mayor's Seals to {username}! 👑", username)
+    elif gift_type == "resources":
+        if resource_t not in ("fish","herbs","blood_gems","bones","spell_fragments"):
+            db.close(); return jsonify({"status": "error", "message": "Invalid resource type."})
+        if amount <= 0:
+            db.close(); return jsonify({"status": "error", "message": "Amount must be positive."})
+        db.execute(f"UPDATE resources SET {resource_t}={resource_t}+? WHERE username=?", (amount, username))
+        log_event(db, "village", f"👑 The Mayor gifted {amount} {resource_t} to {username}!", username)
+    elif gift_type == "cosmetic":
+        if not cosmetic_n:
+            db.close(); return jsonify({"status": "error", "message": "cosmetic_name required."})
+        item_id  = cosmetic_n.lower().replace(" ", "_").replace("'", "")
+        slot     = COSMETIC_SLOTS.get(cosmetic_n, "accessory")
+        db.execute(
+            "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+            "VALUES (?,?,?,'cosmetic',?,'achievement',0,?)",
+            (username, item_id, cosmetic_n, slot, int(time.time()))
+        )
+        log_event(db, "village", f"👑 The Mayor gifted {username} the cosmetic: {cosmetic_n}! ✨", username)
+    else:
+        db.close(); return jsonify({"status": "error", "message": "Unknown gift type."})
+
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "recipient": username, "gift_type": gift_type})
+
+
+@app.route("/mayor/announce", methods=["POST"])
+def mayor_announce():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data    = request.get_json(silent=True) or {}
+    message = data.get("message", "").strip()[:200]
+    if not message:
+        return jsonify({"status": "error", "message": "message required."})
+    db = get_db()
+    log_event(db, "mayor", f"📢 {message}", MAYOR_USERNAME)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": message})
+
+
+@app.route("/mayor/blizzard", methods=["POST"])
+def mayor_blizzard():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data        = request.get_json(silent=True) or {}
+    energy_loss = max(1, min(100, int(data.get("energy_loss", 30))))
+    db  = get_db()
+    res = db.execute(
+        "UPDATE penguins SET energy = MAX(0, energy - ?) WHERE 1=1", (energy_loss,)
+    )
+    affected = res.rowcount
+    log_event(db, "village",
+              f"🌨️ A blizzard hit the village! Everyone lost {energy_loss} energy!",
+              MAYOR_USERNAME)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "energy_loss": energy_loss, "players_affected": affected})
+
+
+@app.route("/mayor/building-boost", methods=["POST"])
+def mayor_building_boost():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data          = request.get_json(silent=True) or {}
+    building_id   = data.get("building_id", "").strip()
+    resource_type = data.get("resource_type", "").strip()
+    amount        = int(data.get("amount", 0))
+
+    cfg = BUILDING_UPGRADES.get(building_id)
+    if not cfg:
+        return jsonify({"status": "error", "message": "Unknown building."})
+    if resource_type not in _RES_COL:
+        return jsonify({"status": "error", "message": "Invalid resource."})
+    if amount <= 0:
+        return jsonify({"status": "error", "message": "Amount must be positive."})
+
+    db = get_db()
+    ensure_building_row(db, building_id)
+    col = _RES_COL[resource_type]
+    db.execute(f"UPDATE building_upgrades SET {col}={col}+? WHERE building_id=?", (amount, building_id))
+
+    # Check if building levels up
+    row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
+    current_level = row["current_level"]
+    leveled_up    = False
+    while current_level < (row["max_level"] or 5):
+        next_level = current_level + 1
+        reqs = {k: v for k, v in cfg["levels"][next_level].items() if k != "benefit"}
+        donated = {k: (row[_RES_COL[k]] if k in _RES_COL else 0) for k in reqs}
+        # re-read row after potential update
+        row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
+        donated = {k: (row[_RES_COL[k]] if k in _RES_COL else 0) for k in reqs}
+        if all(donated[k] >= reqs[k] for k in reqs):
+            db.execute("UPDATE building_upgrades SET current_level=? WHERE building_id=?",
+                       (next_level, building_id))
+            log_event(db, "village",
+                      f"🏗️ {cfg['name']} has been upgraded to level {next_level}!",
+                      MAYOR_USERNAME)
+            current_level = next_level
+            leveled_up = True
+        else:
+            break
+
+    log_event(db, "village",
+              f"👑 The Mayor boosted {cfg['name']} with {amount} {resource_type}!",
+              MAYOR_USERNAME)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "building_id": building_id, "leveled_up": leveled_up,
+                    "new_level": current_level})
+
+
+@app.route("/mayor/events")
+def mayor_events():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db   = get_db()
+    rows = db.execute(
+        "SELECT * FROM event_log ORDER BY created_at DESC LIMIT 30"
+    ).fetchall()
+    db.close()
+    return jsonify({"events": [dict(r) for r in rows]})
+
+
+@app.route("/mayor/lookup")
+def mayor_lookup():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    username = request.args.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "error", "message": "username required."})
+    db = get_db()
+    p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Player not found."})
+    ensure_resources(db, username)
+    r  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    ls = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
+    db.close()
+    return jsonify({
+        "status": "ok",
+        "player": {
+            "username":     p["username"],
+            "level":        p["level"] or 1,
+            "xp":           p["xp"] or 0,
+            "job":          p["job"],
+            "prestige":     p["prestige"] or 0,
+            "active_title": p["active_title"],
+            "energy":       p["energy"] or 0,
+            "max_energy":   p["max_energy"] or 100,
+            "streak":       ls["current_streak"] if ls else 0,
+            "gold":         r["gold"] if r else 0,
+            "fish":         r["fish"] if r else 0,
+            "herbs":        r["herbs"] if r else 0,
+            "mayor_seals":  r["mayor_seals"] if r else 0,
+        }
+    })
 
 
 if __name__ == "__main__":

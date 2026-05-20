@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>👑 MAYOR'S DASHBOARD — Penguin Village</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:     #0f0f14;
+      --panel:  #1a1a24;
+      --card:   #1e1e2e;
+      --pink:   #FF7FE5;
+      --purple: #A86EFF;
+      --green:  #4aff6b;
+      --orange: #FF8C00;
+      --red:    #ff4444;
+      --white:  #FFFFFF;
+      --dim:    #555566;
+    }
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    .mh-header {
+      background: #111118;
+      border-bottom: 3px solid var(--pink);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .mh-title { color: var(--pink); font-size: 14px; flex: 1; }
+    .mh-live {
+      font-size: 8px; padding: 5px 10px;
+      border: 2px solid var(--red); color: var(--red);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .mh-live.offline { border-color: var(--dim); color: var(--dim); }
+    .live-dot { width: 7px; height: 7px; background: var(--red); animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
+    .mh-time { color: var(--dim); font-size: 8px; }
+    .mh-back {
+      color: var(--purple); font-size: 8px; padding: 6px 12px;
+      border: 2px solid var(--purple); text-decoration: none;
+    }
+    .mh-back:hover { background: var(--purple); color: #0f0f14; }
+
+    /* ── LAYOUT ── */
+    .mh-body { display: flex; gap: 0; min-height: calc(100vh - 60px); }
+    .mh-main { flex: 1; padding: 16px; overflow-y: auto; }
+    .mh-feed { width: 300px; flex-shrink: 0; border-left: 2px solid #2a2a3a; display: flex; flex-direction: column; }
+
+    /* ── STAT CARDS ── */
+    .mh-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .mh-stat-card {
+      background: var(--card); border: 2px solid #2a2a3a;
+      padding: 12px 10px; text-align: center;
+    }
+    .mh-stat-icon { font-size: 18px; margin-bottom: 6px; }
+    .mh-stat-val  { color: var(--pink); font-size: 14px; margin-bottom: 4px; }
+    .mh-stat-lbl  { color: var(--dim); font-size: 7px; line-height: 1.6; }
+
+    /* ── SECTION TITLES ── */
+    .mh-section-title {
+      color: var(--pink); font-size: 9px; margin-bottom: 10px;
+      padding-bottom: 5px; border-bottom: 2px solid var(--pink);
+    }
+
+    /* ── ACTION GRID ── */
+    .mh-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .mh-action-card {
+      background: var(--card); border: 2px solid #2a2a3a;
+      padding: 14px;
+    }
+    .mh-action-card:hover { border-color: var(--pink); }
+    .mh-action-title { color: var(--pink); font-size: 9px; margin-bottom: 10px; }
+    .mh-field { margin-bottom: 8px; }
+    .mh-label { color: var(--dim); font-size: 7px; margin-bottom: 4px; display: block; }
+    .mh-input, .mh-select, .mh-textarea {
+      width: 100%;
+      background: var(--bg); border: 1px solid #333345;
+      color: var(--white); font-family: 'Press Start 2P', monospace;
+      font-size: 8px; padding: 6px 8px;
+    }
+    .mh-input:focus, .mh-select:focus, .mh-textarea:focus {
+      outline: none; border-color: var(--pink);
+    }
+    .mh-textarea { resize: vertical; min-height: 60px; }
+    .mh-charcount { color: var(--dim); font-size: 7px; text-align: right; margin-top: 3px; }
+    .mh-btn {
+      width: 100%; padding: 9px;
+      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      border: 2px solid var(--pink); color: var(--pink);
+      background: transparent; cursor: pointer; margin-top: 6px;
+    }
+    .mh-btn:hover:not(:disabled) { background: var(--pink); color: #0f0f14; }
+    .mh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .mh-btn.danger { border-color: var(--red); color: var(--red); }
+    .mh-btn.danger:hover:not(:disabled) { background: var(--red); color: #0f0f14; }
+    .mh-btn.green  { border-color: var(--green); color: var(--green); }
+    .mh-btn.green:hover:not(:disabled) { background: var(--green); color: #0f0f14; }
+
+    .mh-warn { color: var(--red); font-size: 7px; margin-top: 4px; line-height: 1.8; }
+
+    /* ── ACTIVE BUFFS ── */
+    .mh-buff-list { margin-top: 8px; }
+    .mh-buff-item {
+      background: var(--bg); border: 1px solid var(--purple);
+      padding: 6px 8px; margin-bottom: 4px; font-size: 7px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .mh-buff-name { color: var(--purple); }
+    .mh-buff-timer { color: var(--dim); }
+    .mh-no-buffs { color: var(--dim); font-size: 7px; padding: 6px 0; }
+
+    /* ── LIVE FEED ── */
+    .mh-feed-title {
+      padding: 12px 14px; color: var(--pink); font-size: 9px;
+      border-bottom: 2px solid #2a2a3a; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .mh-feed-refresh { color: var(--dim); font-size: 7px; }
+    .mh-feed-list { flex: 1; overflow-y: auto; padding: 8px 10px; }
+    .mh-event {
+      padding: 6px 8px; border-left: 3px solid #333;
+      margin-bottom: 5px; font-size: 7px; line-height: 1.8;
+    }
+    .mh-event.village     { border-color: var(--purple); }
+    .mh-event.job         { border-color: var(--orange); }
+    .mh-event.achievement { border-color: var(--green); }
+    .mh-event.title       { border-color: var(--pink); }
+    .mh-event.mayor       { border-color: var(--pink); background: rgba(255,127,229,0.06); }
+    .mh-event-msg  { color: #ccc; }
+    .mh-event-time { color: var(--dim); font-size: 6px; margin-top: 2px; }
+
+    /* ── PLAYER LOOKUP ── */
+    .mh-lookup { background: var(--card); border: 2px solid #2a2a3a; padding: 14px; margin-bottom: 16px; }
+    .mh-lookup-row { display: flex; gap: 8px; align-items: flex-end; }
+    .mh-lookup-row .mh-field { flex: 1; margin: 0; }
+    .mh-lookup-btn {
+      padding: 8px 14px; font-family: 'Press Start 2P', monospace; font-size: 8px;
+      border: 2px solid var(--purple); color: var(--purple); background: transparent; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .mh-lookup-btn:hover { background: var(--purple); color: #0f0f14; }
+    .mh-lookup-result { margin-top: 12px; }
+    .mh-player-card {
+      background: var(--bg); border: 1px solid var(--purple); padding: 10px;
+    }
+    .mh-player-name { color: var(--pink); font-size: 10px; margin-bottom: 8px; }
+    .mh-player-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+    .mh-player-stat { font-size: 7px; line-height: 1.8; }
+    .mh-player-stat .k { color: var(--dim); }
+    .mh-player-stat .v { color: var(--white); }
+    .mh-player-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mh-player-action {
+      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      padding: 5px 10px; border: 1px solid var(--purple); color: var(--purple);
+      background: transparent; cursor: pointer;
+    }
+    .mh-player-action:hover { background: var(--purple); color: #0f0f14; }
+
+    /* ── TOAST ── */
+    #mh-toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--bg); border: 2px solid var(--green);
+      color: var(--green); font-size: 8px; padding: 8px 16px;
+      z-index: 9999; display: none; white-space: nowrap;
+      font-family: 'Press Start 2P', monospace;
+    }
+    #mh-toast.err { border-color: var(--red); color: var(--red); }
+
+    /* ── MOBILE ── */
+    @media (max-width: 900px) {
+      .mh-stats { grid-template-columns: 1fr 1fr; }
+      .mh-actions { grid-template-columns: 1fr; }
+      .mh-body { flex-direction: column; }
+      .mh-feed { width: 100%; border-left: none; border-top: 2px solid #2a2a3a; }
+      .mh-feed-list { max-height: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="mh-header">
+  <div class="mh-title">👑 MAYOR'S DASHBOARD</div>
+  <div id="mh-time" class="mh-time"></div>
+  <div id="mh-live" class="mh-live {% if not is_live %}offline{% endif %}">
+    {% if is_live %}<span class="live-dot"></span>LIVE{% else %}OFFLINE{% endif %}
+  </div>
+  <a href="/" class="mh-back">← BACK TO VILLAGE</a>
+</div>
+
+<div class="mh-body">
+  <div class="mh-main">
+
+    <!-- STAT CARDS -->
+    <div class="mh-stats">
+      <div class="mh-stat-card">
+        <div class="mh-stat-icon">👥</div>
+        <div class="mh-stat-val" id="stat-online">{{ online_players }}</div>
+        <div class="mh-stat-lbl">PLAYERS ONLINE<br>(last 30 min)</div>
+      </div>
+      <div class="mh-stat-card">
+        <div class="mh-stat-icon">📊</div>
+        <div class="mh-stat-val" id="stat-total">{{ total_players }}</div>
+        <div class="mh-stat-lbl">TOTAL CITIZENS</div>
+      </div>
+      <div class="mh-stat-card">
+        <div class="mh-stat-icon">{% if is_live %}🔴{% else %}⚫{% endif %}</div>
+        <div class="mh-stat-val" style="color:{% if is_live %}#ff4444{% else %}#555566{% endif %}">
+          {% if is_live %}LIVE{% else %}OFFLINE{% endif %}
+        </div>
+        <div class="mh-stat-lbl">STREAM STATUS</div>
+      </div>
+      <div class="mh-stat-card">
+        <div class="mh-stat-icon">⚡</div>
+        <div class="mh-stat-val" id="stat-buffs">{{ active_buffs | length }}</div>
+        <div class="mh-stat-lbl">ACTIVE BUFFS</div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="mh-section-title">⚡ QUICK ACTIONS</div>
+    <div class="mh-actions">
+
+      <!-- BUFF -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">🎉 ACTIVATE BUFF</div>
+        <div class="mh-field">
+          <label class="mh-label">BUFF TYPE</label>
+          <select class="mh-select" id="buff-type">
+            <option value="double_resources">2x RESOURCES</option>
+            <option value="double_xp">2x XP</option>
+            <option value="double_gold">2x GOLD</option>
+            <option value="half_energy">HALF ENERGY COSTS</option>
+            <option value="festival">FESTIVAL (2x XP + 2x GOLD)</option>
+          </select>
+        </div>
+        <div class="mh-field">
+          <label class="mh-label">DURATION (MINUTES)</label>
+          <input class="mh-input" type="number" id="buff-duration" value="30" min="1" max="480"/>
+        </div>
+        <button class="mh-btn green" onclick="activateBuff()">⚡ ACTIVATE</button>
+        <div class="mh-buff-list" id="buff-list">
+          {% if active_buffs %}
+            {% for b in active_buffs %}
+            <div class="mh-buff-item">
+              <span class="mh-buff-name">{{ buff_names.get(b.buff_type, b.buff_type) }}</span>
+              <span class="mh-buff-timer" data-expires="{{ b.expires_at }}">...</span>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="mh-no-buffs">No active buffs.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- GRANT TITLE -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">📛 GRANT TITLE</div>
+        <div class="mh-field">
+          <label class="mh-label">USERNAME</label>
+          <input class="mh-input" type="text" id="title-username" placeholder="username"/>
+        </div>
+        <div class="mh-field">
+          <label class="mh-label">TITLE TEXT</label>
+          <input class="mh-input" type="text" id="title-text" placeholder="e.g. Village Hero"/>
+        </div>
+        <button class="mh-btn" onclick="grantTitle()">📛 GRANT</button>
+      </div>
+
+      <!-- GIFT -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">🎁 GIFT PLAYER</div>
+        <div class="mh-field">
+          <label class="mh-label">USERNAME (or "random")</label>
+          <input class="mh-input" type="text" id="gift-username" placeholder="username / random"/>
+        </div>
+        <div class="mh-field">
+          <label class="mh-label">GIFT TYPE</label>
+          <select class="mh-select" id="gift-type" onchange="toggleGiftFields()">
+            <option value="gold">GOLD</option>
+            <option value="seals">MAYOR'S SEALS</option>
+            <option value="resources">RESOURCES</option>
+            <option value="cosmetic">COSMETIC</option>
+          </select>
+        </div>
+        <div class="mh-field" id="gift-amount-field">
+          <label class="mh-label">AMOUNT</label>
+          <input class="mh-input" type="number" id="gift-amount" value="100" min="1"/>
+        </div>
+        <div class="mh-field" id="gift-resource-field" style="display:none;">
+          <label class="mh-label">RESOURCE TYPE</label>
+          <select class="mh-select" id="gift-resource">
+            <option value="fish">FISH</option>
+            <option value="herbs">HERBS</option>
+            <option value="blood_gems">BLOOD GEMS</option>
+            <option value="bones">BONES</option>
+            <option value="spell_fragments">SPELL FRAGMENTS</option>
+          </select>
+        </div>
+        <div class="mh-field" id="gift-cosmetic-field" style="display:none;">
+          <label class="mh-label">COSMETIC NAME</label>
+          <input class="mh-input" type="text" id="gift-cosmetic" placeholder="e.g. Basic Scarf"/>
+        </div>
+        <button class="mh-btn" onclick="sendGift()">🎁 SEND GIFT</button>
+      </div>
+
+      <!-- ANNOUNCE -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">📢 ANNOUNCE</div>
+        <div class="mh-field">
+          <label class="mh-label">MESSAGE (MAX 200 CHARS)</label>
+          <textarea class="mh-textarea" id="announce-msg" maxlength="200"
+                    oninput="document.getElementById('announce-chars').textContent=this.value.length+'/200'"
+                    placeholder="Your message to the village..."></textarea>
+          <div class="mh-charcount"><span id="announce-chars">0</span>/200</div>
+        </div>
+        <button class="mh-btn" onclick="sendAnnouncement()">📢 ANNOUNCE</button>
+      </div>
+
+      <!-- BLIZZARD -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">🌨️ TRIGGER BLIZZARD</div>
+        <div class="mh-field">
+          <label class="mh-label">ENERGY LOSS (1–100)</label>
+          <input class="mh-input" type="number" id="blizzard-energy" value="30" min="1" max="100"/>
+        </div>
+        <div class="mh-warn">⚠️ THIS WILL AFFECT ALL PLAYERS!</div>
+        <button class="mh-btn danger" onclick="triggerBlizzard()">🌨️ TRIGGER BLIZZARD</button>
+      </div>
+
+      <!-- BUILDING BOOST -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">🏗️ BOOST BUILDING</div>
+        <div class="mh-field">
+          <label class="mh-label">BUILDING</label>
+          <select class="mh-select" id="boost-building">
+            {% for bid, cfg in building_upgrades.items() %}
+            <option value="{{ bid }}">{{ cfg.name }} (Lv {{ building_levels.get(bid, 1) }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mh-field">
+          <label class="mh-label">RESOURCE</label>
+          <select class="mh-select" id="boost-resource">
+            <option value="gold">GOLD</option>
+            <option value="fish">FISH</option>
+            <option value="herbs">HERBS</option>
+            <option value="blood_gems">BLOOD GEMS</option>
+            <option value="bones">BONES</option>
+            <option value="spell_fragments">SPELL FRAGMENTS</option>
+          </select>
+        </div>
+        <div class="mh-field">
+          <label class="mh-label">AMOUNT</label>
+          <input class="mh-input" type="number" id="boost-amount" value="500" min="1"/>
+        </div>
+        <button class="mh-btn" onclick="boostBuilding()">🏗️ BOOST</button>
+      </div>
+
+    </div><!-- /actions -->
+
+    <!-- PLAYER LOOKUP -->
+    <div class="mh-section-title">🔍 PLAYER LOOKUP</div>
+    <div class="mh-lookup">
+      <div class="mh-lookup-row">
+        <div class="mh-field">
+          <label class="mh-label">SEARCH PLAYER</label>
+          <input class="mh-input" type="text" id="lookup-username" placeholder="username"
+                 onkeydown="if(event.key==='Enter')lookupPlayer()"/>
+        </div>
+        <button class="mh-lookup-btn" onclick="lookupPlayer()">LOOKUP</button>
+      </div>
+      <div class="mh-lookup-result" id="lookup-result"></div>
+    </div>
+
+  </div><!-- /main -->
+
+  <!-- LIVE FEED -->
+  <div class="mh-feed">
+    <div class="mh-feed-title">
+      📡 LIVE FEED
+      <span class="mh-feed-refresh" id="feed-countdown">↻ 15s</span>
+    </div>
+    <div class="mh-feed-list" id="feed-list">
+      {% for e in recent_events %}
+      <div class="mh-event {{ e.event_type }}">
+        <div class="mh-event-msg">{{ e.message }}</div>
+        <div class="mh-event-time" data-ts="{{ e.created_at }}"></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div><!-- /body -->
+
+<div id="mh-toast"></div>
+
+<script>
+  const MAYOR_KEY = {{ mayor_key | tojson }};
+  const KEY_PARAM = MAYOR_KEY ? `?key=${MAYOR_KEY}` : '';
+
+  // ── CLOCK ──
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('mh-time').textContent =
+      now.toLocaleTimeString('en-GB', { hour12: false });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── BUFF TIMERS ──
+  function formatSeconds(s) {
+    if (s <= 0) return 'EXPIRED';
+    const m = Math.floor(s / 60), sec = s % 60;
+    return `${m}:${String(sec).padStart(2,'0')}`;
+  }
+
+  function tickBuffTimers() {
+    const now = Math.floor(Date.now() / 1000);
+    document.querySelectorAll('.mh-buff-timer[data-expires]').forEach(el => {
+      const exp = parseInt(el.dataset.expires, 10);
+      const left = exp - now;
+      el.textContent = left > 0 ? formatSeconds(left) : 'EXPIRED';
+      if (left <= 0) el.closest('.mh-buff-item')?.remove();
+    });
+  }
+  setInterval(tickBuffTimers, 1000);
+  tickBuffTimers();
+
+  // ── RELATIVE TIME FOR EVENTS ──
+  function relativeTime(ts) {
+    const diff = Math.floor(Date.now() / 1000) - ts;
+    if (diff < 60)  return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    return Math.floor(diff/3600) + 'h ago';
+  }
+  function refreshEventTimes() {
+    document.querySelectorAll('.mh-event-time[data-ts]').forEach(el => {
+      el.textContent = relativeTime(parseInt(el.dataset.ts, 10));
+    });
+  }
+  refreshEventTimes();
+  setInterval(refreshEventTimes, 10000);
+
+  // ── FEED AUTO-REFRESH ──
+  let _feedTimer = 15;
+  function refreshFeed() {
+    fetch('/mayor/events' + KEY_PARAM)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.events) return;
+        const list = document.getElementById('feed-list');
+        list.innerHTML = data.events.map(e => `
+          <div class="mh-event ${e.event_type}">
+            <div class="mh-event-msg">${e.message}</div>
+            <div class="mh-event-time" data-ts="${e.created_at}">${relativeTime(e.created_at)}</div>
+          </div>`).join('');
+      }).catch(() => {});
+  }
+  setInterval(() => {
+    _feedTimer--;
+    const el = document.getElementById('feed-countdown');
+    if (el) el.textContent = `↻ ${_feedTimer}s`;
+    if (_feedTimer <= 0) { _feedTimer = 15; refreshFeed(); }
+  }, 1000);
+
+  // ── TOAST ──
+  let _toastT;
+  function toast(msg, ok = true) {
+    const el = document.getElementById('mh-toast');
+    el.textContent = msg;
+    el.className = ok ? '' : 'err';
+    el.style.display = 'block';
+    clearTimeout(_toastT);
+    _toastT = setTimeout(() => { el.style.display = 'none'; }, 3000);
+  }
+
+  // ── API HELPER ──
+  async function api(url, body, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const res  = await fetch(url + KEY_PARAM, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      return data;
+    } catch(e) {
+      return { status: 'error', message: 'Network error.' };
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // ── BUFF ──
+  async function activateBuff() {
+    const btn  = event.target;
+    const type = document.getElementById('buff-type').value;
+    const dur  = parseInt(document.getElementById('buff-duration').value, 10);
+    const data = await api('/mayor/buff', { buff_type: type, duration_minutes: dur }, btn);
+    if (data.status === 'success') {
+      toast(`✅ ${type} activated for ${dur} min!`);
+      // Add to buff list
+      const list = document.getElementById('buff-list');
+      const noEl = list.querySelector('.mh-no-buffs');
+      if (noEl) noEl.remove();
+      const item = document.createElement('div');
+      item.className = 'mh-buff-item';
+      item.innerHTML = `<span class="mh-buff-name">${type}</span>
+        <span class="mh-buff-timer" data-expires="${data.expires_at}">...</span>`;
+      list.appendChild(item);
+      document.getElementById('stat-buffs').textContent =
+        parseInt(document.getElementById('stat-buffs').textContent || '0') + 1;
+      tickBuffTimers();
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── GRANT TITLE ──
+  async function grantTitle() {
+    const btn      = event.target;
+    const username = document.getElementById('title-username').value.trim();
+    const title    = document.getElementById('title-text').value.trim();
+    if (!username || !title) { toast('❌ Username and title required.', false); return; }
+    const data = await api('/mayor/grant-title', { username, title }, btn);
+    if (data.status === 'success') {
+      toast(`✅ Title granted to ${username}!`);
+      document.getElementById('title-username').value = '';
+      document.getElementById('title-text').value = '';
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── GIFT ──
+  function toggleGiftFields() {
+    const type = document.getElementById('gift-type').value;
+    document.getElementById('gift-amount-field').style.display  = type !== 'cosmetic' ? '' : 'none';
+    document.getElementById('gift-resource-field').style.display = type === 'resources' ? '' : 'none';
+    document.getElementById('gift-cosmetic-field').style.display = type === 'cosmetic'  ? '' : 'none';
+  }
+
+  async function sendGift() {
+    const btn      = event.target;
+    const username = document.getElementById('gift-username').value.trim();
+    const type     = document.getElementById('gift-type').value;
+    const amount   = parseInt(document.getElementById('gift-amount').value, 10) || 0;
+    const resource = document.getElementById('gift-resource').value;
+    const cosmetic = document.getElementById('gift-cosmetic').value.trim();
+    if (!username) { toast('❌ Username required.', false); return; }
+    const body = { username, gift_type: type, amount, resource_type: resource, cosmetic_name: cosmetic };
+    const data = await api('/mayor/gift', body, btn);
+    if (data.status === 'success') {
+      toast(`✅ Gift sent to ${data.recipient}!`);
+      document.getElementById('gift-username').value = '';
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── ANNOUNCE ──
+  async function sendAnnouncement() {
+    const btn     = event.target;
+    const message = document.getElementById('announce-msg').value.trim();
+    if (!message) { toast('❌ Message required.', false); return; }
+    const data = await api('/mayor/announce', { message }, btn);
+    if (data.status === 'success') {
+      toast('✅ Announcement sent!');
+      document.getElementById('announce-msg').value = '';
+      document.getElementById('announce-chars').textContent = '0';
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── BLIZZARD ──
+  async function triggerBlizzard() {
+    const btn    = event.target;
+    const energy = parseInt(document.getElementById('blizzard-energy').value, 10) || 30;
+    if (!confirm(`⚠️ ARE YOU SURE?\n\nThis will remove ${energy} energy from ALL players.\nThis cannot be undone!`)) return;
+    const data = await api('/mayor/blizzard', { energy_loss: energy }, btn);
+    if (data.status === 'success') {
+      toast(`🌨️ Blizzard hit ${data.players_affected} players for -${data.energy_loss} energy!`);
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── BUILDING BOOST ──
+  async function boostBuilding() {
+    const btn      = event.target;
+    const building = document.getElementById('boost-building').value;
+    const resource = document.getElementById('boost-resource').value;
+    const amount   = parseInt(document.getElementById('boost-amount').value, 10) || 0;
+    if (!amount) { toast('❌ Amount required.', false); return; }
+    const data = await api('/mayor/building-boost', { building_id: building, resource_type: resource, amount }, btn);
+    if (data.status === 'success') {
+      const msg = data.leveled_up
+        ? `✅ Building leveled up to Lv ${data.new_level}!`
+        : `✅ Boosted! Progress added.`;
+      toast(msg);
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── PLAYER LOOKUP ──
+  async function lookupPlayer() {
+    const username = document.getElementById('lookup-username').value.trim();
+    if (!username) return;
+    const res    = await fetch(`/mayor/lookup?username=${encodeURIComponent(username)}&key=${MAYOR_KEY}`);
+    const data   = await res.json();
+    const result = document.getElementById('lookup-result');
+    if (data.status !== 'ok') {
+      result.innerHTML = `<div style="color:var(--red);font-size:8px;margin-top:8px;">${data.message}</div>`;
+      return;
+    }
+    const p = data.player;
+    result.innerHTML = `
+      <div class="mh-player-card">
+        <div class="mh-player-name">🐧 ${p.username.toUpperCase()}</div>
+        <div class="mh-player-grid">
+          <div class="mh-player-stat"><span class="k">LEVEL </span><span class="v">${p.level}</span></div>
+          <div class="mh-player-stat"><span class="k">XP </span><span class="v">${p.xp}</span></div>
+          <div class="mh-player-stat"><span class="k">JOB </span><span class="v">${p.job || 'RESTING'}</span></div>
+          <div class="mh-player-stat"><span class="k">ENERGY </span><span class="v">${p.energy}/${p.max_energy}</span></div>
+          <div class="mh-player-stat"><span class="k">GOLD </span><span class="v">${p.gold}g</span></div>
+          <div class="mh-player-stat"><span class="k">FISH </span><span class="v">${p.fish}</span></div>
+          <div class="mh-player-stat"><span class="k">SEALS </span><span class="v">${p.mayor_seals}👑</span></div>
+          <div class="mh-player-stat"><span class="k">STREAK </span><span class="v">${p.streak} days</span></div>
+          ${p.active_title ? `<div class="mh-player-stat" style="grid-column:span 2"><span class="k">TITLE </span><span class="v" style="color:var(--pink)">${p.active_title}</span></div>` : ''}
+        </div>
+        <div class="mh-player-actions">
+          <button class="mh-player-action" onclick="document.getElementById('gift-username').value='${p.username}';document.querySelector('.mh-action-card:nth-child(3)').scrollIntoView({behavior:'smooth'})">GIFT</button>
+          <button class="mh-player-action" onclick="document.getElementById('title-username').value='${p.username}';document.querySelector('.mh-action-card:nth-child(2)').scrollIntoView({behavior:'smooth'})">GRANT TITLE</button>
+        </div>
+      </div>`;
+  }
+
+  // ── STATS REFRESH ──
+  async function refreshStats() {
+    try {
+      const res  = await fetch('/mayor/stats' + KEY_PARAM);
+      const data = await res.json();
+      document.getElementById('stat-online').textContent = data.online_players ?? '?';
+      document.getElementById('stat-total').textContent  = data.total_players  ?? '?';
+      document.getElementById('stat-buffs').textContent  = (data.active_buffs || []).length;
+    } catch(e) {}
+  }
+  setInterval(refreshStats, 30000);
+</script>
+</body>
+</html>

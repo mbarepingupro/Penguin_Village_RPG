@@ -148,6 +148,17 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS active_buffs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            buff_type TEXT NOT NULL,
+            multiplier REAL DEFAULT 2.0,
+            activated_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            activated_by TEXT NOT NULL
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
