@@ -159,6 +159,30 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS community_boss (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            max_hp INTEGER NOT NULL,
+            current_hp INTEGER NOT NULL,
+            spawned_at INTEGER NOT NULL,
+            defeated_at INTEGER DEFAULT NULL,
+            spawned_by TEXT NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS boss_participants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            boss_id INTEGER NOT NULL,
+            username TEXT NOT NULL,
+            damage_dealt INTEGER DEFAULT 0,
+            hits INTEGER DEFAULT 0,
+            last_hit_at INTEGER DEFAULT 0,
+            UNIQUE(boss_id, username)
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
