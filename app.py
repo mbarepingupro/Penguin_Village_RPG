@@ -287,96 +287,79 @@ BUILDINGS = {
 }
 
 # ── MONSTERS ──────────────────────────────────────────────────────────────────
+_MONSTER_ICONS = {
+    "crab":           "🦀",
+    "bat":            "🦇",
+    "rat":            "🐀",
+    "wolf":           "🐺",
+    "snowman":        "☃️",
+    "shadow_penguin": "🐧",
+    "golem":          "🗿",
+    "serpent":        "🐍",
+    "druid":          "🧙",
+    "elite_frostbear":"🐻",
+}
+
 MONSTER_TYPES = {
-    "snow_crab": {
-        "variants": [
-            {"name": "Snow Crab",        "icon": "🦀", "desc": "A frosty crustacean guarding the shoreline."},
-            {"name": "Raging Snow Crab", "icon": "🦀", "desc": "Extra snappy today. Watch those claws."},
-            {"name": "Giant Snow Crab",  "icon": "🦀", "desc": "Massive. One claw alone could crush a fish."},
-        ],
-        "tier": 1, "min_level": 1, "hp": 30, "attack": 5, "defense": 3, "speed": 4,
-        "base_rewards": {"fish": 5, "gold": 8, "xp": 15},
-        "energy_cost": 20, "gear_drop_chance": 0.20,
+    "crab": {
+        "tier": 1, "min_level": 1, "combat_power": 15,
+        "variants": ["Snow Crab", "Hermit Crab", "Giant Crab"],
+        "energy_cost": 15,
+        "rewards": {"gold": [10, 20], "xp": [15, 25], "resources": {"fish": [2, 5]}, "gear_drop_chance": 0.30},
     },
-    "ice_bat": {
-        "variants": [
-            {"name": "Ice Bat",          "icon": "🦇", "desc": "Screeches in the dark."},
-            {"name": "Frost Bat",        "icon": "🦇", "desc": "Leaves trails of frost with every flap."},
-            {"name": "Vampire Ice Bat",  "icon": "🦇", "desc": "Drains warmth. Stylish, annoyingly."},
-        ],
-        "tier": 1, "min_level": 1, "hp": 20, "attack": 8, "defense": 2, "speed": 8,
-        "base_rewards": {"herbs": 3, "gold": 6, "xp": 12},
-        "energy_cost": 20, "gear_drop_chance": 0.20,
+    "bat": {
+        "tier": 1, "min_level": 1, "combat_power": 18,
+        "variants": ["Ice Bat", "Cave Bat", "Frost Wing"],
+        "energy_cost": 15,
+        "rewards": {"gold": [8, 15], "xp": [15, 25], "resources": {"herbs": [2, 4]}, "gear_drop_chance": 0.30},
     },
-    "frost_rat": {
-        "variants": [
-            {"name": "Frost Rat",        "icon": "🐀", "desc": "Scurries through the snow."},
-            {"name": "Plague Rat",       "icon": "🐀", "desc": "Carries the chill plague. Gross."},
-            {"name": "Snow Rat King",    "icon": "🐀", "desc": "Self-proclaimed royalty of the sewers."},
-        ],
-        "tier": 1, "min_level": 1, "hp": 15, "attack": 6, "defense": 1, "speed": 6,
-        "base_rewards": {"bones": 3, "gold": 5, "xp": 10},
-        "energy_cost": 20, "gear_drop_chance": 0.20,
+    "rat": {
+        "tier": 1, "min_level": 1, "combat_power": 12,
+        "variants": ["Frost Rat", "Sewer Rat", "Snow Mouse"],
+        "energy_cost": 10,
+        "rewards": {"gold": [5, 12], "xp": [10, 20], "resources": {"bones": [1, 3]}, "gear_drop_chance": 0.25},
     },
-    "blizzard_wolf": {
-        "variants": [
-            {"name": "Blizzard Wolf",    "icon": "🐺", "desc": "Howls echo across the tundra."},
-            {"name": "Pack Wolf",        "icon": "🐺", "desc": "Always runs with backup. How unfair."},
-            {"name": "Alpha Wolf",       "icon": "🐺", "desc": "Scars from a dozen battles. Respect it."},
-        ],
-        "tier": 2, "min_level": 6, "hp": 60, "attack": 15, "defense": 8, "speed": 10,
-        "base_rewards": {"blood_gems": 3, "gold": 20, "xp": 30},
-        "energy_cost": 30, "gear_drop_chance": 0.30,
+    "wolf": {
+        "tier": 2, "min_level": 6, "combat_power": 35,
+        "variants": ["Blizzard Wolf", "Shadow Wolf", "Arctic Dire Wolf"],
+        "energy_cost": 25,
+        "rewards": {"gold": [20, 40], "xp": [30, 50], "resources": {"bones": [3, 6], "blood_gems": [1, 2]}, "gear_drop_chance": 0.20},
     },
-    "cursed_snowman": {
-        "variants": [
-            {"name": "Cursed Snowman",    "icon": "☃️", "desc": "Someone's snow sculpture went very wrong."},
-            {"name": "Blizzard Golem",    "icon": "☃️", "desc": "Built from magic snow. Mean."},
-            {"name": "Frosty the Menace", "icon": "☃️", "desc": "His soul is not merry."},
-        ],
-        "tier": 2, "min_level": 6, "hp": 50, "attack": 12, "defense": 10, "speed": 3,
-        "base_rewards": {"spell_fragments": 3, "gold": 18, "xp": 28},
-        "energy_cost": 30, "gear_drop_chance": 0.30,
+    "snowman": {
+        "tier": 2, "min_level": 6, "combat_power": 40,
+        "variants": ["Cursed Snowman", "Frost Golem", "Ice Construct"],
+        "energy_cost": 25,
+        "rewards": {"gold": [25, 45], "xp": [35, 55], "resources": {"spell_fragments": [2, 4]}, "gear_drop_chance": 0.20},
     },
     "shadow_penguin": {
-        "variants": [
-            {"name": "Shadow Penguin",    "icon": "🐧", "desc": "Your dark reflection."},
-            {"name": "Corrupted Waddler", "icon": "🐧", "desc": "Was once like you. Now, not so much."},
-            {"name": "Void Penguin",      "icon": "🐧", "desc": "Stares into the abyss. And wins."},
-        ],
-        "tier": 2, "min_level": 6, "hp": 55, "attack": 14, "defense": 7, "speed": 9,
-        "base_rewards": {"bones": 5, "gold": 22, "xp": 35},
-        "energy_cost": 30, "gear_drop_chance": 0.30,
+        "tier": 2, "min_level": 6, "combat_power": 38,
+        "variants": ["Shadow Penguin", "Dark Penguin", "Void Waddle"],
+        "energy_cost": 20,
+        "rewards": {"gold": [22, 38], "xp": [30, 50], "resources": {"blood_gems": [2, 4]}, "gear_drop_chance": 0.25},
     },
-    "stone_golem": {
-        "variants": [
-            {"name": "Stone Golem",   "icon": "🗿", "desc": "Slow, unstoppable."},
-            {"name": "Ancient Golem", "icon": "🗿", "desc": "Older than the village. Angrier."},
-            {"name": "Rune Golem",    "icon": "🗿", "desc": "Covered in glowing runes. Tough."},
-        ],
-        "tier": 3, "min_level": 16, "hp": 120, "attack": 25, "defense": 20, "speed": 3,
-        "base_rewards": {"blood_gems": 8, "gold": 40, "xp": 60},
-        "energy_cost": 40, "gear_drop_chance": 0.40,
+    "golem": {
+        "tier": 3, "min_level": 16, "combat_power": 70,
+        "variants": ["Stone Golem", "Crystal Golem", "Ancient Guardian"],
+        "energy_cost": 35,
+        "rewards": {"gold": [40, 70], "xp": [50, 80], "resources": {"bones": [5, 10], "blood_gems": [3, 6]}, "gear_drop_chance": 0.15},
     },
-    "sea_serpent": {
-        "variants": [
-            {"name": "Sea Serpent",    "icon": "🐍", "desc": "Coils around ships in the frozen sea."},
-            {"name": "Leviathan Spawn","icon": "🐍", "desc": "Baby of something much bigger."},
-            {"name": "Arctic Hydra",   "icon": "🐍", "desc": "Two heads. Both rude."},
-        ],
-        "tier": 3, "min_level": 16, "hp": 100, "attack": 22, "defense": 15, "speed": 12,
-        "base_rewards": {"fish": 15, "gold": 35, "xp": 55},
-        "energy_cost": 40, "gear_drop_chance": 0.40,
+    "serpent": {
+        "tier": 3, "min_level": 16, "combat_power": 75,
+        "variants": ["Sea Serpent", "Ice Wyrm", "Frost Leviathan"],
+        "energy_cost": 35,
+        "rewards": {"gold": [45, 75], "xp": [55, 85], "resources": {"fish": [8, 15], "spell_fragments": [3, 5]}, "gear_drop_chance": 0.15},
     },
-    "dark_druid": {
-        "variants": [
-            {"name": "Dark Druid",    "icon": "🧙", "desc": "Ancient magic, wicked purpose."},
-            {"name": "Blood Shaman",  "icon": "🧙", "desc": "Ritual gone wrong. Or right, depending."},
-            {"name": "Void Warlock",  "icon": "🧙", "desc": "Doesn't believe in mercy. At all."},
-        ],
-        "tier": 3, "min_level": 16, "hp": 110, "attack": 28, "defense": 12, "speed": 8,
-        "base_rewards": {"spell_fragments": 8, "herbs": 5, "gold": 45, "xp": 70},
-        "energy_cost": 40, "gear_drop_chance": 0.40,
+    "druid": {
+        "tier": 3, "min_level": 16, "combat_power": 65,
+        "variants": ["Dark Druid", "Cursed Shaman", "Shadow Priest"],
+        "energy_cost": 30,
+        "rewards": {"gold": [50, 80], "xp": [60, 90], "resources": {"spell_fragments": [5, 8], "herbs": [5, 8]}, "gear_drop_chance": 0.20},
+    },
+    "elite_frostbear": {
+        "tier": 4, "min_level": 26, "combat_power": 110,
+        "variants": ["Frostbear Alpha", "Glacial Ursine", "Permafrost Beast"],
+        "energy_cost": 40,
+        "rewards": {"gold": [80, 120], "xp": [80, 120], "resources": {"blood_gems": [5, 10], "bones": [8, 15]}, "gear_drop_chance": 0.10},
     },
 }
 
@@ -385,9 +368,6 @@ COMMUNITY_BOSS = {
     "icon":        "👑",
     "desc":        "An ancient ice titan. His wrath freezes the entire village.",
     "max_hp":      10000,
-    "attack":      50,
-    "defense":     35,
-    "speed":       5,
     "hit_rewards": {"xp": 50, "gold": 25},
     "kill_rewards": {"xp": 500, "gold": 300, "blood_gems": 15, "spell_fragments": 10},
     "energy_cost": 30,
@@ -727,11 +707,11 @@ def get_daily_variant(monster_type_id):
     """Return the daily flavor variant for a monster type, consistent within a UTC day."""
     mtype = MONSTER_TYPES[monster_type_id]
     today = get_today()
-    h     = hashlib.md5(f"{monster_type_id}:{today}".encode()).hexdigest()
-    idx   = int(h[:4], 16) % len(mtype["variants"])
-    variant = mtype["variants"][idx]
-    result  = {k: v for k, v in mtype.items() if k != "variants"}
-    result.update(variant)
+    h = hashlib.md5(f"{monster_type_id}:{today}".encode()).hexdigest()
+    idx = int(h[:4], 16) % len(mtype["variants"])
+    result = {k: v for k, v in mtype.items() if k != "variants"}
+    result["name"] = mtype["variants"][idx]
+    result["icon"] = _MONSTER_ICONS.get(monster_type_id, "❓")
     result["type_id"] = monster_type_id
     return result
 
@@ -755,6 +735,53 @@ def calculate_set_bonuses(db, username):
                     for stat, val in bonus.items():
                         bonuses[stat] = bonuses.get(stat, 0) + val
     return bonuses
+
+
+def get_combat_power(username):
+    db = get_db()
+    try:
+        p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+        level = p["level"] if p else 1
+        cp = 10 + level * 3
+        equipped = db.execute(
+            "SELECT attack_bonus, defense_bonus, speed_bonus, hp_bonus FROM gear "
+            "WHERE username=? AND equipped=1 AND type='combat'", (username,)
+        ).fetchall()
+        for item in equipped:
+            cp += item["attack_bonus"] + item["defense_bonus"] + item["speed_bonus"] + (item["hp_bonus"] // 5)
+        sb = calculate_set_bonuses(db, username)
+        cp += sb["attack_bonus"] + sb["defense_bonus"] + sb["speed_bonus"] + (sb["hp_bonus"] // 5)
+        for buff in get_active_buffs(db):
+            if buff["buff_type"] == "festival":
+                cp = int(cp * 1.1)
+    finally:
+        db.close()
+    return cp
+
+def calculate_win_chance(player_cp, monster_cp):
+    return max(5, min(95, 50 + (player_cp - monster_cp)))
+
+def get_evaluation(win_chance):
+    if win_chance >= 90: return "Free Real Estate"
+    if win_chance >= 75: return "Easy Peasy"
+    if win_chance >= 60: return "Feeling Lucky"
+    if win_chance >= 50: return "Coin Flip"
+    if win_chance >= 40: return "Sweaty Flippers"
+    if win_chance >= 25: return "Pray to the Mayor"
+    if win_chance >= 10: return "Basically Suicide"
+    return "Miracle Required"
+
+def resolve_fight(player_cp, monster_cp):
+    win_chance = calculate_win_chance(player_cp, monster_cp)
+    roll = random.randint(1, 100)
+    return {
+        "victory": roll <= win_chance,
+        "roll": roll,
+        "win_chance": win_chance,
+        "evaluation": get_evaluation(win_chance),
+        "player_cp": player_cp,
+        "monster_cp": monster_cp,
+    }
 
 
 def get_combat_stats(db, username):
@@ -793,42 +820,6 @@ def generate_gear_drop(monster_tier):
     item_id  = f"drop_{slot}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {"name": name.upper(), "item_id": item_id, "type": "combat", "slot": slot,
             "rarity": rarity, "set_name": None, **stats}
-
-
-def simulate_fight(player_stats, monster):
-    """Turn-based fight simulation. Returns victory flag, turn count, log, remaining HP."""
-    php  = player_stats["hp"]
-    mhp  = monster["hp"]
-    patk = player_stats["attack"]
-    pdef = player_stats["defense"]
-    pspd = player_stats["speed"]
-    matk = monster["attack"]
-    mdef = monster["defense"]
-    mspd = monster.get("speed", 5)
-    combat_log = []
-    turn = 0
-    while php > 0 and mhp > 0 and turn < 50:
-        turn += 1
-        if pspd >= mspd:
-            pdmg = max(1, patk - mdef // 2 + random.randint(-2, 2))
-            mhp -= pdmg
-            combat_log.append({"turn": turn, "actor": "player", "dmg": pdmg, "enemy_hp": max(0, mhp)})
-            if mhp <= 0:
-                break
-            mdmg = max(1, matk - pdef // 2 + random.randint(-2, 2))
-            php -= mdmg
-            combat_log.append({"turn": turn, "actor": "monster", "dmg": mdmg, "player_hp": max(0, php)})
-        else:
-            mdmg = max(1, matk - pdef // 2 + random.randint(-2, 2))
-            php -= mdmg
-            combat_log.append({"turn": turn, "actor": "monster", "dmg": mdmg, "player_hp": max(0, php)})
-            if php <= 0:
-                break
-            pdmg = max(1, patk - mdef // 2 + random.randint(-2, 2))
-            mhp -= pdmg
-            combat_log.append({"turn": turn, "actor": "player", "dmg": pdmg, "enemy_hp": max(0, mhp)})
-    return {"victory": mhp <= 0, "turns": turn, "combat_log": combat_log,
-            "remaining_player_hp": max(0, php)}
 
 
 def apply_level_rewards(db, username, reward):
@@ -1641,31 +1632,55 @@ def gear_cosmetics_equip():
 
 # ── COMBAT ───────────────────────────────────────────────────────────────────
 
-@app.route("/combat/monsters")
-def combat_monsters():
+@app.route("/combat/monsters/<username>")
+def combat_monsters(username):
     if not FEATURES.get("combat", False):
         return jsonify({"status": "disabled", "message": "This feature is coming soon!", "monsters": []})
-    username = request.args.get("username", "")
-    today    = get_today()
+    today = get_today()
     try:
         db = get_db()
-        p  = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
+        p  = db.execute("SELECT level, energy, max_energy FROM penguins WHERE username=?", (username,)).fetchone()
         player_level = p["level"] if p else 1
         killed_today = {
             row["monster_id"] for row in
             db.execute("SELECT monster_id FROM monster_kills WHERE username=? AND killed_date=?", (username, today))
         }
         db.close()
+        player_cp = get_combat_power(username)
         result = []
-        for type_id in MONSTER_TYPES:
-            variant = get_daily_variant(type_id)
+        for type_id, mtype in MONSTER_TYPES.items():
+            variant   = get_daily_variant(type_id)
+            mcp       = mtype["combat_power"]
+            win_chance = calculate_win_chance(player_cp, mcp)
+            rdef      = mtype["rewards"]
+            res_parts = [f"{lo}-{hi} {k.replace('_',' ')}" for k, (lo, hi) in rdef["resources"].items()]
             result.append({
-                **variant,
-                "id":          type_id,
-                "can_fight":   player_level >= variant["min_level"],
-                "killed_today": type_id in killed_today,
+                "type":         type_id,
+                "name":         variant["name"],
+                "icon":         variant["icon"],
+                "tier":         mtype["tier"],
+                "combat_power": mcp,
+                "energy_cost":  mtype["energy_cost"],
+                "min_level":    mtype["min_level"],
+                "rewards_preview": {
+                    "gold":      f"{rdef['gold'][0]}-{rdef['gold'][1]}",
+                    "xp":        f"{rdef['xp'][0]}-{rdef['xp'][1]}",
+                    "resources": ", ".join(res_parts),
+                    "gear_drop_chance": rdef["gear_drop_chance"],
+                },
+                "win_chance":      win_chance,
+                "evaluation":      get_evaluation(win_chance),
+                "killed_today":    type_id in killed_today,
+                "kills_remaining": 0 if type_id in killed_today else 1,
+                "locked":          player_level < mtype["min_level"],
             })
-        return jsonify({"monsters": result, "player_level": player_level, "player_energy": p["energy"] if p else 100})
+        return jsonify({
+            "monsters":          result,
+            "player_cp":         player_cp,
+            "player_level":      player_level,
+            "player_energy":     p["energy"] if p else 100,
+            "player_max_energy": p["max_energy"] if p else 100,
+        })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e), "monsters": []})
 
@@ -1676,30 +1691,25 @@ def combat_fight():
         return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     db = None
     try:
-        data       = request.get_json(silent=True) or {}
-        username   = data.get("username", "")
+        data = request.get_json(silent=True) or {}
+        username = data.get("username", "")
         monster_id = data.get("monster_id", "")
-        print(f"[COMBAT] fight request: username={username!r} monster_id={monster_id!r}")
 
         mtype = MONSTER_TYPES.get(monster_id)
         if not mtype:
-            print(f"[COMBAT] unknown monster_id: {monster_id!r}")
             return jsonify({"status": "error", "message": "Unknown monster."})
 
-        m     = get_daily_variant(monster_id)
         today = get_today()
-        db    = get_db()
-        p     = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
-        print(f"[COMBAT] penguin row: {dict(p) if p else None}")
+        db = get_db()
+        p = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
         if not p:
             return jsonify({"status": "error", "message": "Penguin not found."})
+        if p["level"] < mtype["min_level"]:
+            return jsonify({"status": "error", "message": f"Need level {mtype['min_level']}."})
 
         energy_cost = mtype["energy_cost"]
         if (p["energy"] or 0) < energy_cost:
             return jsonify({"status": "error", "message": f"Need {energy_cost} energy to fight."})
-
-        if p["level"] < mtype["min_level"]:
-            return jsonify({"status": "error", "message": f"Need level {mtype['min_level']}."})
 
         if db.execute(
             "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND killed_date=?",
@@ -1707,33 +1717,33 @@ def combat_fight():
         ).fetchone():
             return jsonify({"status": "error", "message": "Already fought this today."})
 
-        stats  = get_combat_stats(db, username)
-        print(f"[COMBAT] player stats: {stats}")
-        result = simulate_fight(stats, m)
-        won    = result["victory"]
-        gear_drop = None
-        new_ach   = []
-        ensure_resources(db, username)
+        db.execute("UPDATE penguins SET energy=MAX(0,energy-?) WHERE username=?", (energy_cost, username))
+        energy_remaining = max(0, (p["energy"] or 0) - energy_cost)
+
+        player_cp = get_combat_power(username)
+        fight = resolve_fight(player_cp, mtype["combat_power"])
 
         advance_mission(db, username, "fight_1", today)
-        db.execute("UPDATE penguins SET energy=MAX(0,energy-?) WHERE username=?", (energy_cost, username))
+        ensure_resources(db, username)
 
-        actual_rewards = {}
-        loot_summary   = ""
-        if won:
-            base = mtype["base_rewards"]
-            for resource, amount in base.items():
-                variance = random.randint(-max(1, amount // 5), max(1, amount // 5))
-                final    = max(1, amount + variance)
-                actual_rewards[resource] = final
-                if resource == "xp":
-                    award_xp(db, username, final)
-                elif resource == "gold":
-                    add_gold(db, username, final)
-                else:
-                    db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?",
-                               (final, username))
-            if random.random() < mtype["gear_drop_chance"]:
+        variant = get_daily_variant(monster_id)
+        monster_name = variant["name"]
+        rewards = {}
+        consolation_xp = 0
+
+        if fight["victory"]:
+            rdef = mtype["rewards"]
+            gold = random.randint(rdef["gold"][0], rdef["gold"][1])
+            xp   = random.randint(rdef["xp"][0], rdef["xp"][1])
+            resources = {k: random.randint(lo, hi) for k, (lo, hi) in rdef["resources"].items()}
+
+            add_gold(db, username, gold)
+            award_xp(db, username, xp)
+            for res, amt in resources.items():
+                db.execute(f"UPDATE resources SET {res}={res}+? WHERE username=?", (amt, username))
+
+            gear_drop = None
+            if random.random() < rdef["gear_drop_chance"]:
                 gear_drop = generate_gear_drop(mtype["tier"])
                 db.execute(
                     "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
@@ -1744,45 +1754,57 @@ def combat_fight():
                      gear_drop["attack_bonus"], gear_drop["defense_bonus"],
                      gear_drop["speed_bonus"], gear_drop["hp_bonus"], int(time.time()))
                 )
-            loot_summary = ", ".join(f"+{v} {k}" for k, v in actual_rewards.items())
+
+            rewards = {"gold": gold, "xp": xp, "resources": resources}
+            if gear_drop:
+                rewards["gear_drop"] = {
+                    "name":     gear_drop["name"],
+                    "rarity":   gear_drop["rarity"],
+                    "slot":     gear_drop["slot"],
+                    "set_name": gear_drop["set_name"],
+                }
+
+            loot_summary = f"+{gold} gold, +{xp} xp"
             if gear_drop:
                 loot_summary += f" + {gear_drop['name']} ({gear_drop['rarity']})"
-            log_event(db, "combat", f"{username} defeated {m['name']}! {loot_summary} 🎉", username)
+            log_event(db, "combat", f"{username} defeated {monster_name}! {loot_summary} 🎉", username)
             advance_mission(db, username, "first_fight", today)
-            new_ach = check_achievements(db, username)
+            check_achievements(db, username)
         else:
-            consolation = max(2, mtype["base_rewards"].get("xp", 10) // 5)
-            award_xp(db, username, consolation)
-            actual_rewards = {"xp": consolation}
-            log_event(db, "combat", f"{username} was defeated by {m['name']}...", username)
+            consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
+            award_xp(db, username, consolation_xp)
+            log_event(db, "combat", f"{username} was defeated by {monster_name}...", username)
 
         db.execute(
             "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
-            (username, monster_id, today, loot_summary if won else "defeat")
+            (username, monster_id, today, str(rewards) if fight["victory"] else "defeat")
         )
         db.commit()
-        print(f"[COMBAT] done: won={won} gear_drop={gear_drop} loot={loot_summary!r}")
-        return jsonify({
-            "status":            "success",
-            "won":               won,
-            "gear_drop":         gear_drop,
-            "rewards":           actual_rewards,
-            "new_achievements":  new_ach,
-            "energy_cost":       energy_cost,
-            "turns":             result["turns"],
-            "combat_log":        result["combat_log"],
-            "remaining_hp":      result["remaining_player_hp"],
-            "monster_name":      m["name"],
-            "monster_icon":      m["icon"],
-        })
+
+        resp = {
+            "status":           "success",
+            "victory":          fight["victory"],
+            "roll":             fight["roll"],
+            "win_chance":       fight["win_chance"],
+            "evaluation":       fight["evaluation"],
+            "player_cp":        fight["player_cp"],
+            "monster_cp":       fight["monster_cp"],
+            "energy_spent":     energy_cost,
+            "energy_remaining": energy_remaining,
+            "monster_name":     monster_name,
+            "monster_icon":     variant["icon"],
+        }
+        if fight["victory"]:
+            resp["rewards"] = rewards
+        else:
+            resp["consolation_xp"] = consolation_xp
+        return jsonify(resp)
+
     except Exception as e:
-        import traceback
-        print(f"[COMBAT] ERROR: {e}")
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)})
     finally:
-        if db:
-            db.close()
+        if db: db.close()
 
 
 # ── COMMUNITY BOSS ───────────────────────────────────────────────────────────

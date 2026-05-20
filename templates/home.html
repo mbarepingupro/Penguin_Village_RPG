@@ -713,26 +713,94 @@
     .catalog-card-cost { color: var(--orange); font-size: 8px; }
 
     /* ── COMBAT TAB ── */
-    .combat-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
-    .monster-card { border: 2px solid var(--panel); background: var(--dark); padding: 13px; display: flex; flex-direction: column; gap: 4px; }
-    .monster-card.killed { opacity: 0.5; }
-    .monster-header { display: flex; align-items: center; gap: 8px; }
-    .monster-icon { font-size: 20px; }
-    .monster-name { color: var(--white); font-size: 10px; flex: 1; }
-    .monster-tier { font-size: 8px; padding: 3px 6px; border: 1px solid; }
-    .tier-1 { color: #4aff6b; border-color: #4aff6b; }
-    .tier-2 { color: var(--orange); border-color: var(--orange); }
-    .tier-3 { color: var(--pink); border-color: var(--pink); }
-    .monster-stats { color: #666; font-size: 9px; }
-    .monster-rewards { color: var(--orange); font-size: 9px; }
-    .monster-footer { display: flex; justify-content: space-between; align-items: center; }
-    .fight-btn {
-      background: var(--dark); border: 2px solid var(--pink); color: var(--pink);
-      font-size: 9px; font-family: 'Press Start 2P', monospace;
-      padding: 6px 10px; cursor: pointer;
-    }
-    .fight-btn:hover:not(:disabled) { background: var(--pink); color: var(--dark); }
-    .fight-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .combat-header { background:var(--dark); border-bottom:2px solid var(--purple); padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
+    .combat-panel  { padding:12px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:12px; }
+
+    /* Boss banner */
+    .boss-banner { border:2px solid #FF8C00; background:#1a1100; padding:12px; display:flex; flex-direction:column; gap:8px; }
+    .boss-hp-bar { height:12px; background:#333; position:relative; }
+    .boss-hp-fill { height:100%; background:#FF8C00; transition:width 0.5s; }
+    .boss-hp-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:7px; }
+
+    /* Tier groups */
+    .tier-group  { display:flex; flex-direction:column; gap:8px; }
+    .tier-header { font-size:8px; padding:4px 0; border-bottom:1px solid #2E2E2E; }
+    .tier-header.t1 { color:#4aff6b; } .tier-header.t2 { color:#5599ff; }
+    .tier-header.t3 { color:#A86EFF; } .tier-header.t4 { color:#FF7FE5; }
+
+    /* Monster grid */
+    .monster-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    @media(max-width:900px){ .monster-grid { grid-template-columns:repeat(2,1fr); } }
+    @media(max-width:520px){ .monster-grid { grid-template-columns:1fr; } }
+
+    /* Monster cards */
+    .monster-card { border:2px solid #2E2E2E; background:var(--dark); padding:10px; display:flex; flex-direction:column; gap:6px; cursor:default; }
+    .monster-card:hover { border-color:var(--purple); }
+    .monster-card.killed { opacity:0.5; }
+    .monster-card.fighting { animation:pulse-border 0.6s infinite; }
+    .monster-header { display:flex; align-items:center; gap:8px; }
+    .monster-icon  { font-size:22px; }
+    .monster-name  { color:var(--white); font-size:9px; flex:1; line-height:1.4; }
+    .monster-tier  { font-size:7px; padding:2px 5px; border:1px solid; }
+    .tier-badge-1  { color:#4aff6b; border-color:#4aff6b; }
+    .tier-badge-2  { color:#5599ff; border-color:#5599ff; }
+    .tier-badge-3  { color:#A86EFF; border-color:#A86EFF; }
+    .tier-badge-4  { color:#FF7FE5; border-color:#FF7FE5; }
+
+    /* Win chance bar */
+    .win-bar-wrap { display:flex; flex-direction:column; gap:3px; }
+    .win-bar      { height:24px; position:relative; overflow:hidden; }
+    .win-bar-green{ position:absolute; left:0; top:0; bottom:0; background:#4aff6b; transition:width 0.4s; }
+    .win-bar-red  { position:absolute; right:0; top:0; bottom:0; background:#ff6b6b; }
+    .win-bar-pct  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:bold; }
+    .win-eval     { color:#888; font-size:7px; text-align:center; }
+
+    /* Monster meta */
+    .monster-meta { color:#666; font-size:7px; display:flex; flex-direction:column; gap:2px; }
+    .monster-meta .gold-line { color:#888; }
+
+    /* Fight button */
+    .fight-btn { font-family:'Press Start 2P',monospace; font-size:9px; padding:8px 10px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; }
+    .fight-btn:hover:not(:disabled) { background:var(--purple); color:var(--dark); }
+    .fight-btn:disabled { opacity:0.4; cursor:not-allowed; }
+    .fight-btn.defeated { border-color:#4aff6b; color:#4aff6b; cursor:default; }
+    .fight-btn.locked   { border-color:#444; color:#666; cursor:default; }
+    .fight-btn.low-energy { border-color:#ff6b6b; color:#ff6b6b; }
+
+    /* Fight modal */
+    .fight-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9000; display:flex; align-items:center; justify-content:center; }
+    .fight-modal { background:#1C1C1C; border:3px solid var(--purple); padding:24px 20px; width:min(500px,95vw); display:flex; flex-direction:column; gap:16px; }
+    .fight-modal-header { color:var(--purple); font-size:10px; text-align:center; }
+    .fight-combatants { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .fight-combatant   { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .fight-combatant .emo { font-size:36px; }
+    .fight-combatant .name { color:#fff; font-size:8px; text-align:center; }
+    .fight-combatant .cp   { color:var(--orange); font-size:7px; }
+    .fight-vs { color:var(--pink); font-size:14px; flex-shrink:0; }
+    .roll-bar-wrap { display:flex; flex-direction:column; gap:6px; }
+    .roll-bar  { height:32px; background:#333; position:relative; overflow:hidden; }
+    .roll-bar-green { position:absolute; left:0; top:0; bottom:0; background:#4aff6b; transition:width 0.1s; }
+    .roll-bar-red   { position:absolute; right:0; top:0; bottom:0; background:#ff6b6b; }
+    .roll-bar-num   { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; font-weight:bold; }
+    .roll-bar-label { text-align:center; color:#888; font-size:7px; }
+    .fight-result   { text-align:center; display:flex; flex-direction:column; gap:8px; }
+    .fight-result-title { font-size:16px; }
+    .fight-result-title.win  { color:#4aff6b; animation:scale-pop 0.4s ease; }
+    .fight-result-title.loss { color:#ff6b6b; animation:shake 0.3s ease; }
+    .fight-rewards { display:flex; flex-direction:column; gap:4px; }
+    .fight-reward-row { font-size:9px; }
+    .fight-result-eval { color:#666; font-size:7px; }
+    .fight-modal-ok { font-family:'Press Start 2P',monospace; font-size:9px; padding:10px 20px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; margin-top:4px; }
+    .fight-modal-ok:hover { background:var(--purple); color:var(--dark); }
+    .fight-gear-drop { color:#FF8C00; font-size:10px; animation:scale-pop 0.5s ease 0.1s both; }
+    .confetti-container { position:absolute; pointer-events:none; }
+    .confetti-piece { position:absolute; width:6px; height:6px; animation:confetti 1s ease forwards; }
+
+    /* Animations */
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+    @keyframes confetti { 0%{transform:translateY(-10px) rotate(0deg);opacity:1} 100%{transform:translateY(100px) rotate(360deg);opacity:0} }
+    @keyframes pulse-border { 0%,100%{border-color:var(--purple)} 50%{border-color:var(--pink)} }
+    @keyframes scale-pop { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
 
     /* ── GEAR TAB ── */
     .gear-panel { padding: 12px; overflow-y: auto; flex: 1; }
@@ -1372,10 +1440,17 @@
       {% if features.get("combat", False) %}
       <!-- COMBAT TAB -->
       <div class="content-panel" id="panel-combat">
-        <div style="background:var(--dark);border-bottom:2px solid var(--purple);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-          <span style="color:var(--purple);font-size:9px;">MONSTERS</span>
-          <span style="color:#555;font-size:7px;">RESETS: <span id="combat-reset-countdown"></span></span>
+        <div class="combat-header">
+          <div>
+            <div style="color:var(--purple);font-size:12px;">⚔️ PENGUIN BARRACKS</div>
+            <div id="combat-cp-display" style="color:var(--orange);font-size:9px;margin-top:4px;">Your Combat Power: — CP</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="color:#888;font-size:7px;">Resets: <span id="combat-reset-countdown"></span></div>
+            <div id="combat-energy-bar-label" style="color:var(--orange);font-size:7px;margin-top:2px;">⚡ — / —</div>
+          </div>
         </div>
+        <div id="boss-banner" style="display:none;padding:12px;"></div>
         <div class="combat-panel" id="combat-list">
           <div style="color:#666;font-size:9px;text-align:center;padding:20px;">LOADING...</div>
         </div>
@@ -3058,74 +3133,382 @@
   }
 
   // ── COMBAT ──
+  let _fightInProgress = false;
+  let _pendingCombatRefresh = false;
+
   async function loadCombat() {
     const container = document.getElementById('combat-list');
     container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>';
     try {
-      const res  = await fetch(`/combat/monsters?username=${CURRENT_USER}`);
+      const res  = await fetch(`/combat/monsters/${CURRENT_USER}`);
       const data = await res.json();
       if (data.status === 'error' || !data.monsters) {
-        container.innerHTML = `<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">${data.message || 'ERROR LOADING COMBAT'}</div>`;
+        container.innerHTML = `<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">${data.message||'ERROR'}</div>`;
         return;
       }
+      // Update header
+      const cpEl = document.getElementById('combat-cp-display');
+      if (cpEl) cpEl.textContent = `Your Combat Power: ${data.player_cp} CP`;
+      const engEl = document.getElementById('combat-energy-bar-label');
+      if (engEl) engEl.textContent = `⚡ ${data.player_energy} / ${data.player_max_energy}`;
+
+      // Group by tier
+      const tiers = {};
+      data.monsters.forEach(m => { (tiers[m.tier] = tiers[m.tier] || []).push(m); });
+      const tierLabels = {1:'TIER 1 — BEGINNER',2:'TIER 2 — INTERMEDIATE',3:'TIER 3 — ADVANCED',4:'TIER 4 — ELITE'};
+
       let html = '';
-      data.monsters.forEach(m => {
-        const tierClass = `tier-${m.tier}`;
-        const tierLabel = m.tier === 1 ? 'T1' : m.tier === 2 ? 'T2' : 'T3';
-        const rewardStr = Object.entries(m.rewards).map(([k,v]) => `+${v} ${k}`).join(' ');
-        const cantFight = !m.can_fight;
-        const killed    = m.killed_today;
-        const btnLabel  = killed ? 'DONE TODAY' : cantFight ? `LV${m.min_level} REQ` : 'FIGHT';
-        html += `
-          <div class="monster-card${killed ? ' killed' : ''}">
-            <div class="monster-header">
-              <span class="monster-icon">${m.icon}</span>
-              <span class="monster-name">${m.name.toUpperCase()}</span>
-              <span class="monster-tier ${tierClass}">${tierLabel}</span>
-            </div>
-            <div class="monster-stats">HP:${m.hp} ATK:${m.attack} DEF:${m.defense} | Drop: ${m.drop_name} (${Math.round(m.drop_chance*100)}%)</div>
-            <div class="monster-rewards">${rewardStr}</div>
-            <div class="monster-footer">
-              <span style="color:#555;font-size:7px;">MIN LV${m.min_level}</span>
-              <button class="fight-btn" ${(cantFight || killed) ? 'disabled' : ''}
-                onclick="fightMonster('${m.id}')">${btnLabel}</button>
-            </div>
-          </div>`;
+      Object.keys(tiers).sort().forEach(tier => {
+        html += `<div class="tier-group">
+          <div class="tier-header t${tier}">${tierLabels[tier]||'TIER '+tier}</div>
+          <div class="monster-grid">`;
+        tiers[tier].forEach(m => html += buildMonsterCard(m, data.player_energy));
+        html += '</div></div>';
       });
-      container.innerHTML = html || '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">NO MONSTERS</div>';
+      container.innerHTML = html || '<div style="color:#666;font-size:9px;text-align:center;padding:20px;">NO MONSTERS</div>';
+
+      // Load boss banner
+      loadBossBanner();
     } catch(e) {
       container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
     }
   }
 
-  async function fightMonster(monsterId) {
+  function buildMonsterCard(m, playerEnergy) {
+    const winPct   = m.win_chance;
+    const losePct  = 100 - winPct;
+    const tierBadge = `tier-badge-${m.tier}`;
+    let btnHtml;
+    if (m.killed_today) {
+      btnHtml = `<button class="fight-btn defeated" disabled>DEFEATED ✅</button>`;
+    } else if (m.locked) {
+      btnHtml = `<button class="fight-btn locked" disabled>🔒 LOCKED (LV${m.min_level})</button>`;
+    } else if (playerEnergy < m.energy_cost) {
+      btnHtml = `<button class="fight-btn low-energy" disabled title="Need ${m.energy_cost} energy">⚡ NEED ${m.energy_cost} ENERGY</button>`;
+    } else {
+      btnHtml = `<button class="fight-btn" onclick="fightMonster('${m.type}',this)">⚔️ FIGHT</button>`;
+    }
+    const rp = m.rewards_preview;
+    const resText = rp.resources ? `<span>${rp.resources}</span>` : '';
+    const dropPct = Math.round(rp.gear_drop_chance * 100);
+    return `
+    <div class="monster-card${m.killed_today?' killed':''}" id="mcard-${m.type}">
+      <div class="monster-header">
+        <span class="monster-icon">${m.icon}</span>
+        <span class="monster-name">${m.name.toUpperCase()}</span>
+        <span class="monster-tier ${tierBadge}">T${m.tier}</span>
+      </div>
+      <div class="win-bar-wrap">
+        <div class="win-bar">
+          <div class="win-bar-green" style="width:${winPct}%"></div>
+          <div class="win-bar-red"   style="width:${losePct}%"></div>
+          <div class="win-bar-pct">${winPct}%</div>
+        </div>
+        <div class="win-eval">${m.evaluation}</div>
+      </div>
+      <div class="monster-meta">
+        <span>CP: ${m.combat_power} &nbsp; ⚡ ${m.energy_cost} energy</span>
+        <span class="gold-line">🪙 ${rp.gold} gold &nbsp; ⭐ ${rp.xp} XP</span>
+        ${resText ? `<span>${resText}</span>` : ''}
+        <span>🎁 ${dropPct}% gear drop</span>
+      </div>
+      ${btnHtml}
+    </div>`;
+  }
+
+  async function fightMonster(monsterType, btn) {
+    if (_fightInProgress) return;
+    _fightInProgress = true;
+
+    // Find monster data
+    const card = document.getElementById(`mcard-${monsterType}`);
+    const monIcon = card ? card.querySelector('.monster-icon').textContent : '❓';
+    const monName = card ? card.querySelector('.monster-name').textContent : monsterType;
+    const cpEl    = document.getElementById('combat-cp-display');
+    const playerCpText = cpEl ? cpEl.textContent.match(/\d+/) : null;
+    const playerCp = playerCpText ? parseInt(playerCpText[0]) : '?';
+
+    // Button feedback
+    if (btn) { btn.textContent = 'FIGHTING...'; btn.disabled = true; }
+    if (card) card.classList.add('fighting');
+
+    // Show modal
+    showFightModal(CURRENT_USER, playerCp, monIcon, monName, '?');
+    playFightSound('start');
+
     try {
-      const res = await fetch('/combat/fight', {
+      const res  = await fetch('/combat/fight', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, monster_id: monsterId })
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER, monster_id: monsterType})
       });
       const data = await res.json();
-      if (data.status === 'success') {
-        if (data.won) {
-          const parts = Object.entries(data.rewards || {}).map(([k,v]) => `+${v} ${k}`);
-          let msg = '⚔️ VICTORY! ' + parts.join(', ');
-          if (data.drop) msg += ` | DROP: ${data.drop}`;
-          showToast(msg, 'ok');
-          if (data.new_achievements && data.new_achievements.length) {
-            data.new_achievements.forEach(aid => {
-              setTimeout(() => showToast('🏆 ACHIEVEMENT: ' + aid.replace(/_/g,' ').toUpperCase(), 'ok'), 600);
-            });
-          }
-        } else {
-          showToast('💀 DEFEATED! -20 energy, +2 xp', 'err');
-        }
-        await refreshStats();
-        loadCombat();
-      } else {
-        showToast(data.message, 'err');
+
+      if (data.status !== 'success') {
+        closeFightModal();
+        showToast(data.message || 'Error.', 'err');
+        if (card) card.classList.remove('fighting');
+        if (btn)  { btn.textContent = '⚔️ FIGHT'; btn.disabled = false; }
+        _fightInProgress = false;
+        return;
       }
-    } catch(e) { showToast('Error fighting.', 'err'); }
+
+      // Update monster CP display in modal
+      document.getElementById('fight-monster-cp').textContent = `${data.monster_cp} CP`;
+      document.getElementById('fight-player-cp').textContent  = `${data.player_cp} CP`;
+
+      // Animate the roll
+      await animateRoll(data.win_chance, data.roll, data.victory);
+
+      // Show result
+      showFightResult(data);
+      if (card) card.classList.remove('fighting');
+      _pendingCombatRefresh = true;
+    } catch(e) {
+      closeFightModal();
+      showToast('Fight error.', 'err');
+      if (card) card.classList.remove('fighting');
+      if (btn)  { btn.textContent = '⚔️ FIGHT'; btn.disabled = false; }
+      _fightInProgress = false;
+    }
+  }
+
+  function showFightModal(playerName, playerCp, monIcon, monName, monCp) {
+    document.getElementById('fight-modal-header').textContent = 'COMBAT';
+    document.getElementById('fight-player-name').textContent  = playerName.toUpperCase();
+    document.getElementById('fight-player-cp').textContent    = playerCp + ' CP';
+    document.getElementById('fight-monster-icon').textContent = monIcon;
+    document.getElementById('fight-monster-name').textContent = monName;
+    document.getElementById('fight-monster-cp').textContent   = monCp + ' CP';
+    document.getElementById('roll-bar-label').textContent     = 'ROLLING...';
+    document.getElementById('roll-bar-num').textContent       = '—';
+    document.getElementById('roll-bar-green').style.width     = '50%';
+    document.getElementById('roll-bar-red').style.width       = '50%';
+    document.getElementById('fight-result').style.display     = 'none';
+    document.getElementById('fight-modal-ok').style.display   = 'none';
+    document.getElementById('fight-roll-section').style.display = '';
+    document.getElementById('fight-modal-overlay').style.display = 'flex';
+  }
+
+  function animateRoll(winChance, finalRoll, victory) {
+    return new Promise(resolve => {
+      const greenBar = document.getElementById('roll-bar-green');
+      const redBar   = document.getElementById('roll-bar-red');
+      const numEl    = document.getElementById('roll-bar-num');
+      const labelEl  = document.getElementById('roll-bar-label');
+      let interval   = 50;
+      let elapsed    = 0;
+      const duration = 1800;
+      playFightSound('roll');
+
+      const tick = setInterval(() => {
+        elapsed += interval;
+        const progress = elapsed / duration;
+        // Oscillate around win_chance, reducing amplitude over time
+        const amplitude = (1 - progress) * 35;
+        const osc = Math.sin(elapsed / 120) * amplitude;
+        const displayPct = Math.max(5, Math.min(95, winChance + osc));
+        const fakeRoll = Math.floor(Math.random() * 100) + 1;
+        greenBar.style.width = displayPct + '%';
+        redBar.style.width   = (100 - displayPct) + '%';
+        numEl.textContent    = fakeRoll;
+        interval = Math.min(200, 50 + progress * 150);
+
+        if (elapsed >= duration) {
+          clearInterval(tick);
+          // Settle at final state
+          greenBar.style.width = winChance + '%';
+          redBar.style.width   = (100 - winChance) + '%';
+          numEl.textContent    = finalRoll;
+          const resultColor = victory ? '#4aff6b' : '#ff6b6b';
+          numEl.style.color  = resultColor;
+          labelEl.textContent = victory
+            ? `WIN! Rolled ${finalRoll} ≤ ${winChance}%`
+            : `MISS! Rolled ${finalRoll} > ${winChance}%`;
+          labelEl.style.color = resultColor;
+          resolve();
+        }
+      }, interval);
+    });
+  }
+
+  function showFightResult(data) {
+    document.getElementById('fight-roll-section').style.display = 'none';
+    const resultDiv   = document.getElementById('fight-result');
+    const titleEl     = document.getElementById('fight-result-title');
+    const rewardsEl   = document.getElementById('fight-rewards');
+    const evalEl      = document.getElementById('fight-result-eval');
+    resultDiv.style.display = '';
+
+    if (data.victory) {
+      playFightSound('victory');
+      titleEl.textContent  = 'VICTORY!';
+      titleEl.className    = 'fight-result-title win';
+      spawnConfetti();
+      let rhtml = '';
+      if (data.rewards) {
+        if (data.rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.rewards.gold} gold</div>`;
+        if (data.rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.rewards.xp} XP</div>`;
+        if (data.rewards.resources) {
+          Object.entries(data.rewards.resources).forEach(([k,v]) => {
+            rhtml += `<div class="fight-reward-row" style="color:#888">+${v} ${k.replace(/_/g,' ')}</div>`;
+          });
+        }
+        if (data.rewards.gear_drop) {
+          const gd = data.rewards.gear_drop;
+          const rc = {common:'#ccc',uncommon:'#4aff6b',rare:'#5599ff',epic:'#A86EFF',legendary:'#FF8C00'}[gd.rarity]||'#ccc';
+          rhtml += `<div class="fight-gear-drop" style="color:${rc}">🎁 ${gd.name}!</div>`;
+          playFightSound('gear');
+        }
+      }
+      rewardsEl.innerHTML = rhtml;
+    } else {
+      playFightSound('defeat');
+      titleEl.textContent = 'DEFEATED';
+      titleEl.className   = 'fight-result-title loss';
+      rewardsEl.innerHTML = `<div class="fight-reward-row" style="color:#888">⭐ +${data.consolation_xp} consolation XP</div>`;
+    }
+    evalEl.textContent = `${data.evaluation} — rolled ${data.roll} out of ${data.win_chance}%`;
+    document.getElementById('fight-modal-ok').style.display = '';
+    refreshStats();
+  }
+
+  async function closeFightModal() {
+    document.getElementById('fight-modal-overlay').style.display = 'none';
+    _fightInProgress = false;
+    if (_pendingCombatRefresh) {
+      _pendingCombatRefresh = false;
+      loadCombat();
+    }
+  }
+
+  function spawnConfetti() {
+    const modal = document.getElementById('fight-modal');
+    const colors = ['#4aff6b','#A86EFF','#FF7FE5','#FF8C00','#fff'];
+    for (let i = 0; i < 20; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `left:${Math.random()*100}%;background:${colors[i%colors.length]};animation-delay:${Math.random()*0.4}s;animation-duration:${0.8+Math.random()*0.6}s;`;
+      modal.appendChild(el);
+      setTimeout(() => el.remove(), 1400);
+    }
+  }
+
+  // ── SOUND EFFECTS ──
+  function _audioCtx() {
+    try { return new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+  }
+  function playFightSound(type) {
+    const ctx = _audioCtx(); if (!ctx) return;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    const t = ctx.currentTime;
+    if (type === 'start') {
+      osc.frequency.setValueAtTime(220, t); osc.frequency.setValueAtTime(330, t+0.08);
+      gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.25);
+      osc.start(t); osc.stop(t+0.25);
+    } else if (type === 'roll') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, t);
+      gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.1);
+      osc.start(t); osc.stop(t+0.1);
+    } else if (type === 'victory') {
+      osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1); osc.frequency.setValueAtTime(784, t+0.2);
+      gain.gain.setValueAtTime(0.25, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.5);
+      osc.start(t); osc.stop(t+0.5);
+    } else if (type === 'defeat') {
+      osc.frequency.setValueAtTime(220, t); osc.frequency.setValueAtTime(150, t+0.2);
+      gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.4);
+      osc.start(t); osc.stop(t+0.4);
+    } else if (type === 'gear') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, t); osc.frequency.setValueAtTime(1100, t+0.06); osc.frequency.setValueAtTime(1320, t+0.12);
+      gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.35);
+      osc.start(t); osc.stop(t+0.35);
+    }
+  }
+
+  // ── BOSS BANNER ──
+  async function loadBossBanner() {
+    const banner = document.getElementById('boss-banner');
+    if (!banner) return;
+    try {
+      const res  = await fetch('/combat/boss/status');
+      const data = await res.json();
+      if (!data.active || !data.boss) { banner.style.display = 'none'; return; }
+      const b = data.boss;
+      const hpPct = Math.round((b.current_hp / b.max_hp) * 100);
+      const topDmg = data.participants && data.participants[0];
+      banner.style.display = '';
+      banner.innerHTML = `
+        <div class="boss-banner">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <span style="color:#FF8C00;font-size:10px;">${b.icon||'👑'} ${b.name}</span>
+              <div style="color:#888;font-size:7px;margin-top:3px;">COMMUNITY BOSS • ${data.participants?data.participants.length:0} fighters</div>
+            </div>
+            <div style="text-align:right;color:#888;font-size:7px;">${b.current_hp.toLocaleString()} / ${b.max_hp.toLocaleString()} HP</div>
+          </div>
+          <div class="boss-hp-bar">
+            <div class="boss-hp-fill" style="width:${hpPct}%"></div>
+            <div class="boss-hp-text">${hpPct}% HP</div>
+          </div>
+          ${topDmg ? `<div style="color:#888;font-size:7px;">Top: ${topDmg.username} — ${topDmg.damage_dealt} dmg</div>` : ''}
+          <button class="fight-btn" style="margin-top:4px;" onclick="fightBoss()">⚔️ JOIN FIGHT (30 energy)</button>
+        </div>`;
+    } catch(e) { if (banner) banner.style.display = 'none'; }
+  }
+
+  async function fightBoss() {
+    if (_fightInProgress) return;
+    _fightInProgress = true;
+    showFightModal(CURRENT_USER, '?', '👑', 'THE BLIZZARD KING', '???');
+    document.getElementById('fight-modal-header').textContent = 'COMMUNITY BATTLE';
+    document.getElementById('fight-modal-header').style.color = '#FF7FE5';
+    playFightSound('start');
+    try {
+      const res  = await fetch('/combat/boss/attack', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER})
+      });
+      const data = await res.json();
+      if (data.status !== 'success') {
+        closeFightModal();
+        showToast(data.message || 'Error.', 'err');
+        _fightInProgress = false;
+        return;
+      }
+      document.getElementById('fight-roll-section').style.display = 'none';
+      document.getElementById('fight-result').style.display = '';
+      const titleEl   = document.getElementById('fight-result-title');
+      const rewardsEl = document.getElementById('fight-rewards');
+      const evalEl    = document.getElementById('fight-result-eval');
+      const hpPct = Math.round((data.boss_hp / data.boss_max_hp) * 100);
+      titleEl.textContent = data.defeated ? '🏆 BOSS DEFEATED!' : `Hit for ${data.hit_damage} damage!`;
+      titleEl.className   = 'fight-result-title win';
+      let rhtml = `<div class="fight-reward-row" style="color:#888">Boss HP: ${data.boss_hp.toLocaleString()} / ${data.boss_max_hp.toLocaleString()} (${hpPct}%)</div>`;
+      if (data.hit_rewards) {
+        if (data.hit_rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.hit_rewards.xp} XP</div>`;
+        if (data.hit_rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.hit_rewards.gold} gold</div>`;
+      }
+      if (data.defeated && data.kill_rewards) {
+        rhtml += `<div style="color:#FF8C00;font-size:10px;margin-top:6px;">🏆 THE VILLAGE HAS TRIUMPHED!</div>`;
+        if (data.kill_rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.kill_rewards.xp} BONUS XP</div>`;
+        if (data.kill_rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.kill_rewards.gold} BONUS GOLD</div>`;
+        playFightSound('victory');
+        spawnConfetti();
+      }
+      rewardsEl.innerHTML = rhtml;
+      evalEl.textContent  = '';
+      document.getElementById('fight-modal-ok').style.display = '';
+      _pendingCombatRefresh = true;
+      refreshStats();
+    } catch(e) {
+      closeFightModal();
+      showToast('Boss fight error.', 'err');
+      _fightInProgress = false;
+    }
   }
 
   // ── GEAR ──
@@ -3851,5 +4234,39 @@
 </script>
 
 <div id="sb-tooltip"></div>
+
+  <!-- FIGHT MODAL -->
+  <div class="fight-modal-overlay" id="fight-modal-overlay" style="display:none;" onclick="if(event.target===this&&!_fightInProgress)closeFightModal()">
+    <div class="fight-modal" id="fight-modal">
+      <div class="fight-modal-header" id="fight-modal-header">COMBAT</div>
+      <div class="fight-combatants">
+        <div class="fight-combatant">
+          <div class="emo">🐧</div>
+          <div class="name" id="fight-player-name">—</div>
+          <div class="cp" id="fight-player-cp">— CP</div>
+        </div>
+        <div class="fight-vs">VS</div>
+        <div class="fight-combatant">
+          <div class="emo" id="fight-monster-icon">❓</div>
+          <div class="name" id="fight-monster-name">—</div>
+          <div class="cp" id="fight-monster-cp">— CP</div>
+        </div>
+      </div>
+      <div class="roll-bar-wrap" id="fight-roll-section">
+        <div class="roll-bar">
+          <div class="roll-bar-green" id="roll-bar-green" style="width:50%"></div>
+          <div class="roll-bar-red"   id="roll-bar-red"   style="width:50%"></div>
+          <div class="roll-bar-num"   id="roll-bar-num">—</div>
+        </div>
+        <div class="roll-bar-label" id="roll-bar-label">ROLLING...</div>
+      </div>
+      <div class="fight-result" id="fight-result" style="display:none;">
+        <div class="fight-result-title" id="fight-result-title"></div>
+        <div class="fight-rewards" id="fight-rewards"></div>
+        <div class="fight-result-eval" id="fight-result-eval"></div>
+      </div>
+      <button class="fight-modal-ok" id="fight-modal-ok" style="display:none;" onclick="closeFightModal()">OK</button>
+    </div>
+  </div>
 </body>
 </html>
