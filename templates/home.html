@@ -1178,6 +1178,7 @@
     <div class="nav-logo">PENGUIN <span>VILLAGE</span></div>
     <div class="nav-right">
       {% if logged_in %}
+        <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -1673,6 +1674,8 @@
 <!-- TOAST -->
 <div id="toast"></div>
 
+<script src="/static/sounds.js"></script>
+<script src="/static/effects.js"></script>
 <script src="/static/village_map.js"></script>
 <script>
   function switchSidebarTab(name, btn) {
@@ -2270,6 +2273,8 @@
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         msg += parts.length ? parts.join(', ') : 'nothing (too soon!)';
         showToast(msg, 'ok');
+        Sounds.collect();
+        if (parts.length) Effects.floatText(btn, parts.join('  '), '#4aff6b');
         if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
         if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         if (data.new_achievements && data.new_achievements.length) {
@@ -2448,9 +2453,17 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
+        Sounds.donate();
         showToast(`Donated ${data.donated} ${data.resource}!`, 'ok');
+        const dBtn = document.querySelector('.bp-donate-btn');
+        if (dBtn) Effects.floatText(dBtn, `+${data.donated} donated!`, '#A86EFF');
         if (data.level_up) {
+          Sounds.buildingLevelUp();
           setTimeout(() => showToast(`🏗️ Building upgraded to Level ${data.building_level}!`, 'ok'), 400);
+          const bPanel = document.getElementById('building-panel');
+          if (bPanel) Effects.flashElement(bPanel, '#FF7FE5', 3);
+          const bpName = document.getElementById('bp-name');
+          if (bpName) Effects.floatText(bpName, '🏗️ LEVELED UP!', '#FF8C00');
           loadBuildingLevels();
         }
         await refreshStats();
@@ -3128,6 +3141,9 @@
       if (data.status === 'success') {
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         showToast('Collected: ' + (parts.join(', ') || 'nothing yet'), 'ok');
+        Sounds.collect();
+        const bpcBtn = document.getElementById('bp-collect-btn');
+        if (bpcBtn && parts.length) Effects.floatText(bpcBtn, parts.join('  '), '#4aff6b');
         if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         await refreshStats();
         closeBuildingPanel();
@@ -3143,7 +3159,10 @@
       const res  = await fetch(`/hotel/rest/${CURRENT_USER}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
+        Sounds.rest();
         showToast(`Fully rested! -${data.gold_spent} gold`, 'ok');
+        Effects.smoothFillBar(document.getElementById('energy-bar'), 100, 500);
+        Effects.floatText(document.getElementById('stat-energy') || document.getElementById('sidebar-collect-btn'), '💤 Fully Rested!', '#4aff6b');
         await refreshStats();
         closeBuildingPanel();
       } else {
@@ -3688,6 +3707,8 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
+        Sounds.equip();
+        Effects.flashElement(document.getElementById('gear-content'), '#A86EFF', 2);
         showToast(data.message, 'ok');
         await refreshStats();
         loadGear();
@@ -4049,6 +4070,17 @@
     }
     document.getElementById('lvup-rewards').innerHTML = rewardHtml;
     document.getElementById('lvup-overlay').classList.add('show');
+
+    Sounds.levelUp();
+    if (box) {
+      const _lvupCycleColors = ['#A86EFF', '#FF7FE5', '#FF8C00', '#4aff6b'];
+      let _lvupCi = 0;
+      const _lvupCyc = setInterval(() => {
+        box.style.borderColor = _lvupCycleColors[_lvupCi % _lvupCycleColors.length];
+        _lvupCi++;
+      }, 200);
+      setTimeout(() => { clearInterval(_lvupCyc); box.style.borderColor = ''; }, 2000);
+    }
   }
 
   function lvupDismiss() {
@@ -4282,7 +4314,11 @@
       const res  = await fetch(`/streak/claim/${CURRENT_USER}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
-        document.getElementById('daily-popup').style.display = 'none';
+        Sounds.streak();
+        Effects.confettiBurst(btn, 12);
+        const dpBox = document.querySelector('#daily-popup > div');
+        if (dpBox) Effects.pulseElement(dpBox, '#FF8C00', 3);
+        setTimeout(() => { document.getElementById('daily-popup').style.display = 'none'; }, 350);
         const e = data.earned;
         showToast(`+${e.gold} gold & ${e.resource_amount} ${e.resource_icon} ${e.resource}!`, 'ok');
         await refreshStats();
