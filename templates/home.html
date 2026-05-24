@@ -725,8 +725,9 @@
     /* Tier groups */
     .tier-group  { display:flex; flex-direction:column; gap:8px; }
     .tier-header { font-size:8px; padding:4px 0; border-bottom:1px solid #2E2E2E; }
-    .tier-header.t1 { color:#4aff6b; } .tier-header.t2 { color:#5599ff; }
+    .tier-header.t1 { color:#4aff6b; } .tier-header.t2 { color:#4a9eff; }
     .tier-header.t3 { color:#A86EFF; } .tier-header.t4 { color:#FF7FE5; }
+    .tier-header.t5 { color:#FF8C00; }
 
     /* Monster grid */
     .monster-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
@@ -743,9 +744,10 @@
     .monster-name  { color:var(--white); font-size:9px; flex:1; line-height:1.4; }
     .monster-tier  { font-size:7px; padding:2px 5px; border:1px solid; }
     .tier-badge-1  { color:#4aff6b; border-color:#4aff6b; }
-    .tier-badge-2  { color:#5599ff; border-color:#5599ff; }
+    .tier-badge-2  { color:#4a9eff; border-color:#4a9eff; }
     .tier-badge-3  { color:#A86EFF; border-color:#A86EFF; }
     .tier-badge-4  { color:#FF7FE5; border-color:#FF7FE5; }
+    .tier-badge-5  { color:#FF8C00; border-color:#FF8C00; }
 
     /* Win chance bar */
     .win-bar-wrap { display:flex; flex-direction:column; gap:3px; }
@@ -2013,7 +2015,11 @@
       if (pData.status === 'success') {
         const p = pData.penguin;
         const maxE = p.max_energy || 100;
-        document.getElementById('stat-energy').textContent = p.energy + '/' + maxE;
+        const isFull = p.energy >= maxE;
+        const energyEl = document.getElementById('stat-energy');
+        if (energyEl) energyEl.innerHTML = isFull
+          ? `<span style="color:#4aff6b">⚡ FULL</span>`
+          : `${p.energy}/${maxE} <span style="color:#888;font-size:7px">+10/hr</span>`;
         document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
         document.getElementById('stat-level').textContent = '★ LEVEL ' + p.level;
         const xpNeeded = p.xp_needed || 100;
@@ -3024,19 +3030,26 @@
         html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label || 'WORK'}</button>`;
       }
     } else if (btype === 'rest') {
-      const energy    = data.player_energy    || 0;
-      const maxEnergy = data.player_max_energy || 100;
-      const gold      = data.player_gold       || 0;
-      const isWorking = !!data.player_job;
-      const isFull    = energy >= maxEnergy;
-      const toRestore = maxEnergy - energy;
-      const cost      = toRestore * 2;
-      const canAfford = gold >= cost;
-      const energyPct = Math.round((energy / maxEnergy) * 100);
+      const energy         = data.player_energy    || 0;
+      const maxEnergy      = data.player_max_energy || 100;
+      const gold           = data.player_gold       || 0;
+      const isWorking      = !!data.player_job;
+      const isFull         = energy >= maxEnergy;
+      const toRestore      = maxEnergy - energy;
+      const energyPct      = Math.round((energy / maxEnergy) * 100);
+      const hotelRemaining = (data.hotel_remaining_today != null) ? data.hotel_remaining_today : 2;
+      const cost           = hotelRemaining === 2 ? 100 : 500;
+      const canAfford      = gold >= cost;
 
       html += `<div style="color:var(--purple);font-size:10px;margin-bottom:6px;">PENGUIN HOTEL</div>`;
       html += `<div class="bp-info" style="margin-bottom:8px;">Rest those flippers. You've earned it.</div>`;
-      html += `<hr style="border:none;border-top:1px solid #A86EFF;margin:8px 0;">`;
+
+      html += `<div style="font-size:7px;color:#888;margin-bottom:6px;line-height:2.2;">
+        <span style="color:#FF8C00;">1st rest: 100 gold</span> &nbsp;|&nbsp;
+        <span style="color:#ff6b6b;">2nd rest: 500 gold</span>
+      </div>`;
+      html += `<div style="font-size:7px;color:#555;margin-bottom:8px;">Uses remaining today: <span style="color:${hotelRemaining>0?'#ccc':'#ff6b6b'}">${hotelRemaining} / 2</span></div>`;
+      html += `<hr style="border:none;border-top:1px solid #333;margin:8px 0;">`;
 
       html += `<div style="font-size:8px;color:#888;margin-bottom:4px;">ENERGY: ${energy} / ${maxEnergy}</div>`;
       html += `<div style="height:6px;background:#1C1C1C;margin-bottom:10px;">`;
@@ -3047,9 +3060,16 @@
       } else if (isWorking) {
         html += `<div class="bp-info" style="color:#ff6b6b;">Your penguin needs to finish working first!</div>`;
         html += `<div class="bp-info" style="margin-top:4px;">Collect your earnings first, then come back to rest.</div>`;
+      } else if (hotelRemaining === 0) {
+        const midnight = new Date(); midnight.setHours(24, 0, 0, 0);
+        const diffMs = midnight - new Date();
+        const rh = Math.floor(diffMs / 3600000);
+        const rm = Math.floor((diffMs % 3600000) / 60000);
+        html += `<div class="bp-info" style="color:#ff6b6b;text-align:center;">The penguins at the hotel are exhausted. Come back tomorrow! 💤</div>`;
+        html += `<div style="color:#888;font-size:7px;text-align:center;margin-top:6px;">Resets in: ${rh}h ${rm}m</div>`;
       } else {
         html += `<div style="font-size:9px;color:#fff;margin-bottom:3px;">Restore ${toRestore} energy</div>`;
-        html += `<div style="font-size:9px;color:#FF8C00;margin-bottom:10px;">Cost: ${cost} gold 🪙</div>`;
+        html += `<div style="font-size:9px;color:${hotelRemaining===2?'#FF8C00':'#ff6b6b'};margin-bottom:10px;">Cost: ${cost} gold 🪙</div>`;
         html += `<button class="bp-btn rest" ${canAfford ? '' : 'disabled'} onclick="bpRest()">REST NOW</button>`;
         if (!canAfford) {
           html += `<div style="color:#ff6b6b;font-size:7px;margin-top:5px;text-align:center;">Not enough gold (have ${gold}, need ${cost})</div>`;
@@ -3146,38 +3166,94 @@
         container.innerHTML = `<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">${data.message||'ERROR'}</div>`;
         return;
       }
-      // Update header
+
+      const energy    = data.player_energy    || 0;
+      const maxEnergy = data.player_max_energy || 100;
+      const isFull    = energy >= maxEnergy;
+
       const cpEl = document.getElementById('combat-cp-display');
       if (cpEl) cpEl.textContent = `Your Combat Power: ${data.player_cp} CP`;
       const engEl = document.getElementById('combat-energy-bar-label');
-      if (engEl) engEl.textContent = `⚡ ${data.player_energy} / ${data.player_max_energy}`;
+      if (engEl) engEl.innerHTML = isFull
+        ? `<span style="color:#4aff6b">⚡ FULL (${maxEnergy}/${maxEnergy})</span>`
+        : `⚡ ${energy} / ${maxEnergy} <span style="color:#888">+10/hr</span>`;
 
-      // Group by tier
+      const tierLabels = {
+        1: 'TIER 1 — NEWCOMER GROUNDS',
+        2: 'TIER 2 — FROZEN FRONTIER',
+        3: 'TIER 3 — SHADOW TERRITORY',
+        4: 'TIER 4 — CURSED DEPTHS',
+        5: 'TIER 5 — THE ABYSS',
+      };
+      const tierMinLevels = {1:1, 2:6, 3:11, 4:16, 5:26};
+      const playerLevel   = data.player_level || 1;
+
+      let currentTier = 1;
+      [1,2,3,4,5].forEach(t => { if (playerLevel >= (tierMinLevels[t]||99)) currentTier = t; });
+
       const tiers = {};
       data.monsters.forEach(m => { (tiers[m.tier] = tiers[m.tier] || []).push(m); });
-      const tierLabels = {1:'TIER 1 — BEGINNER',2:'TIER 2 — INTERMEDIATE',3:'TIER 3 — ADVANCED',4:'TIER 4 — ELITE'};
 
-      let html = '';
-      Object.keys(tiers).sort().forEach(tier => {
-        html += `<div class="tier-group">
-          <div class="tier-header t${tier}">${tierLabels[tier]||'TIER '+tier}</div>
-          <div class="monster-grid">`;
-        tiers[tier].forEach(m => html += buildMonsterCard(m, data.player_energy));
-        html += '</div></div>';
+      const fkCount = data.first_kills_count || 0;
+      const fkMax   = data.max_first_kills   || 93;
+
+      let html = `<div style="color:#FF8C00;font-size:8px;text-align:right;margin-bottom:6px;">First Kills: ${fkCount} / ${fkMax} ⭐</div>`;
+
+      [1,2,3,4,5].forEach(tier => {
+        const isLocked  = tier > currentTier;
+        const isLower   = tier < currentTier;
+        const minLv     = tierMinLevels[tier] || 99;
+        const label     = tierLabels[tier] || `TIER ${tier}`;
+        const tcls      = `t${tier}`;
+
+        if (isLocked) {
+          html += `<div class="tier-group">
+            <div class="tier-header ${tcls}" style="opacity:0.4;display:flex;justify-content:space-between;align-items:center;">
+              <span>🔒 ${label}</span><span style="font-size:7px;color:#444;">LV ${minLv}</span>
+            </div>
+          </div>`;
+        } else if (tiers[tier]) {
+          const gridId   = `tier-grid-${tier}`;
+          const toggleId = `tier-tog-${tier}`;
+          if (isLower) {
+            html += `<div class="tier-group">
+              <div class="tier-header ${tcls}" style="opacity:0.7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleTierGroup(${tier})">
+                <span>${label}</span><span id="${toggleId}" style="font-size:7px;">▼ SHOW</span>
+              </div>
+              <div id="${gridId}" class="monster-grid" style="display:none;opacity:0.8;">`;
+          } else {
+            html += `<div class="tier-group">
+              <div class="tier-header ${tcls}" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${label}</span>
+              </div>
+              <div id="${gridId}" class="monster-grid">`;
+          }
+          tiers[tier].forEach(m => html += buildMonsterCard(m, energy));
+          html += '</div></div>';
+        }
       });
-      container.innerHTML = html || '<div style="color:#666;font-size:9px;text-align:center;padding:20px;">NO MONSTERS</div>';
 
-      // Load boss banner
+      container.innerHTML = html || '<div style="color:#666;font-size:9px;text-align:center;padding:20px;">NO MONSTERS</div>';
       loadBossBanner();
     } catch(e) {
       container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
     }
   }
 
+  function toggleTierGroup(tier) {
+    const grid   = document.getElementById(`tier-grid-${tier}`);
+    const toggle = document.getElementById(`tier-tog-${tier}`);
+    if (!grid) return;
+    const hidden = grid.style.display === 'none';
+    grid.style.display = hidden ? 'grid' : 'none';
+    if (toggle) toggle.textContent = hidden ? '▲ HIDE' : '▼ SHOW';
+  }
+
   function buildMonsterCard(m, playerEnergy) {
-    const winPct   = m.win_chance;
-    const losePct  = 100 - winPct;
+    const winPct    = m.win_chance;
+    const losePct   = 100 - winPct;
     const tierBadge = `tier-badge-${m.tier}`;
+    const isNew     = m.is_new && !m.killed_today;
     let btnHtml;
     if (m.killed_today) {
       btnHtml = `<button class="fight-btn defeated" disabled>DEFEATED ✅</button>`;
@@ -3188,14 +3264,21 @@
     } else {
       btnHtml = `<button class="fight-btn" onclick="fightMonster('${m.type}',this)">⚔️ FIGHT</button>`;
     }
-    const rp = m.rewards_preview;
+    const rp      = m.rewards_preview;
     const resText = rp.resources ? `<span>${rp.resources}</span>` : '';
     const dropPct = Math.round(rp.gear_drop_chance * 100);
+    const newBadge = isNew
+      ? `<span style="color:#FF8C00;font-size:6px;background:#1a1000;border:1px solid #FF8C00;padding:1px 3px;margin-left:3px;white-space:nowrap;">⭐ NEW</span>`
+      : '';
+    const goldLine = isNew
+      ? `🪙 <span style="color:#FF8C00">2× FIRST KILL!</span> ${rp.gold} gold &nbsp; ⭐ ${rp.xp} XP`
+      : `🪙 ${rp.gold} gold &nbsp; ⭐ ${rp.xp} XP`;
     return `
     <div class="monster-card${m.killed_today?' killed':''}" id="mcard-${m.type}">
       <div class="monster-header">
         <span class="monster-icon">${m.icon}</span>
         <span class="monster-name">${m.name.toUpperCase()}</span>
+        ${newBadge}
         <span class="monster-tier ${tierBadge}">T${m.tier}</span>
       </div>
       <div class="win-bar-wrap">
@@ -3208,7 +3291,7 @@
       </div>
       <div class="monster-meta">
         <span>CP: ${m.combat_power} &nbsp; ⚡ ${m.energy_cost} energy</span>
-        <span class="gold-line">🪙 ${rp.gold} gold &nbsp; ⭐ ${rp.xp} XP</span>
+        <span class="gold-line">${goldLine}</span>
         ${resText ? `<span>${resText}</span>` : ''}
         <span>🎁 ${dropPct}% gear drop</span>
       </div>
@@ -3346,6 +3429,9 @@
       titleEl.className    = 'fight-result-title win';
       spawnConfetti();
       let rhtml = '';
+      if (data.is_first_kill) {
+        rhtml += `<div style="color:#FF8C00;font-size:10px;text-align:center;background:#1a1000;border:1px solid #FF8C00;padding:5px;animation:scale-pop 0.4s ease;">⭐ FIRST KILL! 2× REWARDS</div>`;
+      }
       if (data.rewards) {
         if (data.rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.rewards.gold} gold</div>`;
         if (data.rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.rewards.xp} XP</div>`;

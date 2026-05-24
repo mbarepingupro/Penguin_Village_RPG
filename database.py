@@ -183,6 +183,17 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS first_kills (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            monster_type TEXT NOT NULL,
+            variant_name TEXT NOT NULL,
+            killed_at INTEGER NOT NULL,
+            UNIQUE(username, monster_type, variant_name)
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -213,6 +224,9 @@ def init_db():
     _add_col(c, "penguins", "monk_hours REAL DEFAULT 0")
     _add_col(c, "penguins", "executioner_hours REAL DEFAULT 0")
     _add_col(c, "penguins", "ceremonial_titles TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "last_energy_update INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "hotel_uses_today INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "last_hotel_date TEXT DEFAULT NULL")
 
     conn.commit()
     conn.close()
