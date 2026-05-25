@@ -144,57 +144,64 @@ BUILDING_UPGRADES = {
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit",
         "levels": {
-            2: {"fish": 500,   "gold": 200,  "benefit": "+10% fish rate for everyone"},
-            3: {"fish": 1500,  "gold": 600,  "benefit": "+25% fish rate for everyone"},
-            4: {"fish": 4000,  "gold": 1500, "benefit": "+50% fish rate for everyone"},
-            5: {"fish": 10000, "gold": 4000, "benefit": "+100% fish rate for everyone, unlocks rare fish events"},
+            2: {"fish": 1000,  "gold": 500,  "benefit": "+10% fish rate for everyone"},
+            3: {"fish": 3000,  "gold": 1500, "benefit": "+25% fish rate for everyone"},
+            4: {"fish": 7000,  "gold": 3500, "benefit": "+50% fish rate for everyone"},
+            5: {"fish": 15000, "gold": 7500, "benefit": "+100% fish rate, unlocks rare fish events"},
         },
     },
     "club_soda": {
         "name": "Club Soda",
         "levels": {
-            2: {"herbs": 500,   "gold": 200,  "benefit": "+10% herb rate for everyone"},
-            3: {"herbs": 1500,  "gold": 600,  "benefit": "+25% herb rate for everyone"},
-            4: {"herbs": 4000,  "gold": 1500, "benefit": "+50% herb rate for everyone"},
-            5: {"herbs": 10000, "gold": 4000, "benefit": "+100% herb rate for everyone, unlocks potion crafting"},
+            2: {"herbs": 1000,  "gold": 500,  "benefit": "+10% herb rate for everyone"},
+            3: {"herbs": 3000,  "gold": 1500, "benefit": "+25% herb rate for everyone"},
+            4: {"herbs": 7000,  "gold": 3500, "benefit": "+50% herb rate for everyone"},
+            5: {"herbs": 15000, "gold": 7500, "benefit": "+100% herb rate, unlocks potion crafting"},
         },
     },
     "parkmusement": {
         "name": "Ash's Parkmusement",
         "levels": {
-            2: {"gold": 500,   "benefit": "+10% gold rate for everyone"},
-            3: {"gold": 1500,  "benefit": "+25% gold rate for everyone"},
-            4: {"gold": 4000,  "benefit": "+50% gold rate for everyone"},
-            5: {"gold": 10000, "benefit": "+100% gold rate for everyone, unlocks special performances"},
+            2: {"gold": 1500,  "benefit": "+10% gold rate for everyone"},
+            3: {"gold": 4500,  "benefit": "+25% gold rate for everyone"},
+            4: {"gold": 10000, "benefit": "+50% gold rate for everyone"},
+            5: {"gold": 25000, "benefit": "+100% gold rate, unlocks special performances"},
         },
     },
     "cursed_temple": {
         "name": "Cursed Temple",
         "levels": {
-            2: {"spell_fragments": 300,  "gold": 300,  "benefit": "+10% XP rate for everyone"},
-            3: {"spell_fragments": 800,  "gold": 800,  "benefit": "+25% XP rate for everyone"},
-            4: {"spell_fragments": 2000, "gold": 2000, "benefit": "+50% XP rate for everyone"},
-            5: {"spell_fragments": 5000, "gold": 5000, "benefit": "+100% XP rate for everyone, unlocks advanced spells"},
+            2: {"spell_fragments": 800,   "gold": 500,  "benefit": "+10% XP rate for everyone"},
+            3: {"spell_fragments": 2500,  "gold": 1500, "benefit": "+25% XP rate for everyone"},
+            4: {"spell_fragments": 6000,  "gold": 3500, "benefit": "+50% XP rate for everyone"},
+            5: {"spell_fragments": 12000, "gold": 7500, "benefit": "+100% XP rate, unlocks advanced spells"},
         },
     },
     "guillotine": {
         "name": "Gil the Guillotine",
         "levels": {
-            2: {"blood_gems": 200,  "bones": 200,  "gold": 200,  "benefit": "+10% blood gem and bone rate for everyone"},
-            3: {"blood_gems": 600,  "bones": 600,  "gold": 600,  "benefit": "+25% rate for everyone"},
-            4: {"blood_gems": 1500, "bones": 1500, "gold": 1500, "benefit": "+50% rate for everyone"},
-            5: {"blood_gems": 4000, "bones": 4000, "gold": 4000, "benefit": "+100% rate for everyone, unlocks dark rituals"},
+            2: {"blood_gems": 200,  "bones": 200,  "gold": 500,  "benefit": "+10% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 600,  "bones": 600,  "gold": 1500, "benefit": "+25% rate for everyone"},
+            4: {"blood_gems": 1500, "bones": 1500, "gold": 3500, "benefit": "+50% rate for everyone"},
+            5: {"blood_gems": 3000, "bones": 3000, "gold": 7500, "benefit": "+100% rate, unlocks dark rituals"},
         },
     },
     "hotel": {
         "name": "Penguin Hotel",
         "levels": {
-            2: {"gold": 500,   "fish": 200,  "benefit": "Rest costs reduced by 20%"},
-            3: {"gold": 1500,  "fish": 600,  "benefit": "Rest costs reduced by 40%"},
-            4: {"gold": 4000,  "fish": 1500, "benefit": "Rest costs reduced by 60%"},
-            5: {"gold": 10000, "fish": 4000, "benefit": "Rest is FREE for everyone"},
+            2: {"gold": 1500,  "fish": 500,  "benefit": "First daily rest is free"},
+            3: {"gold": 4500,  "fish": 1500, "benefit": "Rest costs reduced by 50%"},
+            4: {"gold": 10000, "fish": 3500, "benefit": "Rest costs reduced by 75%"},
+            5: {"gold": 25000, "fish": 7500, "benefit": "All rests are FREE for everyone"},
         },
     },
+}
+
+CONTRIBUTION_MILESTONES = {
+    100:  {"name": "Contributor's Frame",      "description": "A warm glow for those who give back."},
+    500:  {"name": "Builder's Canvas",          "description": "The village remembers your generosity."},
+    1000: {"name": "Architect's Backdrop",      "description": "You shaped this village with your own flippers."},
+    5000: {"name": "Legendary Founder's Frame", "description": "A living legend of Penguin Village."},
 }
 
 BUILDING_BONUS_RATES = {1: 0.0, 2: 0.10, 3: 0.25, 4: 0.50, 5: 1.00}
@@ -247,28 +254,28 @@ BUILDINGS = {
         "name": "Ash's Sea Lion Pit", "icon": "🦭",
         "desc": "Fish don't catch themselves. Actually here they do.",
         "type": "job", "job_label": "FISHING",
-        "produces": {"fish": 0.2, "gold": 1.0, "xp": 2.0},
+        "produces": {"fish": 12.5, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 36, "y": 62},
     },
     "parkmusement": {
         "name": "Ash's Parkmusement", "icon": "🎪",
         "desc": "Step right up! Juggle fish for coins! No refunds.",
         "type": "job", "job_label": "CIRCUS",
-        "produces": {"gold": 3.0, "xp": 2.0},
+        "produces": {"gold": 15.0, "xp": 2.0},
         "pos": {"x": 47, "y": 48},
     },
     "cursed_temple": {
         "name": "Cursed Temple", "icon": "⛩️",
         "desc": "Dark rituals. Ancient power. No refunds.",
         "type": "job", "job_label": "MONK",
-        "produces": {"blood_gems": 0.2, "xp": 4.0},
+        "produces": {"spell_fragments": 12.5, "gold": 8.0, "xp": 4.0},
         "pos": {"x": 9, "y": 30},
     },
     "club_soda": {
         "name": "Club Soda", "icon": "🌿",
         "desc": "Where the herbs are fresh and the beats are questionable.",
         "type": "job", "job_label": "HERBALISM",
-        "produces": {"herbs": 0.2, "gold": 1.0, "xp": 2.0},
+        "produces": {"herbs": 12.5, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 67, "y": 58},
     },
     "barracks": {
@@ -281,7 +288,7 @@ BUILDINGS = {
         "name": "Gil the Guillotine", "icon": "💀",
         "desc": "A hard day's work. Blood gems don't collect themselves.",
         "type": "job", "job_label": "EXECUTIONER",
-        "produces": {"blood_gems": 0.1, "bones": 0.1, "gold": 1.0, "xp": 2.0},
+        "produces": {"blood_gems": 5.0, "bones": 5.0, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 84, "y": 58},
     },
 }
@@ -327,191 +334,191 @@ MONSTER_TYPES = {
         "tier": 1, "min_level": 1, "combat_power": 15,
         "variants": ["Snow Crab", "Hermit Crab", "Giant Crab"],
         "energy_cost": 25,
-        "rewards": {"gold": [10, 20], "xp": [15, 25], "resources": {"fish": [2, 5]}, "gear_drop_chance": 0.25},
+        "rewards": {"gold": [50, 100], "xp": [45, 75], "resources": {"fish": [20, 50]}, "gear_drop_chance": 0.25},
     },
     "bat": {
         "tier": 1, "min_level": 1, "combat_power": 18,
         "variants": ["Ice Bat", "Cave Bat", "Frost Wing"],
         "energy_cost": 25,
-        "rewards": {"gold": [8, 18], "xp": [12, 22], "resources": {"herbs": [2, 4]}, "gear_drop_chance": 0.25},
+        "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"herbs": [20, 40]}, "gear_drop_chance": 0.25},
     },
     "rat": {
         "tier": 1, "min_level": 1, "combat_power": 12,
         "variants": ["Frost Rat", "Sewer Rat", "Snow Mouse"],
         "energy_cost": 25,
-        "rewards": {"gold": [5, 15], "xp": [10, 20], "resources": {"bones": [1, 3]}, "gear_drop_chance": 0.20},
+        "rewards": {"gold": [25, 75], "xp": [30, 60], "resources": {"bones": [10, 30]}, "gear_drop_chance": 0.20},
     },
     "shell_lurker": {
         "tier": 1, "min_level": 1, "combat_power": 14,
         "variants": ["Tide Shell", "Giant Conch", "Lurking Shell"],
         "energy_cost": 25,
-        "rewards": {"gold": [8, 18], "xp": [12, 22], "resources": {"fish": [1, 4]}, "gear_drop_chance": 0.20},
+        "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"fish": [10, 40]}, "gear_drop_chance": 0.20},
     },
     "ice_squid": {
         "tier": 1, "min_level": 1, "combat_power": 16,
         "variants": ["Baby Squid", "Frost Squid", "Ink Specter"],
         "energy_cost": 25,
-        "rewards": {"gold": [10, 18], "xp": [12, 22], "resources": {"fish": [2, 4], "herbs": [1, 2]}, "gear_drop_chance": 0.20},
+        "rewards": {"gold": [50, 90], "xp": [36, 66], "resources": {"fish": [20, 40], "herbs": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "frost_beetle": {
         "tier": 1, "min_level": 1, "combat_power": 13,
         "variants": ["Tunnel Bug", "Ice Crawler", "Crystal Grub"],
         "energy_cost": 25,
-        "rewards": {"gold": [6, 14], "xp": [10, 20], "resources": {"bones": [1, 2]}, "gear_drop_chance": 0.20},
+        "rewards": {"gold": [30, 70], "xp": [30, 60], "resources": {"bones": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "pufferfish": {
         "tier": 1, "min_level": 1, "combat_power": 17,
         "variants": ["Toxic Puffer", "Spiky Fish", "Blowfish"],
         "energy_cost": 25,
-        "rewards": {"gold": [8, 16], "xp": [12, 22], "resources": {"fish": [2, 5], "herbs": [1, 2]}, "gear_drop_chance": 0.25},
+        "rewards": {"gold": [40, 80], "xp": [36, 66], "resources": {"fish": [20, 50], "herbs": [10, 20]}, "gear_drop_chance": 0.25},
     },
     # ── TIER 2 — FROZEN FRONTIER (level 6) ───────────────────────────────────
     "wolf": {
         "tier": 2, "min_level": 6, "combat_power": 35,
         "variants": ["Blizzard Wolf", "Shadow Wolf", "Arctic Dire Wolf"],
         "energy_cost": 25,
-        "rewards": {"gold": [20, 40], "xp": [30, 50], "resources": {"bones": [3, 6], "blood_gems": [1, 2]}, "gear_drop_chance": 0.20},
+        "rewards": {"gold": [100, 200], "xp": [90, 150], "resources": {"bones": [30, 60], "blood_gems": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "snowman": {
         "tier": 2, "min_level": 6, "combat_power": 40,
         "variants": ["Cursed Snowman", "Frost Golem", "Ice Construct"],
         "energy_cost": 25,
-        "rewards": {"gold": [22, 42], "xp": [32, 52], "resources": {"spell_fragments": [2, 4]}, "gear_drop_chance": 0.18},
+        "rewards": {"gold": [110, 210], "xp": [96, 156], "resources": {"spell_fragments": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "shadow_penguin": {
         "tier": 2, "min_level": 6, "combat_power": 38,
         "variants": ["Shadow Penguin", "Dark Penguin", "Void Waddle"],
         "energy_cost": 25,
-        "rewards": {"gold": [22, 38], "xp": [28, 48], "resources": {"blood_gems": [2, 4]}, "gear_drop_chance": 0.22},
+        "rewards": {"gold": [110, 190], "xp": [84, 144], "resources": {"blood_gems": [20, 40]}, "gear_drop_chance": 0.22},
     },
     "ice_hawk": {
         "tier": 2, "min_level": 6, "combat_power": 33,
         "variants": ["Storm Hawk", "Tundra Raptor", "Frozen Eagle"],
         "energy_cost": 25,
-        "rewards": {"gold": [18, 36], "xp": [28, 45], "resources": {"herbs": [3, 6]}, "gear_drop_chance": 0.20},
+        "rewards": {"gold": [90, 180], "xp": [84, 135], "resources": {"herbs": [30, 60]}, "gear_drop_chance": 0.20},
     },
     "frost_scorpion": {
         "tier": 2, "min_level": 6, "combat_power": 37,
         "variants": ["Ice Stinger", "Polar Pincer", "Frost Venom"],
         "energy_cost": 25,
-        "rewards": {"gold": [20, 38], "xp": [30, 48], "resources": {"blood_gems": [1, 3], "bones": [2, 4]}, "gear_drop_chance": 0.18},
+        "rewards": {"gold": [100, 190], "xp": [90, 144], "resources": {"blood_gems": [10, 30], "bones": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "snow_bear": {
         "tier": 2, "min_level": 6, "combat_power": 42,
         "variants": ["Snowfield Cub", "Frost Grizzly", "Avalanche Bear"],
         "energy_cost": 25,
-        "rewards": {"gold": [25, 45], "xp": [35, 55], "resources": {"bones": [4, 8]}, "gear_drop_chance": 0.18},
+        "rewards": {"gold": [125, 225], "xp": [105, 165], "resources": {"bones": [40, 80]}, "gear_drop_chance": 0.18},
     },
     "frost_wraith": {
         "tier": 2, "min_level": 6, "combat_power": 36,
         "variants": ["Ice Spirit", "Chilling Specter", "Pale Phantom"],
         "energy_cost": 25,
-        "rewards": {"gold": [22, 40], "xp": [30, 50], "resources": {"spell_fragments": [1, 3]}, "gear_drop_chance": 0.22},
+        "rewards": {"gold": [110, 200], "xp": [90, 150], "resources": {"spell_fragments": [10, 30]}, "gear_drop_chance": 0.22},
     },
     # ── TIER 3 — SHADOW TERRITORY (level 11) ─────────────────────────────────
     "ice_spider": {
         "tier": 3, "min_level": 11, "combat_power": 58,
         "variants": ["Web Creeper", "Frost Widow", "Icy Spinner"],
         "energy_cost": 25,
-        "rewards": {"gold": [35, 60], "xp": [40, 65], "resources": {"herbs": [4, 8], "bones": [3, 5]}, "gear_drop_chance": 0.15},
+        "rewards": {"gold": [175, 300], "xp": [120, 195], "resources": {"herbs": [40, 80], "bones": [30, 50]}, "gear_drop_chance": 0.15},
     },
     "frost_shark": {
         "tier": 3, "min_level": 11, "combat_power": 62,
         "variants": ["Glacier Fin", "Deep Frostbite", "Ice Jaw"],
         "energy_cost": 25,
-        "rewards": {"gold": [38, 62], "xp": [42, 68], "resources": {"fish": [6, 12]}, "gear_drop_chance": 0.15},
+        "rewards": {"gold": [190, 310], "xp": [126, 204], "resources": {"fish": [60, 120]}, "gear_drop_chance": 0.15},
     },
     "tundra_boar": {
         "tier": 3, "min_level": 11, "combat_power": 57,
         "variants": ["Frozen Tusker", "Blizzard Hog", "Snow Crusher"],
         "energy_cost": 25,
-        "rewards": {"gold": [33, 58], "xp": [38, 62], "resources": {"bones": [5, 9]}, "gear_drop_chance": 0.15},
+        "rewards": {"gold": [165, 290], "xp": [114, 186], "resources": {"bones": [50, 90]}, "gear_drop_chance": 0.15},
     },
     "living_iceblock": {
         "tier": 3, "min_level": 11, "combat_power": 65,
         "variants": ["Frostcube", "Crystalline Mass", "Cryo Entity"],
         "energy_cost": 25,
-        "rewards": {"gold": [40, 65], "xp": [45, 70], "resources": {"spell_fragments": [3, 5]}, "gear_drop_chance": 0.14},
+        "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"spell_fragments": [30, 50]}, "gear_drop_chance": 0.14},
     },
     "cursed_owl": {
         "tier": 3, "min_level": 11, "combat_power": 60,
         "variants": ["Night Eye", "Shadow Talon", "Hexed Feather"],
         "energy_cost": 25,
-        "rewards": {"gold": [35, 60], "xp": [42, 65], "resources": {"spell_fragments": [2, 5], "herbs": [3, 6]}, "gear_drop_chance": 0.16},
+        "rewards": {"gold": [175, 300], "xp": [126, 195], "resources": {"spell_fragments": [20, 50], "herbs": [30, 60]}, "gear_drop_chance": 0.16},
     },
     "glacier_croc": {
         "tier": 3, "min_level": 11, "combat_power": 63,
         "variants": ["Tundra Jaws", "Frost Maw", "Ice Scale"],
         "energy_cost": 25,
-        "rewards": {"gold": [38, 63], "xp": [43, 67], "resources": {"fish": [5, 10], "bones": [3, 6]}, "gear_drop_chance": 0.14},
+        "rewards": {"gold": [190, 315], "xp": [129, 201], "resources": {"fish": [50, 100], "bones": [30, 60]}, "gear_drop_chance": 0.14},
     },
     "night_stalker": {
         "tier": 3, "min_level": 11, "combat_power": 68,
         "variants": ["Shadow Creeper", "Dusk Hunter", "Void Walker"],
         "energy_cost": 25,
-        "rewards": {"gold": [40, 65], "xp": [45, 70], "resources": {"blood_gems": [3, 6]}, "gear_drop_chance": 0.15},
+        "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"blood_gems": [30, 60]}, "gear_drop_chance": 0.15},
     },
     # ── TIER 4 — CURSED DEPTHS (level 16) ────────────────────────────────────
     "golem": {
         "tier": 4, "min_level": 16, "combat_power": 85,
         "variants": ["Stone Golem", "Crystal Golem", "Ancient Guardian"],
         "energy_cost": 25,
-        "rewards": {"gold": [55, 85], "xp": [60, 90], "resources": {"bones": [6, 12], "blood_gems": [3, 6]}, "gear_drop_chance": 0.12},
+        "rewards": {"gold": [275, 425], "xp": [180, 270], "resources": {"bones": [60, 120], "blood_gems": [30, 60]}, "gear_drop_chance": 0.12},
     },
     "serpent": {
         "tier": 4, "min_level": 16, "combat_power": 90,
         "variants": ["Sea Serpent", "Ice Wyrm", "Frost Leviathan"],
         "energy_cost": 25,
-        "rewards": {"gold": [58, 90], "xp": [62, 95], "resources": {"fish": [8, 15], "spell_fragments": [3, 5]}, "gear_drop_chance": 0.12},
+        "rewards": {"gold": [290, 450], "xp": [186, 285], "resources": {"fish": [80, 150], "spell_fragments": [30, 50]}, "gear_drop_chance": 0.12},
     },
     "druid": {
         "tier": 4, "min_level": 16, "combat_power": 82,
         "variants": ["Dark Druid", "Cursed Shaman", "Shadow Priest"],
         "energy_cost": 25,
-        "rewards": {"gold": [55, 85], "xp": [62, 92], "resources": {"spell_fragments": [5, 9], "herbs": [5, 9]}, "gear_drop_chance": 0.14},
+        "rewards": {"gold": [275, 425], "xp": [186, 276], "resources": {"spell_fragments": [50, 90], "herbs": [50, 90]}, "gear_drop_chance": 0.14},
     },
     "ice_drake": {
         "tier": 4, "min_level": 16, "combat_power": 95,
         "variants": ["Frost Whelp", "Arctic Drake", "Glacial Serpent"],
         "energy_cost": 25,
-        "rewards": {"gold": [60, 95], "xp": [65, 100], "resources": {"blood_gems": [4, 8], "spell_fragments": [2, 4]}, "gear_drop_chance": 0.12},
+        "rewards": {"gold": [300, 475], "xp": [195, 300], "resources": {"blood_gems": [40, 80], "spell_fragments": [20, 40]}, "gear_drop_chance": 0.12},
     },
     "fallen_knight": {
         "tier": 4, "min_level": 16, "combat_power": 88,
         "variants": ["Lost Paladin", "Cursed Champion", "Hollow Warden"],
         "energy_cost": 25,
-        "rewards": {"gold": [58, 92], "xp": [62, 95], "resources": {"bones": [5, 10], "blood_gems": [2, 5]}, "gear_drop_chance": 0.12},
+        "rewards": {"gold": [290, 460], "xp": [186, 285], "resources": {"bones": [50, 100], "blood_gems": [20, 50]}, "gear_drop_chance": 0.12},
     },
     "blizzard_elemental": {
         "tier": 4, "min_level": 16, "combat_power": 100,
         "variants": ["Storm Core", "Blizzard Wraith", "Polar Force"],
         "energy_cost": 25,
-        "rewards": {"gold": [62, 98], "xp": [65, 100], "resources": {"spell_fragments": [4, 8]}, "gear_drop_chance": 0.12},
+        "rewards": {"gold": [310, 490], "xp": [195, 300], "resources": {"spell_fragments": [40, 80]}, "gear_drop_chance": 0.12},
     },
     # ── TIER 5 — THE ABYSS (level 26) ────────────────────────────────────────
     "elite_frostbear": {
         "tier": 5, "min_level": 26, "combat_power": 125,
         "variants": ["Frostbear Alpha", "Glacial Ursine", "Permafrost Beast"],
         "energy_cost": 25,
-        "rewards": {"gold": [90, 140], "xp": [90, 140], "resources": {"blood_gems": [6, 12], "bones": [8, 15]}, "gear_drop_chance": 0.10},
+        "rewards": {"gold": [450, 700], "xp": [270, 420], "resources": {"blood_gems": [60, 120], "bones": [80, 150]}, "gear_drop_chance": 0.10},
     },
     "frost_demon": {
         "tier": 5, "min_level": 26, "combat_power": 140,
         "variants": ["Frost Wraith Lord", "Infernal Ice", "Arctic Demon"],
         "energy_cost": 25,
-        "rewards": {"gold": [100, 150], "xp": [100, 150], "resources": {"blood_gems": [8, 14], "spell_fragments": [5, 10]}, "gear_drop_chance": 0.10},
+        "rewards": {"gold": [500, 750], "xp": [300, 450], "resources": {"blood_gems": [80, 140], "spell_fragments": [50, 100]}, "gear_drop_chance": 0.10},
     },
     "ancient_wyrm": {
         "tier": 5, "min_level": 26, "combat_power": 155,
         "variants": ["Void Dragon", "Ancient Serpent", "Deep Abyss"],
         "energy_cost": 25,
-        "rewards": {"gold": [110, 160], "xp": [110, 165], "resources": {"spell_fragments": [8, 15], "blood_gems": [5, 10]}, "gear_drop_chance": 0.08},
+        "rewards": {"gold": [550, 800], "xp": [330, 495], "resources": {"spell_fragments": [80, 150], "blood_gems": [50, 100]}, "gear_drop_chance": 0.08},
     },
     "deaths_herald": {
         "tier": 5, "min_level": 26, "combat_power": 160,
         "variants": ["Death Knight", "The Reaper", "End Bringer"],
         "energy_cost": 25,
-        "rewards": {"gold": [120, 180], "xp": [120, 180], "resources": {"blood_gems": [10, 18], "bones": [10, 18]}, "gear_drop_chance": 0.08},
+        "rewards": {"gold": [600, 900], "xp": [360, 540], "resources": {"blood_gems": [100, 180], "bones": [100, 180]}, "gear_drop_chance": 0.08},
     },
 }
 
@@ -2537,8 +2544,8 @@ def welcome_back(username):
             }
 
     # ── Passive earnings (always awarded) ────────────────────────────────────
-    passive_gold = int(min(hours_away, 12.0) * 0.5)
-    passive_xp   = int(min(hours_away, 12.0) * 1.0)
+    passive_gold = int(min(hours_away, 12.0) * 3.0)
+    passive_xp   = int(min(hours_away, 12.0) * 5.0)
     leveled_passive = False
     if passive_gold > 0:
         add_gold(db, username, passive_gold)
@@ -2767,6 +2774,9 @@ def building_upgrade_info(building_id):
                     for i, r in enumerate(rows)]
     # Player resources for donation UI
     player_resources = {}
+    player_building_total = 0
+    player_total_contributions = 0
+    next_milestone = None
     if username:
         ensure_resources(db, username)
         r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
@@ -2778,10 +2788,28 @@ def building_upgrade_info(building_id):
             }
         g = get_gold(db, username)
         player_resources["gold"] = g
+
+        r2 = db.execute(
+            "SELECT SUM(amount) as total FROM building_donations WHERE building_id=? AND username=?",
+            (building_id, username)
+        ).fetchone()
+        player_building_total = (r2["total"] if r2 else 0) or 0
+
+        p2 = db.execute("SELECT total_contributions FROM penguins WHERE username=?", (username,)).fetchone()
+        player_total_contributions = ((p2["total_contributions"] if p2 else 0) or 0)
+
+        for threshold in sorted(CONTRIBUTION_MILESTONES.keys()):
+            if player_total_contributions < threshold:
+                next_milestone = {"threshold": threshold, **CONTRIBUTION_MILESTONES[threshold]}
+                break
+
     db.close()
     return jsonify({"status": "success", **info,
                     "contributors": contributors,
-                    "player_resources": player_resources})
+                    "player_resources": player_resources,
+                    "player_building_total": player_building_total,
+                    "player_total_contributions": player_total_contributions,
+                    "next_milestone": next_milestone})
 
 
 @app.route("/building/donate", methods=["POST"])
@@ -2850,6 +2878,45 @@ def building_donate():
               f"{username} donated {amount} {resource_type} to {cfg['name']}",
               username)
 
+    # XP reward for donor
+    if resource_type == "gold":
+        xp_earned = amount // 4
+    elif resource_type in ("blood_gems", "bones"):
+        xp_earned = amount
+    else:
+        xp_earned = amount // 2
+
+    donation_level_ups = []
+    if xp_earned > 0:
+        _, lv_rewards = award_xp(db, username, xp_earned)
+        donation_level_ups.extend(lv_rewards)
+
+    # Track total contributions
+    p_contrib = db.execute("SELECT total_contributions FROM penguins WHERE username=?", (username,)).fetchone()
+    old_total = ((p_contrib["total_contributions"] if p_contrib else 0) or 0)
+    new_total = old_total + amount
+    db.execute("UPDATE penguins SET total_contributions=? WHERE username=?", (new_total, username))
+
+    # Milestone check
+    milestone_unlocked = None
+    for milestone, reward in sorted(CONTRIBUTION_MILESTONES.items()):
+        if old_total < milestone <= new_total:
+            item_id = reward["name"].lower().replace(" ", "_").replace("'", "").replace(",", "")
+            existing = db.execute(
+                "SELECT COUNT(*) as cnt FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+                (username, item_id)
+            ).fetchone()
+            if not existing or existing["cnt"] == 0:
+                db.execute(
+                    "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+                    "VALUES (?,?,?,'cosmetic','card_frame','milestone',0,?)",
+                    (username, item_id, reward["name"], int(time.time()))
+                )
+            log_event(db, "milestone",
+                      f"🎉 {username} unlocked '{reward['name']}' for contributing {milestone:,} total resources!",
+                      username)
+            milestone_unlocked = {"name": reward["name"], "description": reward["description"], "threshold": milestone}
+
     # Refresh row and check for level-up
     row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
     leveled_up = False
@@ -2877,11 +2944,15 @@ def building_donate():
     db.commit()
     db.close()
     return jsonify({
-        "status":          "success",
-        "donated":         amount,
-        "resource":        resource_type,
-        "building_level":  new_level,
-        "level_up":        leveled_up,
+        "status":                  "success",
+        "donated":                 amount,
+        "resource":                resource_type,
+        "building_level":          new_level,
+        "level_up":                leveled_up,
+        "xp_earned":               xp_earned,
+        "new_total_contributions": new_total,
+        "milestone_unlocked":      milestone_unlocked,
+        "level_ups":               donation_level_ups,
     })
 
 
