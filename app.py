@@ -1705,7 +1705,7 @@ def combat_fight():
             "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND killed_date=?",
             (username, monster_id, today)
         ).fetchone():
-            return jsonify({"status": "error", "message": "Already fought this today."})
+            return jsonify({"status": "error", "message": "Already defeated today."})
 
         stats  = get_combat_stats(db, username)
         print(f"[COMBAT] player stats: {stats}")
@@ -1750,16 +1750,15 @@ def combat_fight():
             log_event(db, "combat", f"{username} defeated {m['name']}! {loot_summary} 🎉", username)
             advance_mission(db, username, "first_fight", today)
             new_ach = check_achievements(db, username)
+            db.execute(
+                "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
+                (username, monster_id, today, loot_summary)
+            )
         else:
             consolation = max(2, mtype["base_rewards"].get("xp", 10) // 5)
             award_xp(db, username, consolation)
             actual_rewards = {"xp": consolation}
             log_event(db, "combat", f"{username} was defeated by {m['name']}...", username)
-
-        db.execute(
-            "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
-            (username, monster_id, today, loot_summary if won else "defeat")
-        )
         db.commit()
         print(f"[COMBAT] done: won={won} gear_drop={gear_drop} loot={loot_summary!r}")
         return jsonify({

@@ -3069,13 +3069,19 @@
         return;
       }
       let html = '';
+      const playerEnergy = data.player_energy || 0;
       data.monsters.forEach(m => {
-        const tierClass = `tier-${m.tier}`;
-        const tierLabel = m.tier === 1 ? 'T1' : m.tier === 2 ? 'T2' : 'T3';
-        const rewardStr = Object.entries(m.rewards).map(([k,v]) => `+${v} ${k}`).join(' ');
-        const cantFight = !m.can_fight;
-        const killed    = m.killed_today;
-        const btnLabel  = killed ? 'DONE TODAY' : cantFight ? `LV${m.min_level} REQ` : 'FIGHT';
+        const tierClass  = `tier-${m.tier}`;
+        const tierLabel  = m.tier === 1 ? 'T1' : m.tier === 2 ? 'T2' : 'T3';
+        const rewardStr  = Object.entries(m.rewards).map(([k,v]) => `+${v} ${k}`).join(' ');
+        const killed     = m.killed_today;
+        const locked     = !m.can_fight;
+        const lowEnergy  = !killed && !locked && playerEnergy < m.energy_cost;
+        const btnDisabled = killed || locked || lowEnergy;
+        const btnLabel   = killed    ? 'DEFEATED ✅'
+                         : locked    ? `LV${m.min_level} REQ`
+                         : lowEnergy ? `Need ${m.energy_cost} ⚡`
+                         :             '⚔️ FIGHT';
         html += `
           <div class="monster-card${killed ? ' killed' : ''}">
             <div class="monster-header">
@@ -3087,7 +3093,7 @@
             <div class="monster-rewards">${rewardStr}</div>
             <div class="monster-footer">
               <span style="color:#555;font-size:7px;">MIN LV${m.min_level}</span>
-              <button class="fight-btn" ${(cantFight || killed) ? 'disabled' : ''}
+              <button class="fight-btn" ${btnDisabled ? 'disabled' : ''}
                 onclick="fightMonster('${m.id}')">${btnLabel}</button>
             </div>
           </div>`;
