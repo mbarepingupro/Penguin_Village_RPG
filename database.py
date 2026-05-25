@@ -227,6 +227,7 @@ def init_db():
     _add_col(c, "penguins", "last_energy_update INTEGER DEFAULT 0")
     _add_col(c, "penguins", "hotel_uses_today INTEGER DEFAULT 0")
     _add_col(c, "penguins", "last_hotel_date TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "total_contributions INTEGER DEFAULT 0")
 
     conn.commit()
     conn.close()
