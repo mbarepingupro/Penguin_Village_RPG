@@ -1939,7 +1939,7 @@ def combat_fight():
             "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND killed_date=?",
             (username, monster_id, today)
         ).fetchone():
-            return jsonify({"status": "error", "message": "Already fought this today."})
+            return jsonify({"status": "error", "message": "Already defeated today."})
 
         variant = get_daily_variant(monster_id)
         monster_name = variant["name"]
@@ -2011,15 +2011,14 @@ def combat_fight():
             log_event(db, "combat", f"{username} defeated {monster_name}! {loot_summary} 🎉", username)
             advance_mission(db, username, "first_fight", today)
             check_achievements(db, username)
+            db.execute(
+                "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
+                (username, monster_id, today, str(rewards))
+            )
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
             award_xp(db, username, consolation_xp)
             log_event(db, "combat", f"{username} was defeated by {monster_name}...", username)
-
-        db.execute(
-            "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
-            (username, monster_id, today, str(rewards) if fight["victory"] else "defeat")
-        )
         db.commit()
 
         resp = {
