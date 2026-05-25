@@ -84,5 +84,15 @@ const Sounds = (function () {
         _tone(ctx, 800, 'square', ctx.currentTime, 0.10, 0.10);
       } catch (e) {}
     },
+
+    purchase() {
+      if (_muted) return;
+      try {
+        const ctx = _getCtx();
+        const t = ctx.currentTime;
+        _tone(ctx, 523.25, 'square', t,        0.07, 0.18);
+        _tone(ctx, 783.99, 'square', t + 0.07, 0.12, 0.18);
+      } catch (e) {}
+    },
   };
 })();
