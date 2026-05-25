@@ -264,15 +264,37 @@ function drawBuilding(id, bdef, level) {
             ctx.fillText(name, faceCenterX, faceCenterY);
         }
 
-        ctx.font = "5px 'Press Start 2P', monospace";
+        ctx.font = "10px 'Press Start 2P', monospace";
         const lv = buildingLevels[id] !== undefined ? buildingLevels[id] : (level !== undefined ? level : 1);
+        const lvBorderColors = { 1: '#666666', 2: '#4aff6b', 3: '#4a9eff', 4: '#A86EFF' };
+        const badgeText   = lv >= 5 ? '★ MAX' : ('LV.' + lv);
+        const badgeBorder = lv >= 5 ? '#FF8C00' : (lvBorderColors[lv] || '#666666');
+        const tw   = ctx.measureText(badgeText).width;
+        const padX = 3, padY = 2;
+        const bw   = tw + padX * 2;
+        const bh   = 10 + padY * 2;
+        const badgeY = faceCenterY - 22;
+        const bx   = faceCenterX - bw / 2;
+        const by   = badgeY - 5 - padY;
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur  = 0;
+        ctx.fillStyle   = '#1C1C1C';
+        ctx.fillRect(bx, by, bw, bh);
+
+        ctx.strokeStyle = badgeBorder;
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(bx, by, bw, bh);
+
         if (lv >= 5) {
-            ctx.fillStyle = "#FF8C00";
-            ctx.fillText("⭐MAX", faceCenterX, faceCenterY - 18);
-        } else {
-            ctx.fillStyle = "#A86EFF";
-            ctx.fillText("LV" + lv, faceCenterX, faceCenterY - 18);
+            const pulse = (Math.sin(_time / 200) + 1) / 2;
+            ctx.shadowColor = '#FF8C00';
+            ctx.shadowBlur  = 4 + pulse * 8;
         }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(badgeText, faceCenterX, badgeY);
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur  = 0;
 
         ctx.restore();
     }
