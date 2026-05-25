@@ -144,57 +144,64 @@ BUILDING_UPGRADES = {
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit",
         "levels": {
-            2: {"fish": 500,   "gold": 200,  "benefit": "+10% fish rate for everyone"},
-            3: {"fish": 1500,  "gold": 600,  "benefit": "+25% fish rate for everyone"},
-            4: {"fish": 4000,  "gold": 1500, "benefit": "+50% fish rate for everyone"},
-            5: {"fish": 10000, "gold": 4000, "benefit": "+100% fish rate for everyone, unlocks rare fish events"},
+            2: {"fish": 1000,  "gold": 500,  "benefit": "+10% fish rate for everyone"},
+            3: {"fish": 3000,  "gold": 1500, "benefit": "+25% fish rate for everyone"},
+            4: {"fish": 7000,  "gold": 3500, "benefit": "+50% fish rate for everyone"},
+            5: {"fish": 15000, "gold": 7500, "benefit": "+100% fish rate, unlocks rare fish events"},
         },
     },
     "club_soda": {
         "name": "Club Soda",
         "levels": {
-            2: {"herbs": 500,   "gold": 200,  "benefit": "+10% herb rate for everyone"},
-            3: {"herbs": 1500,  "gold": 600,  "benefit": "+25% herb rate for everyone"},
-            4: {"herbs": 4000,  "gold": 1500, "benefit": "+50% herb rate for everyone"},
-            5: {"herbs": 10000, "gold": 4000, "benefit": "+100% herb rate for everyone, unlocks potion crafting"},
+            2: {"herbs": 1000,  "gold": 500,  "benefit": "+10% herb rate for everyone"},
+            3: {"herbs": 3000,  "gold": 1500, "benefit": "+25% herb rate for everyone"},
+            4: {"herbs": 7000,  "gold": 3500, "benefit": "+50% herb rate for everyone"},
+            5: {"herbs": 15000, "gold": 7500, "benefit": "+100% herb rate, unlocks potion crafting"},
         },
     },
     "parkmusement": {
         "name": "Ash's Parkmusement",
         "levels": {
-            2: {"gold": 500,   "benefit": "+10% gold rate for everyone"},
-            3: {"gold": 1500,  "benefit": "+25% gold rate for everyone"},
-            4: {"gold": 4000,  "benefit": "+50% gold rate for everyone"},
-            5: {"gold": 10000, "benefit": "+100% gold rate for everyone, unlocks special performances"},
+            2: {"gold": 1500,  "benefit": "+10% gold rate for everyone"},
+            3: {"gold": 4500,  "benefit": "+25% gold rate for everyone"},
+            4: {"gold": 10000, "benefit": "+50% gold rate for everyone"},
+            5: {"gold": 25000, "benefit": "+100% gold rate, unlocks special performances"},
         },
     },
     "cursed_temple": {
         "name": "Cursed Temple",
         "levels": {
-            2: {"spell_fragments": 300,  "gold": 300,  "benefit": "+10% XP rate for everyone"},
-            3: {"spell_fragments": 800,  "gold": 800,  "benefit": "+25% XP rate for everyone"},
-            4: {"spell_fragments": 2000, "gold": 2000, "benefit": "+50% XP rate for everyone"},
-            5: {"spell_fragments": 5000, "gold": 5000, "benefit": "+100% XP rate for everyone, unlocks advanced spells"},
+            2: {"spell_fragments": 800,   "gold": 500,  "benefit": "+10% XP rate for everyone"},
+            3: {"spell_fragments": 2500,  "gold": 1500, "benefit": "+25% XP rate for everyone"},
+            4: {"spell_fragments": 6000,  "gold": 3500, "benefit": "+50% XP rate for everyone"},
+            5: {"spell_fragments": 12000, "gold": 7500, "benefit": "+100% XP rate, unlocks advanced spells"},
         },
     },
     "guillotine": {
         "name": "Gil the Guillotine",
         "levels": {
-            2: {"blood_gems": 200,  "bones": 200,  "gold": 200,  "benefit": "+10% blood gem and bone rate for everyone"},
-            3: {"blood_gems": 600,  "bones": 600,  "gold": 600,  "benefit": "+25% rate for everyone"},
-            4: {"blood_gems": 1500, "bones": 1500, "gold": 1500, "benefit": "+50% rate for everyone"},
-            5: {"blood_gems": 4000, "bones": 4000, "gold": 4000, "benefit": "+100% rate for everyone, unlocks dark rituals"},
+            2: {"blood_gems": 200,  "bones": 200,  "gold": 500,  "benefit": "+10% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 600,  "bones": 600,  "gold": 1500, "benefit": "+25% rate for everyone"},
+            4: {"blood_gems": 1500, "bones": 1500, "gold": 3500, "benefit": "+50% rate for everyone"},
+            5: {"blood_gems": 3000, "bones": 3000, "gold": 7500, "benefit": "+100% rate, unlocks dark rituals"},
         },
     },
     "hotel": {
         "name": "Penguin Hotel",
         "levels": {
-            2: {"gold": 500,   "fish": 200,  "benefit": "Rest costs reduced by 20%"},
-            3: {"gold": 1500,  "fish": 600,  "benefit": "Rest costs reduced by 40%"},
-            4: {"gold": 4000,  "fish": 1500, "benefit": "Rest costs reduced by 60%"},
-            5: {"gold": 10000, "fish": 4000, "benefit": "Rest is FREE for everyone"},
+            2: {"gold": 1500,  "fish": 500,  "benefit": "First daily rest is free"},
+            3: {"gold": 4500,  "fish": 1500, "benefit": "Rest costs reduced by 50%"},
+            4: {"gold": 10000, "fish": 3500, "benefit": "Rest costs reduced by 75%"},
+            5: {"gold": 25000, "fish": 7500, "benefit": "All rests are FREE for everyone"},
         },
     },
+}
+
+CONTRIBUTION_MILESTONES = {
+    100:  {"name": "Contributor's Frame",      "description": "A warm glow for those who give back."},
+    500:  {"name": "Builder's Canvas",          "description": "The village remembers your generosity."},
+    1000: {"name": "Architect's Backdrop",      "description": "You shaped this village with your own flippers."},
+    5000: {"name": "Legendary Founder's Frame", "description": "A living legend of Penguin Village."},
 }
 
 BUILDING_BONUS_RATES = {1: 0.0, 2: 0.10, 3: 0.25, 4: 0.50, 5: 1.00}
@@ -247,28 +254,28 @@ BUILDINGS = {
         "name": "Ash's Sea Lion Pit", "icon": "🦭",
         "desc": "Fish don't catch themselves. Actually here they do.",
         "type": "job", "job_label": "FISHING",
-        "produces": {"fish": 0.2, "gold": 1.0, "xp": 2.0},
+        "produces": {"fish": 12.5, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 36, "y": 62},
     },
     "parkmusement": {
         "name": "Ash's Parkmusement", "icon": "🎪",
         "desc": "Step right up! Juggle fish for coins! No refunds.",
         "type": "job", "job_label": "CIRCUS",
-        "produces": {"gold": 3.0, "xp": 2.0},
+        "produces": {"gold": 15.0, "xp": 2.0},
         "pos": {"x": 47, "y": 48},
     },
     "cursed_temple": {
         "name": "Cursed Temple", "icon": "⛩️",
         "desc": "Dark rituals. Ancient power. No refunds.",
         "type": "job", "job_label": "MONK",
-        "produces": {"blood_gems": 0.2, "xp": 4.0},
+        "produces": {"spell_fragments": 12.5, "gold": 8.0, "xp": 4.0},
         "pos": {"x": 9, "y": 30},
     },
     "club_soda": {
         "name": "Club Soda", "icon": "🌿",
         "desc": "Where the herbs are fresh and the beats are questionable.",
         "type": "job", "job_label": "HERBALISM",
-        "produces": {"herbs": 0.2, "gold": 1.0, "xp": 2.0},
+        "produces": {"herbs": 12.5, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 67, "y": 58},
     },
     "barracks": {
@@ -281,102 +288,237 @@ BUILDINGS = {
         "name": "Gil the Guillotine", "icon": "💀",
         "desc": "A hard day's work. Blood gems don't collect themselves.",
         "type": "job", "job_label": "EXECUTIONER",
-        "produces": {"blood_gems": 0.1, "bones": 0.1, "gold": 1.0, "xp": 2.0},
+        "produces": {"blood_gems": 5.0, "bones": 5.0, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 84, "y": 58},
     },
 }
 
 # ── MONSTERS ──────────────────────────────────────────────────────────────────
+_MONSTER_ICONS = {
+    "crab":               "🦀",
+    "bat":                "🦇",
+    "rat":                "🐀",
+    "shell_lurker":       "🐚",
+    "ice_squid":          "🦑",
+    "frost_beetle":       "🪲",
+    "pufferfish":         "🐡",
+    "wolf":               "🐺",
+    "snowman":            "☃️",
+    "shadow_penguin":     "🐧",
+    "ice_hawk":           "🦅",
+    "frost_scorpion":     "🦂",
+    "snow_bear":          "🐻",
+    "frost_wraith":       "👻",
+    "ice_spider":         "🕷️",
+    "frost_shark":        "🦈",
+    "tundra_boar":        "🐗",
+    "living_iceblock":    "🧊",
+    "cursed_owl":         "🦉",
+    "glacier_croc":       "🐊",
+    "night_stalker":      "🌑",
+    "golem":              "🗿",
+    "serpent":            "🐍",
+    "druid":              "🧙",
+    "ice_drake":          "🐉",
+    "fallen_knight":      "⚔️",
+    "blizzard_elemental": "🌪️",
+    "elite_frostbear":    "🐻",
+    "frost_demon":        "😈",
+    "ancient_wyrm":       "🐲",
+    "deaths_herald":      "💀",
+}
+
 MONSTER_TYPES = {
-    "snow_crab": {
-        "variants": [
-            {"name": "Snow Crab",        "icon": "🦀", "desc": "A frosty crustacean guarding the shoreline."},
-            {"name": "Raging Snow Crab", "icon": "🦀", "desc": "Extra snappy today. Watch those claws."},
-            {"name": "Giant Snow Crab",  "icon": "🦀", "desc": "Massive. One claw alone could crush a fish."},
-        ],
-        "tier": 1, "min_level": 1, "hp": 30, "attack": 5, "defense": 3, "speed": 4,
-        "base_rewards": {"fish": 5, "gold": 8, "xp": 15},
-        "energy_cost": 20, "gear_drop_chance": 0.20,
+    # ── TIER 1 — NEWCOMER GROUNDS (level 1) ──────────────────────────────────
+    "crab": {
+        "tier": 1, "min_level": 1, "combat_power": 15,
+        "variants": ["Snow Crab", "Hermit Crab", "Giant Crab"],
+        "energy_cost": 25,
+        "rewards": {"gold": [50, 100], "xp": [45, 75], "resources": {"fish": [20, 50]}, "gear_drop_chance": 0.25},
     },
-    "ice_bat": {
-        "variants": [
-            {"name": "Ice Bat",          "icon": "🦇", "desc": "Screeches in the dark."},
-            {"name": "Frost Bat",        "icon": "🦇", "desc": "Leaves trails of frost with every flap."},
-            {"name": "Vampire Ice Bat",  "icon": "🦇", "desc": "Drains warmth. Stylish, annoyingly."},
-        ],
-        "tier": 1, "min_level": 1, "hp": 20, "attack": 8, "defense": 2, "speed": 8,
-        "base_rewards": {"herbs": 3, "gold": 6, "xp": 12},
-        "energy_cost": 20, "gear_drop_chance": 0.20,
+    "bat": {
+        "tier": 1, "min_level": 1, "combat_power": 18,
+        "variants": ["Ice Bat", "Cave Bat", "Frost Wing"],
+        "energy_cost": 25,
+        "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"herbs": [20, 40]}, "gear_drop_chance": 0.25},
     },
-    "frost_rat": {
-        "variants": [
-            {"name": "Frost Rat",        "icon": "🐀", "desc": "Scurries through the snow."},
-            {"name": "Plague Rat",       "icon": "🐀", "desc": "Carries the chill plague. Gross."},
-            {"name": "Snow Rat King",    "icon": "🐀", "desc": "Self-proclaimed royalty of the sewers."},
-        ],
-        "tier": 1, "min_level": 1, "hp": 15, "attack": 6, "defense": 1, "speed": 6,
-        "base_rewards": {"bones": 3, "gold": 5, "xp": 10},
-        "energy_cost": 20, "gear_drop_chance": 0.20,
+    "rat": {
+        "tier": 1, "min_level": 1, "combat_power": 12,
+        "variants": ["Frost Rat", "Sewer Rat", "Snow Mouse"],
+        "energy_cost": 25,
+        "rewards": {"gold": [25, 75], "xp": [30, 60], "resources": {"bones": [10, 30]}, "gear_drop_chance": 0.20},
     },
-    "blizzard_wolf": {
-        "variants": [
-            {"name": "Blizzard Wolf",    "icon": "🐺", "desc": "Howls echo across the tundra."},
-            {"name": "Pack Wolf",        "icon": "🐺", "desc": "Always runs with backup. How unfair."},
-            {"name": "Alpha Wolf",       "icon": "🐺", "desc": "Scars from a dozen battles. Respect it."},
-        ],
-        "tier": 2, "min_level": 6, "hp": 60, "attack": 15, "defense": 8, "speed": 10,
-        "base_rewards": {"blood_gems": 3, "gold": 20, "xp": 30},
-        "energy_cost": 30, "gear_drop_chance": 0.30,
+    "shell_lurker": {
+        "tier": 1, "min_level": 1, "combat_power": 14,
+        "variants": ["Tide Shell", "Giant Conch", "Lurking Shell"],
+        "energy_cost": 25,
+        "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"fish": [10, 40]}, "gear_drop_chance": 0.20},
     },
-    "cursed_snowman": {
-        "variants": [
-            {"name": "Cursed Snowman",    "icon": "☃️", "desc": "Someone's snow sculpture went very wrong."},
-            {"name": "Blizzard Golem",    "icon": "☃️", "desc": "Built from magic snow. Mean."},
-            {"name": "Frosty the Menace", "icon": "☃️", "desc": "His soul is not merry."},
-        ],
-        "tier": 2, "min_level": 6, "hp": 50, "attack": 12, "defense": 10, "speed": 3,
-        "base_rewards": {"spell_fragments": 3, "gold": 18, "xp": 28},
-        "energy_cost": 30, "gear_drop_chance": 0.30,
+    "ice_squid": {
+        "tier": 1, "min_level": 1, "combat_power": 16,
+        "variants": ["Baby Squid", "Frost Squid", "Ink Specter"],
+        "energy_cost": 25,
+        "rewards": {"gold": [50, 90], "xp": [36, 66], "resources": {"fish": [20, 40], "herbs": [10, 20]}, "gear_drop_chance": 0.20},
+    },
+    "frost_beetle": {
+        "tier": 1, "min_level": 1, "combat_power": 13,
+        "variants": ["Tunnel Bug", "Ice Crawler", "Crystal Grub"],
+        "energy_cost": 25,
+        "rewards": {"gold": [30, 70], "xp": [30, 60], "resources": {"bones": [10, 20]}, "gear_drop_chance": 0.20},
+    },
+    "pufferfish": {
+        "tier": 1, "min_level": 1, "combat_power": 17,
+        "variants": ["Toxic Puffer", "Spiky Fish", "Blowfish"],
+        "energy_cost": 25,
+        "rewards": {"gold": [40, 80], "xp": [36, 66], "resources": {"fish": [20, 50], "herbs": [10, 20]}, "gear_drop_chance": 0.25},
+    },
+    # ── TIER 2 — FROZEN FRONTIER (level 6) ───────────────────────────────────
+    "wolf": {
+        "tier": 2, "min_level": 6, "combat_power": 35,
+        "variants": ["Blizzard Wolf", "Shadow Wolf", "Arctic Dire Wolf"],
+        "energy_cost": 25,
+        "rewards": {"gold": [100, 200], "xp": [90, 150], "resources": {"bones": [30, 60], "blood_gems": [10, 20]}, "gear_drop_chance": 0.20},
+    },
+    "snowman": {
+        "tier": 2, "min_level": 6, "combat_power": 40,
+        "variants": ["Cursed Snowman", "Frost Golem", "Ice Construct"],
+        "energy_cost": 25,
+        "rewards": {"gold": [110, 210], "xp": [96, 156], "resources": {"spell_fragments": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "shadow_penguin": {
-        "variants": [
-            {"name": "Shadow Penguin",    "icon": "🐧", "desc": "Your dark reflection."},
-            {"name": "Corrupted Waddler", "icon": "🐧", "desc": "Was once like you. Now, not so much."},
-            {"name": "Void Penguin",      "icon": "🐧", "desc": "Stares into the abyss. And wins."},
-        ],
-        "tier": 2, "min_level": 6, "hp": 55, "attack": 14, "defense": 7, "speed": 9,
-        "base_rewards": {"bones": 5, "gold": 22, "xp": 35},
-        "energy_cost": 30, "gear_drop_chance": 0.30,
+        "tier": 2, "min_level": 6, "combat_power": 38,
+        "variants": ["Shadow Penguin", "Dark Penguin", "Void Waddle"],
+        "energy_cost": 25,
+        "rewards": {"gold": [110, 190], "xp": [84, 144], "resources": {"blood_gems": [20, 40]}, "gear_drop_chance": 0.22},
     },
-    "stone_golem": {
-        "variants": [
-            {"name": "Stone Golem",   "icon": "🗿", "desc": "Slow, unstoppable."},
-            {"name": "Ancient Golem", "icon": "🗿", "desc": "Older than the village. Angrier."},
-            {"name": "Rune Golem",    "icon": "🗿", "desc": "Covered in glowing runes. Tough."},
-        ],
-        "tier": 3, "min_level": 16, "hp": 120, "attack": 25, "defense": 20, "speed": 3,
-        "base_rewards": {"blood_gems": 8, "gold": 40, "xp": 60},
-        "energy_cost": 40, "gear_drop_chance": 0.40,
+    "ice_hawk": {
+        "tier": 2, "min_level": 6, "combat_power": 33,
+        "variants": ["Storm Hawk", "Tundra Raptor", "Frozen Eagle"],
+        "energy_cost": 25,
+        "rewards": {"gold": [90, 180], "xp": [84, 135], "resources": {"herbs": [30, 60]}, "gear_drop_chance": 0.20},
     },
-    "sea_serpent": {
-        "variants": [
-            {"name": "Sea Serpent",    "icon": "🐍", "desc": "Coils around ships in the frozen sea."},
-            {"name": "Leviathan Spawn","icon": "🐍", "desc": "Baby of something much bigger."},
-            {"name": "Arctic Hydra",   "icon": "🐍", "desc": "Two heads. Both rude."},
-        ],
-        "tier": 3, "min_level": 16, "hp": 100, "attack": 22, "defense": 15, "speed": 12,
-        "base_rewards": {"fish": 15, "gold": 35, "xp": 55},
-        "energy_cost": 40, "gear_drop_chance": 0.40,
+    "frost_scorpion": {
+        "tier": 2, "min_level": 6, "combat_power": 37,
+        "variants": ["Ice Stinger", "Polar Pincer", "Frost Venom"],
+        "energy_cost": 25,
+        "rewards": {"gold": [100, 190], "xp": [90, 144], "resources": {"blood_gems": [10, 30], "bones": [20, 40]}, "gear_drop_chance": 0.18},
     },
-    "dark_druid": {
-        "variants": [
-            {"name": "Dark Druid",    "icon": "🧙", "desc": "Ancient magic, wicked purpose."},
-            {"name": "Blood Shaman",  "icon": "🧙", "desc": "Ritual gone wrong. Or right, depending."},
-            {"name": "Void Warlock",  "icon": "🧙", "desc": "Doesn't believe in mercy. At all."},
-        ],
-        "tier": 3, "min_level": 16, "hp": 110, "attack": 28, "defense": 12, "speed": 8,
-        "base_rewards": {"spell_fragments": 8, "herbs": 5, "gold": 45, "xp": 70},
-        "energy_cost": 40, "gear_drop_chance": 0.40,
+    "snow_bear": {
+        "tier": 2, "min_level": 6, "combat_power": 42,
+        "variants": ["Snowfield Cub", "Frost Grizzly", "Avalanche Bear"],
+        "energy_cost": 25,
+        "rewards": {"gold": [125, 225], "xp": [105, 165], "resources": {"bones": [40, 80]}, "gear_drop_chance": 0.18},
+    },
+    "frost_wraith": {
+        "tier": 2, "min_level": 6, "combat_power": 36,
+        "variants": ["Ice Spirit", "Chilling Specter", "Pale Phantom"],
+        "energy_cost": 25,
+        "rewards": {"gold": [110, 200], "xp": [90, 150], "resources": {"spell_fragments": [10, 30]}, "gear_drop_chance": 0.22},
+    },
+    # ── TIER 3 — SHADOW TERRITORY (level 11) ─────────────────────────────────
+    "ice_spider": {
+        "tier": 3, "min_level": 11, "combat_power": 58,
+        "variants": ["Web Creeper", "Frost Widow", "Icy Spinner"],
+        "energy_cost": 25,
+        "rewards": {"gold": [175, 300], "xp": [120, 195], "resources": {"herbs": [40, 80], "bones": [30, 50]}, "gear_drop_chance": 0.15},
+    },
+    "frost_shark": {
+        "tier": 3, "min_level": 11, "combat_power": 62,
+        "variants": ["Glacier Fin", "Deep Frostbite", "Ice Jaw"],
+        "energy_cost": 25,
+        "rewards": {"gold": [190, 310], "xp": [126, 204], "resources": {"fish": [60, 120]}, "gear_drop_chance": 0.15},
+    },
+    "tundra_boar": {
+        "tier": 3, "min_level": 11, "combat_power": 57,
+        "variants": ["Frozen Tusker", "Blizzard Hog", "Snow Crusher"],
+        "energy_cost": 25,
+        "rewards": {"gold": [165, 290], "xp": [114, 186], "resources": {"bones": [50, 90]}, "gear_drop_chance": 0.15},
+    },
+    "living_iceblock": {
+        "tier": 3, "min_level": 11, "combat_power": 65,
+        "variants": ["Frostcube", "Crystalline Mass", "Cryo Entity"],
+        "energy_cost": 25,
+        "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"spell_fragments": [30, 50]}, "gear_drop_chance": 0.14},
+    },
+    "cursed_owl": {
+        "tier": 3, "min_level": 11, "combat_power": 60,
+        "variants": ["Night Eye", "Shadow Talon", "Hexed Feather"],
+        "energy_cost": 25,
+        "rewards": {"gold": [175, 300], "xp": [126, 195], "resources": {"spell_fragments": [20, 50], "herbs": [30, 60]}, "gear_drop_chance": 0.16},
+    },
+    "glacier_croc": {
+        "tier": 3, "min_level": 11, "combat_power": 63,
+        "variants": ["Tundra Jaws", "Frost Maw", "Ice Scale"],
+        "energy_cost": 25,
+        "rewards": {"gold": [190, 315], "xp": [129, 201], "resources": {"fish": [50, 100], "bones": [30, 60]}, "gear_drop_chance": 0.14},
+    },
+    "night_stalker": {
+        "tier": 3, "min_level": 11, "combat_power": 68,
+        "variants": ["Shadow Creeper", "Dusk Hunter", "Void Walker"],
+        "energy_cost": 25,
+        "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"blood_gems": [30, 60]}, "gear_drop_chance": 0.15},
+    },
+    # ── TIER 4 — CURSED DEPTHS (level 16) ────────────────────────────────────
+    "golem": {
+        "tier": 4, "min_level": 16, "combat_power": 85,
+        "variants": ["Stone Golem", "Crystal Golem", "Ancient Guardian"],
+        "energy_cost": 25,
+        "rewards": {"gold": [275, 425], "xp": [180, 270], "resources": {"bones": [60, 120], "blood_gems": [30, 60]}, "gear_drop_chance": 0.12},
+    },
+    "serpent": {
+        "tier": 4, "min_level": 16, "combat_power": 90,
+        "variants": ["Sea Serpent", "Ice Wyrm", "Frost Leviathan"],
+        "energy_cost": 25,
+        "rewards": {"gold": [290, 450], "xp": [186, 285], "resources": {"fish": [80, 150], "spell_fragments": [30, 50]}, "gear_drop_chance": 0.12},
+    },
+    "druid": {
+        "tier": 4, "min_level": 16, "combat_power": 82,
+        "variants": ["Dark Druid", "Cursed Shaman", "Shadow Priest"],
+        "energy_cost": 25,
+        "rewards": {"gold": [275, 425], "xp": [186, 276], "resources": {"spell_fragments": [50, 90], "herbs": [50, 90]}, "gear_drop_chance": 0.14},
+    },
+    "ice_drake": {
+        "tier": 4, "min_level": 16, "combat_power": 95,
+        "variants": ["Frost Whelp", "Arctic Drake", "Glacial Serpent"],
+        "energy_cost": 25,
+        "rewards": {"gold": [300, 475], "xp": [195, 300], "resources": {"blood_gems": [40, 80], "spell_fragments": [20, 40]}, "gear_drop_chance": 0.12},
+    },
+    "fallen_knight": {
+        "tier": 4, "min_level": 16, "combat_power": 88,
+        "variants": ["Lost Paladin", "Cursed Champion", "Hollow Warden"],
+        "energy_cost": 25,
+        "rewards": {"gold": [290, 460], "xp": [186, 285], "resources": {"bones": [50, 100], "blood_gems": [20, 50]}, "gear_drop_chance": 0.12},
+    },
+    "blizzard_elemental": {
+        "tier": 4, "min_level": 16, "combat_power": 100,
+        "variants": ["Storm Core", "Blizzard Wraith", "Polar Force"],
+        "energy_cost": 25,
+        "rewards": {"gold": [310, 490], "xp": [195, 300], "resources": {"spell_fragments": [40, 80]}, "gear_drop_chance": 0.12},
+    },
+    # ── TIER 5 — THE ABYSS (level 26) ────────────────────────────────────────
+    "elite_frostbear": {
+        "tier": 5, "min_level": 26, "combat_power": 125,
+        "variants": ["Frostbear Alpha", "Glacial Ursine", "Permafrost Beast"],
+        "energy_cost": 25,
+        "rewards": {"gold": [450, 700], "xp": [270, 420], "resources": {"blood_gems": [60, 120], "bones": [80, 150]}, "gear_drop_chance": 0.10},
+    },
+    "frost_demon": {
+        "tier": 5, "min_level": 26, "combat_power": 140,
+        "variants": ["Frost Wraith Lord", "Infernal Ice", "Arctic Demon"],
+        "energy_cost": 25,
+        "rewards": {"gold": [500, 750], "xp": [300, 450], "resources": {"blood_gems": [80, 140], "spell_fragments": [50, 100]}, "gear_drop_chance": 0.10},
+    },
+    "ancient_wyrm": {
+        "tier": 5, "min_level": 26, "combat_power": 155,
+        "variants": ["Void Dragon", "Ancient Serpent", "Deep Abyss"],
+        "energy_cost": 25,
+        "rewards": {"gold": [550, 800], "xp": [330, 495], "resources": {"spell_fragments": [80, 150], "blood_gems": [50, 100]}, "gear_drop_chance": 0.08},
+    },
+    "deaths_herald": {
+        "tier": 5, "min_level": 26, "combat_power": 160,
+        "variants": ["Death Knight", "The Reaper", "End Bringer"],
+        "energy_cost": 25,
+        "rewards": {"gold": [600, 900], "xp": [360, 540], "resources": {"blood_gems": [100, 180], "bones": [100, 180]}, "gear_drop_chance": 0.08},
     },
 }
 
@@ -385,12 +527,12 @@ COMMUNITY_BOSS = {
     "icon":        "👑",
     "desc":        "An ancient ice titan. His wrath freezes the entire village.",
     "max_hp":      10000,
-    "attack":      50,
-    "defense":     35,
-    "speed":       5,
     "hit_rewards": {"xp": 50, "gold": 25},
     "kill_rewards": {"xp": 500, "gold": 300, "blood_gems": 15, "spell_fragments": 10},
-    "energy_cost": 30,
+    "energy_cost": 25,
+    "speed":       20,
+    "attack":      50,
+    "defense":     20,
 }
 
 # ── GEAR CATALOG ──────────────────────────────────────────────────────────────
@@ -455,6 +597,8 @@ _GEAR_DROP_RARITY_WEIGHTS = {
     1: {"common": 70, "uncommon": 25, "rare": 5,  "epic": 0,  "legendary": 0},
     2: {"common": 40, "uncommon": 40, "rare": 15, "epic": 5,  "legendary": 0},
     3: {"common": 15, "uncommon": 35, "rare": 35, "epic": 14, "legendary": 1},
+    4: {"common": 5,  "uncommon": 20, "rare": 40, "epic": 30, "legendary": 5},
+    5: {"common": 0,  "uncommon": 10, "rare": 25, "epic": 40, "legendary": 25},
 }
 
 _GEAR_DROP_NAMES = {
@@ -727,11 +871,11 @@ def get_daily_variant(monster_type_id):
     """Return the daily flavor variant for a monster type, consistent within a UTC day."""
     mtype = MONSTER_TYPES[monster_type_id]
     today = get_today()
-    h     = hashlib.md5(f"{monster_type_id}:{today}".encode()).hexdigest()
-    idx   = int(h[:4], 16) % len(mtype["variants"])
-    variant = mtype["variants"][idx]
-    result  = {k: v for k, v in mtype.items() if k != "variants"}
-    result.update(variant)
+    h = hashlib.md5(f"{monster_type_id}:{today}".encode()).hexdigest()
+    idx = int(h[:4], 16) % len(mtype["variants"])
+    result = {k: v for k, v in mtype.items() if k != "variants"}
+    result["name"] = mtype["variants"][idx]
+    result["icon"] = _MONSTER_ICONS.get(monster_type_id, "❓")
     result["type_id"] = monster_type_id
     return result
 
@@ -755,6 +899,82 @@ def calculate_set_bonuses(db, username):
                     for stat, val in bonus.items():
                         bonuses[stat] = bonuses.get(stat, 0) + val
     return bonuses
+
+
+def get_combat_power(username):
+    db = get_db()
+    try:
+        p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+        level = p["level"] if p else 1
+        cp = 10 + level * 3
+        equipped = db.execute(
+            "SELECT attack_bonus, defense_bonus, speed_bonus, hp_bonus FROM gear "
+            "WHERE username=? AND equipped=1 AND type='combat'", (username,)
+        ).fetchall()
+        for item in equipped:
+            cp += item["attack_bonus"] + item["defense_bonus"] + item["speed_bonus"] + (item["hp_bonus"] // 5)
+        sb = calculate_set_bonuses(db, username)
+        cp += sb["attack_bonus"] + sb["defense_bonus"] + sb["speed_bonus"] + (sb["hp_bonus"] // 5)
+        for buff in get_active_buffs(db):
+            if buff["buff_type"] == "festival":
+                cp = int(cp * 1.1)
+    finally:
+        db.close()
+    return cp
+
+def update_passive_energy(username):
+    """Lazy 10-energy/hr passive regen. Manages its own DB connection."""
+    db = get_db()
+    try:
+        penguin = db.execute(
+            "SELECT energy, max_energy, last_energy_update FROM penguins WHERE username=?",
+            (username,)
+        ).fetchone()
+        if not penguin:
+            return
+        now = int(time.time())
+        last_update = penguin["last_energy_update"] or 0
+        if last_update == 0:
+            db.execute("UPDATE penguins SET last_energy_update=? WHERE username=?", (now, username))
+            db.commit()
+            return
+        energy_to_add = int((now - last_update) / 3600.0 * 10)
+        if energy_to_add > 0:
+            max_energy = penguin["max_energy"] or 100
+            new_energy = min(max_energy, (penguin["energy"] or 0) + energy_to_add)
+            db.execute(
+                "UPDATE penguins SET energy=?, last_energy_update=? WHERE username=?",
+                (new_energy, now, username)
+            )
+            db.commit()
+    finally:
+        db.close()
+
+
+def calculate_win_chance(player_cp, monster_cp):
+    return max(5, min(95, 50 + (player_cp - monster_cp)))
+
+def get_evaluation(win_chance):
+    if win_chance >= 90: return "Free Real Estate"
+    if win_chance >= 75: return "Easy Peasy"
+    if win_chance >= 60: return "Feeling Lucky"
+    if win_chance >= 50: return "Coin Flip"
+    if win_chance >= 40: return "Sweaty Flippers"
+    if win_chance >= 25: return "Pray to the Mayor"
+    if win_chance >= 10: return "Basically Suicide"
+    return "Miracle Required"
+
+def resolve_fight(player_cp, monster_cp):
+    win_chance = calculate_win_chance(player_cp, monster_cp)
+    roll = random.randint(1, 100)
+    return {
+        "victory": roll <= win_chance,
+        "roll": roll,
+        "win_chance": win_chance,
+        "evaluation": get_evaluation(win_chance),
+        "player_cp": player_cp,
+        "monster_cp": monster_cp,
+    }
 
 
 def get_combat_stats(db, username):
@@ -793,42 +1013,6 @@ def generate_gear_drop(monster_tier):
     item_id  = f"drop_{slot}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {"name": name.upper(), "item_id": item_id, "type": "combat", "slot": slot,
             "rarity": rarity, "set_name": None, **stats}
-
-
-def simulate_fight(player_stats, monster):
-    """Turn-based fight simulation. Returns victory flag, turn count, log, remaining HP."""
-    php  = player_stats["hp"]
-    mhp  = monster["hp"]
-    patk = player_stats["attack"]
-    pdef = player_stats["defense"]
-    pspd = player_stats["speed"]
-    matk = monster["attack"]
-    mdef = monster["defense"]
-    mspd = monster.get("speed", 5)
-    combat_log = []
-    turn = 0
-    while php > 0 and mhp > 0 and turn < 50:
-        turn += 1
-        if pspd >= mspd:
-            pdmg = max(1, patk - mdef // 2 + random.randint(-2, 2))
-            mhp -= pdmg
-            combat_log.append({"turn": turn, "actor": "player", "dmg": pdmg, "enemy_hp": max(0, mhp)})
-            if mhp <= 0:
-                break
-            mdmg = max(1, matk - pdef // 2 + random.randint(-2, 2))
-            php -= mdmg
-            combat_log.append({"turn": turn, "actor": "monster", "dmg": mdmg, "player_hp": max(0, php)})
-        else:
-            mdmg = max(1, matk - pdef // 2 + random.randint(-2, 2))
-            php -= mdmg
-            combat_log.append({"turn": turn, "actor": "monster", "dmg": mdmg, "player_hp": max(0, php)})
-            if php <= 0:
-                break
-            pdmg = max(1, patk - mdef // 2 + random.randint(-2, 2))
-            mhp -= pdmg
-            combat_log.append({"turn": turn, "actor": "player", "dmg": pdmg, "enemy_hp": max(0, mhp)})
-    return {"victory": mhp <= 0, "turns": turn, "combat_log": combat_log,
-            "remaining_player_hp": max(0, php)}
 
 
 def apply_level_rewards(db, username, reward):
@@ -949,6 +1133,7 @@ def home():
     username = session.get("username")
     if not username:
         return render_template("home.html", logged_in=False, features=FEATURES)
+    update_passive_energy(username)
     db = get_db()
     penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
     if not penguin:
@@ -1047,6 +1232,7 @@ def logout():
 
 @app.route("/profile/<username>")
 def profile(username):
+    update_passive_energy(username)
     db = get_db()
     p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
@@ -1335,12 +1521,19 @@ def building_info(building_id):
     if not b:
         return jsonify({"status": "error", "message": "Building not found."})
     db = get_db()
-    p  = db.execute("SELECT job, job_started, job_duration, energy, max_energy FROM penguins WHERE username=?", (username,)).fetchone()
+    p  = db.execute(
+        "SELECT job, job_started, job_duration, energy, max_energy, hotel_uses_today, last_hotel_date FROM penguins WHERE username=?",
+        (username,)
+    ).fetchone()
     if not p:
         db.close()
         return jsonify({"status": "error", "message": "Penguin not found."})
     ensure_resources(db, username)
     gold = get_gold(db, username)
+    today_str = get_today()
+    hotel_uses = p["hotel_uses_today"] or 0
+    last_hotel = p["last_hotel_date"] or ""
+    hotel_remaining = 2 if last_hotel != today_str else max(0, 2 - hotel_uses)
     db.close()
 
     working_here     = p["job"] == building_id
@@ -1373,7 +1566,8 @@ def building_info(building_id):
         "job_started_ts":  job_started_ts,
         "job_cap_ts":      job_started_ts + int(JOB_CAP_HOURS * 3600) if job_started_ts else 0,
         "complete":        hours_worked >= JOB_CAP_HOURS,
-        "preview_earnings":preview_earnings,
+        "preview_earnings":       preview_earnings,
+        "hotel_remaining_today":  hotel_remaining,
     })
 
 
@@ -1552,7 +1746,11 @@ def work_status():
 @app.route("/hotel/rest/<username>", methods=["POST"])
 def hotel_rest(username):
     db = get_db()
-    p  = db.execute("SELECT energy, max_energy, job FROM penguins WHERE username=?", (username,)).fetchone()
+    today = get_today()
+    p  = db.execute(
+        "SELECT energy, max_energy, job, hotel_uses_today, last_hotel_date FROM penguins WHERE username=?",
+        (username,)
+    ).fetchone()
     if not p:
         db.close()
         return jsonify({"status": "error", "message": "Penguin not found."})
@@ -1564,15 +1762,20 @@ def hotel_rest(username):
     if p["job"]:
         db.close()
         return jsonify({"status": "error", "message": "Your penguin needs to finish working first! Collect your job earnings before resting."})
-    to_restore = max_e - energy
-    cost = to_restore * 2
+    uses_today = (p["hotel_uses_today"] or 0) if (p["last_hotel_date"] or "") == today else 0
+    if uses_today >= 2:
+        db.close()
+        return jsonify({"status": "error", "message": "The penguins at the hotel are exhausted. Come back tomorrow! 💤"})
+    cost = 100 if uses_today == 0 else 500
     ensure_resources(db, username)
     gold = get_gold(db, username)
     if gold < cost:
         db.close()
-        return jsonify({"status": "error", "message": f"Not enough gold! Need {cost} gold ({to_restore} energy × 2).", "need": cost, "have": gold})
+        return jsonify({"status": "error", "message": f"Not enough gold! Need {cost} gold.", "need": cost, "have": gold})
+    to_restore = max_e - energy
     add_gold(db, username, -cost)
-    db.execute("UPDATE penguins SET energy=? WHERE username=?", (max_e, username))
+    db.execute("UPDATE penguins SET energy=?, hotel_uses_today=?, last_hotel_date=? WHERE username=?",
+               (max_e, uses_today + 1, today, username))
     log_event(db, "village", f"{username} rested at the Penguin Hotel (+{to_restore} energy for {cost} gold)", username)
     db.commit()
     db.close()
@@ -1641,31 +1844,65 @@ def gear_cosmetics_equip():
 
 # ── COMBAT ───────────────────────────────────────────────────────────────────
 
-@app.route("/combat/monsters")
-def combat_monsters():
+_MAX_FIRST_KILLS = sum(len(m["variants"]) for m in MONSTER_TYPES.values())
+
+@app.route("/combat/monsters/<username>")
+def combat_monsters(username):
     if not FEATURES.get("combat", False):
         return jsonify({"status": "disabled", "message": "This feature is coming soon!", "monsters": []})
-    username = request.args.get("username", "")
-    today    = get_today()
+    update_passive_energy(username)
+    today = get_today()
     try:
         db = get_db()
-        p  = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
+        p  = db.execute("SELECT level, energy, max_energy FROM penguins WHERE username=?", (username,)).fetchone()
         player_level = p["level"] if p else 1
         killed_today = {
             row["monster_id"] for row in
             db.execute("SELECT monster_id FROM monster_kills WHERE username=? AND killed_date=?", (username, today))
         }
+        first_kills_done = {
+            (row["monster_type"], row["variant_name"]) for row in
+            db.execute("SELECT monster_type, variant_name FROM first_kills WHERE username=?", (username,))
+        }
         db.close()
+        player_cp = get_combat_power(username)
         result = []
-        for type_id in MONSTER_TYPES:
-            variant = get_daily_variant(type_id)
+        for type_id, mtype in MONSTER_TYPES.items():
+            variant    = get_daily_variant(type_id)
+            mcp        = mtype["combat_power"]
+            win_chance = calculate_win_chance(player_cp, mcp)
+            rdef       = mtype["rewards"]
+            res_parts  = [f"{lo}-{hi} {k.replace('_',' ')}" for k, (lo, hi) in rdef["resources"].items()]
+            is_new     = (type_id, variant["name"]) not in first_kills_done
             result.append({
-                **variant,
-                "id":          type_id,
-                "can_fight":   player_level >= variant["min_level"],
+                "type":         type_id,
+                "name":         variant["name"],
+                "icon":         variant["icon"],
+                "tier":         mtype["tier"],
+                "combat_power": mcp,
+                "energy_cost":  mtype["energy_cost"],
+                "min_level":    mtype["min_level"],
+                "rewards_preview": {
+                    "gold":            f"{rdef['gold'][0]}-{rdef['gold'][1]}",
+                    "xp":              f"{rdef['xp'][0]}-{rdef['xp'][1]}",
+                    "resources":       ", ".join(res_parts),
+                    "gear_drop_chance": rdef["gear_drop_chance"],
+                },
+                "win_chance":   win_chance,
+                "evaluation":   get_evaluation(win_chance),
                 "killed_today": type_id in killed_today,
+                "is_new":       is_new,
+                "locked":       player_level < mtype["min_level"],
             })
-        return jsonify({"monsters": result, "player_level": player_level, "player_energy": p["energy"] if p else 100})
+        return jsonify({
+            "monsters":           result,
+            "player_cp":          player_cp,
+            "player_level":       player_level,
+            "player_energy":      p["energy"] if p else 100,
+            "player_max_energy":  p["max_energy"] if p else 100,
+            "first_kills_count":  len(first_kills_done),
+            "max_first_kills":    _MAX_FIRST_KILLS,
+        })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e), "monsters": []})
 
@@ -1676,30 +1913,27 @@ def combat_fight():
         return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     db = None
     try:
-        data       = request.get_json(silent=True) or {}
-        username   = data.get("username", "")
+        data = request.get_json(silent=True) or {}
+        username = data.get("username", "")
         monster_id = data.get("monster_id", "")
-        print(f"[COMBAT] fight request: username={username!r} monster_id={monster_id!r}")
+
+        update_passive_energy(username)
 
         mtype = MONSTER_TYPES.get(monster_id)
         if not mtype:
-            print(f"[COMBAT] unknown monster_id: {monster_id!r}")
             return jsonify({"status": "error", "message": "Unknown monster."})
 
-        m     = get_daily_variant(monster_id)
         today = get_today()
-        db    = get_db()
-        p     = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
-        print(f"[COMBAT] penguin row: {dict(p) if p else None}")
+        db = get_db()
+        p = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
         if not p:
             return jsonify({"status": "error", "message": "Penguin not found."})
+        if p["level"] < mtype["min_level"]:
+            return jsonify({"status": "error", "message": f"Need level {mtype['min_level']}."})
 
         energy_cost = mtype["energy_cost"]
         if (p["energy"] or 0) < energy_cost:
             return jsonify({"status": "error", "message": f"Need {energy_cost} energy to fight."})
-
-        if p["level"] < mtype["min_level"]:
-            return jsonify({"status": "error", "message": f"Need level {mtype['min_level']}."})
 
         if db.execute(
             "SELECT 1 FROM monster_kills WHERE username=? AND monster_id=? AND killed_date=?",
@@ -1707,33 +1941,48 @@ def combat_fight():
         ).fetchone():
             return jsonify({"status": "error", "message": "Already defeated today."})
 
-        stats  = get_combat_stats(db, username)
-        print(f"[COMBAT] player stats: {stats}")
-        result = simulate_fight(stats, m)
-        won    = result["victory"]
-        gear_drop = None
-        new_ach   = []
-        ensure_resources(db, username)
+        variant = get_daily_variant(monster_id)
+        monster_name = variant["name"]
+
+        is_first_kill_eligible = not db.execute(
+            "SELECT 1 FROM first_kills WHERE username=? AND monster_type=? AND variant_name=?",
+            (username, monster_id, monster_name)
+        ).fetchone()
+
+        db.execute("UPDATE penguins SET energy=MAX(0,energy-?) WHERE username=?", (energy_cost, username))
+        energy_remaining = max(0, (p["energy"] or 0) - energy_cost)
+
+        player_cp = get_combat_power(username)
+        fight = resolve_fight(player_cp, mtype["combat_power"])
 
         advance_mission(db, username, "fight_1", today)
-        db.execute("UPDATE penguins SET energy=MAX(0,energy-?) WHERE username=?", (energy_cost, username))
+        ensure_resources(db, username)
 
-        actual_rewards = {}
-        loot_summary   = ""
-        if won:
-            base = mtype["base_rewards"]
-            for resource, amount in base.items():
-                variance = random.randint(-max(1, amount // 5), max(1, amount // 5))
-                final    = max(1, amount + variance)
-                actual_rewards[resource] = final
-                if resource == "xp":
-                    award_xp(db, username, final)
-                elif resource == "gold":
-                    add_gold(db, username, final)
-                else:
-                    db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?",
-                               (final, username))
-            if random.random() < mtype["gear_drop_chance"]:
+        rewards = {}
+        consolation_xp = 0
+        is_first_kill = False
+
+        if fight["victory"]:
+            rdef = mtype["rewards"]
+            multiplier = 2 if is_first_kill_eligible else 1
+            gold      = random.randint(rdef["gold"][0], rdef["gold"][1]) * multiplier
+            xp        = random.randint(rdef["xp"][0],   rdef["xp"][1])   * multiplier
+            resources = {k: random.randint(lo, hi) * multiplier for k, (lo, hi) in rdef["resources"].items()}
+
+            add_gold(db, username, gold)
+            award_xp(db, username, xp)
+            for res, amt in resources.items():
+                db.execute(f"UPDATE resources SET {res}={res}+? WHERE username=?", (amt, username))
+
+            if is_first_kill_eligible:
+                is_first_kill = True
+                db.execute(
+                    "INSERT OR IGNORE INTO first_kills (username, monster_type, variant_name, killed_at) VALUES (?,?,?,?)",
+                    (username, monster_id, monster_name, int(time.time()))
+                )
+
+            gear_drop = None
+            if random.random() < rdef["gear_drop_chance"]:
                 gear_drop = generate_gear_drop(mtype["tier"])
                 db.execute(
                     "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
@@ -1744,44 +1993,59 @@ def combat_fight():
                      gear_drop["attack_bonus"], gear_drop["defense_bonus"],
                      gear_drop["speed_bonus"], gear_drop["hp_bonus"], int(time.time()))
                 )
-            loot_summary = ", ".join(f"+{v} {k}" for k, v in actual_rewards.items())
+
+            rewards = {"gold": gold, "xp": xp, "resources": resources}
+            if gear_drop:
+                rewards["gear_drop"] = {
+                    "name":     gear_drop["name"],
+                    "rarity":   gear_drop["rarity"],
+                    "slot":     gear_drop["slot"],
+                    "set_name": gear_drop["set_name"],
+                }
+
+            loot_summary = f"+{gold} gold, +{xp} xp"
+            if is_first_kill:
+                loot_summary += " [FIRST KILL!]"
             if gear_drop:
                 loot_summary += f" + {gear_drop['name']} ({gear_drop['rarity']})"
-            log_event(db, "combat", f"{username} defeated {m['name']}! {loot_summary} 🎉", username)
+            log_event(db, "combat", f"{username} defeated {monster_name}! {loot_summary} 🎉", username)
             advance_mission(db, username, "first_fight", today)
-            new_ach = check_achievements(db, username)
+            check_achievements(db, username)
             db.execute(
                 "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
-                (username, monster_id, today, loot_summary)
+                (username, monster_id, today, str(rewards))
             )
         else:
-            consolation = max(2, mtype["base_rewards"].get("xp", 10) // 5)
-            award_xp(db, username, consolation)
-            actual_rewards = {"xp": consolation}
-            log_event(db, "combat", f"{username} was defeated by {m['name']}...", username)
+            consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
+            award_xp(db, username, consolation_xp)
+            log_event(db, "combat", f"{username} was defeated by {monster_name}...", username)
         db.commit()
-        print(f"[COMBAT] done: won={won} gear_drop={gear_drop} loot={loot_summary!r}")
-        return jsonify({
-            "status":            "success",
-            "won":               won,
-            "gear_drop":         gear_drop,
-            "rewards":           actual_rewards,
-            "new_achievements":  new_ach,
-            "energy_cost":       energy_cost,
-            "turns":             result["turns"],
-            "combat_log":        result["combat_log"],
-            "remaining_hp":      result["remaining_player_hp"],
-            "monster_name":      m["name"],
-            "monster_icon":      m["icon"],
-        })
+
+        resp = {
+            "status":           "success",
+            "victory":          fight["victory"],
+            "roll":             fight["roll"],
+            "win_chance":       fight["win_chance"],
+            "evaluation":       fight["evaluation"],
+            "player_cp":        fight["player_cp"],
+            "monster_cp":       fight["monster_cp"],
+            "energy_spent":     energy_cost,
+            "energy_remaining": energy_remaining,
+            "monster_name":     monster_name,
+            "monster_icon":     variant["icon"],
+            "is_first_kill":    is_first_kill,
+        }
+        if fight["victory"]:
+            resp["rewards"] = rewards
+        else:
+            resp["consolation_xp"] = consolation_xp
+        return jsonify(resp)
+
     except Exception as e:
-        import traceback
-        print(f"[COMBAT] ERROR: {e}")
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)})
     finally:
-        if db:
-            db.close()
+        if db: db.close()
 
 
 # ── COMMUNITY BOSS ───────────────────────────────────────────────────────────
@@ -2220,6 +2484,7 @@ RESOURCE_ICONS = {
 
 @app.route("/welcome-back/<username>")
 def welcome_back(username):
+    update_passive_energy(username)
     db = get_db()
     p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
@@ -2278,8 +2543,8 @@ def welcome_back(username):
             }
 
     # ── Passive earnings (always awarded) ────────────────────────────────────
-    passive_gold = int(min(hours_away, 12.0) * 0.5)
-    passive_xp   = int(min(hours_away, 12.0) * 1.0)
+    passive_gold = int(min(hours_away, 12.0) * 3.0)
+    passive_xp   = int(min(hours_away, 12.0) * 5.0)
     leveled_passive = False
     if passive_gold > 0:
         add_gold(db, username, passive_gold)
@@ -2324,23 +2589,17 @@ def welcome_back(username):
 
 @app.route("/active/<username>")
 def active(username):
+    update_passive_energy(username)
     db = get_db()
-    p  = db.execute("SELECT energy, max_energy, last_active FROM penguins WHERE username=?", (username,)).fetchone()
+    p  = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
         db.close()
         return jsonify({"status": "skip"})
-    now     = int(time.time())
-    max_e   = p["max_energy"] or 100
-    if p["last_active"] and p["last_active"] > 0:
-        mins_away  = (now - p["last_active"]) // 60
-        recovered  = mins_away * 2
-        new_energy = min(max_e, (p["energy"] or 0) + recovered)
-    else:
-        new_energy = p["energy"] or max_e
-    db.execute("UPDATE penguins SET last_active=?, energy=? WHERE username=?", (now, new_energy, username))
+    now = int(time.time())
+    db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
     db.commit()
     db.close()
-    return jsonify({"status": "ok", "energy": new_energy})
+    return jsonify({"status": "ok", "energy": p["energy"] or 0})
 
 
 # ── TITLES ────────────────────────────────────────────────────────────────────
@@ -2514,6 +2773,9 @@ def building_upgrade_info(building_id):
                     for i, r in enumerate(rows)]
     # Player resources for donation UI
     player_resources = {}
+    player_building_total = 0
+    player_total_contributions = 0
+    next_milestone = None
     if username:
         ensure_resources(db, username)
         r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
@@ -2525,10 +2787,28 @@ def building_upgrade_info(building_id):
             }
         g = get_gold(db, username)
         player_resources["gold"] = g
+
+        r2 = db.execute(
+            "SELECT SUM(amount) as total FROM building_donations WHERE building_id=? AND username=?",
+            (building_id, username)
+        ).fetchone()
+        player_building_total = (r2["total"] if r2 else 0) or 0
+
+        p2 = db.execute("SELECT total_contributions FROM penguins WHERE username=?", (username,)).fetchone()
+        player_total_contributions = ((p2["total_contributions"] if p2 else 0) or 0)
+
+        for threshold in sorted(CONTRIBUTION_MILESTONES.keys()):
+            if player_total_contributions < threshold:
+                next_milestone = {"threshold": threshold, **CONTRIBUTION_MILESTONES[threshold]}
+                break
+
     db.close()
     return jsonify({"status": "success", **info,
                     "contributors": contributors,
-                    "player_resources": player_resources})
+                    "player_resources": player_resources,
+                    "player_building_total": player_building_total,
+                    "player_total_contributions": player_total_contributions,
+                    "next_milestone": next_milestone})
 
 
 @app.route("/building/donate", methods=["POST"])
@@ -2597,6 +2877,45 @@ def building_donate():
               f"{username} donated {amount} {resource_type} to {cfg['name']}",
               username)
 
+    # XP reward for donor
+    if resource_type == "gold":
+        xp_earned = amount // 4
+    elif resource_type in ("blood_gems", "bones"):
+        xp_earned = amount
+    else:
+        xp_earned = amount // 2
+
+    donation_level_ups = []
+    if xp_earned > 0:
+        _, lv_rewards = award_xp(db, username, xp_earned)
+        donation_level_ups.extend(lv_rewards)
+
+    # Track total contributions
+    p_contrib = db.execute("SELECT total_contributions FROM penguins WHERE username=?", (username,)).fetchone()
+    old_total = ((p_contrib["total_contributions"] if p_contrib else 0) or 0)
+    new_total = old_total + amount
+    db.execute("UPDATE penguins SET total_contributions=? WHERE username=?", (new_total, username))
+
+    # Milestone check
+    milestone_unlocked = None
+    for milestone, reward in sorted(CONTRIBUTION_MILESTONES.items()):
+        if old_total < milestone <= new_total:
+            item_id = reward["name"].lower().replace(" ", "_").replace("'", "").replace(",", "")
+            existing = db.execute(
+                "SELECT COUNT(*) as cnt FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+                (username, item_id)
+            ).fetchone()
+            if not existing or existing["cnt"] == 0:
+                db.execute(
+                    "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+                    "VALUES (?,?,?,'cosmetic','card_frame','milestone',0,?)",
+                    (username, item_id, reward["name"], int(time.time()))
+                )
+            log_event(db, "milestone",
+                      f"🎉 {username} unlocked '{reward['name']}' for contributing {milestone:,} total resources!",
+                      username)
+            milestone_unlocked = {"name": reward["name"], "description": reward["description"], "threshold": milestone}
+
     # Refresh row and check for level-up
     row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
     leveled_up = False
@@ -2624,11 +2943,15 @@ def building_donate():
     db.commit()
     db.close()
     return jsonify({
-        "status":          "success",
-        "donated":         amount,
-        "resource":        resource_type,
-        "building_level":  new_level,
-        "level_up":        leveled_up,
+        "status":                  "success",
+        "donated":                 amount,
+        "resource":                resource_type,
+        "building_level":          new_level,
+        "level_up":                leveled_up,
+        "xp_earned":               xp_earned,
+        "new_total_contributions": new_total,
+        "milestone_unlocked":      milestone_unlocked,
+        "level_ups":               donation_level_ups,
     })
 
 

@@ -391,36 +391,52 @@
     }
     #village-canvas:active { cursor: grabbing; }
 
-    /* ── BUILDING PANEL ── */
-    .building-panel {
-      position: absolute;
-      right: 0; top: 0; bottom: 0;
-      width: 350px;
-      background: #2E2E2E;
-      border-left: 3px solid var(--purple);
-      box-shadow: -4px 0 12px rgba(0,0,0,0.5);
-      z-index: 100;
-      display: none;
-      flex-direction: column;
-      padding: 0;
-      overflow-y: auto;
+    /* ── BUILDING MODAL ── */
+    #bm-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 9998; cursor: pointer;
     }
-    .building-panel.open { display: flex; }
-    .bp-close { align-self: flex-end; padding: 8px 14px; font-size: 14px; color: var(--pink); cursor: pointer; font-family: monospace; }
-    .bp-close:hover { color: var(--white); }
-    .bp-icon { font-size: 36px; text-align: center; padding: 10px; }
-    .bp-name { color: var(--purple); font-size: 10px; text-align: center; padding: 0 16px 6px; word-wrap: break-word; }
-    .bp-desc { color: #666; font-size: 8px; text-align: center; padding: 0 16px 12px; line-height: 2; border-bottom: 1px solid #2a2a2a; word-wrap: break-word; }
-    .bp-actions { padding: 16px; display: flex; flex-direction: column; gap: 8px; }
-    .bp-btn {
-      width: 100%;
-      padding: 11px;
-      font-size: 9px;
+    #building-modal {
+      display: none; position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px; max-width: 95vw;
+      max-height: 80vh; overflow-y: auto;
+      background: #2E2E2E; border: 3px solid #A86EFF;
+      z-index: 9999; box-shadow: 0 0 30px rgba(0,0,0,0.8);
       font-family: 'Press Start 2P', monospace;
-      border: 2px solid var(--purple);
-      background: var(--dark);
-      color: var(--white);
-      cursor: pointer;
+    }
+    #bm-content { padding: 20px; }
+    .bm-close {
+      float: right; font-size: 16px;
+      color: #FF7FE5; cursor: pointer; padding: 0 0 8px 12px;
+    }
+    .bm-close:hover { color: #fff; }
+    .bm-divider { border: none; border-top: 2px solid #A86EFF; margin: 12px 0; }
+    .bm-divider-thin { border: none; border-top: 1px solid #333; margin: 10px 0; }
+    /* Progress bars */
+    .bm-prog-wrap { margin-bottom: 14px; }
+    .bm-prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .bm-prog-track { height: 12px; background: #1C1C1C; position: relative; overflow: hidden; }
+    .bm-prog-fill { height: 100%; position: relative; transition: width 0.5s ease; overflow: hidden; }
+    .bm-prog-fill::after {
+      content: ''; position: absolute; top: 0; left: -100%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+      animation: bm-shimmer 2s infinite;
+    }
+    @keyframes bm-shimmer { 0% { left: -100%; } 100% { left: 200%; } }
+    .bm-prog-pct {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Press Start 2P', monospace; font-size: 7px; color: #fff;
+      pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    .bp-btn {
+      width: 100%; padding: 11px; font-size: 9px;
+      font-family: 'Press Start 2P', monospace;
+      border: 2px solid var(--purple); background: var(--dark);
+      color: var(--white); cursor: pointer;
     }
     .bp-btn:hover:not(:disabled) { border-color: var(--pink); }
     .bp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -428,12 +444,8 @@
     .bp-btn.collect:hover:not(:disabled) { background: #ffa500; }
     .bp-btn.rest { border-color: #4aff6b; color: #4aff6b; background: #2E2E2E; }
     .bp-btn.rest:hover:not(:disabled) { background: #4aff6b; color: #1C1C1C; }
-    .bp-coming-soon {
-      text-align: center; padding: 20px 0;
-    }
-    .bp-coming-soon-box {
-      border: 2px dashed #A86EFF; padding: 16px;
-    }
+    .bp-coming-soon { text-align: center; padding: 20px 0; }
+    .bp-coming-soon-box { border: 2px dashed #A86EFF; padding: 16px; }
     .bp-coming-soon-title { color: #FF7FE5; font-size: 10px; margin-bottom: 8px; }
     .bp-coming-soon-desc  { color: #888; font-size: 8px; line-height: 1.8; }
 
@@ -558,32 +570,6 @@
     .wardrobe-slots { padding-top: 6px; }
 
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
-
-    /* ── BUILDING UPGRADE PANEL ── */
-    .bp-upgrade-section { border-top: 1px solid #333; margin-top: 10px; padding: 16px 20px 0; }
-    .bp-upgrade-title { font-size: 8px; color: #A86EFF; margin-bottom: 6px; }
-    .bp-upgrade-benefit { font-size: 7px; color: #4aff6b; line-height: 1.8; margin-bottom: 8px; word-wrap: break-word; }
-    .bp-upgrade-next-title { font-size: 8px; color: #FF7FE5; margin-bottom: 6px; }
-    .bp-upgrade-req-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 7px; color: #888; }
-    .bp-upgrade-req-label { width: 80px; flex-shrink: 0; }
-    .bp-upgrade-req-bar { flex: 1; height: 4px; background: #1C1C1C; }
-    .bp-upgrade-req-fill { height: 100%; background: #A86EFF; }
-    .bp-upgrade-req-pct { width: 28px; text-align: right; flex-shrink: 0; }
-    .bp-donate-row { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; padding: 0 20px; }
-    .bp-donate-input { font-family: 'Press Start 2P', monospace; font-size: 8px; background: #1C1C1C; border: 1px solid #555; color: #fff; padding: 5px 8px; width: 65px; }
-    .bp-donate-quick { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 4px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
-    .bp-donate-quick:hover { border-color: #A86EFF; color: #A86EFF; }
-    .bp-donate-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 6px 12px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
-    .bp-donate-btn:hover:not(:disabled) { background: #A86EFF; color: #1C1C1C; }
-    .bp-donate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .bp-contrib-title { font-size: 7px; color: #FF8C00; margin: 12px 0 6px; }
-    .bp-contrib-row { display: flex; gap: 8px; font-size: 7px; padding: 4px 0; border-bottom: 1px solid #1a1a1a; }
-    .bp-contrib-rank { color: #888; width: 20px; flex-shrink: 0; }
-    .bp-contrib-name { color: #fff; flex: 1; word-wrap: break-word; min-width: 0; }
-    .bp-contrib-total { color: #888; flex-shrink: 0; }
-    .bp-max-level { text-align: center; padding: 8px 0; }
-    .bp-max-badge { color: #4aff6b; font-size: 9px; margin-bottom: 6px; }
-    .bp-max-msg { color: #888; font-size: 7px; line-height: 1.8; }
 
     /* ── IGLOO GHOST ── */
     .igloo-ghost {
@@ -713,26 +699,96 @@
     .catalog-card-cost { color: var(--orange); font-size: 8px; }
 
     /* ── COMBAT TAB ── */
-    .combat-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; }
-    .monster-card { border: 2px solid var(--panel); background: var(--dark); padding: 13px; display: flex; flex-direction: column; gap: 4px; }
-    .monster-card.killed { opacity: 0.5; }
-    .monster-header { display: flex; align-items: center; gap: 8px; }
-    .monster-icon { font-size: 20px; }
-    .monster-name { color: var(--white); font-size: 10px; flex: 1; }
-    .monster-tier { font-size: 8px; padding: 3px 6px; border: 1px solid; }
-    .tier-1 { color: #4aff6b; border-color: #4aff6b; }
-    .tier-2 { color: var(--orange); border-color: var(--orange); }
-    .tier-3 { color: var(--pink); border-color: var(--pink); }
-    .monster-stats { color: #666; font-size: 9px; }
-    .monster-rewards { color: var(--orange); font-size: 9px; }
-    .monster-footer { display: flex; justify-content: space-between; align-items: center; }
-    .fight-btn {
-      background: var(--dark); border: 2px solid var(--pink); color: var(--pink);
-      font-size: 9px; font-family: 'Press Start 2P', monospace;
-      padding: 6px 10px; cursor: pointer;
-    }
-    .fight-btn:hover:not(:disabled) { background: var(--pink); color: var(--dark); }
-    .fight-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .combat-header { background:var(--dark); border-bottom:2px solid var(--purple); padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
+    .combat-panel  { padding:12px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:12px; }
+
+    /* Boss banner */
+    .boss-banner { border:2px solid #FF8C00; background:#1a1100; padding:12px; display:flex; flex-direction:column; gap:8px; }
+    .boss-hp-bar { height:12px; background:#333; position:relative; }
+    .boss-hp-fill { height:100%; background:#FF8C00; transition:width 0.5s; }
+    .boss-hp-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:7px; }
+
+    /* Tier groups */
+    .tier-group  { display:flex; flex-direction:column; gap:8px; }
+    .tier-header { font-size:8px; padding:4px 0; border-bottom:1px solid #2E2E2E; }
+    .tier-header.t1 { color:#4aff6b; } .tier-header.t2 { color:#4a9eff; }
+    .tier-header.t3 { color:#A86EFF; } .tier-header.t4 { color:#FF7FE5; }
+    .tier-header.t5 { color:#FF8C00; }
+
+    /* Monster grid */
+    .monster-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    @media(max-width:900px){ .monster-grid { grid-template-columns:repeat(2,1fr); } }
+    @media(max-width:520px){ .monster-grid { grid-template-columns:1fr; } }
+
+    /* Monster cards */
+    .monster-card { border:2px solid #2E2E2E; background:var(--dark); padding:10px; display:flex; flex-direction:column; gap:6px; cursor:default; }
+    .monster-card:hover { border-color:var(--purple); }
+    .monster-card.killed { opacity:0.5; }
+    .monster-card.fighting { animation:pulse-border 0.6s infinite; }
+    .monster-header { display:flex; align-items:center; gap:8px; }
+    .monster-icon  { font-size:22px; }
+    .monster-name  { color:var(--white); font-size:9px; flex:1; line-height:1.4; }
+    .monster-tier  { font-size:7px; padding:2px 5px; border:1px solid; }
+    .tier-badge-1  { color:#4aff6b; border-color:#4aff6b; }
+    .tier-badge-2  { color:#4a9eff; border-color:#4a9eff; }
+    .tier-badge-3  { color:#A86EFF; border-color:#A86EFF; }
+    .tier-badge-4  { color:#FF7FE5; border-color:#FF7FE5; }
+    .tier-badge-5  { color:#FF8C00; border-color:#FF8C00; }
+
+    /* Win chance bar */
+    .win-bar-wrap { display:flex; flex-direction:column; gap:3px; }
+    .win-bar      { height:24px; position:relative; overflow:hidden; }
+    .win-bar-green{ position:absolute; left:0; top:0; bottom:0; background:#4aff6b; transition:width 0.4s; }
+    .win-bar-red  { position:absolute; right:0; top:0; bottom:0; background:#ff6b6b; }
+    .win-bar-pct  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:bold; }
+    .win-eval     { color:#888; font-size:7px; text-align:center; }
+
+    /* Monster meta */
+    .monster-meta { color:#666; font-size:7px; display:flex; flex-direction:column; gap:2px; }
+    .monster-meta .gold-line { color:#888; }
+
+    /* Fight button */
+    .fight-btn { font-family:'Press Start 2P',monospace; font-size:9px; padding:8px 10px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; }
+    .fight-btn:hover:not(:disabled) { background:var(--purple); color:var(--dark); }
+    .fight-btn:disabled { opacity:0.4; cursor:not-allowed; }
+    .fight-btn.defeated { border-color:#4aff6b; color:#4aff6b; cursor:default; }
+    .fight-btn.locked   { border-color:#444; color:#666; cursor:default; }
+    .fight-btn.low-energy { border-color:#ff6b6b; color:#ff6b6b; }
+
+    /* Fight modal */
+    .fight-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9000; display:flex; align-items:center; justify-content:center; }
+    .fight-modal { background:#1C1C1C; border:3px solid var(--purple); padding:24px 20px; width:min(500px,95vw); display:flex; flex-direction:column; gap:16px; }
+    .fight-modal-header { color:var(--purple); font-size:10px; text-align:center; }
+    .fight-combatants { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .fight-combatant   { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .fight-combatant .emo { font-size:36px; }
+    .fight-combatant .name { color:#fff; font-size:8px; text-align:center; }
+    .fight-combatant .cp   { color:var(--orange); font-size:7px; }
+    .fight-vs { color:var(--pink); font-size:14px; flex-shrink:0; }
+    .roll-bar-wrap { display:flex; flex-direction:column; gap:6px; }
+    .roll-bar  { height:32px; background:#333; position:relative; overflow:hidden; }
+    .roll-bar-green { position:absolute; left:0; top:0; bottom:0; background:#4aff6b; transition:width 0.1s; }
+    .roll-bar-red   { position:absolute; right:0; top:0; bottom:0; background:#ff6b6b; }
+    .roll-bar-num   { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; font-weight:bold; }
+    .roll-bar-label { text-align:center; color:#888; font-size:7px; }
+    .fight-result   { text-align:center; display:flex; flex-direction:column; gap:8px; }
+    .fight-result-title { font-size:16px; }
+    .fight-result-title.win  { color:#4aff6b; animation:scale-pop 0.4s ease; }
+    .fight-result-title.loss { color:#ff6b6b; animation:shake 0.3s ease; }
+    .fight-rewards { display:flex; flex-direction:column; gap:4px; }
+    .fight-reward-row { font-size:9px; }
+    .fight-result-eval { color:#666; font-size:7px; }
+    .fight-modal-ok { font-family:'Press Start 2P',monospace; font-size:9px; padding:10px 20px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; margin-top:4px; }
+    .fight-modal-ok:hover { background:var(--purple); color:var(--dark); }
+    .fight-gear-drop { color:#FF8C00; font-size:10px; animation:scale-pop 0.5s ease 0.1s both; }
+    .confetti-container { position:absolute; pointer-events:none; }
+    .confetti-piece { position:absolute; width:6px; height:6px; animation:confetti 1s ease forwards; }
+
+    /* Animations */
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+    @keyframes confetti { 0%{transform:translateY(-10px) rotate(0deg);opacity:1} 100%{transform:translateY(100px) rotate(360deg);opacity:0} }
+    @keyframes pulse-border { 0%,100%{border-color:var(--purple)} 50%{border-color:var(--pink)} }
+    @keyframes scale-pop { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
 
     /* ── GEAR TAB ── */
     .gear-panel { padding: 12px; overflow-y: auto; flex: 1; }
@@ -994,7 +1050,6 @@
     ══════════════════════════════════════════════════════════ */
     @media (max-width: 1024px) {
       .sidebar { width: 200px; }
-      .building-panel { width: 300px; }
       .content-tab { padding: 10px 10px; font-size: 8px; }
     }
 
@@ -1029,19 +1084,8 @@
       .content-tabs { -webkit-overflow-scrolling: touch; }
       .content-tab { min-height: 44px; padding: 10px 12px; }
 
-      /* ── Building panel slides up from bottom ── */
-      .building-panel {
-        position: fixed;
-        bottom: 0; left: 0; right: 0; top: auto;
-        width: 100%;
-        max-height: 60vh;
-        border-left: none;
-        border-right: none;
-        border-top: 3px solid var(--purple);
-        border-bottom: none;
-        box-shadow: 0 -4px 16px rgba(0,0,0,0.6);
-        overflow-y: auto;
-      }
+      /* ── Building modal mobile ── */
+      #building-modal { width: 95vw; max-height: 85vh; }
 
       /* ── Canvas — prevent browser gestures ── */
       #village-canvas { touch-action: none; }
@@ -1067,7 +1111,7 @@
         min-height: 44px; min-width: 44px; font-size: 18px;
         display: flex; align-items: center; justify-content: center;
       }
-      .bp-close { padding: 12px 18px; font-size: 18px; min-height: 44px; }
+      .bm-close { font-size: 20px; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
 
       /* ── Touch targets — all interactive elements ≥ 44px ── */
       .bp-btn { min-height: 44px; }
@@ -1108,6 +1152,7 @@
     <div class="nav-logo">PENGUIN <span>VILLAGE</span></div>
     <div class="nav-right">
       {% if logged_in %}
+        <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -1358,24 +1403,24 @@
           <canvas id="village-canvas"></canvas>
           <div class="igloo-ghost" id="igloo-ghost"></div>
         </div>
-        <!-- Building panel overlay -->
-        <div class="building-panel" id="building-panel">
-          <div class="bp-close" onclick="closeBuildingPanel()">×</div>
-          <div class="bp-icon"    id="bp-icon"></div>
-          <div class="bp-name"    id="bp-name"></div>
-          <div class="bp-desc"    id="bp-desc"></div>
-          <div class="bp-actions" id="bp-actions"></div>
-          <div id="bp-upgrade-section"></div>
-        </div>
+        <!-- Building modal -->
+
       </div>
 
       {% if features.get("combat", False) %}
       <!-- COMBAT TAB -->
       <div class="content-panel" id="panel-combat">
-        <div style="background:var(--dark);border-bottom:2px solid var(--purple);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-          <span style="color:var(--purple);font-size:9px;">MONSTERS</span>
-          <span style="color:#555;font-size:7px;">RESETS: <span id="combat-reset-countdown"></span></span>
+        <div class="combat-header">
+          <div>
+            <div style="color:var(--purple);font-size:12px;">⚔️ PENGUIN BARRACKS</div>
+            <div id="combat-cp-display" style="color:var(--orange);font-size:9px;margin-top:4px;">Your Combat Power: — CP</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="color:#888;font-size:7px;">Resets: <span id="combat-reset-countdown"></span></div>
+            <div id="combat-energy-bar-label" style="color:var(--orange);font-size:7px;margin-top:2px;">⚡ — / —</div>
+          </div>
         </div>
+        <div id="boss-banner" style="display:none;padding:12px;"></div>
         <div class="combat-panel" id="combat-list">
           <div style="color:#666;font-size:9px;text-align:center;padding:20px;">LOADING...</div>
         </div>
@@ -1593,9 +1638,17 @@
   </div>
 </div>
 
+<!-- BUILDING MODAL -->
+<div id="bm-overlay" onclick="closeBuildingPanel()"></div>
+<div id="building-modal">
+  <div id="bm-content"></div>
+</div>
+
 <!-- TOAST -->
 <div id="toast"></div>
 
+<script src="/static/sounds.js"></script>
+<script src="/static/effects.js"></script>
 <script src="/static/village_map.js"></script>
 <script>
   function switchSidebarTab(name, btn) {
@@ -1938,7 +1991,11 @@
       if (pData.status === 'success') {
         const p = pData.penguin;
         const maxE = p.max_energy || 100;
-        document.getElementById('stat-energy').textContent = p.energy + '/' + maxE;
+        const isFull = p.energy >= maxE;
+        const energyEl = document.getElementById('stat-energy');
+        if (energyEl) energyEl.innerHTML = isFull
+          ? `<span style="color:#4aff6b">⚡ FULL</span>`
+          : `${p.energy}/${maxE} <span style="color:#888;font-size:7px">+10/hr</span>`;
         document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
         document.getElementById('stat-level').textContent = '★ LEVEL ' + p.level;
         const xpNeeded = p.xp_needed || 100;
@@ -2189,6 +2246,8 @@
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         msg += parts.length ? parts.join(', ') : 'nothing (too soon!)';
         showToast(msg, 'ok');
+        Sounds.collect();
+        if (parts.length) Effects.floatText(btn, parts.join('  '), '#4aff6b');
         if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
         if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         if (data.new_achievements && data.new_achievements.length) {
@@ -2223,130 +2282,342 @@
     } catch(e) {}
   }
 
-  // ── BUILDING PANEL ──
-  async function openBuilding(buildingId) {
-    const panel = document.getElementById('building-panel');
-    panel.classList.add('open');
-    document.getElementById('bp-icon').textContent    = '...';
-    document.getElementById('bp-name').textContent    = '';
-    document.getElementById('bp-desc').textContent    = '';
-    document.getElementById('bp-actions').innerHTML   = '';
-    document.getElementById('bp-upgrade-section').innerHTML = '';
-    _currentDonateBuilding = null;
-    try {
-      const res  = await fetch(`/building/${buildingId}?username=${CURRENT_USER}`);
-      const data = await res.json();
-      if (data.status === 'error') { showToast(data.message, 'err'); closeBuildingPanel(); return; }
-      document.getElementById('bp-icon').textContent = data.icon || '';
-      document.getElementById('bp-name').textContent = (data.name || '').toUpperCase();
-      document.getElementById('bp-desc').textContent = data.desc || '';
-      renderBuildingActions(data);
-      if (BUILDING_UPGRADES_IDS.has(buildingId)) {
-        renderBuildingUpgradeSection(buildingId);
-      }
-    } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
-  }
-
-  function closeBuildingPanel() {
-    document.getElementById('building-panel').classList.remove('open');
-    document.getElementById('bp-upgrade-section').innerHTML = '';
-    _currentDonateBuilding = null;
-  }
-
-  // ── BUILDING UPGRADE PANEL ──
+  // ── BUILDING MODAL ──
   let _currentDonateBuilding = null;
   let _currentDonateResource = null;
   let _currentDonatePlayerHave = 0;
 
-  async function renderBuildingUpgradeSection(buildingId) {
-    const container = document.getElementById('bp-upgrade-section');
-    if (!container) return;
+  const _BM_RES_COLORS = {
+    fish: '#4a9eff', herbs: '#4aff6b', gold: '#FF8C00',
+    blood_gems: '#ff6b6b', bones: '#CCCCCC', spell_fragments: '#A86EFF'
+  };
+  const _BM_RES_ICONS = {
+    fish: '🐟', herbs: '🌿', gold: '🪙',
+    blood_gems: '💎', bones: '🦴', spell_fragments: '✨'
+  };
+  const _BM_LV_COLORS = { 1: '#666666', 2: '#4aff6b', 3: '#4a9eff', 4: '#A86EFF', 5: '#FF8C00' };
+
+  async function openBuilding(buildingId) {
+    document.getElementById('bm-overlay').style.display = 'block';
+    const modal = document.getElementById('building-modal');
+    modal.style.display = 'block';
+    document.getElementById('bm-content').innerHTML =
+      `<div style="text-align:center;color:#666;padding:40px 0;font-size:8px;">LOADING...</div>`;
+    _currentDonateBuilding = buildingId;
     try {
-      const res  = await fetch(`/building/upgrade/${buildingId}?username=${CURRENT_USER}`);
-      const data = await res.json();
-      if (data.status !== 'success') { container.innerHTML = ''; return; }
+      const bRes = await fetch(`/building/${buildingId}?username=${CURRENT_USER}`);
+      const bData = await bRes.json();
+      if (bData.status === 'error') { showToast(bData.message, 'err'); closeBuildingPanel(); return; }
 
-      _currentDonateBuilding = buildingId;
-      const lvl      = data.current_level;
-      const maxLvl   = data.max_level;
-      const isMax    = lvl >= maxLvl;
-      _buildingLevels[buildingId] = lvl;
-
-      // Stars
-      const stars = Array.from({length: maxLvl}, (_, i) =>
-        `<span style="color:${i < lvl ? '#FF8C00' : '#333'};">★</span>`
-      ).join('');
-
-      let html = `<div class="bp-upgrade-section">`;
-      html += `<div class="bp-upgrade-title">BUILDING LEVEL ${stars}</div>`;
-      html += `<div class="bp-upgrade-benefit">${data.current_benefit || 'Base level — no bonus yet'}</div>`;
-
-      if (isMax) {
-        html += `<div class="bp-max-level"><div class="bp-max-badge">MAX LEVEL ✅</div>`;
-        html += `<div class="bp-max-msg">This building stands as a monument to the village.</div></div>`;
-      } else {
-        html += `<div class="bp-upgrade-next-title">UPGRADE TO LEVEL ${data.next_level}</div>`;
-        html += `<div style="font-size:7px;color:#4aff6b;margin-bottom:8px;">${data.next_benefit}</div>`;
-        for (const [res, p] of Object.entries(data.progress || {})) {
-          html += `<div class="bp-upgrade-req-row">
-            <span class="bp-upgrade-req-label">${res.replace('_',' ')}</span>
-            <div class="bp-upgrade-req-bar"><div class="bp-upgrade-req-fill" style="width:${p.pct}%"></div></div>
-            <span class="bp-upgrade-req-pct">${p.donated}/${p.needed}</span>
-          </div>`;
-        }
-        // Donate UI — resource selector
-        const donateResources = Object.keys(data.next_req || {});
-        if (donateResources.length) {
-          const pr = data.player_resources || {};
-          // Default to first needed resource
-          if (!_currentDonateResource || !donateResources.includes(_currentDonateResource)) {
-            _currentDonateResource = donateResources[0];
-          }
-          _currentDonatePlayerHave = pr[_currentDonateResource] || 0;
-          html += `<div style="margin-top:10px;font-size:7px;color:#888;margin-bottom:5px;">DONATE</div>`;
-          if (donateResources.length > 1) {
-            html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">`;
-            donateResources.forEach(r => {
-              const sel = r === _currentDonateResource;
-              html += `<button class="bp-donate-quick" style="${sel?'border-color:#A86EFF;color:#A86EFF;':''}" onclick="bpSelectResource('${r}',${pr[r]||0})">${r.replace('_',' ')} (${pr[r]||0})</button>`;
-            });
-            html += `</div>`;
-          } else {
-            html += `<div style="font-size:7px;color:#888;margin-bottom:6px;">${_currentDonateResource.replace('_',' ')}: ${_currentDonatePlayerHave} available</div>`;
-          }
-          html += `<div class="bp-donate-row">`;
-          html += `<input class="bp-donate-input" type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" />`;
-          [10, 50, 100].forEach(q => {
-            if (q <= _currentDonatePlayerHave)
-              html += `<button class="bp-donate-quick" onclick="document.getElementById('bp-donate-amount').value=${q}">${q}</button>`;
-          });
-          if (_currentDonatePlayerHave > 0)
-            html += `<button class="bp-donate-quick" onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave}">ALL</button>`;
-          html += `<button class="bp-donate-btn" onclick="bpDonate()">DONATE</button>`;
-          html += `</div>`;
+      let upgData = null;
+      if (BUILDING_UPGRADES_IDS.has(buildingId)) {
+        const uRes = await fetch(`/building/upgrade/${buildingId}?username=${CURRENT_USER}`);
+        const uJson = await uRes.json();
+        if (uJson.status === 'success') {
+          upgData = uJson;
+          _buildingLevels[buildingId] = uJson.current_level;
         }
       }
+      _renderModalContent(bData, upgData);
+    } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
+  }
 
-      // Top contributors
-      const contribs = data.contributors || [];
-      if (contribs.length) {
-        const medals = ['🥇','🥈','🥉','#4','#5'];
-        html += `<div class="bp-contrib-title">TOP CONTRIBUTORS</div>`;
-        contribs.forEach((c, i) => {
-          html += `<div class="bp-contrib-row"><span class="bp-contrib-rank">${medals[i]||'#'+(i+1)}</span><span class="bp-contrib-name">${c.username.toUpperCase()}</span><span class="bp-contrib-total">${c.total}</span></div>`;
-        });
-        html += `<div style="color:#555;font-size:6px;margin-top:6px;font-style:italic;">This building remembers its builders.</div>`;
-      }
+  function closeBuildingPanel() {
+    document.getElementById('bm-overlay').style.display = 'none';
+    document.getElementById('building-modal').style.display = 'none';
+    document.getElementById('bm-content').innerHTML = '';
+    _currentDonateBuilding = null;
+  }
 
+  function _renderModalContent(bData, upgData) {
+    const buildingId = bData.building_id;
+    const lvl    = upgData ? (upgData.current_level || 1) : 1;
+    const maxLvl = upgData ? (upgData.max_level || 5) : 5;
+    const lvColor = _BM_LV_COLORS[lvl] || '#A86EFF';
+
+    let html = `<span class="bm-close" onclick="closeBuildingPanel()">✕</span>`;
+    html += `<div style="text-align:center;font-size:36px;margin-bottom:8px;">${bData.icon||''}</div>`;
+    html += `<div style="color:#A86EFF;font-size:14px;text-align:center;margin-bottom:8px;">${(bData.name||'').toUpperCase()}</div>`;
+    if (upgData) {
+      html += `<div style="text-align:center;margin-bottom:8px;">`;
+      html += `<span style="border:2px solid ${lvColor};color:${lvColor};padding:2px 8px;font-size:8px;">LEVEL ${lvl} / ${maxLvl}</span>`;
       html += `</div>`;
-      container.innerHTML = html;
-    } catch(e) { container.innerHTML = ''; }
+    }
+    html += `<div style="color:#888;font-size:8px;text-align:center;line-height:2;margin-bottom:12px;">${bData.desc||''}</div>`;
+    html += `<hr class="bm-divider">`;
+
+    if (upgData) {
+      html += `<div style="color:#4aff6b;font-size:9px;margin-bottom:4px;">CURRENT BONUS</div>`;
+      if (lvl >= maxLvl) {
+        html += `<div style="color:#FF8C00;font-size:9px;margin-bottom:10px;">★ MAX LEVEL — ALL BONUSES ACTIVE</div>`;
+      } else {
+        html += `<div style="color:#fff;font-size:9px;margin-bottom:10px;">${upgData.current_benefit||'Base level — no bonus yet'}</div>`;
+      }
+      html += `<hr class="bm-divider-thin">`;
+    }
+
+    html += _renderBuildingActionsHtml(bData);
+
+    if (upgData) {
+      html += `<hr class="bm-divider-thin">`;
+      html += _renderContributionHtml(buildingId, upgData);
+    }
+
+    document.getElementById('bm-content').innerHTML = html;
+    updateXpPreview();
+
+    // Start timers if working
+    if (bData.type === 'job' && bData.working_here) {
+      const startTs = bData.job_started_ts || 0;
+      const capTs   = bData.job_cap_ts || 0;
+      const complete = bData.complete || false;
+      if (startTs) {
+        startCountUp('bp-elapsed', startTs, 8 * 3600);
+        if (_countdownTimers['bp-earned']) clearInterval(_countdownTimers['bp-earned']);
+        const bpProduces = bData.produces || {};
+        const BPSMULTS = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
+        const bpEarnedTick = () => {
+          const el = document.getElementById('bp-earned');
+          if (!el) { clearInterval(_countdownTimers['bp-earned']); return; }
+          const elapsed = Math.min(Math.floor(Date.now()/1000) - startTs, 8*3600);
+          const hrs = elapsed / 3600;
+          const mult = BPSMULTS[_streamTier] || 1.0;
+          const parts = Object.entries(bpProduces).filter(([,v]) => v>0).map(([k,v]) => {
+            const base = Math.floor(v * hrs);
+            const boosted = Math.floor(v * mult * hrs);
+            if (_streamTier > 0 && k !== 'xp')
+              return `~<span style="text-decoration:line-through;color:#555;">${base}</span> <span style="color:#FF7FE5;">${boosted}</span> ${k}`;
+            return `~${base} ${k}`;
+          });
+          el.innerHTML = parts.length ? parts.join(', ') : '...';
+        };
+        bpEarnedTick();
+        _countdownTimers['bp-earned'] = setInterval(bpEarnedTick, 1000);
+      }
+      if (!complete && capTs) startCountdown('bp-job-countdown', capTs, (el) => {
+        el.outerHTML = '<span class="job-timer-complete">✓ COMPLETE!</span>';
+        const btn = document.getElementById('bp-collect-btn');
+        if (btn) { btn.textContent = '✓ COLLECT'; btn.classList.add('pulsing'); }
+      });
+    }
+  }
+
+  function _renderBuildingActionsHtml(data) {
+    let html = '';
+    const btype = data.type;
+    if (btype === 'job') {
+      if (data.working_here) {
+        const startTs  = data.job_started_ts || 0;
+        const capTs    = data.job_cap_ts || 0;
+        const complete = data.complete || false;
+        const capLine  = complete
+          ? `<span class="job-timer-complete">✓ JOB COMPLETE!</span>`
+          : `CAP IN: <span id="bp-job-countdown" class="job-timer"></span>`;
+        html += `<div class="bp-info">Working as ${data.job_label||'WORKER'}<br>`;
+        html += `Elapsed: <span id="bp-elapsed" class="job-timer"></span><br>`;
+        html += `Earned: <span id="bp-earned" class="job-timer"></span><br>`;
+        html += capLine + `</div>`;
+        html += `<button class="bp-btn collect${complete?' pulsing':''}" id="bp-collect-btn" onclick="bpCollect()">`;
+        html += complete ? '✓ COLLECT' : 'COLLECT';
+        html += `</button>`;
+      } else if (data.player_job && data.player_job !== data.building_id) {
+        html += `<div class="bp-info" style="color:#ff6b6b;">Already working elsewhere!<br>Collect first.</div>`;
+      } else {
+        const produces = data.produces || {};
+        const BSMULTS  = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
+        const bsMult   = BSMULTS[_streamTier] || 1.0;
+        const prodStr  = Object.entries(produces).map(([k,v]) => {
+          if (_streamTier > 0 && k !== 'xp')
+            return `<span style="text-decoration:line-through;color:#555;">${v}/hr</span> <span style="color:#FF7FE5;">${(v*bsMult).toFixed(1)}/hr</span> ${k}`;
+          return `${v}/hr ${k}`;
+        }).join(', ');
+        if (prodStr) html += `<div class="bp-info" style="color:#888;">${prodStr}<br>Caps at 8 hours.</div>`;
+        html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label||'WORK'}</button>`;
+      }
+    } else if (btype === 'rest') {
+      const energy   = data.player_energy    || 0;
+      const maxE     = data.player_max_energy || 100;
+      const gold     = data.player_gold       || 0;
+      const isFull   = energy >= maxE;
+      const isWork   = !!data.player_job;
+      const toRes    = maxE - energy;
+      const ePct     = Math.round((energy / maxE) * 100);
+      const remain   = (data.hotel_remaining_today != null) ? data.hotel_remaining_today : 2;
+      const cost     = remain === 2 ? 100 : 500;
+      const canAff   = gold >= cost;
+      html += `<div style="font-size:7px;color:#888;margin-bottom:6px;line-height:2.2;">
+        <span style="color:#FF8C00;">1st rest: 100 gold</span> &nbsp;|&nbsp;
+        <span style="color:#ff6b6b;">2nd rest: 500 gold</span>
+      </div>`;
+      html += `<div style="font-size:7px;color:#555;margin-bottom:8px;">Uses remaining today: <span style="color:${remain>0?'#ccc':'#ff6b6b'}">${remain} / 2</span></div>`;
+      html += `<div style="font-size:8px;color:#888;margin-bottom:4px;">ENERGY: ${energy} / ${maxE}</div>`;
+      html += `<div style="height:6px;background:#1C1C1C;margin-bottom:10px;"><div style="height:100%;width:${ePct}%;background:#4aff6b;"></div></div>`;
+      if (isFull) {
+        html += `<div class="bp-info" style="color:#4aff6b;text-align:center;">You're fully rested! 😴</div>`;
+      } else if (isWork) {
+        html += `<div class="bp-info" style="color:#ff6b6b;">Finish working first, then rest.</div>`;
+      } else if (remain === 0) {
+        const midnight = new Date(); midnight.setHours(24,0,0,0);
+        const diff = midnight - new Date();
+        const rh = Math.floor(diff/3600000), rm = Math.floor((diff%3600000)/60000);
+        html += `<div class="bp-info" style="color:#ff6b6b;text-align:center;">Hotel exhausted. Back tomorrow! 💤</div>`;
+        html += `<div style="color:#888;font-size:7px;text-align:center;margin-top:6px;">Resets in: ${rh}h ${rm}m</div>`;
+      } else {
+        html += `<div style="font-size:9px;color:#fff;margin-bottom:3px;">Restore ${toRes} energy</div>`;
+        html += `<div style="font-size:9px;color:${remain===2?'#FF8C00':'#ff6b6b'};margin-bottom:10px;">Cost: ${cost.toLocaleString()} gold 🪙</div>`;
+        html += `<button class="bp-btn rest" ${canAff?'':'disabled'} onclick="bpRest()">REST NOW</button>`;
+        if (!canAff) html += `<div style="color:#ff6b6b;font-size:7px;margin-top:5px;text-align:center;">Need ${cost} gold (have ${gold})</div>`;
+      }
+    } else if (btype === 'combat') {
+      if (FEATURES.combat) {
+        html += `<div class="bp-info">Fight monsters. Win loot.</div>`;
+        html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">ENTER BARRACKS</button>`;
+      } else {
+        html += bpComingSoon('🚧', 'THE BARRACKS ARE BEING PREPARED...', 'Combat, gear, and monsters are coming soon.');
+      }
+    } else if (btype === 'achievements') {
+      html += `<button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW ACHIEVEMENTS</button>`;
+    } else if (btype === 'placeholder') {
+      if (data.building_id === 'horny_jail')
+        html += bpComingSoon('🔒', 'YOU KNOW WHAT YOU DID.', 'Coming Soon. Maybe. Behave.');
+      else if (data.building_id === 'bank')
+        html += bpComingSoon('🏦', 'UNDER CONSTRUCTION', 'Resource exchange coming soon.');
+      else
+        html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
+    }
+    return html;
+  }
+
+  function _renderContributionHtml(buildingId, upgData) {
+    const lvl  = upgData.current_level || 1;
+    const maxLvl = upgData.max_level || 5;
+    const isMax = lvl >= maxLvl;
+    let html = '';
+
+    if (isMax) {
+      html += `<div style="color:#FF7FE5;font-size:11px;margin-bottom:8px;">FULLY UPGRADED ★</div>`;
+      html += `<div style="color:#FF8C00;font-size:8px;text-align:center;padding:8px 0;">This building stands as a monument to the village.</div>`;
+    } else {
+      html += `<div style="color:#FF7FE5;font-size:11px;margin-bottom:8px;">UPGRADE TO LEVEL ${upgData.next_level}</div>`;
+      html += `<div style="color:#4aff6b;font-size:7px;margin-bottom:14px;">${upgData.next_benefit||''}</div>`;
+
+      let totalPct = 0;
+      const progressEntries = Object.entries(upgData.progress || {});
+      progressEntries.forEach(([res, p]) => {
+        const color = _BM_RES_COLORS[res] || '#A86EFF';
+        const icon  = _BM_RES_ICONS[res] || '📦';
+        const pct   = p.pct || 0;
+        totalPct += pct;
+        html += `<div class="bm-prog-wrap">
+          <div class="bm-prog-header">
+            <span style="color:#fff;font-size:9px;">${icon} ${res.replace(/_/g,' ')}</span>
+            <span style="color:#fff;font-size:9px;">${p.donated.toLocaleString()} / ${p.needed.toLocaleString()}</span>
+          </div>
+          <div class="bm-prog-track" style="border:2px solid ${color}55;">
+            <div class="bm-prog-fill" id="bm-bar-${res}" style="width:${pct}%;background:${color};">
+              <div class="bm-prog-pct">${pct}%</div>
+            </div>
+          </div>
+        </div>`;
+      });
+
+      const overallPct = progressEntries.length ? Math.round(totalPct / progressEntries.length) : 0;
+      html += `<div style="color:#A86EFF;font-size:10px;margin-bottom:6px;">OVERALL: ${overallPct}%</div>`;
+      html += `<div class="bm-prog-track" style="margin-bottom:14px;border:2px solid #A86EFF55;">
+        <div class="bm-prog-fill" style="width:${overallPct}%;background:#A86EFF;">
+          <div class="bm-prog-pct">${overallPct}%</div>
+        </div>
+      </div>`;
+
+      // Donation input
+      const donateResources = Object.keys(upgData.next_req || {});
+      if (donateResources.length) {
+        const pr = upgData.player_resources || {};
+        if (!_currentDonateResource || !donateResources.includes(_currentDonateResource))
+          _currentDonateResource = donateResources[0];
+        _currentDonatePlayerHave = pr[_currentDonateResource] || 0;
+
+        if (donateResources.length > 1) {
+          html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;">`;
+          donateResources.forEach(r => {
+            const sel = r === _currentDonateResource;
+            const icon = _BM_RES_ICONS[r] || '📦';
+            html += `<button onclick="bpSelectResource('${r}',${pr[r]||0})" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:5px 8px;border:2px solid ${sel?'#A86EFF':'#555'};background:transparent;color:${sel?'#A86EFF':'#888'};cursor:pointer;">${icon} ${r.replace(/_/g,' ')} (${(pr[r]||0).toLocaleString()})</button>`;
+          });
+          html += `</div>`;
+        } else {
+          const r = donateResources[0];
+          html += `<div style="font-size:7px;color:#888;margin-bottom:8px;">${_BM_RES_ICONS[r]||'📦'} ${r.replace(/_/g,' ')}: <span style="color:#fff;">${(_currentDonatePlayerHave).toLocaleString()}</span> available</div>`;
+        }
+
+        html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">`;
+        html += `<input type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" oninput="updateXpPreview()" style="font-family:'Press Start 2P',monospace;font-size:8px;background:#1C1C1C;border:1px solid #555;color:#fff;padding:5px 8px;width:70px;">`;
+        [10, 50, 100, 500].forEach(q => {
+          if (q <= _currentDonatePlayerHave)
+            html += `<button onclick="document.getElementById('bp-donate-amount').value=${q};updateXpPreview()" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">${q}</button>`;
+        });
+        if (_currentDonatePlayerHave > 0)
+          html += `<button onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave};updateXpPreview()" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">ALL</button>`;
+        html += `</div>`;
+        html += `<div id="bp-xp-preview" style="color:#A86EFF;font-size:8px;margin-bottom:10px;min-height:14px;"></div>`;
+        const hasRes = _currentDonatePlayerHave > 0;
+        html += `<button id="bm-donate-btn" onclick="bpDonate()" ${hasRes?'':'disabled'} style="width:100%;font-family:'Press Start 2P',monospace;font-size:10px;padding:12px;background:#1C1C1C;border:3px solid #4aff6b;color:#4aff6b;cursor:${hasRes?'pointer':'not-allowed'};opacity:${hasRes?1:0.4};">DONATE ${(_currentDonateResource||'').replace(/_/g,' ').toUpperCase()}</button>`;
+      }
+    }
+
+    // Top contributors
+    const contribs = upgData.contributors || [];
+    if (contribs.length) {
+      html += `<hr class="bm-divider-thin">`;
+      html += `<div style="color:#FF8C00;font-size:10px;margin-bottom:10px;">🏆 TOP CONTRIBUTORS</div>`;
+      const medals = ['🥇','🥈','🥉','#4','#5'];
+      contribs.forEach((c, i) => {
+        html += `<div style="display:flex;gap:8px;font-size:7px;padding:5px 0;border-bottom:1px solid #1a1a1a;">
+          <span style="color:#888;width:20px;flex-shrink:0;">${medals[i]||'#'+(i+1)}</span>
+          <span style="color:#fff;flex:1;">${c.username.toUpperCase()}</span>
+          <span style="color:#888;">${(c.total||0).toLocaleString()} resources</span>
+        </div>`;
+      });
+      html += `<div style="color:#555;font-size:6px;margin-top:8px;text-align:center;font-style:italic;">This building remembers its builders.</div>`;
+    }
+
+    // Personal stats
+    if (upgData.player_building_total !== undefined) {
+      html += `<hr class="bm-divider-thin">`;
+      html += `<div style="color:#A86EFF;font-size:9px;margin-bottom:8px;">YOUR CONTRIBUTIONS</div>`;
+      html += `<div style="font-size:7px;color:#888;margin-bottom:4px;">To this building: <span style="color:#fff;">${(upgData.player_building_total||0).toLocaleString()}</span></div>`;
+      html += `<div style="font-size:7px;color:#888;margin-bottom:8px;">All buildings total: <span style="color:#fff;">${(upgData.player_total_contributions||0).toLocaleString()}</span></div>`;
+      if (upgData.next_milestone) {
+        const nm = upgData.next_milestone;
+        const cur = upgData.player_total_contributions || 0;
+        const pct = Math.min(100, Math.round(cur / nm.threshold * 100));
+        html += `<div style="font-size:7px;color:#888;margin-bottom:4px;">Next unlock at <span style="color:#FF8C00;">${nm.threshold.toLocaleString()}</span>: <span style="color:#FF7FE5;">${nm.name}</span></div>`;
+        html += `<div class="bm-prog-track" style="border:1px solid #333;margin-bottom:4px;"><div class="bm-prog-fill" style="width:${pct}%;background:#FF7FE5;"></div></div>`;
+        html += `<div style="font-size:6px;color:#666;">${pct}% there</div>`;
+      } else {
+        html += `<div style="color:#FF8C00;font-size:7px;">★ All milestones unlocked!</div>`;
+      }
+    }
+
+    return html;
   }
 
   function bpSelectResource(res, have) {
     _currentDonateResource = res;
     _currentDonatePlayerHave = have;
-    if (_currentDonateBuilding) renderBuildingUpgradeSection(_currentDonateBuilding);
+    if (_currentDonateBuilding) openBuilding(_currentDonateBuilding);
+  }
+
+  function updateXpPreview() {
+    const amtEl     = document.getElementById('bp-donate-amount');
+    const previewEl = document.getElementById('bp-xp-preview');
+    if (!amtEl || !previewEl || !_currentDonateResource) return;
+    const amount = parseInt(amtEl.value, 10) || 0;
+    let xp = 0;
+    if (_currentDonateResource === 'gold') xp = Math.floor(amount / 4);
+    else if (['blood_gems', 'bones'].includes(_currentDonateResource)) xp = amount;
+    else xp = Math.floor(amount / 2);
+    previewEl.textContent = xp > 0 ? `This will earn you ⭐ ${xp} XP` : '';
   }
 
   async function bpDonate() {
@@ -2354,8 +2625,10 @@
     if (!amtEl || !_currentDonateBuilding || !_currentDonateResource) return;
     const amount = parseInt(amtEl.value, 10);
     if (!amount || amount <= 0) { showToast('Enter a valid amount.', 'err'); return; }
+    const donateBtn = document.getElementById('bm-donate-btn');
+    if (donateBtn) donateBtn.disabled = true;
     try {
-      const res  = await fetch('/building/donate', {
+      const res = await fetch('/building/donate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2367,17 +2640,48 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
-        showToast(`Donated ${data.donated} ${data.resource}!`, 'ok');
+        Sounds.donate();
+        showToast(`Donated ${data.donated.toLocaleString()} ${data.resource}!`, 'ok');
+        const anchor = donateBtn || document.getElementById('bm-content');
+        if (anchor) Effects.floatText(anchor, `+${data.donated.toLocaleString()} donated!`, '#A86EFF');
+        if ((data.xp_earned||0) > 0) {
+          setTimeout(() => { if (anchor) Effects.floatText(anchor, `+${data.xp_earned} XP`, '#A86EFF'); }, 250);
+        }
+        if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
+        if (data.milestone_unlocked) setTimeout(() => _showMilestone(data.milestone_unlocked), 400);
         if (data.level_up) {
+          Sounds.buildingLevelUp();
           setTimeout(() => showToast(`🏗️ Building upgraded to Level ${data.building_level}!`, 'ok'), 400);
+          const modal = document.getElementById('building-modal');
+          if (modal) Effects.flashElement(modal, '#FF7FE5', 3);
+          if (anchor) Effects.confettiBurst(anchor, 16);
           loadBuildingLevels();
         }
         await refreshStats();
-        await renderBuildingUpgradeSection(_currentDonateBuilding);
+        const savedBuilding = _currentDonateBuilding;
+        await openBuilding(savedBuilding);
       } else {
         showToast(data.message || 'Donation failed.', 'err');
+        if (donateBtn) donateBtn.disabled = false;
       }
-    } catch(e) { showToast('Error.', 'err'); }
+    } catch(e) { showToast('Error.', 'err'); if (donateBtn) donateBtn.disabled = false; }
+  }
+
+  function _showMilestone(ms) {
+    Sounds.levelUp();
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
+    overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #FF8C00;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Press Start 2P',monospace;animation:popIn 0.3s ease;">
+      <div style="font-size:24px;margin-bottom:10px;">🎉</div>
+      <div style="color:#FF8C00;font-size:12px;margin-bottom:8px;">MILESTONE UNLOCKED!</div>
+      <div style="color:#FF7FE5;font-size:10px;margin-bottom:8px;">${ms.name}</div>
+      <div style="color:#888;font-size:7px;margin-bottom:16px;line-height:2;">${ms.description}</div>
+      <div style="color:#4aff6b;font-size:7px;margin-bottom:16px;">Card background added to your inventory!</div>
+      <button onclick="this.closest('[data-ms-overlay]').remove()" style="font-family:'Press Start 2P',monospace;font-size:8px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
+    </div>`;
+    overlay.setAttribute('data-ms-overlay', '1');
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   }
 
   function bpComingSoon(icon, title, desc) {
@@ -2882,126 +3186,6 @@
     } catch(e) { showToast('Error.', 'err'); }
   }
 
-  function renderBuildingActions(data) {
-    const container = document.getElementById('bp-actions');
-    let html = '';
-    const btype = data.type;
-
-    if (btype === 'job') {
-      if (data.working_here) {
-        const startTs   = data.job_started_ts || 0;
-        const capTs     = data.job_cap_ts || 0;
-        const complete  = data.complete || false;
-        const capLine   = complete
-          ? `<span class="job-timer-complete">✓ JOB COMPLETE!</span>`
-          : `CAP IN: <span id="bp-job-countdown" class="job-timer"></span>`;
-        html += `<div class="bp-info">Working as ${data.job_label || 'WORKER'}<br>`;
-        html += `Elapsed: <span id="bp-elapsed" class="job-timer"></span><br>`;
-        html += `Earned: <span id="bp-earned" class="job-timer"></span><br>`;
-        html += capLine;
-        html += `</div>`;
-        html += `<button class="bp-btn collect${complete ? ' pulsing' : ''}" id="bp-collect-btn" onclick="bpCollect()">`;
-        html += complete ? '✓ COLLECT' : 'COLLECT';
-        html += `</button>`;
-        container.innerHTML = html;
-        if (startTs) {
-          startCountUp('bp-elapsed', startTs, 8 * 3600);
-          if (_countdownTimers['bp-earned']) clearInterval(_countdownTimers['bp-earned']);
-          const bpProduces = data.produces || {};
-          const BPSMULTS   = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
-          const bpEarnedTick = () => {
-            const el = document.getElementById('bp-earned');
-            if (!el) { clearInterval(_countdownTimers['bp-earned']); return; }
-            const elapsed = Math.min(Math.floor(Date.now() / 1000) - startTs, 8 * 3600);
-            const hrs  = elapsed / 3600;
-            const mult = BPSMULTS[_streamTier] || 1.0;
-            const parts = Object.entries(bpProduces).filter(([,v]) => v > 0).map(([k,v]) => {
-              const base    = Math.floor(v * hrs);
-              const boosted = Math.floor(v * mult * hrs);
-              if (_streamTier > 0 && k !== 'xp')
-                return `~<span style="text-decoration:line-through;color:#555;">${base}</span> <span style="color:#FF7FE5;">${boosted}</span> ${k}`;
-              return `~${base} ${k}`;
-            });
-            el.innerHTML = parts.length ? parts.join(', ') : '...';
-          };
-          bpEarnedTick();
-          _countdownTimers['bp-earned'] = setInterval(bpEarnedTick, 1000);
-        }
-        if (!complete && capTs) startCountdown('bp-job-countdown', capTs, (el) => {
-          el.outerHTML = '<span class="job-timer-complete">✓ COMPLETE!</span>';
-          const btn = document.getElementById('bp-collect-btn');
-          if (btn) { btn.textContent = '✓ COLLECT'; btn.classList.add('pulsing'); }
-        });
-        return;
-      } else if (data.player_job && data.player_job !== data.building_id) {
-        html += `<div class="bp-info" style="color:#ff6b6b;">Already working elsewhere!<br>Collect first.</div>`;
-      } else {
-        const produces = data.produces || {};
-        const BSMULTS  = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
-        const bsMult   = BSMULTS[_streamTier] || 1.0;
-        const prodStr  = Object.entries(produces).map(([k,v]) => {
-          if (_streamTier > 0 && k !== 'xp') {
-            return `<span style="text-decoration:line-through;color:#555;">${v}/hr</span> <span style="color:#FF7FE5;">${(v*bsMult).toFixed(2)}/hr</span> ${k}`;
-          }
-          return `${v}/hr ${k}`;
-        }).join(', ');
-        if (prodStr) html += `<div class="bp-info" style="color:#888;">${prodStr}<br>Caps at 8 hours.</div>`;
-        html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label || 'WORK'}</button>`;
-      }
-    } else if (btype === 'rest') {
-      const energy    = data.player_energy    || 0;
-      const maxEnergy = data.player_max_energy || 100;
-      const gold      = data.player_gold       || 0;
-      const isWorking = !!data.player_job;
-      const isFull    = energy >= maxEnergy;
-      const toRestore = maxEnergy - energy;
-      const cost      = toRestore * 2;
-      const canAfford = gold >= cost;
-      const energyPct = Math.round((energy / maxEnergy) * 100);
-
-      html += `<div style="color:var(--purple);font-size:10px;margin-bottom:6px;">PENGUIN HOTEL</div>`;
-      html += `<div class="bp-info" style="margin-bottom:8px;">Rest those flippers. You've earned it.</div>`;
-      html += `<hr style="border:none;border-top:1px solid #A86EFF;margin:8px 0;">`;
-
-      html += `<div style="font-size:8px;color:#888;margin-bottom:4px;">ENERGY: ${energy} / ${maxEnergy}</div>`;
-      html += `<div style="height:6px;background:#1C1C1C;margin-bottom:10px;">`;
-      html += `<div style="height:100%;width:${energyPct}%;background:#4aff6b;"></div></div>`;
-
-      if (isFull) {
-        html += `<div class="bp-info" style="color:#4aff6b;text-align:center;padding:8px 0;">You're fully rested! 😴</div>`;
-      } else if (isWorking) {
-        html += `<div class="bp-info" style="color:#ff6b6b;">Your penguin needs to finish working first!</div>`;
-        html += `<div class="bp-info" style="margin-top:4px;">Collect your earnings first, then come back to rest.</div>`;
-      } else {
-        html += `<div style="font-size:9px;color:#fff;margin-bottom:3px;">Restore ${toRestore} energy</div>`;
-        html += `<div style="font-size:9px;color:#FF8C00;margin-bottom:10px;">Cost: ${cost} gold 🪙</div>`;
-        html += `<button class="bp-btn rest" ${canAfford ? '' : 'disabled'} onclick="bpRest()">REST NOW</button>`;
-        if (!canAfford) {
-          html += `<div style="color:#ff6b6b;font-size:7px;margin-top:5px;text-align:center;">Not enough gold (have ${gold}, need ${cost})</div>`;
-        }
-      }
-    } else if (btype === 'combat') {
-      if (FEATURES.combat) {
-        html += `<div class="bp-info">Fight monsters. Win loot.<br>Try not to die.</div>`;
-        html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">GO TO COMBAT</button>`;
-      } else {
-        html += bpComingSoon('🚧', 'THE BARRACKS ARE BEING PREPARED...', 'Combat, gear, and monsters are coming soon. Train your patience, villager.');
-      }
-    } else if (btype === 'achievements') {
-      html += `<div class="bp-info">View your achievements.</div>`;
-      html += `<button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW AWARDS</button>`;
-    } else if (btype === 'placeholder') {
-      if (data.building_id === 'horny_jail') {
-        html += bpComingSoon('🔒', 'YOU KNOW WHAT YOU DID.', 'Coming Soon. Maybe. Behave.');
-      } else if (data.building_id === 'bank') {
-        html += bpComingSoon('🏦', 'UNDER CONSTRUCTION', 'Resource exchange is coming in a future update.');
-      } else {
-        html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
-      }
-    }
-
-    container.innerHTML = html;
-  }
 
 
   async function bpStartWork(buildingId) {
@@ -3033,6 +3217,9 @@
       if (data.status === 'success') {
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         showToast('Collected: ' + (parts.join(', ') || 'nothing yet'), 'ok');
+        Sounds.collect();
+        const bpcBtn = document.getElementById('bp-collect-btn');
+        if (bpcBtn && parts.length) Effects.floatText(bpcBtn, parts.join('  '), '#4aff6b');
         if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         await refreshStats();
         closeBuildingPanel();
@@ -3048,7 +3235,10 @@
       const res  = await fetch(`/hotel/rest/${CURRENT_USER}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
+        Sounds.rest();
         showToast(`Fully rested! -${data.gold_spent} gold`, 'ok');
+        Effects.smoothFillBar(document.getElementById('energy-bar'), 100, 500);
+        Effects.floatText(document.getElementById('stat-energy') || document.getElementById('sidebar-collect-btn'), '💤 Fully Rested!', '#4aff6b');
         await refreshStats();
         closeBuildingPanel();
       } else {
@@ -3058,80 +3248,448 @@
   }
 
   // ── COMBAT ──
+  let _fightInProgress = false;
+  let _pendingCombatRefresh = false;
+
   async function loadCombat() {
     const container = document.getElementById('combat-list');
     container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>';
     try {
-      const res  = await fetch(`/combat/monsters?username=${CURRENT_USER}`);
+      const res  = await fetch(`/combat/monsters/${CURRENT_USER}`);
       const data = await res.json();
       if (data.status === 'error' || !data.monsters) {
-        container.innerHTML = `<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">${data.message || 'ERROR LOADING COMBAT'}</div>`;
+        container.innerHTML = `<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">${data.message||'ERROR'}</div>`;
         return;
       }
-      let html = '';
-      const playerEnergy = data.player_energy || 0;
-      data.monsters.forEach(m => {
-        const tierClass  = `tier-${m.tier}`;
-        const tierLabel  = m.tier === 1 ? 'T1' : m.tier === 2 ? 'T2' : 'T3';
-        const rewardStr  = Object.entries(m.rewards).map(([k,v]) => `+${v} ${k}`).join(' ');
-        const killed     = m.killed_today;
-        const locked     = !m.can_fight;
-        const lowEnergy  = !killed && !locked && playerEnergy < m.energy_cost;
-        const btnDisabled = killed || locked || lowEnergy;
-        const btnLabel   = killed    ? 'DEFEATED ✅'
-                         : locked    ? `LV${m.min_level} REQ`
-                         : lowEnergy ? `Need ${m.energy_cost} ⚡`
-                         :             '⚔️ FIGHT';
-        html += `
-          <div class="monster-card${killed ? ' killed' : ''}">
-            <div class="monster-header">
-              <span class="monster-icon">${m.icon}</span>
-              <span class="monster-name">${m.name.toUpperCase()}</span>
-              <span class="monster-tier ${tierClass}">${tierLabel}</span>
-            </div>
-            <div class="monster-stats">HP:${m.hp} ATK:${m.attack} DEF:${m.defense} | Drop: ${m.drop_name} (${Math.round(m.drop_chance*100)}%)</div>
-            <div class="monster-rewards">${rewardStr}</div>
-            <div class="monster-footer">
-              <span style="color:#555;font-size:7px;">MIN LV${m.min_level}</span>
-              <button class="fight-btn" ${btnDisabled ? 'disabled' : ''}
-                onclick="fightMonster('${m.id}')">${btnLabel}</button>
+
+      const energy    = data.player_energy    || 0;
+      const maxEnergy = data.player_max_energy || 100;
+      const isFull    = energy >= maxEnergy;
+
+      const cpEl = document.getElementById('combat-cp-display');
+      if (cpEl) cpEl.textContent = `Your Combat Power: ${data.player_cp} CP`;
+      const engEl = document.getElementById('combat-energy-bar-label');
+      if (engEl) engEl.innerHTML = isFull
+        ? `<span style="color:#4aff6b">⚡ FULL (${maxEnergy}/${maxEnergy})</span>`
+        : `⚡ ${energy} / ${maxEnergy} <span style="color:#888">+10/hr</span>`;
+
+      const tierLabels = {
+        1: 'TIER 1 — NEWCOMER GROUNDS',
+        2: 'TIER 2 — FROZEN FRONTIER',
+        3: 'TIER 3 — SHADOW TERRITORY',
+        4: 'TIER 4 — CURSED DEPTHS',
+        5: 'TIER 5 — THE ABYSS',
+      };
+      const tierMinLevels = {1:1, 2:6, 3:11, 4:16, 5:26};
+      const playerLevel   = data.player_level || 1;
+
+      let currentTier = 1;
+      [1,2,3,4,5].forEach(t => { if (playerLevel >= (tierMinLevels[t]||99)) currentTier = t; });
+
+      const tiers = {};
+      data.monsters.forEach(m => { (tiers[m.tier] = tiers[m.tier] || []).push(m); });
+
+      const fkCount = data.first_kills_count || 0;
+      const fkMax   = data.max_first_kills   || 93;
+
+      let html = `<div style="color:#FF8C00;font-size:8px;text-align:right;margin-bottom:6px;">First Kills: ${fkCount} / ${fkMax} ⭐</div>`;
+
+      [1,2,3,4,5].forEach(tier => {
+        const isLocked  = tier > currentTier;
+        const isLower   = tier < currentTier;
+        const minLv     = tierMinLevels[tier] || 99;
+        const label     = tierLabels[tier] || `TIER ${tier}`;
+        const tcls      = `t${tier}`;
+
+        if (isLocked) {
+          html += `<div class="tier-group">
+            <div class="tier-header ${tcls}" style="opacity:0.4;display:flex;justify-content:space-between;align-items:center;">
+              <span>🔒 ${label}</span><span style="font-size:7px;color:#444;">LV ${minLv}</span>
             </div>
           </div>`;
+        } else if (tiers[tier]) {
+          const gridId   = `tier-grid-${tier}`;
+          const toggleId = `tier-tog-${tier}`;
+          if (isLower) {
+            html += `<div class="tier-group">
+              <div class="tier-header ${tcls}" style="opacity:0.7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleTierGroup(${tier})">
+                <span>${label}</span><span id="${toggleId}" style="font-size:7px;">▼ SHOW</span>
+              </div>
+              <div id="${gridId}" class="monster-grid" style="display:none;opacity:0.8;">`;
+          } else {
+            html += `<div class="tier-group">
+              <div class="tier-header ${tcls}" style="display:flex;justify-content:space-between;align-items:center;">
+                <span>${label}</span>
+              </div>
+              <div id="${gridId}" class="monster-grid">`;
+          }
+          tiers[tier].forEach(m => html += buildMonsterCard(m, energy));
+          html += '</div></div>';
+        }
       });
-      container.innerHTML = html || '<div style="color:#666;font-size:7px;text-align:center;padding:20px;">NO MONSTERS</div>';
+
+      container.innerHTML = html || '<div style="color:#666;font-size:9px;text-align:center;padding:20px;">NO MONSTERS</div>';
+      loadBossBanner();
     } catch(e) {
       container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
     }
   }
 
-  async function fightMonster(monsterId) {
+  function toggleTierGroup(tier) {
+    const grid   = document.getElementById(`tier-grid-${tier}`);
+    const toggle = document.getElementById(`tier-tog-${tier}`);
+    if (!grid) return;
+    const hidden = grid.style.display === 'none';
+    grid.style.display = hidden ? 'grid' : 'none';
+    if (toggle) toggle.textContent = hidden ? '▲ HIDE' : '▼ SHOW';
+  }
+
+  function buildMonsterCard(m, playerEnergy) {
+    const winPct    = m.win_chance;
+    const losePct   = 100 - winPct;
+    const tierBadge = `tier-badge-${m.tier}`;
+    const isNew     = m.is_new && !m.killed_today;
+    let btnHtml;
+    if (m.killed_today) {
+      btnHtml = `<button class="fight-btn defeated" disabled>DEFEATED ✅</button>`;
+    } else if (m.locked) {
+      btnHtml = `<button class="fight-btn locked" disabled>🔒 LOCKED (LV${m.min_level})</button>`;
+    } else if (playerEnergy < m.energy_cost) {
+      btnHtml = `<button class="fight-btn low-energy" disabled title="Need ${m.energy_cost} energy">⚡ NEED ${m.energy_cost} ENERGY</button>`;
+    } else {
+      btnHtml = `<button class="fight-btn" onclick="fightMonster('${m.type}',this)">⚔️ FIGHT</button>`;
+    }
+    const rp      = m.rewards_preview;
+    const resText = rp.resources ? `<span>${rp.resources}</span>` : '';
+    const dropPct = Math.round(rp.gear_drop_chance * 100);
+    const newBadge = isNew
+      ? `<span style="color:#FF8C00;font-size:6px;background:#1a1000;border:1px solid #FF8C00;padding:1px 3px;margin-left:3px;white-space:nowrap;">⭐ NEW</span>`
+      : '';
+    const goldLine = isNew
+      ? `🪙 <span style="color:#FF8C00">2× FIRST KILL!</span> ${rp.gold} gold &nbsp; ⭐ ${rp.xp} XP`
+      : `🪙 ${rp.gold} gold &nbsp; ⭐ ${rp.xp} XP`;
+    return `
+    <div class="monster-card${m.killed_today?' killed':''}" id="mcard-${m.type}">
+      <div class="monster-header">
+        <span class="monster-icon">${m.icon}</span>
+        <span class="monster-name">${m.name.toUpperCase()}</span>
+        ${newBadge}
+        <span class="monster-tier ${tierBadge}">T${m.tier}</span>
+      </div>
+      <div class="win-bar-wrap">
+        <div class="win-bar">
+          <div class="win-bar-green" style="width:${winPct}%"></div>
+          <div class="win-bar-red"   style="width:${losePct}%"></div>
+          <div class="win-bar-pct">${winPct}%</div>
+        </div>
+        <div class="win-eval">${m.evaluation}</div>
+      </div>
+      <div class="monster-meta">
+        <span>CP: ${m.combat_power} &nbsp; ⚡ ${m.energy_cost} energy</span>
+        <span class="gold-line">${goldLine}</span>
+        ${resText ? `<span>${resText}</span>` : ''}
+        <span>🎁 ${dropPct}% gear drop</span>
+      </div>
+      ${btnHtml}
+    </div>`;
+  }
+
+  async function fightMonster(monsterType, btn) {
+    if (_fightInProgress) return;
+    _fightInProgress = true;
+
+    // Find monster data
+    const card = document.getElementById(`mcard-${monsterType}`);
+    const monIcon = card ? card.querySelector('.monster-icon').textContent : '❓';
+    const monName = card ? card.querySelector('.monster-name').textContent : monsterType;
+    const cpEl    = document.getElementById('combat-cp-display');
+    const playerCpText = cpEl ? cpEl.textContent.match(/\d+/) : null;
+    const playerCp = playerCpText ? parseInt(playerCpText[0]) : '?';
+
+    // Button feedback
+    if (btn) { btn.textContent = 'FIGHTING...'; btn.disabled = true; }
+    if (card) card.classList.add('fighting');
+
+    // Show modal
+    showFightModal(CURRENT_USER, playerCp, monIcon, monName, '?');
+    playFightSound('start');
+
     try {
-      const res = await fetch('/combat/fight', {
+      const res  = await fetch('/combat/fight', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, monster_id: monsterId })
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER, monster_id: monsterType})
       });
       const data = await res.json();
-      if (data.status === 'success') {
-        if (data.won) {
-          const parts = Object.entries(data.rewards || {}).map(([k,v]) => `+${v} ${k}`);
-          let msg = '⚔️ VICTORY! ' + parts.join(', ');
-          if (data.drop) msg += ` | DROP: ${data.drop}`;
-          showToast(msg, 'ok');
-          if (data.new_achievements && data.new_achievements.length) {
-            data.new_achievements.forEach(aid => {
-              setTimeout(() => showToast('🏆 ACHIEVEMENT: ' + aid.replace(/_/g,' ').toUpperCase(), 'ok'), 600);
-            });
-          }
-        } else {
-          showToast('💀 DEFEATED! -20 energy, +2 xp', 'err');
-        }
-        await refreshStats();
-        loadCombat();
-      } else {
-        showToast(data.message, 'err');
+
+      if (data.status !== 'success') {
+        closeFightModal();
+        showToast(data.message || 'Error.', 'err');
+        if (card) card.classList.remove('fighting');
+        if (btn)  { btn.textContent = '⚔️ FIGHT'; btn.disabled = false; }
+        _fightInProgress = false;
+        return;
       }
-    } catch(e) { showToast('Error fighting.', 'err'); }
+
+      // Update monster CP display in modal
+      document.getElementById('fight-monster-cp').textContent = `${data.monster_cp} CP`;
+      document.getElementById('fight-player-cp').textContent  = `${data.player_cp} CP`;
+
+      // Animate the roll
+      await animateRoll(data.win_chance, data.roll, data.victory);
+
+      // Show result
+      showFightResult(data);
+      if (card) card.classList.remove('fighting');
+      _pendingCombatRefresh = true;
+    } catch(e) {
+      closeFightModal();
+      showToast('Fight error.', 'err');
+      if (card) card.classList.remove('fighting');
+      if (btn)  { btn.textContent = '⚔️ FIGHT'; btn.disabled = false; }
+      _fightInProgress = false;
+    }
+  }
+
+  function showFightModal(playerName, playerCp, monIcon, monName, monCp) {
+    document.getElementById('fight-modal-header').textContent = 'COMBAT';
+    document.getElementById('fight-player-name').textContent  = playerName.toUpperCase();
+    document.getElementById('fight-player-cp').textContent    = playerCp + ' CP';
+    document.getElementById('fight-monster-icon').textContent = monIcon;
+    document.getElementById('fight-monster-name').textContent = monName;
+    document.getElementById('fight-monster-cp').textContent   = monCp + ' CP';
+    document.getElementById('roll-bar-label').textContent     = 'ROLLING...';
+    document.getElementById('roll-bar-num').textContent       = '—';
+    document.getElementById('roll-bar-green').style.width     = '50%';
+    document.getElementById('roll-bar-red').style.width       = '50%';
+    document.getElementById('fight-result').style.display     = 'none';
+    document.getElementById('fight-modal-ok').style.display   = 'none';
+    document.getElementById('fight-roll-section').style.display = '';
+    document.getElementById('fight-modal-overlay').style.display = 'flex';
+  }
+
+  function animateRoll(winChance, finalRoll, victory) {
+    return new Promise(resolve => {
+      const greenBar = document.getElementById('roll-bar-green');
+      const redBar   = document.getElementById('roll-bar-red');
+      const numEl    = document.getElementById('roll-bar-num');
+      const labelEl  = document.getElementById('roll-bar-label');
+      let interval   = 50;
+      let elapsed    = 0;
+      const duration = 1800;
+      playFightSound('roll');
+
+      const tick = setInterval(() => {
+        elapsed += interval;
+        const progress = elapsed / duration;
+        // Oscillate around win_chance, reducing amplitude over time
+        const amplitude = (1 - progress) * 35;
+        const osc = Math.sin(elapsed / 120) * amplitude;
+        const displayPct = Math.max(5, Math.min(95, winChance + osc));
+        const fakeRoll = Math.floor(Math.random() * 100) + 1;
+        greenBar.style.width = displayPct + '%';
+        redBar.style.width   = (100 - displayPct) + '%';
+        numEl.textContent    = fakeRoll;
+        interval = Math.min(200, 50 + progress * 150);
+
+        if (elapsed >= duration) {
+          clearInterval(tick);
+          // Settle at final state
+          greenBar.style.width = winChance + '%';
+          redBar.style.width   = (100 - winChance) + '%';
+          numEl.textContent    = finalRoll;
+          const resultColor = victory ? '#4aff6b' : '#ff6b6b';
+          numEl.style.color  = resultColor;
+          labelEl.textContent = victory
+            ? `WIN! Rolled ${finalRoll} ≤ ${winChance}%`
+            : `MISS! Rolled ${finalRoll} > ${winChance}%`;
+          labelEl.style.color = resultColor;
+          resolve();
+        }
+      }, interval);
+    });
+  }
+
+  function showFightResult(data) {
+    document.getElementById('fight-roll-section').style.display = 'none';
+    const resultDiv   = document.getElementById('fight-result');
+    const titleEl     = document.getElementById('fight-result-title');
+    const rewardsEl   = document.getElementById('fight-rewards');
+    const evalEl      = document.getElementById('fight-result-eval');
+    resultDiv.style.display = '';
+
+    if (data.victory) {
+      playFightSound('victory');
+      titleEl.textContent  = 'VICTORY!';
+      titleEl.className    = 'fight-result-title win';
+      spawnConfetti();
+      let rhtml = '';
+      if (data.is_first_kill) {
+        rhtml += `<div style="color:#FF8C00;font-size:10px;text-align:center;background:#1a1000;border:1px solid #FF8C00;padding:5px;animation:scale-pop 0.4s ease;">⭐ FIRST KILL! 2× REWARDS</div>`;
+      }
+      if (data.rewards) {
+        if (data.rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.rewards.gold} gold</div>`;
+        if (data.rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.rewards.xp} XP</div>`;
+        if (data.rewards.resources) {
+          Object.entries(data.rewards.resources).forEach(([k,v]) => {
+            rhtml += `<div class="fight-reward-row" style="color:#888">+${v} ${k.replace(/_/g,' ')}</div>`;
+          });
+        }
+        if (data.rewards.gear_drop) {
+          const gd = data.rewards.gear_drop;
+          const rc = {common:'#ccc',uncommon:'#4aff6b',rare:'#5599ff',epic:'#A86EFF',legendary:'#FF8C00'}[gd.rarity]||'#ccc';
+          rhtml += `<div class="fight-gear-drop" style="color:${rc}">🎁 ${gd.name}!</div>`;
+          playFightSound('gear');
+        }
+      }
+      rewardsEl.innerHTML = rhtml;
+    } else {
+      playFightSound('defeat');
+      titleEl.textContent = 'DEFEATED';
+      titleEl.className   = 'fight-result-title loss';
+      rewardsEl.innerHTML = `<div class="fight-reward-row" style="color:#888">⭐ +${data.consolation_xp} consolation XP</div>`;
+    }
+    evalEl.textContent = `${data.evaluation} — rolled ${data.roll} out of ${data.win_chance}%`;
+    document.getElementById('fight-modal-ok').style.display = '';
+    refreshStats();
+  }
+
+  async function closeFightModal() {
+    document.getElementById('fight-modal-overlay').style.display = 'none';
+    _fightInProgress = false;
+    if (_pendingCombatRefresh) {
+      _pendingCombatRefresh = false;
+      loadCombat();
+    }
+  }
+
+  function spawnConfetti() {
+    const modal = document.getElementById('fight-modal');
+    const colors = ['#4aff6b','#A86EFF','#FF7FE5','#FF8C00','#fff'];
+    for (let i = 0; i < 20; i++) {
+      const el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.cssText = `left:${Math.random()*100}%;background:${colors[i%colors.length]};animation-delay:${Math.random()*0.4}s;animation-duration:${0.8+Math.random()*0.6}s;`;
+      modal.appendChild(el);
+      setTimeout(() => el.remove(), 1400);
+    }
+  }
+
+  // ── SOUND EFFECTS ──
+  function _audioCtx() {
+    try { return new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+  }
+  function playFightSound(type) {
+    const ctx = _audioCtx(); if (!ctx) return;
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    const t = ctx.currentTime;
+    if (type === 'start') {
+      osc.frequency.setValueAtTime(220, t); osc.frequency.setValueAtTime(330, t+0.08);
+      gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.25);
+      osc.start(t); osc.stop(t+0.25);
+    } else if (type === 'roll') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, t);
+      gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.1);
+      osc.start(t); osc.stop(t+0.1);
+    } else if (type === 'victory') {
+      osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1); osc.frequency.setValueAtTime(784, t+0.2);
+      gain.gain.setValueAtTime(0.25, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.5);
+      osc.start(t); osc.stop(t+0.5);
+    } else if (type === 'defeat') {
+      osc.frequency.setValueAtTime(220, t); osc.frequency.setValueAtTime(150, t+0.2);
+      gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.4);
+      osc.start(t); osc.stop(t+0.4);
+    } else if (type === 'gear') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, t); osc.frequency.setValueAtTime(1100, t+0.06); osc.frequency.setValueAtTime(1320, t+0.12);
+      gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.35);
+      osc.start(t); osc.stop(t+0.35);
+    }
+  }
+
+  // ── BOSS BANNER ──
+  async function loadBossBanner() {
+    const banner = document.getElementById('boss-banner');
+    if (!banner) return;
+    try {
+      const res  = await fetch('/combat/boss/status');
+      const data = await res.json();
+      if (!data.active || !data.boss) { banner.style.display = 'none'; return; }
+      const b = data.boss;
+      const hpPct = Math.round((b.current_hp / b.max_hp) * 100);
+      const topDmg = data.participants && data.participants[0];
+      banner.style.display = '';
+      banner.innerHTML = `
+        <div class="boss-banner">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <span style="color:#FF8C00;font-size:10px;">${b.icon||'👑'} ${b.name}</span>
+              <div style="color:#888;font-size:7px;margin-top:3px;">COMMUNITY BOSS • ${data.participants?data.participants.length:0} fighters</div>
+            </div>
+            <div style="text-align:right;color:#888;font-size:7px;">${b.current_hp.toLocaleString()} / ${b.max_hp.toLocaleString()} HP</div>
+          </div>
+          <div class="boss-hp-bar">
+            <div class="boss-hp-fill" style="width:${hpPct}%"></div>
+            <div class="boss-hp-text">${hpPct}% HP</div>
+          </div>
+          ${topDmg ? `<div style="color:#888;font-size:7px;">Top: ${topDmg.username} — ${topDmg.damage_dealt} dmg</div>` : ''}
+          <button class="fight-btn" style="margin-top:4px;" onclick="fightBoss()">⚔️ JOIN FIGHT (30 energy)</button>
+        </div>`;
+    } catch(e) { if (banner) banner.style.display = 'none'; }
+  }
+
+  async function fightBoss() {
+    if (_fightInProgress) return;
+    _fightInProgress = true;
+    showFightModal(CURRENT_USER, '?', '👑', 'THE BLIZZARD KING', '???');
+    document.getElementById('fight-modal-header').textContent = 'COMMUNITY BATTLE';
+    document.getElementById('fight-modal-header').style.color = '#FF7FE5';
+    playFightSound('start');
+    try {
+      const res  = await fetch('/combat/boss/attack', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER})
+      });
+      const data = await res.json();
+      if (data.status !== 'success') {
+        closeFightModal();
+        showToast(data.message || 'Error.', 'err');
+        _fightInProgress = false;
+        return;
+      }
+      document.getElementById('fight-roll-section').style.display = 'none';
+      document.getElementById('fight-result').style.display = '';
+      const titleEl   = document.getElementById('fight-result-title');
+      const rewardsEl = document.getElementById('fight-rewards');
+      const evalEl    = document.getElementById('fight-result-eval');
+      const hpPct = Math.round((data.boss_hp / data.boss_max_hp) * 100);
+      titleEl.textContent = data.defeated ? '🏆 BOSS DEFEATED!' : `Hit for ${data.hit_damage} damage!`;
+      titleEl.className   = 'fight-result-title win';
+      let rhtml = `<div class="fight-reward-row" style="color:#888">Boss HP: ${data.boss_hp.toLocaleString()} / ${data.boss_max_hp.toLocaleString()} (${hpPct}%)</div>`;
+      if (data.hit_rewards) {
+        if (data.hit_rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.hit_rewards.xp} XP</div>`;
+        if (data.hit_rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.hit_rewards.gold} gold</div>`;
+      }
+      if (data.defeated && data.kill_rewards) {
+        rhtml += `<div style="color:#FF8C00;font-size:10px;margin-top:6px;">🏆 THE VILLAGE HAS TRIUMPHED!</div>`;
+        if (data.kill_rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.kill_rewards.xp} BONUS XP</div>`;
+        if (data.kill_rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.kill_rewards.gold} BONUS GOLD</div>`;
+        playFightSound('victory');
+        spawnConfetti();
+      }
+      rewardsEl.innerHTML = rhtml;
+      evalEl.textContent  = '';
+      document.getElementById('fight-modal-ok').style.display = '';
+      _pendingCombatRefresh = true;
+      refreshStats();
+    } catch(e) {
+      closeFightModal();
+      showToast('Boss fight error.', 'err');
+      _fightInProgress = false;
+    }
   }
 
   // ── GEAR ──
@@ -3225,6 +3783,8 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
+        Sounds.equip();
+        Effects.flashElement(document.getElementById('gear-content'), '#A86EFF', 2);
         showToast(data.message, 'ok');
         await refreshStats();
         loadGear();
@@ -3586,6 +4146,17 @@
     }
     document.getElementById('lvup-rewards').innerHTML = rewardHtml;
     document.getElementById('lvup-overlay').classList.add('show');
+
+    Sounds.levelUp();
+    if (box) {
+      const _lvupCycleColors = ['#A86EFF', '#FF7FE5', '#FF8C00', '#4aff6b'];
+      let _lvupCi = 0;
+      const _lvupCyc = setInterval(() => {
+        box.style.borderColor = _lvupCycleColors[_lvupCi % _lvupCycleColors.length];
+        _lvupCi++;
+      }, 200);
+      setTimeout(() => { clearInterval(_lvupCyc); box.style.borderColor = ''; }, 2000);
+    }
   }
 
   function lvupDismiss() {
@@ -3819,7 +4390,11 @@
       const res  = await fetch(`/streak/claim/${CURRENT_USER}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
-        document.getElementById('daily-popup').style.display = 'none';
+        Sounds.streak();
+        Effects.confettiBurst(btn, 12);
+        const dpBox = document.querySelector('#daily-popup > div');
+        if (dpBox) Effects.pulseElement(dpBox, '#FF8C00', 3);
+        setTimeout(() => { document.getElementById('daily-popup').style.display = 'none'; }, 350);
         const e = data.earned;
         showToast(`+${e.gold} gold & ${e.resource_amount} ${e.resource_icon} ${e.resource}!`, 'ok');
         await refreshStats();
@@ -3857,5 +4432,39 @@
 </script>
 
 <div id="sb-tooltip"></div>
+
+  <!-- FIGHT MODAL -->
+  <div class="fight-modal-overlay" id="fight-modal-overlay" style="display:none;" onclick="if(event.target===this&&!_fightInProgress)closeFightModal()">
+    <div class="fight-modal" id="fight-modal">
+      <div class="fight-modal-header" id="fight-modal-header">COMBAT</div>
+      <div class="fight-combatants">
+        <div class="fight-combatant">
+          <div class="emo">🐧</div>
+          <div class="name" id="fight-player-name">—</div>
+          <div class="cp" id="fight-player-cp">— CP</div>
+        </div>
+        <div class="fight-vs">VS</div>
+        <div class="fight-combatant">
+          <div class="emo" id="fight-monster-icon">❓</div>
+          <div class="name" id="fight-monster-name">—</div>
+          <div class="cp" id="fight-monster-cp">— CP</div>
+        </div>
+      </div>
+      <div class="roll-bar-wrap" id="fight-roll-section">
+        <div class="roll-bar">
+          <div class="roll-bar-green" id="roll-bar-green" style="width:50%"></div>
+          <div class="roll-bar-red"   id="roll-bar-red"   style="width:50%"></div>
+          <div class="roll-bar-num"   id="roll-bar-num">—</div>
+        </div>
+        <div class="roll-bar-label" id="roll-bar-label">ROLLING...</div>
+      </div>
+      <div class="fight-result" id="fight-result" style="display:none;">
+        <div class="fight-result-title" id="fight-result-title"></div>
+        <div class="fight-rewards" id="fight-rewards"></div>
+        <div class="fight-result-eval" id="fight-result-eval"></div>
+      </div>
+      <button class="fight-modal-ok" id="fight-modal-ok" style="display:none;" onclick="closeFightModal()">OK</button>
+    </div>
+  </div>
 </body>
 </html>
