@@ -449,6 +449,39 @@
     .bp-coming-soon-title { color: #FF7FE5; font-size: 10px; margin-bottom: 8px; }
     .bp-coming-soon-desc  { color: #888; font-size: 8px; line-height: 1.8; }
 
+    /* ── BOUTIQUE ── */
+    .bq-tabs { display: flex; gap: 0; border-bottom: 2px solid #333; margin-bottom: 14px; flex-wrap: wrap; }
+    .bq-tab  { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 8px 10px; border: none; background: transparent; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .bq-tab.active { color: #FF7FE5; background: #2E2E2E; border-bottom-color: #FF7FE5; }
+    .bq-tab:hover:not(.active) { color: #ccc; }
+    .bq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 420px) { .bq-grid { grid-template-columns: 1fr; } }
+    .bq-card { background: #1C1C1C; border: 2px solid #333; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .bq-card.expensive { border-color: #FF8C00; background: linear-gradient(135deg, #1C1C1C 60%, #1a0d00 100%); position: relative; overflow: hidden; }
+    .bq-card.expensive::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 40%, rgba(255,140,0,0.05) 60%, transparent 80%); animation: bq-shimmer 3s ease-in-out infinite; pointer-events: none; }
+    .bq-card.dragon { border-color: #FF8C00; animation: bq-glow 1.5s ease-in-out infinite; }
+    @keyframes bq-shimmer { 0%,100% { opacity:0; } 50% { opacity:1; } }
+    @keyframes bq-glow { 0%,100% { box-shadow: 0 0 6px #FF8C00; } 50% { box-shadow: 0 0 18px #FF8C00, 0 0 30px rgba(255,140,0,0.4); } }
+    .bq-item-name { font-size: 9px; color: #fff; }
+    .bq-item-name.expensive { font-size: 10px; }
+    .bq-legendary-tag { position: absolute; top: 5px; right: 5px; font-size: 6px; color: #FF8C00; font-family: 'Press Start 2P', monospace; }
+    .bq-price { font-size: 8px; }
+    .bq-price.expensive { font-size: 10px; }
+    .bq-btn-row { display: flex; gap: 5px; margin-top: 2px; }
+    .bq-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 5px 8px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; flex: 1; }
+    .bq-btn.preview { border-color: #A86EFF; color: #A86EFF; }
+    .bq-btn.buy     { border-color: #4aff6b; color: #4aff6b; }
+    .bq-btn.buy:disabled { border-color: #333; color: #555; cursor: not-allowed; opacity: 0.5; }
+    .bq-btn.equip   { border-color: #4a9eff; color: #4a9eff; }
+    .bq-btn.equipped-mark { border-color: #4aff6b; color: #4aff6b; cursor: default; }
+    .bq-owned { font-size: 7px; color: #4aff6b; }
+    /* Preview overlay */
+    #bq-preview { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.85); z-index:10; align-items:center; justify-content:center; flex-direction:column; gap:12px; padding:20px; }
+    #bq-preview.show { display:flex; }
+    .bq-preview-penguin { position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center; }
+    .bq-preview-penguin img { width:80px; height:80px; image-rendering:pixelated; }
+    .bq-preview-slot-label { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:7px; color:#fff; white-space:nowrap; font-family:'Press Start 2P',monospace; }
+
     /* ── WARDROBE (sidebar) ── */
     .wardrobe-slots { padding: 8px 12px; border-bottom: var(--border-thin); }
     .wardrobe-slot-row {
@@ -1640,8 +1673,9 @@
 
 <!-- BUILDING MODAL -->
 <div id="bm-overlay" onclick="closeBuildingPanel()"></div>
-<div id="building-modal">
+<div id="building-modal" style="position:relative;">
   <div id="bm-content"></div>
+  <div id="bq-preview"></div>
 </div>
 
 <!-- TOAST -->
@@ -2270,7 +2304,7 @@
   // ── VILLAGE BUILDINGS ──
   let _buildingLevels = {};
   const BUILDING_UPGRADES_IDS = new Set([
-    'sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine','hotel'
+    'sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine'
   ]);
 
   async function loadBuildingLevels() {
@@ -2295,9 +2329,11 @@
     fish: '🐟', herbs: '🌿', gold: '🪙',
     blood_gems: '💎', bones: '🦴', spell_fragments: '✨'
   };
-  const _BM_LV_COLORS = { 1: '#666666', 2: '#4aff6b', 3: '#4a9eff', 4: '#A86EFF', 5: '#FF8C00' };
+  const _BM_LV_COLORS = { 1: '#666666', 2: '#4a9eff', 3: '#FF8C00' };
 
   async function openBuilding(buildingId) {
+    if (buildingId === 'boutique') { openBoutique(); return; }
+
     document.getElementById('bm-overlay').style.display = 'block';
     const modal = document.getElementById('building-modal');
     modal.style.display = 'block';
@@ -2326,13 +2362,204 @@
     document.getElementById('bm-overlay').style.display = 'none';
     document.getElementById('building-modal').style.display = 'none';
     document.getElementById('bm-content').innerHTML = '';
+    document.getElementById('bq-preview').className = '';
+    document.getElementById('bq-preview').innerHTML = '';
     _currentDonateBuilding = null;
   }
+
+  // ── BOUTIQUE ──────────────────────────────────────────────────────────────
+
+  let _bqData = null;
+  let _bqActiveTab = 'hats';
+  const _BQ_TIER_COLORS = { cheap: '#4aff6b', mid: '#4a9eff', expensive: '#FF8C00' };
+  const _BQ_TAB_LABELS  = { hats: '🎩 HATS', outfits: '👕 OUTFITS', footwear: '👟 FOOTWEAR', accessories: '✨ ACCESSORIES' };
+
+  async function openBoutique() {
+    document.getElementById('bm-overlay').style.display = 'block';
+    document.getElementById('building-modal').style.display = 'block';
+    document.getElementById('bm-content').innerHTML =
+      `<div style="text-align:center;color:#666;padding:40px 0;font-size:8px;">LOADING BOUTIQUE...</div>`;
+    try {
+      const res  = await fetch(`/boutique/items?username=${CURRENT_USER}`);
+      const data = await res.json();
+      if (data.status !== 'success') { showToast('Could not load boutique.', 'err'); closeBuildingPanel(); return; }
+      _bqData = data;
+      _renderBoutique();
+    } catch(e) { showToast('Error loading boutique.', 'err'); closeBuildingPanel(); }
+  }
+
+  function _renderBoutique() {
+    if (!_bqData) return;
+    const gold = _bqData.player_gold || 0;
+    let html = `<span class="bm-close" onclick="closeBuildingPanel()">✕</span>`;
+    html += `<div style="text-align:center;font-size:28px;margin-bottom:6px;">🛍️</div>`;
+    html += `<div style="color:#FF7FE5;font-size:14px;text-align:center;margin-bottom:6px;">THE PENGUIN BOUTIQUE</div>`;
+    html += `<div style="color:#888;font-size:8px;text-align:center;line-height:1.8;margin-bottom:10px;">The finest penguin fashion this side of the ice shelf.</div>`;
+    html += `<div id="bq-gold-display" style="text-align:center;color:#FF8C00;font-size:10px;margin-bottom:12px;">🪙 Your Gold: ${gold.toLocaleString()}</div>`;
+    html += `<hr class="bm-divider" style="border-color:#FF7FE5;">`;
+
+    html += `<div class="bq-tabs">`;
+    for (const [tab, label] of Object.entries(_BQ_TAB_LABELS)) {
+      html += `<button class="bq-tab${tab === _bqActiveTab ? ' active' : ''}" onclick="bqSwitchTab('${tab}')">${label}</button>`;
+    }
+    html += `</div>`;
+
+    html += `<div id="bq-items-grid" class="bq-grid">`;
+    html += _renderBoutiqueItems(_bqData.categories[_bqActiveTab] || [], gold);
+    html += `</div>`;
+
+    document.getElementById('bm-content').innerHTML = html;
+  }
+
+  function _renderBoutiqueItems(items, gold) {
+    if (!items || !items.length) return `<div style="color:#555;font-size:8px;padding:20px;text-align:center;">No items.</div>`;
+    let html = '';
+    for (const item of items) {
+      const isDragon  = item.id === 'dragon_wings';
+      const isExpensive = item.tier === 'expensive';
+      const tierColor = _BQ_TIER_COLORS[item.tier] || '#888';
+      const canAfford = gold >= item.price;
+      const cardClass = `bq-card${isDragon ? ' expensive dragon' : isExpensive ? ' expensive' : ''}`;
+
+      html += `<div class="${cardClass}">`;
+      if (isDragon) html += `<span class="bq-legendary-tag">👑 LEGENDARY</span>`;
+      html += `<div class="bq-item-name${isExpensive ? ' expensive' : ''}">${item.name}</div>`;
+      html += `<div class="bq-price${isExpensive ? ' expensive' : ''}" style="color:${tierColor};">🪙 ${item.price.toLocaleString()}</div>`;
+      html += `<div class="bq-btn-row">`;
+      html += `<button class="bq-btn preview" onclick="bqPreview('${item.id}')">PREVIEW</button>`;
+      if (item.owned) {
+        const isEquipped = item.equipped;
+        if (isEquipped) {
+          html += `<button class="bq-btn equipped-mark" onclick="bqEquip('${item.id}')">EQUIPPED ✓</button>`;
+        } else {
+          html += `<button class="bq-btn equip" onclick="bqEquip('${item.id}')">EQUIP</button>`;
+        }
+      } else {
+        html += `<button class="bq-btn buy" ${canAfford ? '' : 'disabled'} onclick="bqConfirmBuy('${item.id}','${item.name.replace(/'/g,'\\\'') }',${item.price})">BUY</button>`;
+      }
+      html += `</div>`;
+      if (item.owned) html += `<div class="bq-owned">OWNED ✅</div>`;
+      html += `</div>`;
+    }
+    return html;
+  }
+
+  function bqSwitchTab(tab) {
+    _bqActiveTab = tab;
+    document.querySelectorAll('.bq-tab').forEach(t => t.classList.toggle('active', t.textContent === _BQ_TAB_LABELS[tab]));
+    const gold = _bqData ? (_bqData.player_gold || 0) : 0;
+    document.getElementById('bq-items-grid').innerHTML =
+      _renderBoutiqueItems(_bqData ? (_bqData.categories[tab] || []) : [], gold);
+  }
+
+  function bqPreview(itemId) {
+    const item = Object.values(_bqData.categories).flat().find(i => i.id === itemId);
+    if (!item) return;
+    const tierColor = _BQ_TIER_COLORS[item.tier] || '#888';
+    const slotLabel = item.slot.toUpperCase();
+    const prev = document.getElementById('bq-preview');
+    prev.innerHTML = `
+      <div class="bq-preview-penguin" style="border:3px solid ${tierColor};padding:10px;">
+        <div class="bq-preview-slot-label">[${slotLabel}: ${item.name}]</div>
+        <img src="/static/penguin.png" alt="penguin">
+      </div>
+      <div style="color:#fff;font-size:9px;text-align:center;">${item.name}</div>
+      <div style="color:#888;font-size:7px;text-align:center;">Slot: ${slotLabel}</div>
+      <div style="color:${tierColor};font-size:9px;text-align:center;">🪙 ${item.price.toLocaleString()}</div>
+      <div class="bq-btn-row" style="gap:10px;justify-content:center;width:220px;">
+        ${item.owned
+          ? `<button class="bq-btn equip" style="flex:none;width:140px;" onclick="bqEquip('${item.id}');bqClosePreview()">EQUIP</button>`
+          : `<button class="bq-btn buy" style="flex:none;width:140px;" onclick="bqClosePreview();bqConfirmBuy('${item.id}','${item.name.replace(/'/g,'\\\'') }',${item.price})">BUY — 🪙 ${item.price.toLocaleString()}</button>`
+        }
+        <button class="bq-btn preview" style="flex:none;width:100px;" onclick="bqClosePreview()">CLOSE</button>
+      </div>`;
+    prev.className = 'show';
+  }
+
+  function bqClosePreview() {
+    const prev = document.getElementById('bq-preview');
+    prev.className = '';
+    prev.innerHTML = '';
+  }
+
+  function bqConfirmBuy(itemId, itemName, price) {
+    const prev = document.getElementById('bq-preview');
+    prev.innerHTML = `
+      <div style="background:#1C1C1C;border:2px solid #FF7FE5;padding:20px;max-width:280px;text-align:center;">
+        <div style="color:#FF7FE5;font-size:10px;margin-bottom:12px;">CONFIRM PURCHASE</div>
+        <div style="color:#fff;font-size:8px;margin-bottom:6px;">${itemName}</div>
+        <div style="color:#FF8C00;font-size:9px;margin-bottom:16px;">🪙 ${price.toLocaleString()} gold</div>
+        <div class="bq-btn-row" style="justify-content:center;gap:10px;">
+          <button class="bq-btn buy" style="flex:none;width:80px;" onclick="bqBuy('${itemId}')">YES</button>
+          <button class="bq-btn preview" style="flex:none;width:80px;" onclick="bqClosePreview()">NO</button>
+        </div>
+      </div>`;
+    prev.className = 'show';
+  }
+
+  async function bqBuy(itemId) {
+    bqClosePreview();
+    try {
+      const res  = await fetch('/boutique/buy', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER, item_id: itemId})
+      });
+      const data = await res.json();
+      if (data.status !== 'success') {
+        showToast(data.message || 'Purchase failed.', 'err');
+        return;
+      }
+      Sounds.purchase();
+      _bqData.player_gold = data.gold_remaining;
+      const allItems = Object.values(_bqData.categories).flat();
+      const bought = allItems.find(i => i.id === itemId);
+      if (bought) bought.owned = true;
+      const goldEl = document.getElementById('bq-gold-display');
+      if (goldEl) goldEl.textContent = `🪙 Your Gold: ${data.gold_remaining.toLocaleString()}`;
+      const grid = document.getElementById('bq-items-grid');
+      if (grid) {
+        const gold = _bqData.player_gold || 0;
+        grid.innerHTML = _renderBoutiqueItems(_bqData.categories[_bqActiveTab] || [], gold);
+        const cards = grid.querySelectorAll('.bq-card');
+        cards.forEach(card => {
+          const nameEl = card.querySelector('.bq-item-name');
+          if (nameEl && nameEl.textContent === data.item.name) Effects.confettiBurst(card, 10);
+        });
+      }
+      showToast(`+${data.item.name} added to wardrobe!`, 'ok');
+      refreshStats();
+    } catch(e) { showToast('Purchase error.', 'err'); }
+  }
+
+  async function bqEquip(itemId) {
+    bqClosePreview();
+    try {
+      const res  = await fetch('/boutique/equip', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER, item_id: itemId})
+      });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast(data.message || 'Could not equip.', 'err'); return; }
+      Sounds.equip();
+      const allItems = Object.values(_bqData.categories).flat();
+      allItems.forEach(i => { if (i.slot === (allItems.find(x => x.id === itemId)||{}).slot) i.equipped = false; });
+      const it = allItems.find(i => i.id === itemId);
+      if (it) it.equipped = data.equipped;
+      const grid = document.getElementById('bq-items-grid');
+      if (grid) grid.innerHTML = _renderBoutiqueItems(_bqData.categories[_bqActiveTab] || [], _bqData.player_gold || 0);
+      showToast(data.equipped ? 'Equipped!' : 'Unequipped!', 'ok');
+      refreshStats();
+    } catch(e) { showToast('Equip error.', 'err'); }
+  }
+
+  // ── END BOUTIQUE ──────────────────────────────────────────────────────────
 
   function _renderModalContent(bData, upgData) {
     const buildingId = bData.building_id;
     const lvl    = upgData ? (upgData.current_level || 1) : 1;
-    const maxLvl = upgData ? (upgData.max_level || 5) : 5;
+    const maxLvl = upgData ? (upgData.max_level || 3) : 3;
     const lvColor = _BM_LV_COLORS[lvl] || '#A86EFF';
 
     let html = `<span class="bm-close" onclick="closeBuildingPanel()">✕</span>`;
@@ -2490,7 +2717,7 @@
 
   function _renderContributionHtml(buildingId, upgData) {
     const lvl  = upgData.current_level || 1;
-    const maxLvl = upgData.max_level || 5;
+    const maxLvl = upgData.max_level || 3;
     const isMax = lvl >= maxLvl;
     let html = '';
 

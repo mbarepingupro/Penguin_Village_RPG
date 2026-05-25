@@ -144,55 +144,36 @@ BUILDING_UPGRADES = {
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit",
         "levels": {
-            2: {"fish": 1000,  "gold": 500,  "benefit": "+10% fish rate for everyone"},
-            3: {"fish": 3000,  "gold": 1500, "benefit": "+25% fish rate for everyone"},
-            4: {"fish": 7000,  "gold": 3500, "benefit": "+50% fish rate for everyone"},
-            5: {"fish": 15000, "gold": 7500, "benefit": "+100% fish rate, unlocks rare fish events"},
+            2: {"fish": 1000, "gold": 500,  "benefit": "+15% fish rate for everyone"},
+            3: {"fish": 5000, "gold": 2500, "benefit": "+30% fish rate for everyone"},
         },
     },
     "club_soda": {
         "name": "Club Soda",
         "levels": {
-            2: {"herbs": 1000,  "gold": 500,  "benefit": "+10% herb rate for everyone"},
-            3: {"herbs": 3000,  "gold": 1500, "benefit": "+25% herb rate for everyone"},
-            4: {"herbs": 7000,  "gold": 3500, "benefit": "+50% herb rate for everyone"},
-            5: {"herbs": 15000, "gold": 7500, "benefit": "+100% herb rate, unlocks potion crafting"},
+            2: {"herbs": 1000, "gold": 500,  "benefit": "+15% herb rate for everyone"},
+            3: {"herbs": 5000, "gold": 2500, "benefit": "+30% herb rate for everyone"},
         },
     },
     "parkmusement": {
         "name": "Ash's Parkmusement",
         "levels": {
-            2: {"gold": 1500,  "benefit": "+10% gold rate for everyone"},
-            3: {"gold": 4500,  "benefit": "+25% gold rate for everyone"},
-            4: {"gold": 10000, "benefit": "+50% gold rate for everyone"},
-            5: {"gold": 25000, "benefit": "+100% gold rate, unlocks special performances"},
+            2: {"gold": 1500, "benefit": "+15% gold rate for everyone"},
+            3: {"gold": 7500, "benefit": "+30% gold rate for everyone"},
         },
     },
     "cursed_temple": {
         "name": "Cursed Temple",
         "levels": {
-            2: {"spell_fragments": 800,   "gold": 500,  "benefit": "+10% XP rate for everyone"},
-            3: {"spell_fragments": 2500,  "gold": 1500, "benefit": "+25% XP rate for everyone"},
-            4: {"spell_fragments": 6000,  "gold": 3500, "benefit": "+50% XP rate for everyone"},
-            5: {"spell_fragments": 12000, "gold": 7500, "benefit": "+100% XP rate, unlocks advanced spells"},
+            2: {"spell_fragments": 800,  "gold": 500,  "benefit": "+15% XP rate for everyone"},
+            3: {"spell_fragments": 4000, "gold": 2500, "benefit": "+30% XP rate for everyone"},
         },
     },
     "guillotine": {
         "name": "Gil the Guillotine",
         "levels": {
-            2: {"blood_gems": 200,  "bones": 200,  "gold": 500,  "benefit": "+10% blood gem and bone rate for everyone"},
-            3: {"blood_gems": 600,  "bones": 600,  "gold": 1500, "benefit": "+25% rate for everyone"},
-            4: {"blood_gems": 1500, "bones": 1500, "gold": 3500, "benefit": "+50% rate for everyone"},
-            5: {"blood_gems": 3000, "bones": 3000, "gold": 7500, "benefit": "+100% rate, unlocks dark rituals"},
-        },
-    },
-    "hotel": {
-        "name": "Penguin Hotel",
-        "levels": {
-            2: {"gold": 1500,  "fish": 500,  "benefit": "First daily rest is free"},
-            3: {"gold": 4500,  "fish": 1500, "benefit": "Rest costs reduced by 50%"},
-            4: {"gold": 10000, "fish": 3500, "benefit": "Rest costs reduced by 75%"},
-            5: {"gold": 25000, "fish": 7500, "benefit": "All rests are FREE for everyone"},
+            2: {"blood_gems": 200,  "bones": 200,  "gold": 500,  "benefit": "+15% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 1000, "bones": 1000, "gold": 2500, "benefit": "+30% rate for everyone"},
         },
     },
 }
@@ -204,7 +185,51 @@ CONTRIBUTION_MILESTONES = {
     5000: {"name": "Legendary Founder's Frame", "description": "A living legend of Penguin Village."},
 }
 
-BUILDING_BONUS_RATES = {1: 0.0, 2: 0.10, 3: 0.25, 4: 0.50, 5: 1.00}
+BUILDING_BONUS_RATES = {1: 0.0, 2: 0.15, 3: 0.30}
+
+BOUTIQUE_ITEMS = {
+    "hats": [
+        {"id": "baseball_cap",  "name": "Baseball Cap",  "slot": "hat", "price": 200,  "tier": "cheap"},
+        {"id": "beanie",        "name": "Beanie",         "slot": "hat", "price": 350,  "tier": "cheap"},
+        {"id": "party_hat",     "name": "Party Hat",      "slot": "hat", "price": 400,  "tier": "mid"},
+        {"id": "beret",         "name": "Beret",          "slot": "hat", "price": 450,  "tier": "mid"},
+        {"id": "chefs_hat",     "name": "Chef's Hat",     "slot": "hat", "price": 500,  "tier": "mid"},
+        {"id": "cowboy_hat",    "name": "Cowboy Hat",     "slot": "hat", "price": 600,  "tier": "mid"},
+        {"id": "viking_helmet", "name": "Viking Helmet",  "slot": "hat", "price": 800,  "tier": "mid"},
+        {"id": "top_hat",       "name": "Top Hat",        "slot": "hat", "price": 800,  "tier": "mid"},
+        {"id": "pirate_hat",    "name": "Pirate Hat",     "slot": "hat", "price": 1000, "tier": "expensive"},
+    ],
+    "outfits": [
+        {"id": "plain_tshirt",    "name": "Plain T-Shirt",    "slot": "cape", "price": 200,  "tier": "cheap"},
+        {"id": "hawaiian_shirt",  "name": "Hawaiian Shirt",   "slot": "cape", "price": 350,  "tier": "cheap"},
+        {"id": "hoodie",          "name": "Hoodie",           "slot": "cape", "price": 400,  "tier": "mid"},
+        {"id": "bra",             "name": "Bra",              "slot": "cape", "price": 500,  "tier": "mid"},
+        {"id": "lab_coat",        "name": "Lab Coat",         "slot": "cape", "price": 600,  "tier": "mid"},
+        {"id": "leather_jacket",  "name": "Leather Jacket",   "slot": "cape", "price": 800,  "tier": "mid"},
+        {"id": "tuxedo_vest",     "name": "Tuxedo Vest",      "slot": "cape", "price": 1200, "tier": "expensive"},
+        {"id": "superhero_cape",  "name": "Superhero Cape",   "slot": "cape", "price": 1500, "tier": "expensive"},
+        {"id": "tuxedo",          "name": "Full Tuxedo",      "slot": "cape", "price": 2500, "tier": "expensive"},
+    ],
+    "footwear": [
+        {"id": "sandals",       "name": "Sandals",       "slot": "footwear", "price": 150, "tier": "cheap"},
+        {"id": "sneakers",      "name": "Sneakers",      "slot": "footwear", "price": 200, "tier": "cheap"},
+        {"id": "fuzzy_slippers","name": "Fuzzy Slippers","slot": "footwear", "price": 250, "tier": "cheap"},
+        {"id": "rain_boots",    "name": "Rain Boots",    "slot": "footwear", "price": 300, "tier": "cheap"},
+        {"id": "roller_skates", "name": "Roller Skates", "slot": "footwear", "price": 500, "tier": "mid"},
+        {"id": "cowboy_boots",  "name": "Cowboy Boots",  "slot": "footwear", "price": 700, "tier": "mid"},
+    ],
+    "accessories": [
+        {"id": "lollipop",    "name": "Lollipop",    "slot": "accessory", "price": 150,  "tier": "cheap"},
+        {"id": "scarf_shop",  "name": "Scarf",        "slot": "accessory", "price": 200,  "tier": "cheap"},
+        {"id": "sunglasses",  "name": "Sunglasses",   "slot": "accessory", "price": 300,  "tier": "cheap"},
+        {"id": "bow_tie",     "name": "Bow Tie",       "slot": "accessory", "price": 350,  "tier": "mid"},
+        {"id": "backpack",    "name": "Backpack",      "slot": "accessory", "price": 400,  "tier": "mid"},
+        {"id": "monocle",     "name": "Monocle",       "slot": "accessory", "price": 500,  "tier": "mid"},
+        {"id": "bubble_pipe", "name": "Bubble Pipe",   "slot": "accessory", "price": 600,  "tier": "mid"},
+        {"id": "gold_chain",  "name": "Gold Chain",    "slot": "accessory", "price": 1000, "tier": "expensive"},
+        {"id": "dragon_wings","name": "Dragon Wings",  "slot": "accessory", "price": 3000, "tier": "expensive"},
+    ],
+}
 
 # resource column name in building_upgrades table
 _RES_COL = {
@@ -243,6 +268,12 @@ BUILDINGS = {
         "desc": "You know what you did.",
         "type": "placeholder",
         "pos": {"x": 24, "y": 63},
+    },
+    "boutique": {
+        "name": "The Penguin Boutique", "icon": "🛍️",
+        "desc": "The finest penguin fashion this side of the ice shelf. No refunds. All sales are final. You'll look fabulous.",
+        "type": "shop",
+        "pos": {"x": 0, "y": 0},
     },
     "award_hall": {
         "name": "Award Hall", "icon": "🏆",
@@ -2718,7 +2749,7 @@ def _building_upgrade_info(db, building_id):
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    max_level     = row["max_level"]     if row else 5
+    max_level     = row["max_level"]     if row else 3
     levels_cfg    = cfg["levels"]
     next_level    = current_level + 1 if current_level < max_level else None
     next_req      = levels_cfg.get(next_level, {}) if next_level else {}
@@ -2833,7 +2864,7 @@ def building_donate():
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    max_level     = row["max_level"]     if row else 5
+    max_level     = row["max_level"]     if row else 3
 
     if current_level >= max_level:
         db.close()
@@ -2982,6 +3013,101 @@ def building_all_levels():
     for bid in BUILDING_UPGRADES:
         levels.setdefault(bid, 1)
     return jsonify(levels)
+
+
+# ── PENGUIN BOUTIQUE ──────────────────────────────────────────────────────────
+
+@app.route("/boutique/items")
+def boutique_items():
+    username = request.args.get("username", "")
+    db = get_db()
+    owned_ids = {row["item_id"] for row in db.execute(
+        "SELECT item_id FROM gear WHERE username=? AND type='cosmetic' AND rarity='shop'",
+        (username,)
+    ).fetchall()}
+    equipped_ids = {row["item_id"] for row in db.execute(
+        "SELECT item_id FROM gear WHERE username=? AND type='cosmetic' AND rarity='shop' AND equipped=1",
+        (username,)
+    ).fetchall()}
+    player_gold = get_gold(db, username)
+    db.close()
+    result = {}
+    for category, items in BOUTIQUE_ITEMS.items():
+        result[category] = [
+            {**item, "owned": item["id"] in owned_ids, "equipped": item["id"] in equipped_ids}
+            for item in items
+        ]
+    return jsonify({"status": "success", "categories": result, "player_gold": player_gold})
+
+
+@app.route("/boutique/buy", methods=["POST"])
+def boutique_buy():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    item_id  = data.get("item_id", "")
+    item = next(
+        (i for items in BOUTIQUE_ITEMS.values() for i in items if i["id"] == item_id),
+        None
+    )
+    if not item:
+        return jsonify({"status": "error", "message": "Item not found."})
+    db = get_db()
+    if get_gold(db, username) < item["price"]:
+        shortfall = item["price"] - get_gold(db, username)
+        db.close()
+        return jsonify({"status": "error", "message": f"Not enough gold! Need {shortfall:,} more."})
+    existing = db.execute(
+        "SELECT 1 FROM gear WHERE username=? AND item_id=? AND type='cosmetic' AND rarity='shop'",
+        (username, item_id)
+    ).fetchone()
+    if existing:
+        db.close()
+        return jsonify({"status": "error", "message": "Already owned!"})
+    db.execute("UPDATE resources SET gold=gold-? WHERE username=?", (item["price"], username))
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+        "VALUES (?,?,?,'cosmetic',?,'shop',0,?)",
+        (username, item_id, item["name"], item["slot"], int(time.time()))
+    )
+    gold_remaining = get_gold(db, username)
+    log_event(db, "shop", f"{username} purchased {item['name']} from The Penguin Boutique! 🛍️", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "item": item, "gold_remaining": gold_remaining})
+
+
+@app.route("/boutique/equip", methods=["POST"])
+def boutique_equip():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    item_id  = data.get("item_id", "")
+    db = get_db()
+    gear_row = db.execute(
+        "SELECT id, slot, equipped FROM gear WHERE username=? AND item_id=? AND type='cosmetic' AND rarity='shop'",
+        (username, item_id)
+    ).fetchone()
+    if not gear_row:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found in wardrobe."})
+    if gear_row["equipped"]:
+        db.execute("UPDATE gear SET equipped=0 WHERE id=?", (gear_row["id"],))
+        db.commit(); db.close()
+        return jsonify({"status": "success", "equipped": False})
+    db.execute("UPDATE gear SET equipped=0 WHERE username=? AND slot=?", (username, gear_row["slot"]))
+    db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_row["id"],))
+    db.commit(); db.close()
+    return jsonify({"status": "success", "equipped": True})
+
+
+@app.route("/boutique/preview/<item_id>")
+def boutique_preview(item_id):
+    item = next(
+        (i for items in BOUTIQUE_ITEMS.values() for i in items if i["id"] == item_id),
+        None
+    )
+    if not item:
+        return jsonify({"status": "error", "message": "Item not found."})
+    return jsonify({"status": "success", "item": item})
 
 
 # ── PENGUIN CARD & PUBLIC PROFILE ─────────────────────────────────────────────

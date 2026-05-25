@@ -127,7 +127,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS building_upgrades (
             building_id TEXT PRIMARY KEY,
             current_level INTEGER DEFAULT 1,
-            max_level INTEGER DEFAULT 5,
+            max_level INTEGER DEFAULT 3,
             fish_donated INTEGER DEFAULT 0,
             herbs_donated INTEGER DEFAULT 0,
             gold_donated INTEGER DEFAULT 0,
@@ -228,6 +228,22 @@ def init_db():
     _add_col(c, "penguins", "hotel_uses_today INTEGER DEFAULT 0")
     _add_col(c, "penguins", "last_hotel_date TEXT DEFAULT NULL")
     _add_col(c, "penguins", "total_contributions INTEGER DEFAULT 0")
+
+    # Migrate building levels from 5-level to 3-level system
+    try:
+        c.execute(
+            "UPDATE building_upgrades SET max_level=3 "
+            "WHERE building_id IN ('sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine') "
+            "AND max_level=5"
+        )
+        # Clamp any current_level > 3 down to 3
+        c.execute(
+            "UPDATE building_upgrades SET current_level=3 "
+            "WHERE building_id IN ('sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine') "
+            "AND current_level > 3"
+        )
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()
