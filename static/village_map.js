@@ -16,6 +16,39 @@ const TILE_COLORS = {
     5: "#555555",
 };
 
+// ── SPRITE LOADER ─────────────────────────────────────────────────────────────
+const SpriteLoader = {
+    cache: {},
+
+    load: function (path) {
+        if (Object.prototype.hasOwnProperty.call(this.cache, path)) {
+            return Promise.resolve(this.cache[path]);
+        }
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload  = () => { this.cache[path] = img; resolve(img); };
+            img.onerror = () => { this.cache[path] = null; resolve(null); };
+            img.src = path;
+        });
+    },
+
+    get: function (path) {
+        return this.cache[path] || null;
+    },
+};
+
+const TILE_SPRITE_NAMES = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
+
+async function loadAllSprites() {
+    const tileLoads = Object.values(TILE_SPRITE_NAMES).map(
+        name => SpriteLoader.load(`/static/tiles/${name}.png`)
+    );
+    const buildingLoads = Object.keys(buildingLayout).map(
+        id => SpriteLoader.load(`/static/buildings/${id}.png`)
+    );
+    await Promise.all([...tileLoads, ...buildingLoads]);
+}
+
 const BUILDING_CFG = {
     hotel:         { color: "#C0392B", name: "PENGUIN HOTEL" },
     sea_lion_pit:  { color: "#2471A3", name: "SEA LION PIT" },
@@ -114,7 +147,7 @@ function drawZoomIndicator() {
     ctx.restore();
 }
 
-function drawTile(sx, sy, color) {
+function _placeholderDiamond(sx, sy, color) {
     ctx.beginPath();
     ctx.moveTo(sx, sy - TILE_H / 2);
     ctx.lineTo(sx + TILE_W / 2, sy);
@@ -125,8 +158,25 @@ function drawTile(sx, sy, color) {
     ctx.fill();
 }
 
+function drawTile(sx, sy, color, tileType) {
+    const spriteName = TILE_SPRITE_NAMES[tileType];
+    if (spriteName) {
+        const sprite = SpriteLoader.get(`/static/tiles/${spriteName}.png`);
+        if (sprite) {
+            ctx.drawImage(sprite, sx - TILE_W / 2, sy - TILE_H / 2, TILE_W, TILE_H);
+            return;
+        }
+    }
+    _placeholderDiamond(sx, sy, color);
+}
+
 function drawWaterTile(sx, sy, timeMs) {
-    drawTile(sx, sy, "#4A8FAA");
+    const sprite = SpriteLoader.get('/static/tiles/water.png');
+    if (sprite) {
+        ctx.drawImage(sprite, sx - TILE_W / 2, sy - TILE_H / 2, TILE_W, TILE_H);
+        return;
+    }
+    _placeholderDiamond(sx, sy, "#4A8FAA");
     const shimmer = (Math.sin(timeMs * 0.002 + sx * 0.01) + 1) / 2;
     ctx.save();
     ctx.beginPath();
@@ -199,46 +249,55 @@ function drawBuilding(id, bdef, level) {
     const lPt = { x: gs(gx,      gy + gh).x, y: gs(gx,      gy + gh).y - TILE_H / 2 };
 
     const BOX_H = 32 + bdef.width * 6;
-    const color = cfg.color;
 
-    // Left face: bottom edge at ground, walls rise upward
-    ctx.beginPath();
-    ctx.moveTo(lPt.x, lPt.y);
-    ctx.lineTo(bPt.x, bPt.y);
-    ctx.lineTo(bPt.x, bPt.y - BOX_H);
-    ctx.lineTo(lPt.x, lPt.y - BOX_H);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    // Sprite override: draw PNG if loaded, skip placeholder block
+    const sprite = SpriteLoader.get(`/static/buildings/${id}.png`);
+    if (sprite) {
+        const anchorX = (lPt.x + bPt.x) / 2;
+        const anchorY = Math.max(lPt.y, bPt.y);
+        ctx.drawImage(sprite, anchorX - sprite.width / 2, anchorY - sprite.height, sprite.width, sprite.height);
+    } else {
+        const color = cfg.color;
 
-    // Right face: bottom edge at ground, walls rise upward
-    ctx.beginPath();
-    ctx.moveTo(bPt.x, bPt.y);
-    ctx.lineTo(rPt.x, rPt.y);
-    ctx.lineTo(rPt.x, rPt.y - BOX_H);
-    ctx.lineTo(bPt.x, bPt.y - BOX_H);
-    ctx.closePath();
-    ctx.fillStyle = darken(color, 40);
-    ctx.fill();
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+        // Left face
+        ctx.beginPath();
+        ctx.moveTo(lPt.x, lPt.y);
+        ctx.lineTo(bPt.x, bPt.y);
+        ctx.lineTo(bPt.x, bPt.y - BOX_H);
+        ctx.lineTo(lPt.x, lPt.y - BOX_H);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1;
+        ctx.stroke();
 
-    // Top face: BOX_H above the tile footprint
-    ctx.beginPath();
-    ctx.moveTo(tPt.x, tPt.y - BOX_H);
-    ctx.lineTo(rPt.x, rPt.y - BOX_H);
-    ctx.lineTo(bPt.x, bPt.y - BOX_H);
-    ctx.lineTo(lPt.x, lPt.y - BOX_H);
-    ctx.closePath();
-    ctx.fillStyle = lighten(color, 50);
-    ctx.fill();
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 1;
-    ctx.stroke();
+        // Right face
+        ctx.beginPath();
+        ctx.moveTo(bPt.x, bPt.y);
+        ctx.lineTo(rPt.x, rPt.y);
+        ctx.lineTo(rPt.x, rPt.y - BOX_H);
+        ctx.lineTo(bPt.x, bPt.y - BOX_H);
+        ctx.closePath();
+        ctx.fillStyle = darken(color, 40);
+        ctx.fill();
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Top face
+        ctx.beginPath();
+        ctx.moveTo(tPt.x, tPt.y - BOX_H);
+        ctx.lineTo(rPt.x, rPt.y - BOX_H);
+        ctx.lineTo(bPt.x, bPt.y - BOX_H);
+        ctx.lineTo(lPt.x, lPt.y - BOX_H);
+        ctx.closePath();
+        ctx.fillStyle = lighten(color, 50);
+        ctx.fill();
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
 
     const faceCenterX = (tPt.x + rPt.x + bPt.x + lPt.x) / 4;
     const faceCenterY = (tPt.y + rPt.y + bPt.y + lPt.y) / 4 - BOX_H;
@@ -810,7 +869,7 @@ function gameLoop(ts) {
             if (tileType === TILE_WATER) {
                 drawWaterTile(pos.x, pos.y, _time);
             } else {
-                drawTile(pos.x, pos.y, TILE_COLORS[tileType] || TILE_COLORS[0]);
+                drawTile(pos.x, pos.y, TILE_COLORS[tileType] || TILE_COLORS[0], tileType);
             }
 
             if (tileType === TILE_TREE) {
@@ -887,6 +946,7 @@ function initEngine(canvasEl, username, openBuildingCallback) {
             _lastTime = performance.now();
             requestAnimationFrame(gameLoop);
 
+            loadAllSprites();
             loadPenguins();
             setInterval(loadPenguins, 30000);
         })
