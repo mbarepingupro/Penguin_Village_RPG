@@ -1175,6 +1175,157 @@
       .login-sub { font-size: 9px; }
       .login-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; }
     }
+
+    /* ══════════════════════════════════════════════════════════
+       TUTORIAL OVERLAY
+    ══════════════════════════════════════════════════════════ */
+    #tut-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.82);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+    }
+    #tut-overlay.active { display: flex; }
+    .tut-card {
+      background: var(--panel);
+      border: 2px solid var(--purple);
+      max-width: 480px;
+      width: 92%;
+      padding: 28px 28px 22px;
+      position: relative;
+      box-shadow: 0 0 40px rgba(168,110,255,0.35);
+    }
+    .tut-skip-btn {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: none;
+      border: none;
+      color: #555;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      cursor: pointer;
+      padding: 4px 6px;
+    }
+    .tut-skip-btn:hover { color: var(--pink); }
+    .tut-step-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: #666;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+    .tut-progress {
+      height: 4px;
+      background: #333;
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .tut-progress-fill {
+      height: 100%;
+      background: var(--purple);
+      transition: width 0.3s ease;
+    }
+    .tut-icon {
+      font-size: 32px;
+      text-align: center;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .tut-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--pink);
+      text-align: center;
+      margin-bottom: 14px;
+      line-height: 1.6;
+    }
+    .tut-body {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--white);
+      line-height: 2;
+      text-align: center;
+      margin-bottom: 22px;
+    }
+    .tut-nav {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .tut-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      padding: 9px 16px;
+      cursor: pointer;
+      border: 2px solid var(--purple);
+      background: transparent;
+      color: var(--purple);
+    }
+    .tut-btn:hover { background: var(--purple); color: var(--dark); }
+    .tut-btn.primary {
+      background: var(--purple);
+      color: var(--dark);
+    }
+    .tut-btn.primary:hover { background: var(--pink); border-color: var(--pink); }
+    .tut-btn.back { border-color: #444; color: #666; }
+    .tut-btn.back:hover { border-color: #666; color: #aaa; background: transparent; }
+
+    /* ══════════════════════════════════════════════════════════
+       CONTEXTUAL TOOLTIP
+    ══════════════════════════════════════════════════════════ */
+    .ctx-tip {
+      position: absolute;
+      background: var(--panel);
+      border: 2px solid var(--gold);
+      padding: 10px 14px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--white);
+      line-height: 1.9;
+      z-index: 500;
+      max-width: 260px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      pointer-events: all;
+    }
+    .ctx-tip-arrow {
+      position: absolute;
+      top: -8px;
+      left: 18px;
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 8px solid var(--gold);
+    }
+    .ctx-tip-close {
+      display: block;
+      margin-top: 8px;
+      font-size: 7px;
+      color: var(--pink);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: 'Press Start 2P', monospace;
+      padding: 0;
+    }
+    .ctx-tip-close:hover { text-decoration: underline; }
+
+    /* ── Help button in nav ── */
+    #help-btn {
+      background: none;
+      border: none;
+      font-size: 15px;
+      cursor: pointer;
+      padding: 4px 6px;
+      color: #fff;
+      line-height: 1;
+      vertical-align: middle;
+    }
+    #help-btn:hover { opacity: 0.7; }
   </style>
 </head>
 <body>
@@ -1186,6 +1337,7 @@
     <div class="nav-right">
       {% if logged_in %}
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
+        <button id="help-btn" onclick="openTutorial()" title="Help &amp; Tutorial">❓</button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -1722,6 +1874,8 @@
         );
       }
     }
+    const _ctxTabKeys = { map:'tab-map', levels:'tab-levels', missions:'tab-missions', igloo:'tab-igloo', awards:'tab-awards', eventlog:'tab-eventlog' };
+    if (_ctxTabKeys[name] && btn) setTimeout(() => showCtxTip(_ctxTabKeys[name], btn), 300);
   }
 
   let _streamIsLive = false;
@@ -2355,6 +2509,7 @@
         }
       }
       _renderModalContent(bData, upgData);
+      setTimeout(() => showCtxTip('bldg-' + buildingId, document.getElementById('building-modal')), 400);
     } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
   }
 
@@ -2385,6 +2540,7 @@
       if (data.status !== 'success') { showToast('Could not load boutique.', 'err'); closeBuildingPanel(); return; }
       _bqData = data;
       _renderBoutique();
+      setTimeout(() => showCtxTip('bldg-boutique', document.getElementById('building-modal')), 400);
     } catch(e) { showToast('Error loading boutique.', 'err'); closeBuildingPanel(); }
   }
 
@@ -3063,6 +3219,7 @@
     document.getElementById('seal-shop-player-count').textContent = _playerSeals;
     document.getElementById('seal-shop-modal').classList.add('show');
     await renderSealShop();
+    setTimeout(() => showCtxTip('seal-shop', document.querySelector('.seal-shop-box')), 400);
   }
 
   function closeSealShop() {
@@ -3280,6 +3437,7 @@
     const tabEl = document.getElementById(`inv-tab-${tab}`);
     if (tabEl) tabEl.classList.add('active');
     renderInventory();
+    if (tab === 'cosmetics') setTimeout(() => showCtxTip('inv-cosmetics', tabEl), 300);
   }
 
   function renderInventory() {
@@ -4660,6 +4818,149 @@
   {% endif %}
 
   {% endif %}
+
+  // ═══════════════════════════════════════════════════════════════
+  // TUTORIAL SYSTEM
+  // ═══════════════════════════════════════════════════════════════
+  const _TUT_STEPS = [
+    { icon: '🐧', title: 'WELCOME TO PENGUIN VILLAGE!',
+      body: 'You are a penguin living in a cozy arctic village. Explore buildings, earn resources, level up, and customize your penguin!' },
+    { icon: '🗺️', title: 'THE VILLAGE MAP',
+      body: 'This is your home! Click on any glowing building on the MAP tab to interact with it. Each building offers unique work, services, or shops.' },
+    { icon: '📊', title: 'YOUR PENGUIN',
+      body: 'The left panel shows your stats: level, energy, gold, and resources. Energy refills over time — spend it to work at buildings!' },
+    { icon: '⛏️', title: 'GO TO WORK!',
+      body: 'Click buildings on the map to START WORK. Come back later and click COLLECT to earn resources. Higher-level buildings give better rewards!' },
+    { icon: '🏗️', title: 'UPGRADE BUILDINGS',
+      body: 'Open any upgradeable building and click CONTRIBUTE to donate resources. Donate enough to level it up and unlock bigger bonuses for everyone!' },
+    { icon: '⭐', title: 'LEVEL UP',
+      body: 'Check the LEVELS tab to see milestone rewards. Earn XP by working and completing missions. Each level unlocks new titles and cosmetic items!' },
+    { icon: '📋', title: 'DAILY MISSIONS',
+      body: 'Visit the MISSIONS tab every day for fresh challenges. Complete them for bonus gold and XP. Maintain your login streak for even bigger rewards!' },
+    { icon: '🛍️', title: 'THE BOUTIQUE',
+      body: 'Visit THE BOUTIQUE building on the map to shop for hats, outfits, footwear, and accessories. Dress up your penguin and show off your style!' },
+    { icon: '🏠', title: 'YOUR IGLOO',
+      body: 'The IGLOO tab is your personal space. Decorate it with items you\'ve collected. Your igloo is visible to other players on your profile page!' },
+    { icon: '🎉', title: 'YOU\'RE READY!',
+      body: 'That\'s everything to get started. Explore, contribute to buildings, level up, and have fun in Penguin Village! Tap ❓ anytime to re-open this guide.' },
+  ];
+  let _tutStep = 0;
+
+  function openTutorial(step) {
+    _tutStep = (step !== undefined) ? step : 0;
+    _tutRender();
+    document.getElementById('tut-overlay').classList.add('active');
+  }
+
+  function _tutRender() {
+    const s = _TUT_STEPS[_tutStep];
+    const total = _TUT_STEPS.length;
+    document.getElementById('tut-step-label').textContent = 'STEP ' + (_tutStep + 1) + ' OF ' + total;
+    document.getElementById('tut-progress-fill').style.width = ((_tutStep + 1) / total * 100) + '%';
+    document.getElementById('tut-icon').textContent  = s.icon;
+    document.getElementById('tut-title').textContent = s.title;
+    document.getElementById('tut-body').textContent  = s.body;
+    const backBtn = document.getElementById('tut-back-btn');
+    const nextBtn = document.getElementById('tut-next-btn');
+    backBtn.style.display = _tutStep > 0 ? '' : 'none';
+    if (_tutStep >= total - 1) {
+      nextBtn.textContent = 'FINISH ✓';
+      nextBtn.onclick = tutFinish;
+    } else {
+      nextBtn.textContent = 'NEXT ▶';
+      nextBtn.onclick = tutNext;
+    }
+  }
+
+  function tutNext() {
+    if (_tutStep < _TUT_STEPS.length - 1) { _tutStep++; _tutRender(); }
+  }
+
+  function tutBack() {
+    if (_tutStep > 0) { _tutStep--; _tutRender(); }
+  }
+
+  function tutSkip() {
+    document.getElementById('tut-overlay').classList.remove('active');
+    _tutMarkComplete();
+  }
+
+  function tutFinish() {
+    document.getElementById('tut-overlay').classList.remove('active');
+    _tutMarkComplete();
+    Effects.confettiBurst && Effects.confettiBurst();
+    showToast('Tutorial complete! Happy exploring! 🐧', 'ok');
+  }
+
+  function _tutMarkComplete() {
+    fetch('/tutorial/complete', { method: 'POST' }).catch(() => {});
+  }
+
+  // Auto-open on first login (server-side flag)
+  {% if logged_in and not tutorial_completed %}
+  setTimeout(() => openTutorial(0), 800);
+  {% endif %}
+
+  // ═══════════════════════════════════════════════════════════════
+  // CONTEXTUAL TOOLTIPS
+  // ═══════════════════════════════════════════════════════════════
+  const _CTX_TIPS = {
+    'tab-map':      'EXPLORE THE VILLAGE! Click on any building to work, donate resources, or shop.',
+    'tab-levels':   'MILESTONE REWARDS! Earn XP by working and completing missions to reach new levels.',
+    'tab-missions': 'DAILY CHALLENGES! New missions refresh every day — complete them for bonus gold and XP.',
+    'tab-igloo':    'YOUR IGLOO! Collect cosmetic items to decorate your personal space.',
+    'tab-awards':   'YOUR ACHIEVEMENTS! Earn special titles and badges by playing.',
+    'tab-eventlog': 'VILLAGE ACTIVITY! See recent events and what\'s happening in your community.',
+    'bldg-sea_lion_pit':   'FISHING GROUNDS! Send your penguin to fish here and earn fish resources over time.',
+    'bldg-club_soda':      'SOCIAL HUB! Work here to earn herbs and bonus social XP.',
+    'bldg-parkmusement':   'THEME PARK! Fun activities here earn you XP and circus hours.',
+    'bldg-cursed_temple':  'DANGEROUS! The Cursed Temple offers spell fragments and blood gems for the brave.',
+    'bldg-guillotine':     'HIGH RISK, HIGH REWARD! Work the Guillotine for bones and executioner XP.',
+    'bldg-hotel':          'REST UP! The Hotel restores your energy. Great when you\'re running low.',
+    'bldg-boutique':       'WELCOME TO THE BOUTIQUE! Browse hats, outfits, footwear, and accessories for your penguin.',
+    'inv-cosmetics':       'COSMETICS! These are wearable items for your penguin. Click EQUIP to put them on.',
+    'seal-shop':           'MAYOR\'S SEAL SHOP! Spend Mayor\'s Seals (earned during live streams) on exclusive items.',
+  };
+
+  function showCtxTip(key, anchorEl) {
+    const msg = _CTX_TIPS[key];
+    if (!msg) return;
+    if (sessionStorage.getItem('ctx_seen_' + key)) return;
+    sessionStorage.setItem('ctx_seen_' + key, '1');
+
+    const container = document.getElementById('ctx-tip-container');
+    container.innerHTML = '';
+    const tip = document.createElement('div');
+    tip.className = 'ctx-tip';
+    tip.id = 'active-ctx-tip';
+
+    const rect = anchorEl ? anchorEl.getBoundingClientRect() : null;
+    if (rect) {
+      tip.style.position = 'fixed';
+      tip.style.top  = (rect.bottom + 6) + 'px';
+      tip.style.left = Math.max(6, Math.min(rect.left, window.innerWidth - 280)) + 'px';
+    } else {
+      tip.style.position = 'fixed';
+      tip.style.top  = '70px';
+      tip.style.left = '50%';
+      tip.style.transform = 'translateX(-50%)';
+    }
+
+    tip.innerHTML = '<div class="ctx-tip-arrow"></div>' + msg +
+      '<button class="ctx-tip-close" onclick="closeCtxTip()">[ GOT IT ]</button>';
+    container.appendChild(tip);
+
+    // Auto-dismiss after 8s
+    setTimeout(closeCtxTip, 8000);
+  }
+
+  function closeCtxTip() {
+    const t = document.getElementById('active-ctx-tip');
+    if (t) t.remove();
+  }
+
+  // Contextual tips are triggered from within switchContentTab, openBuilding,
+  // openSealShop, and switchInvTab (see inline calls in those functions above).
 </script>
 
 <div id="sb-tooltip"></div>
@@ -4697,5 +4998,24 @@
       <button class="fight-modal-ok" id="fight-modal-ok" style="display:none;" onclick="closeFightModal()">OK</button>
     </div>
   </div>
+
+  <!-- TUTORIAL OVERLAY -->
+  <div id="tut-overlay">
+    <div class="tut-card">
+      <button class="tut-skip-btn" onclick="tutSkip()">SKIP ✕</button>
+      <div class="tut-step-label" id="tut-step-label">STEP 1 OF 10</div>
+      <div class="tut-progress"><div class="tut-progress-fill" id="tut-progress-fill" style="width:10%"></div></div>
+      <span class="tut-icon" id="tut-icon">🐧</span>
+      <div class="tut-title" id="tut-title">WELCOME TO PENGUIN VILLAGE!</div>
+      <div class="tut-body" id="tut-body">You are a penguin living in a cozy arctic village. Explore buildings, earn resources, level up, and customize your penguin!</div>
+      <div class="tut-nav">
+        <button class="tut-btn back" id="tut-back-btn" onclick="tutBack()" style="display:none;">◀ BACK</button>
+        <button class="tut-btn primary" id="tut-next-btn" onclick="tutNext()">NEXT ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTEXTUAL TOOLTIP CONTAINER -->
+  <div id="ctx-tip-container"></div>
 </body>
 </html>

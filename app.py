@@ -1207,6 +1207,7 @@ def home():
         daily_reward=daily_reward,
         features=FEATURES,
         level_data=LEVEL_DATA,
+        tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
     )
 
 
@@ -3108,6 +3109,18 @@ def boutique_preview(item_id):
     if not item:
         return jsonify({"status": "error", "message": "Item not found."})
     return jsonify({"status": "success", "item": item})
+
+
+@app.route("/tutorial/complete", methods=["POST"])
+def tutorial_complete():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    db = get_db()
+    db.execute("UPDATE penguins SET tutorial_completed=1 WHERE username=?", (username,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
 
 
 # ── PENGUIN CARD & PUBLIC PROFILE ─────────────────────────────────────────────
