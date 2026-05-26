@@ -1326,6 +1326,68 @@
       vertical-align: middle;
     }
     #help-btn:hover { opacity: 0.7; }
+
+    /* ══════════════════════════════════════════════════════════
+       RESHAPE OVERLAY (in-game penguin customization)
+    ══════════════════════════════════════════════════════════ */
+    #reshape-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 9500;
+      align-items: center;
+      justify-content: center;
+      overflow-y: auto;
+    }
+    .rs-card {
+      background: var(--panel);
+      border: 2px solid var(--purple);
+      max-width: 560px;
+      width: 94%;
+      padding: 24px 22px 20px;
+      margin: auto;
+      position: relative;
+      box-shadow: 0 0 40px rgba(168,110,255,0.4);
+    }
+    .rs-header { font-size: 13px; color: #A86EFF; text-align: center; margin-bottom: 4px; }
+    .rs-sub    { font-size: 7px; color: #888; text-align: center; margin-bottom: 18px; line-height: 2; }
+    .rs-close  { position: absolute; top: 10px; right: 12px; background: none; border: none; color: #555; font-family: 'Press Start 2P', monospace; font-size: 9px; cursor: pointer; }
+    .rs-close:hover { color: var(--pink); }
+    .rs-section-label { font-size: 9px; color: #A86EFF; margin-bottom: 8px; }
+    .rs-input {
+      width: 100%; box-sizing: border-box;
+      background: #1a1a1a; border: 2px solid #A86EFF; color: #fff;
+      font-family: 'Press Start 2P', monospace; font-size: 9px; padding: 10px 12px;
+      margin-bottom: 6px;
+    }
+    .rs-input::placeholder { color: #555; }
+    .rs-name-hint { font-size: 6px; color: #666; margin-bottom: 16px; line-height: 2; }
+    .rs-name-err  { font-size: 7px; color: #ff6b6b; margin-bottom: 8px; }
+    .rs-body { display: flex; gap: 18px; flex-wrap: wrap; }
+    .rs-left  { flex: 1; min-width: 200px; }
+    .rs-right { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    #rs-color-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .rs-color-card {
+      border: 2px solid #333; padding: 4px; text-align: center; cursor: pointer;
+      position: relative;
+    }
+    .rs-color-card.selected { border: 3px solid #FF7FE5; }
+    .rs-color-card.locked   { cursor: not-allowed; border-color: #222; }
+    .rs-color-canvas { display: block; margin: 0 auto; }
+    .rs-color-name { font-size: 5px; color: #ccc; margin-top: 3px; line-height: 1.5; }
+    .rs-color-card.selected .rs-color-name { color: #FF7FE5; }
+    .rs-preview-label { font-size: 7px; color: #A86EFF; }
+    #rs-preview-canvas { display: block; }
+    #rs-preview-name { font-size: 8px; color: #fff; text-align: center; }
+    .rs-confirm-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px; padding: 12px 20px;
+      border: 3px solid #A86EFF; color: #A86EFF; background: transparent;
+      cursor: pointer; display: block; margin: 18px auto 0;
+    }
+    .rs-confirm-btn:hover { background: #A86EFF; color: #1C1C1C; }
+    .rs-confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -2745,6 +2807,10 @@
 
     html += _renderBuildingActionsHtml(bData);
 
+    if (buildingId === 'cursed_temple') {
+      html += _renderReshapeHtml(bData);
+    }
+
     if (upgData) {
       html += `<hr class="bm-divider-thin">`;
       html += _renderContributionHtml(buildingId, upgData);
@@ -2873,6 +2939,221 @@
         html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
     }
     return html;
+  }
+
+  function _renderReshapeHtml(bData) {
+    const gold = bData.player_gold || 0;
+    const canAff = gold >= 2000;
+    let html = `<hr class="bm-divider">`;
+    html += `<div style="color:#A86EFF;font-size:10px;margin-bottom:6px;">🔮 RESHAPE YOUR PENGUIN</div>`;
+    html += `<div style="color:#888;font-size:7px;line-height:2;margin-bottom:8px;">The cursed monks can reshape your very being... for a price.</div>`;
+    html += `<div style="color:#FF8C00;font-size:9px;margin-bottom:10px;">Cost: 🪙 2,000 gold</div>`;
+    if (canAff) {
+      html += `<button class="bp-btn" style="border-color:#A86EFF;color:#A86EFF;" onclick="reshapeConfirm()">RESHAPE</button>`;
+    } else {
+      html += `<button class="bp-btn" disabled style="opacity:0.4;cursor:not-allowed;">RESHAPE</button>`;
+      html += `<div style="color:#ff6b6b;font-size:7px;margin-top:6px;">Need 2,000 gold (you have ${gold.toLocaleString()})</div>`;
+    }
+    return html;
+  }
+
+  function reshapeConfirm() {
+    if (!confirm('Reshape your penguin for 2,000 gold?\nThis lets you change your name and color.')) return;
+    openReshapeOverlay();
+  }
+
+  async function openReshapeOverlay() {
+    // Load current color data
+    let colorsData = null;
+    try {
+      const res = await fetch('/penguin/colors');
+      const json = await res.json();
+      if (json.status === 'success') colorsData = json;
+    } catch(e) {}
+
+    // Fetch current penguin data
+    let currentColor = 'classic_black';
+    let currentName  = '';
+    try {
+      const res  = await fetch(`/profile/${CURRENT_USER}`);
+      const json = await res.json();
+      if (json.status === 'success') {
+        currentColor = json.penguin.penguin_color || 'classic_black';
+        currentName  = json.penguin.penguin_name  || '';
+        if (currentName === CURRENT_USER) currentName = '';
+      }
+    } catch(e) {}
+
+    _reshapeOverlayShow(colorsData, currentColor, currentName);
+  }
+
+  function _reshapeOverlayShow(colorsData, currentColor, currentName) {
+    const overlay = document.getElementById('reshape-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    document.getElementById('reshape-name-input').value = currentName;
+    _reshapeSelectedColor = currentColor;
+
+    const STARTER_COLORS = {
+      classic_black:  { name: "Classic Black",   body: "#1a1a1a", belly: "#e8e8e8", beak: "#FF8C00", feet: "#FF8C00" },
+      midnight_blue:  { name: "Midnight Blue",   body: "#1a1a4e", belly: "#c8c8e8", beak: "#FF8C00", feet: "#FF8C00" },
+      forest_green:   { name: "Forest Green",    body: "#1a3a1a", belly: "#c8e8c8", beak: "#FF8C00", feet: "#FF8C00" },
+      deep_red:       { name: "Deep Red",        body: "#4a1a1a", belly: "#e8c8c8", beak: "#FF8C00", feet: "#FF8C00" },
+      warm_brown:     { name: "Warm Brown",      body: "#3a2a1a", belly: "#e8d8c8", beak: "#FF8C00", feet: "#FF8C00" },
+      steel_gray:     { name: "Steel Gray",      body: "#3a3a3a", belly: "#d8d8d8", beak: "#FF8C00", feet: "#FF8C00" },
+    };
+    const LOCKED_COLORS = {
+      arctic_white:   { name: "Arctic White",    unlock: "Prestige 1",          body: "#e8e8e8", belly: "#FFFFFF", beak: "#FF8C00", feet: "#FF8C00" },
+      royal_blue:     { name: "Royal Blue",      unlock: "Prestige 2",          body: "#1a3a8a", belly: "#a8c8ff", beak: "#ffd700", feet: "#ffd700" },
+      golden_emperor: { name: "Golden Emperor",  unlock: "Prestige 3",          body: "#8a6a1a", belly: "#fff0c8", beak: "#ffd700", feet: "#ffd700" },
+      shadow_purple:  { name: "Shadow Purple",   unlock: "Defeat 100 monsters", body: "#3a1a4a", belly: "#c8a8d8", beak: "#A86EFF", feet: "#A86EFF" },
+      frost_crystal:  { name: "Frost Crystal",   unlock: "Reach Level 30",      body: "#88c8e8", belly: "#e8f8ff", beak: "#4a9eff", feet: "#4a9eff" },
+      neon_pink:      { name: "Neon Pink",       unlock: "Twitch Subscriber",   body: "#cc3a7a", belly: "#ffb8d8", beak: "#FF7FE5", feet: "#FF7FE5" },
+    };
+    const playerUnlocked = colorsData ? (colorsData.player_unlocked || []) : [];
+
+    // Render color grid
+    let gridHtml = '';
+    for (const [id, p] of Object.entries(STARTER_COLORS)) {
+      const sel = id === _reshapeSelectedColor;
+      gridHtml += `<div class="rs-color-card${sel?' selected':''}" data-cid="${id}" onclick="reshapeSelectColor('${id}')">
+        <canvas class="rs-color-canvas" data-body="${p.body}" data-belly="${p.belly}" width="70" height="70"></canvas>
+        <div class="rs-color-name">${sel?'SELECTED ✓':p.name}</div>
+      </div>`;
+    }
+    for (const [id, p] of Object.entries(LOCKED_COLORS)) {
+      const isUnlocked = playerUnlocked.includes(id);
+      if (isUnlocked) {
+        const sel = id === _reshapeSelectedColor;
+        gridHtml += `<div class="rs-color-card${sel?' selected':''}" data-cid="${id}" onclick="reshapeSelectColor('${id}')">
+          <canvas class="rs-color-canvas" data-body="${p.body}" data-belly="${p.belly}" width="70" height="70"></canvas>
+          <div class="rs-color-name">${sel?'SELECTED ✓':p.name}</div>
+        </div>`;
+      } else {
+        gridHtml += `<div class="rs-color-card locked">
+          <canvas class="rs-color-canvas" data-body="${p.body}" data-belly="${p.belly}" width="70" height="70" style="opacity:0.3;"></canvas>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:18px;">🔒</div>
+          <div class="rs-color-name" style="opacity:0.4;">${p.unlock}</div>
+        </div>`;
+      }
+    }
+    document.getElementById('rs-color-grid').innerHTML = gridHtml;
+
+    // Draw penguins on all canvases
+    document.querySelectorAll('.rs-color-canvas').forEach(c => {
+      _drawRsPenguin(c, c.dataset.body, c.dataset.belly);
+    });
+
+    // Update preview
+    _updateReshapePreview(STARTER_COLORS, LOCKED_COLORS, currentName);
+    window._rsColors = { ...STARTER_COLORS, ...Object.fromEntries(
+      Object.entries(LOCKED_COLORS).filter(([id]) => playerUnlocked.includes(id))
+    )};
+  }
+
+  let _reshapeSelectedColor = 'classic_black';
+
+  function _drawRsPenguin(canvas, bodyColor, bellyColor, scale) {
+    const c = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const sc = scale || 1;
+    c.clearRect(0, 0, W, H);
+    const cx = W / 2, cy = H / 2 + 4 * sc;
+    // Body
+    c.beginPath(); c.ellipse(cx, cy, 22*sc, 28*sc, 0, 0, Math.PI*2); c.fillStyle = bodyColor; c.fill();
+    // Belly
+    c.beginPath(); c.ellipse(cx, cy+4*sc, 14*sc, 18*sc, 0, 0, Math.PI*2); c.fillStyle = bellyColor; c.fill();
+    // Head
+    c.beginPath(); c.arc(cx, cy-24*sc, 16*sc, 0, Math.PI*2); c.fillStyle = bodyColor; c.fill();
+    // Eyes
+    c.beginPath(); c.arc(cx-6*sc, cy-26*sc, 4*sc, 0, Math.PI*2); c.fillStyle = '#fff'; c.fill();
+    c.beginPath(); c.arc(cx+6*sc, cy-26*sc, 4*sc, 0, Math.PI*2); c.fillStyle = '#fff'; c.fill();
+    c.beginPath(); c.arc(cx-5*sc, cy-26*sc, 2*sc, 0, Math.PI*2); c.fillStyle = '#000'; c.fill();
+    c.beginPath(); c.arc(cx+7*sc, cy-26*sc, 2*sc, 0, Math.PI*2); c.fillStyle = '#000'; c.fill();
+    // Beak
+    c.beginPath(); c.moveTo(cx, cy-21*sc); c.lineTo(cx-3*sc, cy-16*sc); c.lineTo(cx+3*sc, cy-16*sc); c.closePath(); c.fillStyle = '#FF8C00'; c.fill();
+    // Feet
+    c.beginPath(); c.ellipse(cx-8*sc, cy+27*sc, 8*sc, 4*sc, -0.3, 0, Math.PI*2); c.fillStyle = '#FF8C00'; c.fill();
+    c.beginPath(); c.ellipse(cx+8*sc, cy+27*sc, 8*sc, 4*sc, 0.3, 0, Math.PI*2); c.fillStyle = '#FF8C00'; c.fill();
+  }
+
+  function reshapeSelectColor(cid) {
+    _reshapeSelectedColor = cid;
+    document.querySelectorAll('.rs-color-card:not(.locked)').forEach(el => {
+      const id = el.dataset.cid;
+      const isSelected = id === cid;
+      el.classList.toggle('selected', isSelected);
+      el.querySelector('.rs-color-name').textContent = isSelected
+        ? 'SELECTED ✓'
+        : ((window._rsColors || {})[id] || {}).name || id;
+    });
+    const pal = (window._rsColors || {})[cid];
+    const previewCanvas = document.getElementById('rs-preview-canvas');
+    if (pal && previewCanvas) _drawRsPenguin(previewCanvas, pal.body, pal.belly, 2);
+  }
+
+  function _updateReshapePreview(starters, locked, name) {
+    const pal = starters[_reshapeSelectedColor] || locked[_reshapeSelectedColor];
+    const previewCanvas = document.getElementById('rs-preview-canvas');
+    if (pal && previewCanvas) _drawRsPenguin(previewCanvas, pal.body, pal.belly, 2);
+    const nameEl = document.getElementById('rs-preview-name');
+    if (nameEl) nameEl.textContent = (name || CURRENT_USER).toUpperCase();
+  }
+
+  function closeReshapeOverlay() {
+    document.getElementById('reshape-overlay').style.display = 'none';
+  }
+
+  async function submitReshape() {
+    const nameInput = document.getElementById('reshape-name-input');
+    const nameVal   = (nameInput ? nameInput.value : '').trim();
+    const errEl     = document.getElementById('rs-name-err');
+
+    // Validate
+    if (nameVal && nameVal.length > 16) {
+      if (errEl) errEl.textContent = 'Name must be 16 characters or fewer.';
+      return;
+    }
+    if (nameVal && !/^[a-zA-Z0-9_\-]+$/.test(nameVal)) {
+      if (errEl) errEl.textContent = 'Only letters, numbers, _ and - allowed.';
+      return;
+    }
+    if (errEl) errEl.textContent = '';
+
+    const btn = document.getElementById('rs-confirm-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'SAVING...'; }
+
+    // Play mystical chime
+    try {
+      const actx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = actx.createOscillator(); const gain = actx.createGain();
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.type = 'sine'; osc.frequency.value = 523;
+      gain.gain.setValueAtTime(0.3, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 1.5);
+      osc.start(); osc.stop(actx.currentTime + 1.5);
+    } catch(e) {}
+
+    try {
+      const res  = await fetch('/penguin/reshape', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ penguin_name: nameVal, penguin_color: _reshapeSelectedColor })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        closeReshapeOverlay();
+        closeBuildingPanel();
+        Effects.confettiBurst && Effects.confettiBurst();
+        showToast('Penguin reshaped! ✨', 'ok');
+        await refreshStats();
+      } else {
+        if (errEl) errEl.textContent = data.message || 'Error occurred.';
+        if (btn) { btn.disabled = false; btn.textContent = 'CONFIRM RESHAPE 🔮'; }
+      }
+    } catch(e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'CONFIRM RESHAPE 🔮'; }
+    }
   }
 
   function _renderContributionHtml(buildingId, upgData) {
@@ -4961,6 +5242,17 @@
 
   // Contextual tips are triggered from within switchContentTab, openBuilding,
   // openSealShop, and switchInvTab (see inline calls in those functions above).
+
+  // Reshape name input → live preview update
+  document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('reshape-name-input');
+    if (inp) {
+      inp.addEventListener('input', () => {
+        const el = document.getElementById('rs-preview-name');
+        if (el) el.textContent = (inp.value.trim() || CURRENT_USER).toUpperCase();
+      });
+    }
+  });
 </script>
 
 <div id="sb-tooltip"></div>
@@ -5017,5 +5309,30 @@
 
   <!-- CONTEXTUAL TOOLTIP CONTAINER -->
   <div id="ctx-tip-container"></div>
+
+  <!-- RESHAPE OVERLAY -->
+  <div id="reshape-overlay">
+    <div class="rs-card">
+      <button class="rs-close" onclick="closeReshapeOverlay()">✕</button>
+      <div class="rs-header">🔮 RESHAPE YOUR PENGUIN</div>
+      <div class="rs-sub">The cursed monks can reshape your very being... for a price.</div>
+      <div class="rs-body">
+        <div class="rs-left">
+          <div class="rs-section-label">PENGUIN NAME</div>
+          <input type="text" id="reshape-name-input" class="rs-input" maxlength="16" placeholder="Enter a name...">
+          <div class="rs-name-hint">Leave blank to use your Twitch username.</div>
+          <div class="rs-name-err" id="rs-name-err"></div>
+          <div class="rs-section-label">CHOOSE YOUR COLOR</div>
+          <div id="rs-color-grid"></div>
+        </div>
+        <div class="rs-right">
+          <div class="rs-preview-label">PREVIEW</div>
+          <canvas id="rs-preview-canvas" width="140" height="160"></canvas>
+          <div id="rs-preview-name" style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;text-align:center;"></div>
+        </div>
+      </div>
+      <button class="rs-confirm-btn" id="rs-confirm-btn" onclick="submitReshape()">CONFIRM RESHAPE 🔮</button>
+    </div>
+  </div>
 </body>
 </html>

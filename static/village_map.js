@@ -364,6 +364,10 @@ function drawBuilding(id, bdef, level) {
 }
 
 function drawPenguinAt(sx, sy, penguin, pulse) {
+    const bodyColor  = penguin.body_color  || "#111111";
+    const bellyColor = penguin.belly_color || "#FFFFFF";
+    const displayName = penguin.display_name || penguin.username;
+
     if (penguin.isCurrentUser) {
         ctx.save();
         ctx.beginPath();
@@ -374,16 +378,19 @@ function drawPenguinAt(sx, sy, penguin, pulse) {
         ctx.restore();
     }
 
+    // Body
     ctx.beginPath();
     ctx.arc(sx, sy, 10, 0, Math.PI * 2);
-    ctx.fillStyle = "#111111";
+    ctx.fillStyle = bodyColor;
     ctx.fill();
 
+    // Belly
     ctx.beginPath();
     ctx.arc(sx, sy + 1, 6, 0, Math.PI * 2);
-    ctx.fillStyle = "#FFFFFF";
+    ctx.fillStyle = bellyColor;
     ctx.fill();
 
+    // Eyes (white)
     ctx.beginPath();
     ctx.arc(sx - 3, sy - 3, 2.5, 0, Math.PI * 2);
     ctx.fillStyle = "#FFFFFF";
@@ -393,6 +400,7 @@ function drawPenguinAt(sx, sy, penguin, pulse) {
     ctx.fillStyle = "#FFFFFF";
     ctx.fill();
 
+    // Pupils
     ctx.beginPath();
     ctx.arc(sx - 3, sy - 3, 1, 0, Math.PI * 2);
     ctx.fillStyle = "#000000";
@@ -411,7 +419,7 @@ function drawPenguinAt(sx, sy, penguin, pulse) {
 
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "6px 'Press Start 2P', monospace";
-        ctx.fillText(penguin.username, sx, sy - 26);
+        ctx.fillText(displayName, sx, sy - 26);
 
         if (penguin.active_title) {
             ctx.fillStyle = "#A86EFF";
