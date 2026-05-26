@@ -2423,6 +2423,7 @@
 
       html += `<div class="${cardClass}">`;
       if (isDragon) html += `<span class="bq-legendary-tag">👑 LEGENDARY</span>`;
+      html += `<img src="/static/items/${item.slot}/${item.id}.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display='none'">`;
       html += `<div class="bq-item-name${isExpensive ? ' expensive' : ''}">${item.name}</div>`;
       html += `<div class="bq-price${isExpensive ? ' expensive' : ''}" style="color:${tierColor};">🪙 ${item.price.toLocaleString()}</div>`;
       html += `<div class="bq-btn-row">`;
@@ -2462,6 +2463,9 @@
       <div class="bq-preview-penguin" style="border:3px solid ${tierColor};padding:10px;">
         <div class="bq-preview-slot-label">[${slotLabel}: ${item.name}]</div>
         <img src="/static/penguin.png" alt="penguin">
+        <img src="/static/penguin_wearing/${item.slot}/${item.id}.png" alt=""
+             style="position:absolute;top:10px;left:10px;width:80px;height:80px;image-rendering:pixelated;"
+             onerror="this.style.display='none'">
       </div>
       <div style="color:#fff;font-size:9px;text-align:center;">${item.name}</div>
       <div style="color:#888;font-size:7px;text-align:center;">Slot: ${slotLabel}</div>
