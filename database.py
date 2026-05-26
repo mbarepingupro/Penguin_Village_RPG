@@ -229,6 +229,15 @@ def init_db():
     _add_col(c, "penguins", "last_hotel_date TEXT DEFAULT NULL")
     _add_col(c, "penguins", "total_contributions INTEGER DEFAULT 0")
     _add_col(c, "penguins", "tutorial_completed INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "character_created INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "penguin_color TEXT DEFAULT 'classic_black'")
+    _add_col(c, "penguins", "penguin_name TEXT DEFAULT NULL")
+
+    # Existing players (level > 1) skip character creation — they can reshape at the Cursed Temple
+    try:
+        c.execute("UPDATE penguins SET character_created = 1 WHERE character_created = 0 AND level > 1")
+    except Exception:
+        pass
 
     # Migrate building levels from 5-level to 3-level system
     try:

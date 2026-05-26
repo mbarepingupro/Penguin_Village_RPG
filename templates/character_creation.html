@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Your Penguin — Penguin Village</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #1C1C1C;
+      --panel:    #2E2E2E;
+      --input-bg: #1a1a1a;
+      --purple:   #A86EFF;
+      --pink:     #FF7FE5;
+      --gold:     #FF8C00;
+      --green:    #4aff6b;
+      --red:      #ff6b6b;
+      --blue:     #4a9eff;
+      --white:    #FFFFFF;
+      --dark:     #141414;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--white);
+      font-family: 'Press Start 2P', monospace;
+      image-rendering: pixelated;
+    }
+
+    /* scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.04) 2px,
+        rgba(0,0,0,0.04) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── NAV ── */
+    nav {
+      background: var(--dark);
+      border-bottom: 3px solid var(--purple);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .nav-logo {
+      font-size: 14px;
+      letter-spacing: 2px;
+      color: var(--purple);
+      text-decoration: none;
+    }
+
+    .nav-logo span {
+      color: var(--pink);
+    }
+
+    /* ── MAIN WRAP ── */
+    .page-main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    /* ── PAGE HEADER ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .page-header h1 {
+      font-size: 16px;
+      color: var(--purple);
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+
+    .page-header p {
+      font-size: 9px;
+      color: #888;
+      line-height: 2;
+    }
+
+    /* ── TWO COLUMN LAYOUT ── */
+    .creation-wrap {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .creation-left {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .creation-right {
+      flex: 0 0 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      background: var(--panel);
+      border: 2px solid #333;
+      padding: 16px 12px;
+    }
+
+    /* ── SECTION TITLES ── */
+    .section-title {
+      font-size: 10px;
+      color: var(--purple);
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+
+    /* ── NAME SECTION ── */
+    .name-section {
+      background: var(--panel);
+      border: 2px solid #333;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    #penguin-name-input {
+      background: var(--input-bg);
+      border: 2px solid var(--purple);
+      color: var(--white);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      padding: 10px 12px;
+      width: 100%;
+      box-sizing: border-box;
+      outline: none;
+      display: block;
+    }
+
+    #penguin-name-input:focus {
+      border-color: var(--pink);
+    }
+
+    #penguin-name-input::placeholder {
+      color: #555;
+    }
+
+    .name-help {
+      font-size: 7px;
+      color: #888;
+      line-height: 2;
+      margin-top: 8px;
+    }
+
+    .name-error {
+      font-size: 7px;
+      color: var(--red);
+      margin-top: 6px;
+      display: none;
+      line-height: 2;
+    }
+
+    /* ── COLOR SECTION ── */
+    .color-section {
+      background: var(--panel);
+      border: 2px solid #333;
+      padding: 16px;
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    /* ── COLOR CARDS ── */
+    .color-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      border: 2px solid #333;
+      padding: 6px;
+      background: var(--input-bg);
+      position: relative;
+      transition: border-color 0.1s;
+    }
+
+    .color-card:hover:not(.locked) {
+      border-color: #666;
+    }
+
+    .color-card.selected {
+      border: 3px solid var(--pink);
+    }
+
+    .color-card.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .color-card canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    .color-card-name {
+      font-size: 7px;
+      color: var(--white);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .color-card.selected .color-card-name {
+      color: var(--pink);
+    }
+
+    .color-card-unlock {
+      font-size: 6px;
+      color: #666;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .lock-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -60%);
+      font-size: 20px;
+      pointer-events: none;
+    }
+
+    /* ── PREVIEW (right column) ── */
+    .preview-label {
+      font-size: 9px;
+      color: var(--purple);
+      letter-spacing: 1px;
+      align-self: flex-start;
+    }
+
+    #preview-canvas {
+      display: block;
+      image-rendering: pixelated;
+      border: 2px solid #333;
+      background: #111;
+    }
+
+    #preview-name {
+      font-size: 9px;
+      color: var(--white);
+      text-align: center;
+      word-break: break-all;
+      max-width: 160px;
+      line-height: 1.8;
+    }
+
+    #preview-name.placeholder {
+      color: #888;
+    }
+
+    /* ── FOOTER ── */
+    .creation-footer {
+      margin-top: 28px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .footer-teaser-main {
+      font-size: 7px;
+      color: #888;
+      letter-spacing: 1px;
+    }
+
+    .footer-teaser-sub {
+      font-size: 6px;
+      color: #666;
+      line-height: 2;
+    }
+
+    #confirm-btn {
+      border: 3px solid var(--green);
+      color: var(--green);
+      background: transparent;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      padding: 14px 24px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      margin-top: 6px;
+      transition: background 0.1s, color 0.1s;
+    }
+
+    #confirm-btn:hover:not(:disabled) {
+      background: var(--green);
+      color: var(--bg);
+    }
+
+    #confirm-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── ERROR TOAST ── */
+    #error-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a0000;
+      border: 2px solid var(--red);
+      color: var(--red);
+      font-size: 8px;
+      padding: 12px 20px;
+      z-index: 1000;
+      display: none;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 767px) {
+      .creation-wrap {
+        flex-direction: column;
+      }
+
+      .creation-right {
+        flex: 0 0 auto;
+        width: 100%;
+        align-self: center;
+      }
+
+      .color-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .page-header h1 {
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <span class="nav-logo">PENGUIN <span>VILLAGE</span></span>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="page-main">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      {% if mode == "reshape" %}
+        <h1>🔮 RESHAPE YOUR PENGUIN</h1>
+      {% else %}
+        <h1>🐧 CREATE YOUR PENGUIN</h1>
+      {% endif %}
+      <p>Every penguin is unique. Make yours.</p>
+    </div>
+
+    <!-- TWO-COLUMN CREATION WRAP -->
+    <div class="creation-wrap">
+
+      <!-- LEFT: name + color -->
+      <div class="creation-left">
+
+        <!-- Name -->
+        <div class="name-section">
+          <div class="section-title">PENGUIN NAME</div>
+          <input
+            type="text"
+            id="penguin-name-input"
+            maxlength="16"
+            placeholder="Enter a name..."
+            autocomplete="off"
+            spellcheck="false"
+            value="{{ current_name if current_name else '' }}"
+          />
+          <div class="name-help">This is how others will see you. Leave blank to use your Twitch username.</div>
+          <div class="name-error" id="name-error"></div>
+        </div>
+
+        <!-- Color grid -->
+        <div class="color-section">
+          <div class="section-title">CHOOSE YOUR COLOR</div>
+          <div class="color-grid" id="color-grid">
+            <!-- populated by JS -->
+          </div>
+        </div>
+
+      </div><!-- /.creation-left -->
+
+      <!-- RIGHT: preview -->
+      <div class="creation-right">
+        <div class="preview-label">PREVIEW</div>
+        <canvas id="preview-canvas" width="160" height="200"></canvas>
+        <div id="preview-name" class="placeholder">{{ username }}</div>
+      </div>
+
+    </div><!-- /.creation-wrap -->
+
+    <!-- FOOTER -->
+    <div class="creation-footer">
+      <div class="footer-teaser-main">MORE CUSTOMIZATION COMING SOON</div>
+      <div class="footer-teaser-sub">Height, scars, fur types, and more will be available in future updates!</div>
+      <button id="confirm-btn">
+        {% if mode == "reshape" %}CONFIRM RESHAPE 🔮{% else %}CREATE MY PENGUIN! 🐧{% endif %}
+      </button>
+    </div>
+
+  </div><!-- /.page-main -->
+
+  <!-- ERROR TOAST -->
+  <div id="error-toast"></div>
+
+  <script>
+    // ── JINJA VARS ──────────────────────────────────────────────
+    const USERNAME              = {{ username | tojson }};
+    const MODE                  = {{ mode | tojson }};
+    const CURRENT_NAME          = {{ (current_name or '') | tojson }};
+    const CURRENT_COLOR         = {{ (current_color or 'classic_black') | tojson }};
+    const PLAYER_UNLOCKED_COLORS = {{ player_unlocked_colors | default([]) | tojson }};
+
+    // ── COLOR DATA ──────────────────────────────────────────────
+    const STARTER_COLORS = {
+      classic_black:  { name: "Classic Black",  body: "#1a1a1a", belly: "#e8e8e8", beak: "#FF8C00", feet: "#FF8C00" },
+      midnight_blue:  { name: "Midnight Blue",  body: "#1a1a4e", belly: "#c8c8e8", beak: "#FF8C00", feet: "#FF8C00" },
+      forest_green:   { name: "Forest Green",   body: "#1a3a1a", belly: "#c8e8c8", beak: "#FF8C00", feet: "#FF8C00" },
+      deep_red:       { name: "Deep Red",       body: "#4a1a1a", belly: "#e8c8c8", beak: "#FF8C00", feet: "#FF8C00" },
+      warm_brown:     { name: "Warm Brown",     body: "#3a2a1a", belly: "#e8d8c8", beak: "#FF8C00", feet: "#FF8C00" },
+      steel_gray:     { name: "Steel Gray",     body: "#3a3a3a", belly: "#d8d8d8", beak: "#FF8C00", feet: "#FF8C00" },
+    };
+
+    const LOCKED_COLORS = {
+      arctic_white:   { name: "Arctic White",   unlock: "Prestige 1",          body: "#e8e8e8", belly: "#FFFFFF", beak: "#FF8C00", feet: "#FF8C00" },
+      royal_blue:     { name: "Royal Blue",     unlock: "Prestige 2",          body: "#1a3a8a", belly: "#a8c8ff", beak: "#ffd700", feet: "#ffd700" },
+      golden_emperor: { name: "Golden Emperor", unlock: "Prestige 3",          body: "#8a6a1a", belly: "#fff0c8", beak: "#ffd700", feet: "#ffd700" },
+      shadow_purple:  { name: "Shadow Purple",  unlock: "Defeat 100 monsters", body: "#3a1a4a", belly: "#c8a8d8", beak: "#A86EFF", feet: "#A86EFF" },
+      frost_crystal:  { name: "Frost Crystal",  unlock: "Reach Level 30",      body: "#88c8e8", belly: "#e8f8ff", beak: "#4a9eff", feet: "#4a9eff" },
+      neon_pink:      { name: "Neon Pink",      unlock: "Twitch Subscriber",   body: "#cc3a7a", belly: "#ffb8d8", beak: "#FF7FE5", feet: "#FF7FE5" },
+    };
+
+    // ── PENGUIN DRAW ────────────────────────────────────────────
+    // Penguin proportions (all relative to scale):
+    //   head radius:  20s   — head center sits 32s above body center
+    //   body:         28s wide, 36s tall
+    //   belly:        18s wide, 24s tall, offset 4s below body center
+    //   feet:         9s×5s ellipses, 10s left/right of body center
+    //   feet y:       body center + 34s
+    //
+    // Total vertical span:
+    //   top    = body_cy - 32s - 20s = body_cy - 52s
+    //   bottom = body_cy + 34s + 5s  = body_cy + 39s
+    //   span   = 91s
+    //
+    // We centre the penguin inside the canvas by solving:
+    //   body_cy - 52s = topPad   =>  body_cy = topPad + 52s
+    //   where topPad = (h - 91s) / 2   (half the remaining vertical space)
+    //
+    // This guarantees the penguin fits and is vertically centred regardless of scale.
+
+    function drawPenguin(canvas, palette, scale) {
+      const ctx = canvas.getContext('2d');
+      const w   = canvas.width;
+      const h   = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx  = w / 2;
+      // Vertically centre the full penguin (91 units tall) inside the canvas
+      const topPad = (h - 91 * scale) / 2;
+      const cy  = topPad + 52 * scale;  // body centre
+
+      // Body
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 28 * scale, 36 * scale, 0, 0, Math.PI * 2);
+      ctx.fillStyle = palette.body;
+      ctx.fill();
+
+      // Belly
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 4 * scale, 18 * scale, 24 * scale, 0, 0, Math.PI * 2);
+      ctx.fillStyle = palette.belly;
+      ctx.fill();
+
+      // Head
+      const headCy = cy - 32 * scale;
+      ctx.beginPath();
+      ctx.arc(cx, headCy, 20 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = palette.body;
+      ctx.fill();
+
+      // Eyes — white circles
+      const eyeOffsetX = 7 * scale;
+      const eyeOffsetY = -3 * scale;
+
+      ctx.beginPath();
+      ctx.arc(cx - eyeOffsetX, headCy + eyeOffsetY, 5 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(cx + eyeOffsetX, headCy + eyeOffsetY, 5 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+
+      // Eyes — black pupils
+      ctx.beginPath();
+      ctx.arc(cx - eyeOffsetX + 1 * scale, headCy + eyeOffsetY + 1 * scale, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#000000';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(cx + eyeOffsetX + 1 * scale, headCy + eyeOffsetY + 1 * scale, 2.5 * scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#000000';
+      ctx.fill();
+
+      // Beak — small triangle centred below the eyes
+      const beakTy = headCy + 4 * scale;
+      ctx.beginPath();
+      ctx.moveTo(cx,              beakTy + 5 * scale);   // bottom point
+      ctx.lineTo(cx - 5 * scale,  beakTy - 2 * scale);   // top-left
+      ctx.lineTo(cx + 5 * scale,  beakTy - 2 * scale);   // top-right
+      ctx.closePath();
+      ctx.fillStyle = palette.beak;
+      ctx.fill();
+
+      // Feet — two tilted ellipses at the base of the body
+      const feetY = cy + 34 * scale;
+
+      ctx.beginPath();
+      ctx.ellipse(cx - 10 * scale, feetY, 9 * scale, 5 * scale, -0.3, 0, Math.PI * 2);
+      ctx.fillStyle = palette.feet;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.ellipse(cx + 10 * scale, feetY, 9 * scale, 5 * scale,  0.3, 0, Math.PI * 2);
+      ctx.fillStyle = palette.feet;
+      ctx.fill();
+    }
+
+    // ── STATE ───────────────────────────────────────────────────
+    let selectedColor = CURRENT_COLOR;
+
+    function isColorAvailable(colorId) {
+      if (STARTER_COLORS[colorId]) return true;
+      if (PLAYER_UNLOCKED_COLORS.includes(colorId)) return true;
+      return false;
+    }
+
+    function getPalette(colorId) {
+      return STARTER_COLORS[colorId] || LOCKED_COLORS[colorId] || null;
+    }
+
+    // ── RENDER COLOR GRID ────────────────────────────────────────
+    function buildColorGrid() {
+      const grid = document.getElementById('color-grid');
+      grid.innerHTML = '';
+
+      // Starter colors — always available
+      for (const [id, data] of Object.entries(STARTER_COLORS)) {
+        grid.appendChild(makeCard(id, data, false, null));
+      }
+
+      // Locked colors — shown unlocked if player has earned them
+      for (const [id, data] of Object.entries(LOCKED_COLORS)) {
+        const unlocked = PLAYER_UNLOCKED_COLORS.includes(id);
+        grid.appendChild(makeCard(id, data, !unlocked, data.unlock));
+      }
+    }
+
+    function makeCard(id, data, locked, unlockText) {
+      const card = document.createElement('div');
+      card.className = 'color-card' + (locked ? ' locked' : '');
+      card.dataset.colorId = id;
+      if (id === selectedColor && !locked) card.classList.add('selected');
+
+      // Small canvas — scale 1, 90×90
+      const cvs = document.createElement('canvas');
+      cvs.width  = 90;
+      cvs.height = 90;
+      drawPenguin(cvs, data, 1);
+      card.appendChild(cvs);
+
+      // Colour name / selected label
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'color-card-name';
+      nameDiv.textContent = (id === selectedColor && !locked) ? 'SELECTED ✓' : data.name;
+      card.appendChild(nameDiv);
+
+      if (locked) {
+        // Lock emoji overlay
+        const lockDiv = document.createElement('div');
+        lockDiv.className = 'lock-overlay';
+        lockDiv.textContent = '🔒'; // 🔒
+        card.appendChild(lockDiv);
+
+        // Unlock requirement
+        if (unlockText) {
+          const unlockDiv = document.createElement('div');
+          unlockDiv.className = 'color-card-unlock';
+          unlockDiv.textContent = unlockText;
+          card.appendChild(unlockDiv);
+        }
+      } else {
+        // Click to select — only for available colours
+        card.addEventListener('click', () => selectColor(id));
+      }
+
+      return card;
+    }
+
+    // ── SELECT COLOR ─────────────────────────────────────────────
+    function selectColor(id) {
+      selectedColor = id;
+
+      document.querySelectorAll('.color-card').forEach(card => {
+        const cid  = card.dataset.colorId;
+        const data = getPalette(cid);
+        card.classList.remove('selected');
+        const nameDiv = card.querySelector('.color-card-name');
+        if (nameDiv && data) nameDiv.textContent = data.name;
+      });
+
+      const active = document.querySelector(`.color-card[data-color-id="${id}"]`);
+      if (active) {
+        active.classList.add('selected');
+        const nameDiv = active.querySelector('.color-card-name');
+        if (nameDiv) nameDiv.textContent = 'SELECTED ✓';
+      }
+
+      updatePreview();
+    }
+
+    // ── PREVIEW ──────────────────────────────────────────────────
+    function updatePreview() {
+      const canvas  = document.getElementById('preview-canvas');
+      const palette = getPalette(selectedColor);
+      if (palette) drawPenguin(canvas, palette, 2);
+      updatePreviewName();
+    }
+
+    function updatePreviewName() {
+      const input   = document.getElementById('penguin-name-input');
+      const nameDiv = document.getElementById('preview-name');
+      const trimmed = input.value.trim();
+
+      if (trimmed) {
+        nameDiv.textContent = trimmed;
+        nameDiv.classList.remove('placeholder');
+      } else {
+        nameDiv.textContent = USERNAME;
+        nameDiv.classList.add('placeholder');
+      }
+    }
+
+    // ── VALIDATION ───────────────────────────────────────────────
+    const NAME_RE = /^[a-zA-Z0-9_\-]{1,16}$/;
+
+    function showNameError(msg) {
+      const el = document.getElementById('name-error');
+      el.textContent  = msg;
+      el.style.display = 'block';
+    }
+
+    function clearNameError() {
+      const el = document.getElementById('name-error');
+      el.textContent  = '';
+      el.style.display = 'none';
+    }
+
+    function validateName(raw) {
+      const trimmed = raw.trim();
+      if (trimmed === '') return { ok: true, value: '' };           // blank → use username server-side
+      if (trimmed.length > 16) return { ok: false, error: 'Max 16 characters.' };
+      if (!NAME_RE.test(trimmed)) return { ok: false, error: 'Only letters, numbers, _ and - allowed.' };
+      return { ok: true, value: trimmed };
+    }
+
+    // ── AUDIO (reshape chime) ─────────────────────────────────────
+    function playMysticalChime() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const actx = new AudioCtx();
+        const osc  = actx.createOscillator();
+        const gain = actx.createGain();
+
+        osc.type            = 'sine';
+        osc.frequency.value = 523; // C5
+
+        gain.gain.setValueAtTime(0.4, actx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 1.5);
+
+        osc.connect(gain);
+        gain.connect(actx.destination);
+
+        osc.start(actx.currentTime);
+        osc.stop(actx.currentTime + 1.5);
+      } catch (_) {
+        // Audio blocked or unsupported — silent fail
+      }
+    }
+
+    // ── TOAST ────────────────────────────────────────────────────
+    let toastTimer = null;
+
+    function showErrorToast(msg) {
+      const toast = document.getElementById('error-toast');
+      toast.textContent  = msg;
+      toast.style.display = 'block';
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    }
+
+    // ── SUBMISSION ───────────────────────────────────────────────
+    async function submitCreation() {
+      // Play chime first (reshape mode) — before fetch so it fires within the user gesture
+      if (MODE === 'reshape') {
+        playMysticalChime();
+      }
+
+      const nameInput = document.getElementById('penguin-name-input');
+      const result    = validateName(nameInput.value);
+
+      if (!result.ok) {
+        showNameError(result.error);
+        return;
+      }
+      clearNameError();
+
+      const btn      = document.getElementById('confirm-btn');
+      const endpoint = MODE === 'reshape' ? '/penguin/reshape' : '/penguin/create';
+      const payload  = {
+        penguin_name:  result.value,
+        penguin_color: selectedColor,
+      };
+
+      btn.disabled    = true;
+      btn.textContent = 'SAVING...';
+
+      try {
+        const resp = await fetch(endpoint, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+        });
+
+        if (resp.ok) {
+          window.location.href = '/';
+        } else {
+          let errMsg = 'Something went wrong. Please try again.';
+          try {
+            const data = await resp.json();
+            if (data && data.error) errMsg = data.error;
+          } catch (_) { /* ignore JSON parse errors */ }
+          showErrorToast(errMsg);
+          btn.disabled    = false;
+          btn.textContent = MODE === 'reshape' ? 'CONFIRM RESHAPE 🔮' : 'CREATE MY PENGUIN! 🐧';
+        }
+      } catch (_) {
+        showErrorToast('Network error. Check your connection and try again.');
+        btn.disabled    = false;
+        btn.textContent = MODE === 'reshape' ? 'CONFIRM RESHAPE 🔮' : 'CREATE MY PENGUIN! 🐧';
+      }
+    }
+
+    // ── INIT ─────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      buildColorGrid();
+      updatePreview();
+
+      document.getElementById('penguin-name-input').addEventListener('input', () => {
+        clearNameError();
+        updatePreviewName();
+      });
+
+      document.getElementById('confirm-btn').addEventListener('click', submitCreation);
+    });
+  </script>
+
+</body>
+</html>

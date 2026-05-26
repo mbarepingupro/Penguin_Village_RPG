@@ -187,6 +187,24 @@ CONTRIBUTION_MILESTONES = {
 
 BUILDING_BONUS_RATES = {1: 0.0, 2: 0.15, 3: 0.30}
 
+STARTER_COLORS = {
+    "classic_black":  {"name": "Classic Black",   "body": "#1a1a1a", "belly": "#e8e8e8", "beak": "#FF8C00", "feet": "#FF8C00"},
+    "midnight_blue":  {"name": "Midnight Blue",   "body": "#1a1a4e", "belly": "#c8c8e8", "beak": "#FF8C00", "feet": "#FF8C00"},
+    "forest_green":   {"name": "Forest Green",    "body": "#1a3a1a", "belly": "#c8e8c8", "beak": "#FF8C00", "feet": "#FF8C00"},
+    "deep_red":       {"name": "Deep Red",        "body": "#4a1a1a", "belly": "#e8c8c8", "beak": "#FF8C00", "feet": "#FF8C00"},
+    "warm_brown":     {"name": "Warm Brown",      "body": "#3a2a1a", "belly": "#e8d8c8", "beak": "#FF8C00", "feet": "#FF8C00"},
+    "steel_gray":     {"name": "Steel Gray",      "body": "#3a3a3a", "belly": "#d8d8d8", "beak": "#FF8C00", "feet": "#FF8C00"},
+}
+
+LOCKED_COLORS = {
+    "arctic_white":   {"name": "Arctic White",    "unlock": "Prestige 1",          "body": "#e8e8e8", "belly": "#FFFFFF", "beak": "#FF8C00", "feet": "#FF8C00"},
+    "royal_blue":     {"name": "Royal Blue",      "unlock": "Prestige 2",          "body": "#1a3a8a", "belly": "#a8c8ff", "beak": "#ffd700", "feet": "#ffd700"},
+    "golden_emperor": {"name": "Golden Emperor",  "unlock": "Prestige 3",          "body": "#8a6a1a", "belly": "#fff0c8", "beak": "#ffd700", "feet": "#ffd700"},
+    "shadow_purple":  {"name": "Shadow Purple",   "unlock": "Defeat 100 monsters", "body": "#3a1a4a", "belly": "#c8a8d8", "beak": "#A86EFF", "feet": "#A86EFF"},
+    "frost_crystal":  {"name": "Frost Crystal",   "unlock": "Reach Level 30",      "body": "#88c8e8", "belly": "#e8f8ff", "beak": "#4a9eff", "feet": "#4a9eff"},
+    "neon_pink":      {"name": "Neon Pink",        "unlock": "Twitch Subscriber",   "body": "#cc3a7a", "belly": "#ffb8d8", "beak": "#FF7FE5", "feet": "#FF7FE5"},
+}
+
 BOUTIQUE_ITEMS = {
     "hats": [
         {"id": "baseball_cap",  "name": "Baseball Cap",  "slot": "hat", "price": 200,  "tier": "cheap"},
@@ -1173,6 +1191,19 @@ def home():
         return render_template("home.html", logged_in=False, features=FEATURES)
     ensure_resources(db, username)
 
+    # ── Character creation gate ────────────────────────────────────────────────
+    if not penguin["character_created"]:
+        unlocked = _get_unlocked_colors(db, penguin)
+        db.close()
+        return render_template(
+            "character_creation.html",
+            username=username,
+            mode="create",
+            current_name=None,
+            current_color="classic_black",
+            player_unlocked_colors=unlocked,
+        )
+
     # ── Streak + daily mission — trigger once per calendar day ──────────────
     today = get_today()
     streak_row_pre = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
@@ -1293,10 +1324,15 @@ def profile(username):
         title = p["title"]
     except (IndexError, KeyError):
         title = None
+    pcolor = p["penguin_color"] if p["penguin_color"] else "classic_black"
+    pname  = p["penguin_name"]  if p["penguin_name"]  else p["username"]
     return jsonify({
         "status": "success",
         "penguin": {
             "username":        p["username"],
+            "penguin_name":    pname,
+            "penguin_color":   pcolor,
+            "color_palette":   STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {}),
             "level":           level,
             "xp":              xp_val,
             "xp_into":         xp_into,
@@ -1395,12 +1431,19 @@ def get_streak(username):
 def leaderboard():
     db = get_db()
     rows = db.execute(
-        "SELECT p.username, p.level, p.xp, p.prestige, p.job, p.active_title, r.gold "
+        "SELECT p.username, p.penguin_name, p.penguin_color, p.level, p.xp, p.prestige, p.job, p.active_title, r.gold "
         "FROM penguins p LEFT JOIN resources r ON p.username=r.username "
         "ORDER BY p.level DESC, p.xp DESC LIMIT 20"
     ).fetchall()
     db.close()
-    return jsonify({"penguins": [dict(r) for r in rows]})
+    result = []
+    for r in rows:
+        d = dict(r)
+        d["display_name"] = d["penguin_name"] or d["username"]
+        pcolor = d.get("penguin_color") or "classic_black"
+        d["color_palette"] = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {})
+        result.append(d)
+    return jsonify({"penguins": result})
 
 
 @app.route("/islive")
@@ -3111,6 +3154,139 @@ def boutique_preview(item_id):
     return jsonify({"status": "success", "item": item})
 
 
+# ── PENGUIN CUSTOMIZATION ─────────────────────────────────────────────────────
+
+def _get_unlocked_colors(db, penguin):
+    """Return list of locked color IDs that this penguin has unlocked."""
+    unlocked = []
+    prestige = penguin["prestige"] or 0
+    level    = penguin["level"]    or 1
+    username = penguin["username"]
+
+    if prestige >= 1: unlocked.append("arctic_white")
+    if prestige >= 2: unlocked.append("royal_blue")
+    if prestige >= 3: unlocked.append("golden_emperor")
+
+    if level >= 30:   unlocked.append("frost_crystal")
+
+    kill_count = db.execute(
+        "SELECT COUNT(DISTINCT killed_date||monster_id) FROM monster_kills WHERE username=?",
+        (username,)
+    ).fetchone()[0] or 0
+    if kill_count >= 100: unlocked.append("shadow_purple")
+
+    stream_tier = penguin["stream_tier"] or 0
+    if stream_tier >= 1: unlocked.append("neon_pink")
+
+    return unlocked
+
+
+def _validate_penguin_name(name, username):
+    """Return cleaned name or raise ValueError."""
+    import re
+    name = name.strip()
+    if not name:
+        return username  # default to Twitch username
+    if len(name) > 16:
+        raise ValueError("Name must be 16 characters or fewer.")
+    if not re.match(r'^[a-zA-Z0-9_\-]+$', name):
+        raise ValueError("Name may only contain letters, numbers, underscores, and hyphens.")
+    return name
+
+
+@app.route("/penguin/colors")
+def penguin_colors():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    db = get_db()
+    penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not penguin:
+        db.close()
+        return jsonify({"status": "error", "message": "Not found."})
+    unlocked = _get_unlocked_colors(db, penguin)
+    db.close()
+
+    starters = {k: dict(v) for k, v in STARTER_COLORS.items()}
+    locked   = {}
+    for cid, cdata in LOCKED_COLORS.items():
+        entry = dict(cdata)
+        entry["unlocked"] = cid in unlocked
+        locked[cid] = entry
+
+    return jsonify({"status": "success", "starter": starters, "locked": locked, "player_unlocked": unlocked})
+
+
+@app.route("/penguin/create", methods=["POST"])
+def penguin_create():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    data = request.get_json(silent=True) or {}
+
+    try:
+        pname = _validate_penguin_name(data.get("penguin_name", ""), username)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+    pcolor = data.get("penguin_color", "classic_black")
+    if pcolor not in STARTER_COLORS:
+        return jsonify({"status": "error", "message": "Invalid color."})
+
+    db = get_db()
+    db.execute(
+        "UPDATE penguins SET penguin_name=?, penguin_color=?, character_created=1 WHERE username=?",
+        (pname, pcolor, username)
+    )
+    db.commit()
+    db.close()
+    log_event(get_db(), "character_created", f"{username} created their penguin as '{pname}' ({pcolor})", username)
+    return jsonify({"status": "success"})
+
+
+@app.route("/penguin/reshape", methods=["POST"])
+def penguin_reshape():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    data = request.get_json(silent=True) or {}
+
+    try:
+        pname = _validate_penguin_name(data.get("penguin_name", ""), username)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+    pcolor = data.get("penguin_color", "classic_black")
+
+    db = get_db()
+    penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not penguin:
+        db.close()
+        return jsonify({"status": "error", "message": "Not found."})
+
+    # Validate color — must be starter OR unlocked locked color
+    unlocked = _get_unlocked_colors(db, penguin)
+    if pcolor not in STARTER_COLORS and pcolor not in unlocked:
+        db.close()
+        return jsonify({"status": "error", "message": "Color not available."})
+
+    # Charge 2000 gold
+    gold = get_gold(db, username)
+    if gold < 2000:
+        db.close()
+        return jsonify({"status": "error", "message": "Not enough gold. Need 2,000 gold."})
+
+    add_gold(db, username, -2000)
+    db.execute(
+        "UPDATE penguins SET penguin_name=?, penguin_color=? WHERE username=?",
+        (pname, pcolor, username)
+    )
+    db.commit()
+    log_event(db, "reshape", f"{username} reshaped their penguin at the Cursed Temple!", username)
+    db.close()
+    return jsonify({"status": "success", "new_name": pname, "new_color": pcolor})
+
+
 @app.route("/tutorial/complete", methods=["POST"])
 def tutorial_complete():
     username = session.get("username")
@@ -3201,6 +3377,9 @@ def _get_public_penguin(username):
     cosmetic_ids = {c["item_id"] for c in cosmetics if c["item_id"]}
     db.close()
     level, _, _ = xp_progress(p["xp"] or 0)
+    pcolor   = p["penguin_color"] if p["penguin_color"] else "classic_black"
+    pname    = p["penguin_name"]  if p["penguin_name"]  else p["username"]
+    palette  = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {})
     return {
         "p": dict(p), "r": dict(r) if r else {}, "gold": gold,
         "titles": titles, "level": level,
@@ -3208,6 +3387,9 @@ def _get_public_penguin(username):
         "fav_job": fav_job, "total_hours": round(total_hours, 1),
         "top_ach": ach["achievement_id"] if ach else None,
         "cosmetic_ids": cosmetic_ids,
+        "penguin_name": pname,
+        "penguin_color": pcolor,
+        "color_palette": palette,
     }
 
 
@@ -3423,7 +3605,7 @@ def village_penguins():
     cutoff = int(time.time()) - 1800
     db = get_db()
     rows = db.execute(
-        """SELECT p.username, p.job, p.level, p.prestige, p.active_title
+        """SELECT p.username, p.penguin_name, p.penguin_color, p.job, p.level, p.prestige, p.active_title
            FROM penguins p
            WHERE p.last_active > ?
            ORDER BY p.last_active DESC
@@ -3434,10 +3616,17 @@ def village_penguins():
 
     penguins = []
     for r in rows:
-        job = r["job"]
-        home = _BUILDING_HOME_TILES.get(job, _DEFAULT_HOME_TILE)
+        job    = r["job"]
+        home   = _BUILDING_HOME_TILES.get(job, _DEFAULT_HOME_TILE)
+        pcolor = r["penguin_color"] or "classic_black"
+        pname  = r["penguin_name"]  or r["username"]
+        palette = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {"body": "#1a1a1a", "belly": "#e8e8e8"})
         penguins.append({
             "username":     r["username"],
+            "display_name": pname,
+            "penguin_color": pcolor,
+            "body_color":   palette.get("body", "#1a1a1a"),
+            "belly_color":  palette.get("belly", "#e8e8e8"),
             "job":          job,
             "level":        r["level"] or 1,
             "prestige":     r["prestige"] or 0,
