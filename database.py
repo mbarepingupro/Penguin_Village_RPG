@@ -228,6 +228,7 @@ def init_db():
     _add_col(c, "penguins", "hotel_uses_today INTEGER DEFAULT 0")
     _add_col(c, "penguins", "last_hotel_date TEXT DEFAULT NULL")
     _add_col(c, "penguins", "total_contributions INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "tutorial_completed INTEGER DEFAULT 0")
 
     # Migrate building levels from 5-level to 3-level system
     try:
