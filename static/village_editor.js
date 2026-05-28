@@ -37,6 +37,7 @@ const BUILDING_DEFS = {
     bank:          { name: "PENGUIN BANK",       color: "#1A5276", width: 3, height: 2 },
     barracks:      { name: "PENGUIN BARRACKS",   color: "#922B21", width: 3, height: 3 },
     horny_jail:    { name: "HORNY JAIL",         color: "#FF7FE5", width: 2, height: 2 },
+    boutique:      { name: "THE BOUTIQUE",       color: "#FF7FE5", width: 3, height: 2 },
 };
 
 const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
@@ -80,27 +81,6 @@ function initCamera() {
     // Center the grid vertically. Grid spans world-y −16 to 624 (height 640 px
     // at zoom 1). Grid center = (GRID_SIZE-1) * TILE_H/2 = 19*16 = 304.
     camY = canvas.height / 2 - (GRID_SIZE - 1) * (TILE_H / 2);
-}
-
-function resetView() {
-    zoomLevel = 1.0;
-    initCamera();
-}
-
-function drawZoomIndicator() {
-    const pct = Math.round(zoomLevel * 100) + '%';
-    ctx.save();
-    ctx.font = "8px 'Press Start 2P', monospace";
-    const tw = ctx.measureText(pct).width;
-    const pad = 6, bw = tw + pad * 2, bh = 20;
-    const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = '#888888';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(pct, bx + pad, by + bh / 2);
-    ctx.restore();
 }
 
 function resetView() {
