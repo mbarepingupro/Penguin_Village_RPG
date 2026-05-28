@@ -340,6 +340,12 @@ BUILDINGS = {
         "produces": {"blood_gems": 5.0, "bones": 5.0, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 84, "y": 58},
     },
+    "bank": {
+        "name": "Penguin Bank", "icon": "🏦",
+        "desc": "Coming soon. Your savings are definitely safe here.",
+        "type": "placeholder",
+        "pos": {"x": 11, "y": 15},
+    },
 }
 
 # ── MONSTERS ──────────────────────────────────────────────────────────────────
