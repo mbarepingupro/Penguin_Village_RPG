@@ -94,5 +94,21 @@ const Sounds = (function () {
         _tone(ctx, 783.99, 'square', t + 0.07, 0.12, 0.18);
       } catch (e) {}
     },
+
+    doorbell() {
+      _seq([[C4, 0.30], [E4, 0.30]], 'sine');
+    },
+
+    relationshipLevelUp() {
+      _seq([[C4, 0.13], [E4, 0.13], [G4, 0.14]], 'triangle');
+    },
+
+    socialModeChange() {
+      if (_muted) return;
+      try {
+        const ctx = _getCtx();
+        _tone(ctx, 600, 'square', ctx.currentTime, 0.10, 0.12);
+      } catch (e) {}
+    },
   };
 })();

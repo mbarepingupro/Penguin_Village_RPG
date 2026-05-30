@@ -348,6 +348,54 @@ BUILDINGS = {
     },
 }
 
+# ── SOCIAL SYSTEM ─────────────────────────────────────────────────────────────
+SOCIAL_MODES = {
+    "social": {
+        "name": "Be Social", "emoji": "🤝",
+        "description": "Your penguin interacts with everyone freely",
+        "interaction_chance": 0.7, "target_bias": 0,
+    },
+    "homebody": {
+        "name": "Stay Home", "emoji": "🏠",
+        "description": "Your penguin prefers alone time and solo activities",
+        "interaction_chance": 0.3, "target_bias": 0,
+    },
+    "focused": {
+        "name": "Focus on Someone", "emoji": "🎯",
+        "description": "Your penguin seeks out a specific penguin more often",
+        "interaction_chance": 0.6, "target_bias": 0.6,
+    },
+}
+
+RELATIONSHIP_LEVELS = [
+    {"level": "stranger",     "emoji": "❓", "threshold": 0,  "next": "acquaintance", "next_threshold": 1},
+    {"level": "acquaintance", "emoji": "👋", "threshold": 1,  "next": "friend",       "next_threshold": 10},
+    {"level": "friend",       "emoji": "🤝", "threshold": 10, "next": "good_friend",  "next_threshold": 25},
+    {"level": "good_friend",  "emoji": "💛", "threshold": 25, "next": "best_friend",  "next_threshold": 50},
+    {"level": "best_friend",  "emoji": "⭐", "threshold": 50, "next": None,           "next_threshold": None},
+]
+
+RELATIONSHIP_DISPLAY = {
+    "stranger":     {"name": "Stranger",     "emoji": "❓"},
+    "acquaintance": {"name": "Acquaintance", "emoji": "👋"},
+    "friend":       {"name": "Friend",       "emoji": "🤝"},
+    "good_friend":  {"name": "Good Friend",  "emoji": "💛"},
+    "best_friend":  {"name": "Best Friend",  "emoji": "⭐"},
+    "rivalry":      {"name": "Rivalry",      "emoji": "⚡"},
+    "crush":        {"name": "Crush",        "emoji": "💘"},
+    "mentor":       {"name": "Mentor",       "emoji": "📚"},
+}
+
+IGLOO_VISIT_REWARDS = {
+    "stranger":     {"gold_min": 5,  "gold_max": 10, "res_min": 1, "res_max": 1, "xp": 5},
+    "acquaintance": {"gold_min": 8,  "gold_max": 12, "res_min": 1, "res_max": 2, "xp": 5},
+    "friend":       {"gold_min": 10, "gold_max": 15, "res_min": 2, "res_max": 3, "xp": 5},
+    "good_friend":  {"gold_min": 12, "gold_max": 18, "res_min": 2, "res_max": 3, "xp": 8},
+    "best_friend":  {"gold_min": 15, "gold_max": 25, "res_min": 3, "res_max": 5, "xp": 10},
+}
+
+MAX_IGLOO_VISITS_PER_DAY = 5
+
 # ── MONSTERS ──────────────────────────────────────────────────────────────────
 _MONSTER_ICONS = {
     "crab":               "🦀",
@@ -693,7 +741,12 @@ ACHIEVEMENT_DEFS = {
     "igloo_5":        {"title":"HOME SWEET IGLOO",  "desc":"Place 5 items in your igloo",       "icon":"🏠", "category":"village"},
     "streak_7":       {"title":"DEDICATED",         "desc":"Log in 7 days in a row",            "icon":"🔥", "category":"village"},
     "streak_30":      {"title":"COMMITTED",         "desc":"Log in 30 days in a row",           "icon":"🔥", "category":"village"},
-    "prestige_1":     {"title":"REBORN",            "desc":"Prestige for the first time",       "icon":"♻️", "category":"prestige"},
+    "prestige_1":         {"title":"REBORN",            "desc":"Prestige for the first time",         "icon":"♻️", "category":"prestige"},
+    "first_igloo_visit":  {"title":"WARM WELCOME",     "desc":"Visit your first igloo",              "icon":"🏠", "category":"social"},
+    "social_butterfly":   {"title":"SOCIAL BUTTERFLY", "desc":"Visit 50 igloos total",               "icon":"🦋", "category":"social"},
+    "best_friends_forever":{"title":"BFF",             "desc":"Reach Best Friend with any penguin",  "icon":"⭐", "category":"social"},
+    "popular_penguin":    {"title":"POPULAR PENGUIN",  "desc":"Receive 20 igloo visits",             "icon":"🎉", "category":"social"},
+    "village_socialite":  {"title":"THE SOCIALITE",    "desc":"Have 10+ relationships at Friend+",   "icon":"🌟", "category":"social"},
 }
 
 # ── FURNITURE CATALOG ─────────────────────────────────────────────────────────
@@ -732,7 +785,8 @@ MISSION_DEFS = {
     "collect_3":    {"title":"HARD WORKER",  "desc":"Collect earnings 3 times today",    "gold":80,  "target":3, "stream":False, "icon":"⛏️"},
     "fight_1":      {"title":"BRAWLER",      "desc":"Fight a monster today",             "gold":40,  "target":1, "stream":False, "icon":"⚔️"},
     "watch_stream": {"title":"LOYAL VIEWER", "desc":"Watch the stream for 30 minutes",  "gold":100, "target":1, "stream":True,  "icon":"📺"},
-    "chat_stream":  {"title":"CHATTERBOX",   "desc":"Send a message during the stream",  "gold":60,  "target":1, "stream":True,  "icon":"💬"},
+    "chat_stream":  {"title":"CHATTERBOX",      "desc":"Send a message during the stream",  "gold":60,  "target":1, "stream":True,  "icon":"💬"},
+    "visit_igloo_3":{"title":"FRIENDLY NEIGHBOR","desc":"Visit 3 igloos today",              "gold":50,  "xp":20, "target":3, "stream":False, "icon":"🏠"},
 }
 DAILY_MISSIONS = list(MISSION_DEFS.keys())
 
@@ -919,6 +973,8 @@ def advance_mission(db, username, key, today, amount=1):
     )
     if done:
         add_gold(db, username, defn["gold"])
+        if defn.get("xp"):
+            db.execute("UPDATE penguins SET xp=xp+? WHERE username=?", (defn["xp"], username))
     return done
 
 
@@ -1118,6 +1174,37 @@ def award_xp(db, username, amount):
     return leveled, rewards_list
 
 
+def get_or_create_relationship(db, user1, user2):
+    u1, u2 = sorted([user1, user2])
+    db.execute(
+        "INSERT OR IGNORE INTO relationships (username1, username2) VALUES (?,?)", (u1, u2)
+    )
+    return db.execute(
+        "SELECT * FROM relationships WHERE username1=? AND username2=?", (u1, u2)
+    ).fetchone()
+
+
+def increment_relationship(db, user1, user2):
+    """Increment interaction count, update relationship level. Returns (old_level, new_level, new_count)."""
+    u1, u2 = sorted([user1, user2])
+    row = get_or_create_relationship(db, user1, user2)
+    old_count = row["interaction_count"] if row else 0
+    new_count = old_count + 1
+    old_level = row["relationship_level"] if row else "stranger"
+
+    new_level = "stranger"
+    for entry in RELATIONSHIP_LEVELS:
+        if new_count >= entry["threshold"]:
+            new_level = entry["level"]
+
+    db.execute(
+        "UPDATE relationships SET interaction_count=?, relationship_level=?, last_interaction=? "
+        "WHERE username1=? AND username2=?",
+        (new_count, new_level, int(time.time()), u1, u2)
+    )
+    return old_level, new_level, new_count
+
+
 def check_achievements(db, username):
     now   = int(time.time())
     p     = db.execute("SELECT level, xp FROM penguins WHERE username=?", (username,)).fetchone()
@@ -1160,6 +1247,29 @@ def check_achievements(db, username):
         if streak["current_streak"] >= 30: unlock("streak_30")
     if prest and prest["prestige"] >= 1:
         unlock("prestige_1")
+
+    # Social achievements
+    try:
+        visits_row = db.execute(
+            "SELECT total_visits_given, total_visits_received FROM penguins WHERE username=?", (username,)
+        ).fetchone()
+        if visits_row:
+            if visits_row["total_visits_given"] >= 1:  unlock("first_igloo_visit")
+            if visits_row["total_visits_given"] >= 50: unlock("social_butterfly")
+            if visits_row["total_visits_received"] >= 20: unlock("popular_penguin")
+        bf_count = db.execute(
+            "SELECT COUNT(*) as c FROM relationships WHERE (username1=? OR username2=?) "
+            "AND relationship_level='best_friend'", (username, username)
+        ).fetchone()
+        if bf_count and bf_count["c"] >= 1: unlock("best_friends_forever")
+        friend_count = db.execute(
+            "SELECT COUNT(*) as c FROM relationships WHERE (username1=? OR username2=?) "
+            "AND relationship_level IN ('friend','good_friend','best_friend')", (username, username)
+        ).fetchone()
+        if friend_count and friend_count["c"] >= 10: unlock("village_socialite")
+    except Exception:
+        pass
+
     return new_ach
 
 
@@ -1358,6 +1468,8 @@ def profile(username):
             "mayor_seals":     (r["mayor_seals"] if r and r["mayor_seals"] is not None else 0),
             "stream_tier":     (p["stream_tier"] if p["stream_tier"] is not None else 0),
             "active_title":    (p["active_title"] if p["active_title"] is not None else None),
+            "social_mode":     (p["social_mode"]   if p["social_mode"]   is not None else "social"),
+            "social_target":   (p["social_target"] if p["social_target"] is not None else None),
         },
         "resources": dict(r) if r else {},
     })
@@ -2457,6 +2569,274 @@ def get_achievements(username):
     return jsonify({"achievements": result})
 
 
+# ── SOCIAL SYSTEM ENDPOINTS ───────────────────────────────────────────────────
+
+@app.route("/penguin/social-mode", methods=["POST"])
+def set_social_mode():
+    data = request.get_json() or {}
+    username = data.get("username") or session.get("username")
+    mode = data.get("mode")
+    target = data.get("target") or None
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if mode not in SOCIAL_MODES:
+        return jsonify({"status": "error", "message": "Invalid social mode."})
+    db = get_db()
+    if not db.execute("SELECT 1 FROM penguins WHERE username=?", (username,)).fetchone():
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    if mode == "focused" and target:
+        if not db.execute("SELECT 1 FROM penguins WHERE username=?", (target,)).fetchone():
+            db.close()
+            return jsonify({"status": "error", "message": f"Penguin '{target}' not found."})
+    else:
+        if mode != "focused":
+            target = None
+    db.execute("UPDATE penguins SET social_mode=?, social_target=? WHERE username=?", (mode, target, username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "mode": mode, "mode_name": SOCIAL_MODES[mode]["name"], "target": target})
+
+
+@app.route("/penguin/search")
+def search_penguins():
+    q = request.args.get("q", "").strip()
+    current = session.get("username", "")
+    if len(q) < 1:
+        return jsonify({"results": []})
+    db = get_db()
+    rows = db.execute(
+        "SELECT username, penguin_name, level FROM penguins "
+        "WHERE (username LIKE ? OR penguin_name LIKE ?) AND username != ? "
+        "ORDER BY level DESC LIMIT 5",
+        (f"%{q}%", f"%{q}%", current)
+    ).fetchall()
+    db.close()
+    return jsonify({"results": [
+        {"username": r["username"], "penguin_name": r["penguin_name"], "level": r["level"]}
+        for r in rows
+    ]})
+
+
+@app.route("/igloo/visit", methods=["POST"])
+def igloo_visit():
+    data = request.get_json() or {}
+    visitor = data.get("visitor_username") or session.get("username")
+    host = data.get("host_username")
+    if not visitor:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if not host:
+        return jsonify({"status": "error", "message": "Host username required."})
+    if visitor == host:
+        return jsonify({"status": "error", "message": "You can't visit your own igloo!"})
+
+    db = get_db()
+    visitor_row = db.execute("SELECT * FROM penguins WHERE username=?", (visitor,)).fetchone()
+    host_row    = db.execute("SELECT * FROM penguins WHERE username=?", (host,)).fetchone()
+    if not visitor_row:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    if not host_row:
+        db.close()
+        return jsonify({"status": "error", "message": "Host penguin not found."})
+
+    today = get_today()
+    visits_today = db.execute(
+        "SELECT COUNT(*) as c FROM igloo_visits WHERE visitor=? AND visited_date=?", (visitor, today)
+    ).fetchone()["c"]
+    if visits_today >= MAX_IGLOO_VISITS_PER_DAY:
+        db.close()
+        return jsonify({"status": "error", "message": f"You've used all {MAX_IGLOO_VISITS_PER_DAY} visits today! Come back tomorrow."})
+
+    if db.execute(
+        "SELECT 1 FROM igloo_visits WHERE visitor=? AND host=? AND visited_date=?", (visitor, host, today)
+    ).fetchone():
+        host_name = host_row["penguin_name"] or host
+        db.close()
+        return jsonify({"status": "error", "message": f"You already visited {host_name} today! Come back tomorrow."})
+
+    rel = get_or_create_relationship(db, visitor, host)
+    rel_level = rel["relationship_level"] if rel else "stranger"
+    reward_cfg = IGLOO_VISIT_REWARDS.get(rel_level, IGLOO_VISIT_REWARDS["stranger"])
+
+    gold_reward  = random.randint(reward_cfg["gold_min"], reward_cfg["gold_max"])
+    res_type     = random.choice(["fish", "herbs", "bones", "spell_fragments"])
+    res_amount   = random.randint(reward_cfg["res_min"], reward_cfg["res_max"])
+    xp_reward    = reward_cfg["xp"]
+
+    ensure_resources(db, visitor)
+    db.execute(f"UPDATE resources SET gold=gold+?, {res_type}={res_type}+? WHERE username=?",
+               (gold_reward, res_amount, visitor))
+    db.execute("UPDATE penguins SET total_visits_given=total_visits_given+1 WHERE username=?", (visitor,))
+    award_xp(db, visitor, xp_reward)
+    db.execute("UPDATE penguins SET total_visits_received=total_visits_received+1 WHERE username=?", (host,))
+
+    db.execute(
+        "INSERT INTO igloo_visits (visitor, host, visited_date, reward_gold, reward_resource_type, reward_resource_amount) "
+        "VALUES (?,?,?,?,?,?)",
+        (visitor, host, today, gold_reward, res_type, res_amount)
+    )
+
+    old_level, new_level, interaction_count = increment_relationship(db, visitor, host)
+    advance_mission(db, visitor, "visit_igloo_3", today)
+    new_ach = check_achievements(db, visitor)
+
+    visitor_name = visitor_row["penguin_name"] or visitor
+    host_name    = host_row["penguin_name"] or host
+    res_emojis   = {"fish": "🐟", "herbs": "🌿", "bones": "🦴", "spell_fragments": "✨"}
+    log_event(db, "social",
+        f"🏠 {visitor_name} visited {host_name}'s igloo and found "
+        f"{res_emojis.get(res_type,'📦')} {res_amount} {res_type} and 🪙 {gold_reward} gold!", visitor)
+
+    db.commit()
+    db.close()
+
+    level_name     = RELATIONSHIP_DISPLAY.get(new_level, {}).get("name", new_level.replace("_"," ").title())
+    old_level_name = RELATIONSHIP_DISPLAY.get(old_level, {}).get("name", old_level.replace("_"," ").title())
+
+    next_level_name     = None
+    interactions_needed = 0
+    for i, entry in enumerate(RELATIONSHIP_LEVELS):
+        if entry["level"] == new_level:
+            if entry["next"]:
+                next_level_name     = RELATIONSHIP_DISPLAY.get(entry["next"], {}).get("name", entry["next"])
+                interactions_needed = max(0, entry["next_threshold"] - interaction_count)
+            break
+
+    return jsonify({
+        "status": "success",
+        "message": f"{visitor_name} visited {host_name}'s igloo!",
+        "rewards": {"gold": gold_reward, "resource_type": res_type, "resource_amount": res_amount, "xp": xp_reward},
+        "relationship": {
+            "level": level_name, "old_level": old_level_name,
+            "level_changed": old_level != new_level,
+            "interaction_count": interaction_count,
+            "next_level": next_level_name, "interactions_needed": interactions_needed,
+        },
+        "new_achievements": new_ach,
+        "visits_remaining": MAX_IGLOO_VISITS_PER_DAY - (visits_today + 1),
+    })
+
+
+@app.route("/igloo/visits-today/<username>")
+def igloo_visits_today(username):
+    db  = get_db()
+    today = get_today()
+
+    visited_rows = db.execute(
+        "SELECT iv.host, p.penguin_name FROM igloo_visits iv "
+        "LEFT JOIN penguins p ON p.username=iv.host "
+        "WHERE iv.visitor=? AND iv.visited_date=?",
+        (username, today)
+    ).fetchall()
+    visited_today    = [{"username": r["host"], "penguin_name": r["penguin_name"]} for r in visited_rows]
+    visited_usernames = {v["username"] for v in visited_today}
+
+    visitor_row  = db.execute("SELECT social_target FROM penguins WHERE username=?", (username,)).fetchone()
+    social_target = visitor_row["social_target"] if visitor_row else None
+
+    rel_rows = db.execute(
+        "SELECT CASE WHEN r.username1=? THEN r.username2 ELSE r.username1 END as other_username, "
+        "r.interaction_count, r.relationship_level, p.penguin_name, p.level "
+        "FROM relationships r "
+        "JOIN penguins p ON p.username = CASE WHEN r.username1=? THEN r.username2 ELSE r.username1 END "
+        "WHERE (r.username1=? OR r.username2=?) ORDER BY r.interaction_count DESC LIMIT 20",
+        (username, username, username, username)
+    ).fetchall()
+
+    suggestions = []
+    if social_target and social_target not in visited_usernames:
+        st = db.execute("SELECT username, penguin_name, level FROM penguins WHERE username=?", (social_target,)).fetchone()
+        if st:
+            rel = get_or_create_relationship(db, username, social_target)
+            db.commit()
+            suggestions.append({
+                "username": st["username"], "penguin_name": st["penguin_name"], "level": st["level"],
+                "rel_level": rel["relationship_level"] if rel else "stranger", "is_target": True
+            })
+
+    for r in rel_rows:
+        if r["other_username"] not in visited_usernames and r["other_username"] != social_target and len(suggestions) < 5:
+            suggestions.append({
+                "username": r["other_username"], "penguin_name": r["penguin_name"], "level": r["level"],
+                "rel_level": r["relationship_level"], "is_target": False
+            })
+
+    if len(suggestions) < 5:
+        skip = {s["username"] for s in suggestions} | visited_usernames | {username}
+        placeholders = ",".join("?" * len(skip))
+        extra = db.execute(
+            f"SELECT username, penguin_name, level FROM penguins WHERE username NOT IN ({placeholders}) LIMIT 5",
+            list(skip)
+        ).fetchall()
+        for r in extra:
+            if len(suggestions) < 5:
+                rel = get_or_create_relationship(db, username, r["username"])
+                db.commit()
+                suggestions.append({
+                    "username": r["username"], "penguin_name": r["penguin_name"], "level": r["level"],
+                    "rel_level": rel["relationship_level"] if rel else "stranger", "is_target": False
+                })
+
+    db.close()
+    return jsonify({
+        "visited_today": visited_today,
+        "suggestions": suggestions[:5],
+        "visits_today": len(visited_today),
+        "max_visits_per_day": MAX_IGLOO_VISITS_PER_DAY,
+        "visits_remaining": MAX_IGLOO_VISITS_PER_DAY - len(visited_today),
+    })
+
+
+@app.route("/relationships/<username>")
+def get_relationships(username):
+    db    = get_db()
+    today = get_today()
+
+    rows = db.execute(
+        "SELECT CASE WHEN r.username1=? THEN r.username2 ELSE r.username1 END as other_username, "
+        "r.interaction_count, r.relationship_level, p.penguin_name "
+        "FROM relationships r "
+        "LEFT JOIN penguins p ON p.username = CASE WHEN r.username1=? THEN r.username2 ELSE r.username1 END "
+        "WHERE (r.username1=? OR r.username2=?) AND r.interaction_count > 0 "
+        "ORDER BY r.interaction_count DESC LIMIT 50",
+        (username, username, username, username)
+    ).fetchall()
+
+    visited_set = {r["host"] for r in db.execute(
+        "SELECT host FROM igloo_visits WHERE visitor=? AND visited_date=?", (username, today)
+    ).fetchall()}
+
+    rels = []
+    for r in rows:
+        level = r["relationship_level"] or "stranger"
+        disp  = RELATIONSHIP_DISPLAY.get(level, {"name": level.replace("_"," ").title(), "emoji": "❓"})
+        progress_pct = 0
+        next_level_name = None
+        interactions_needed = 0
+        for i, entry in enumerate(RELATIONSHIP_LEVELS):
+            if entry["level"] == level:
+                if entry["next"]:
+                    span = entry["next_threshold"] - entry["threshold"]
+                    into = r["interaction_count"] - entry["threshold"]
+                    progress_pct = min(100, int(into / max(1, span) * 100))
+                    next_level_name = RELATIONSHIP_DISPLAY.get(entry["next"], {}).get("name")
+                    interactions_needed = max(0, entry["next_threshold"] - r["interaction_count"])
+                else:
+                    progress_pct = 100
+                break
+        rels.append({
+            "username": r["other_username"], "penguin_name": r["penguin_name"],
+            "interaction_count": r["interaction_count"],
+            "level": level, "level_name": disp["name"], "emoji": disp["emoji"],
+            "progress_pct": progress_pct, "next_level": next_level_name,
+            "interactions_needed": interactions_needed,
+            "visited_today": r["other_username"] in visited_set,
+        })
+    db.close()
+    return jsonify({"relationships": rels})
+
+
 # ── EVENT LOG ─────────────────────────────────────────────────────────────────
 
 @app.route("/events")
@@ -2642,6 +3022,23 @@ def welcome_back(username):
         (*notable_types, last_active, username)
     ).fetchall()
     village_news = [r["message"] for r in news_rows]
+
+    # ── Igloo visitors while away ─────────────────────────────────────────────
+    try:
+        from datetime import datetime, timezone as _tz
+        away_date = datetime.fromtimestamp(last_active, tz=_tz.utc).strftime("%Y-%m-%d")
+        today_str = get_today()
+        visitor_rows = db.execute(
+            "SELECT DISTINCT iv.visitor, p.penguin_name FROM igloo_visits iv "
+            "LEFT JOIN penguins p ON p.username=iv.visitor "
+            "WHERE iv.host=? AND iv.visited_date >= ?",
+            (username, away_date)
+        ).fetchall()
+        for vr in visitor_rows:
+            vname = vr["penguin_name"] or vr["visitor"]
+            village_news.insert(0, f"🏠 {vname} stopped by your igloo while you were away!")
+    except Exception:
+        pass
 
     # ── Streak check (ensure home-route streak is up-to-date) ────────────────
     today = get_today()

@@ -72,6 +72,7 @@ const JOB_ICONS = {
 };
 
 let canvas, ctx, currentUser, openBuildingFn;
+let _visitedTodaySet = new Set();
 let cameraX = 0, cameraY = 50;
 let zoomLevel = 1.0;
 const MIN_ZOOM = 0.5;
@@ -598,38 +599,65 @@ function showPenguinPopup(penguin, sx, sy) {
         'position:absolute',
         'background:#1C1C1C',
         'border:2px solid #A86EFF',
-        'padding:8px',
+        'padding:8px 10px',
         "font-family:'Press Start 2P',monospace",
         'font-size:7px',
         'color:#FFFFFF',
-        'pointer-events:none',
-        'z-index:100',
-        'line-height:1.6',
+        'pointer-events:auto',
+        'z-index:200',
+        'line-height:1.8',
         'white-space:nowrap',
+        'cursor:default',
     ].join(';');
 
     const jobIcon = penguin.job ? (JOB_ICONS[penguin.job] || '') : '';
     const jobName = penguin.job ? penguin.job.replace(/_/g, ' ').toUpperCase() : 'UNEMPLOYED';
+    const isSelf  = penguin.username === currentUser;
+    const visited = _visitedTodaySet.has(penguin.username);
+
+    let visitBtnHtml = '';
+    if (!isSelf) {
+        if (visited) {
+            visitBtnHtml = '<div style="margin-top:6px;color:#4aff6b;font-size:6px;">VISITED TODAY ✅</div>';
+        } else {
+            visitBtnHtml = '<button id="map-visit-btn" style="margin-top:6px;display:block;width:100%;'
+                + "font-family:'Press Start 2P',monospace;font-size:6px;padding:4px 6px;"
+                + 'background:#1C1C1C;color:#A86EFF;border:1px solid #A86EFF;cursor:pointer;" '
+                + 'onmouseenter="this.style.background=\'#A86EFF\';this.style.color=\'#1C1C1C\'" '
+                + 'onmouseleave="this.style.background=\'#1C1C1C\';this.style.color=\'#A86EFF\'" '
+                + 'onclick="window._mapVisitIgloo && window._mapVisitIgloo(\'' + penguin.username + '\')">'
+                + '🏠 VISIT IGLOO</button>';
+        }
+    }
 
     el.innerHTML = [
-        '<div>' + penguin.username + '</div>',
+        '<div style="color:#FFFFFF">' + (penguin.display_name || penguin.username) + '</div>',
         penguin.active_title ? '<div style="color:#A86EFF">' + penguin.active_title + '</div>' : '',
-        '<div>LV' + (penguin.level || 1) + ' · ' + jobIcon + ' ' + jobName + '</div>',
+        '<div style="color:#888">LV' + (penguin.level || 1) + ' · ' + jobIcon + ' ' + jobName + '</div>',
+        visitBtnHtml,
     ].join('');
 
-    const popupX = (canvasRect.left - containerRect.left) + sx - 60;
-    const popupY = (canvasRect.top - containerRect.top) + sy - 80;
+    const popupX = (canvasRect.left - containerRect.left) + sx - 70;
+    const popupY = (canvasRect.top - containerRect.top) + sy - (isSelf ? 70 : 95);
 
-    el.style.left = popupX + 'px';
-    el.style.top = popupY + 'px';
+    el.style.left = Math.max(0, popupX) + 'px';
+    el.style.top  = Math.max(0, popupY) + 'px';
 
     container.appendChild(el);
     _popupEl = el;
 
-    setTimeout(() => {
+    let _autoClose = setTimeout(() => {
         if (el.parentElement) el.parentElement.removeChild(el);
         if (_popupEl === el) _popupEl = null;
-    }, 2500);
+    }, 4000);
+
+    el.addEventListener('mouseenter', () => clearTimeout(_autoClose));
+    el.addEventListener('mouseleave', () => {
+        _autoClose = setTimeout(() => {
+            if (el.parentElement) el.parentElement.removeChild(el);
+            if (_popupEl === el) _popupEl = null;
+        }, 1500);
+    });
 }
 
 function getBuildingAtTile(gx, gy) {
@@ -976,6 +1004,10 @@ function resizeViewport() {
     canvas.height = parent.clientHeight;
 }
 
-window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport };
+function setVisitedToday(usernameList) {
+    _visitedTodaySet = new Set(usernameList || []);
+}
+
+window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday };
 
 })();
