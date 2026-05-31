@@ -880,7 +880,8 @@ function gameLoop(ts) {
     _lastTime = ts;
     _time += dt;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#E8F0F0";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Apply pan + zoom transform for world rendering
     ctx.save();
