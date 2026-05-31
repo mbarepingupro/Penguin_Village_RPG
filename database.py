@@ -194,6 +194,31 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS relationships (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username1 TEXT NOT NULL,
+            username2 TEXT NOT NULL,
+            interaction_count INTEGER DEFAULT 0,
+            relationship_level TEXT DEFAULT 'stranger',
+            last_interaction INTEGER DEFAULT 0,
+            UNIQUE(username1, username2)
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS igloo_visits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            visitor TEXT NOT NULL,
+            host TEXT NOT NULL,
+            visited_date TEXT NOT NULL,
+            reward_gold INTEGER DEFAULT 0,
+            reward_resource_type TEXT DEFAULT NULL,
+            reward_resource_amount INTEGER DEFAULT 0,
+            UNIQUE(visitor, host, visited_date)
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -232,6 +257,10 @@ def init_db():
     _add_col(c, "penguins", "character_created INTEGER DEFAULT 0")
     _add_col(c, "penguins", "penguin_color TEXT DEFAULT 'classic_black'")
     _add_col(c, "penguins", "penguin_name TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "social_mode TEXT DEFAULT 'social'")
+    _add_col(c, "penguins", "social_target TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "total_visits_given INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "total_visits_received INTEGER DEFAULT 0")
 
     # Existing players (level > 1) skip character creation — they can reshape at the Cursed Temple
     try:

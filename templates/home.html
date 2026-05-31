@@ -971,6 +971,121 @@
     .wb-collect-btn.green { border-color: #4aff6b; color: #4aff6b; }
     .wb-collect-btn.green:hover { background: #4aff6b; color: #1C1C1C; }
 
+    /* ── SOCIAL MODE SELECTOR ── */
+    .social-mode-section { padding: 8px 12px; border-bottom: 2px solid #A86EFF; }
+    .social-mode-title { color: #A86EFF; font-size: 8px; margin-bottom: 7px; }
+    .social-mode-btns { display: flex; gap: 5px; }
+    .social-mode-btn {
+      flex: 1; font-family: 'Press Start 2P', monospace; font-size: 6px;
+      background: #1C1C1C; color: #888; border: 1px solid #444;
+      padding: 5px 2px; cursor: pointer; line-height: 1.6; text-align: center;
+    }
+    .social-mode-btn:hover { border-color: #A86EFF; color: #fff; }
+    .social-mode-btn.active-social   { border-color: #4aff6b; color: #4aff6b; }
+    .social-mode-btn.active-homebody { border-color: #A86EFF; color: #A86EFF; }
+    .social-mode-btn.active-focused  { border-color: #FF7FE5; color: #FF7FE5; }
+    .social-target-wrap { margin-top: 7px; display: none; }
+    .social-target-wrap.visible { display: block; }
+    .social-target-input-row { display: flex; gap: 4px; position: relative; }
+    .social-target-input {
+      flex: 1; font-family: 'Press Start 2P', monospace; font-size: 6px;
+      background: #111; color: #fff; border: 1px solid #555; padding: 5px 6px;
+    }
+    .social-target-input::placeholder { color: #666; }
+    .social-target-set-btn {
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      background: #1C1C1C; color: #FF7FE5; border: 1px solid #FF7FE5;
+      padding: 5px 7px; cursor: pointer;
+    }
+    .social-target-set-btn:hover { background: #FF7FE5; color: #1C1C1C; }
+    .social-target-current { color: #FF7FE5; font-size: 7px; margin-top: 5px; }
+    .social-target-none    { color: #666;    font-size: 7px; margin-top: 5px; }
+    .social-autocomplete {
+      position: absolute; top: 100%; left: 0; right: 32px;
+      background: #1C1C1C; border: 1px solid #A86EFF; z-index: 500;
+    }
+    .social-autocomplete-item {
+      padding: 5px 7px; font-size: 6px; color: #fff; cursor: pointer;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .social-autocomplete-item:hover { background: #A86EFF; color: #1C1C1C; }
+
+    /* ── IGLOO VISIT SECTION ── */
+    .sb-igloo-visit-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 0; border-bottom: 1px solid #2a2a2a; font-size: 7px;
+    }
+    .sb-igloo-visit-row:last-child { border-bottom: none; }
+    .sb-visit-name { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sb-visit-rel  { color: #888; font-size: 6px; flex-shrink: 0; }
+    .sb-visit-btn {
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      background: #1C1C1C; color: #A86EFF; border: 1px solid #A86EFF;
+      padding: 3px 5px; cursor: pointer; flex-shrink: 0;
+    }
+    .sb-visit-btn:hover { background: #A86EFF; color: #1C1C1C; }
+    .sb-visit-btn.visited { color: #4aff6b; border-color: #4aff6b; cursor: default; pointer-events: none; }
+
+    /* ── RELATIONSHIP PROGRESS BAR ── */
+    .rel-progress-wrap { background: #2a2a2a; height: 3px; margin-top: 2px; }
+    .rel-progress-fill { background: #A86EFF; height: 3px; }
+
+    /* ── RELATIONSHIP MODAL ── */
+    #rel-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 9998;
+    }
+    #rel-modal-overlay.show { display: flex; align-items: center; justify-content: center; }
+    #rel-modal {
+      background: #2E2E2E; border: 3px solid #A86EFF;
+      width: 480px; max-width: 95vw; max-height: 80vh;
+      overflow-y: auto; font-family: 'Press Start 2P', monospace;
+    }
+    .rel-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 2px solid #A86EFF; position: sticky; top: 0; background: #2E2E2E;
+    }
+    .rel-modal-title { color: #A86EFF; font-size: 11px; }
+    .rel-modal-close { color: #FF7FE5; font-size: 14px; cursor: pointer; padding: 0 0 0 10px; }
+    .rel-modal-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-bottom: 1px solid #2a2a2a; font-size: 7px;
+    }
+    .rel-modal-row:last-child { border-bottom: none; }
+    .rel-modal-emoji { font-size: 14px; flex-shrink: 0; }
+    .rel-modal-name  { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rel-modal-level { color: #888; font-size: 6px; flex-shrink: 0; }
+    .rel-modal-visit-btn {
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      background: #1C1C1C; color: #A86EFF; border: 1px solid #A86EFF;
+      padding: 3px 5px; cursor: pointer;
+    }
+    .rel-modal-visit-btn:hover { background: #A86EFF; color: #1C1C1C; }
+    .rel-modal-visit-btn.visited { color: #4aff6b; border-color: #4aff6b; cursor: default; pointer-events: none; }
+    .rel-empty { color: #555; font-size: 8px; padding: 20px; text-align: center; }
+
+    /* ── IGLOO VISIT RESULT POPUP ── */
+    #igloo-result-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 10000;
+    }
+    #igloo-result-overlay.show { display: flex; align-items: center; justify-content: center; }
+    #igloo-result-box {
+      background: #2E2E2E; border: 3px solid #A86EFF;
+      padding: 20px 24px; font-family: 'Press Start 2P', monospace;
+      text-align: center; min-width: 260px; max-width: 90vw;
+    }
+    .igloo-result-title   { color: #A86EFF; font-size: 10px; margin-bottom: 8px; }
+    .igloo-result-sub     { color: #fff;    font-size: 9px;  margin-bottom: 10px; }
+    .igloo-result-rewards { color: #FF8C00; font-size: 8px;  margin-bottom: 8px; line-height: 2; }
+    .igloo-result-rel     { color: #FF7FE5; font-size: 8px;  margin-bottom: 12px; }
+    .igloo-result-ok {
+      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      background: #1C1C1C; color: #4aff6b; border: 2px solid #4aff6b;
+      padding: 8px 18px; cursor: pointer; margin-top: 4px;
+    }
+    .igloo-result-ok:hover { background: #4aff6b; color: #1C1C1C; }
+
     /* ── LEVEL-UP MODAL ── */
     #lvup-overlay {
       display: none; position: fixed; inset: 0;
@@ -1529,6 +1644,29 @@
           </div>
         </div>
 
+        <!-- SOCIAL MODE -->
+        <div class="social-mode-section">
+          <div class="social-mode-title">SOCIAL MODE</div>
+          <div class="social-mode-btns">
+            <button class="social-mode-btn active-social" id="smb-social"
+                    onclick="setSocialMode('social')">🤝 SOCIAL</button>
+            <button class="social-mode-btn" id="smb-homebody"
+                    onclick="setSocialMode('homebody')">🏠 HOME</button>
+            <button class="social-mode-btn" id="smb-focused"
+                    onclick="setSocialMode('focused')">🎯 FOCUS</button>
+          </div>
+          <div class="social-target-wrap" id="social-target-wrap">
+            <div class="social-target-input-row">
+              <input class="social-target-input" id="social-target-input"
+                     placeholder="Enter penguin name..." autocomplete="off"
+                     oninput="socialTargetSearch(this.value)" />
+              <button class="social-target-set-btn" onclick="confirmSocialTarget()">SET</button>
+              <div class="social-autocomplete" id="social-autocomplete" style="display:none;"></div>
+            </div>
+            <div id="social-target-label" class="social-target-none">No target set</div>
+          </div>
+        </div>
+
         {% if features.get("gear_equip", False) %}
         <!-- COMBAT GEAR slots (only when combat gear is enabled) -->
         <div class="gear-slots">
@@ -1602,6 +1740,26 @@
           <div class="sb-award-row">
             <span class="sb-award-count" id="sb-award-count">-- / -- UNLOCKED</span>
             <button class="sb-award-btn" onclick="switchContentTab('awards', document.querySelector('[data-tab=awards]'))">VIEW →</button>
+          </div>
+        </div>
+
+        <!-- IGLOO VISITS -->
+        <div class="sb-section">
+          <div class="sb-section-title">IGLOO VISITS</div>
+          <div id="sb-visits-count" style="color:#888;font-size:7px;margin-bottom:8px;">LOADING...</div>
+          <div id="sb-visits-list">
+            <div style="color:#555;font-size:7px;">LOADING...</div>
+          </div>
+        </div>
+
+        <!-- RELATIONSHIPS -->
+        <div class="sb-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div class="sb-section-title" style="margin-bottom:0;">RELATIONSHIPS</div>
+            <button class="sb-award-btn" onclick="openRelationshipModal()">VIEW ALL →</button>
+          </div>
+          <div id="sb-rel-list">
+            <div style="color:#555;font-size:7px;">LOADING...</div>
           </div>
         </div>
 
@@ -1882,6 +2040,30 @@
     <div id="sm-resources"></div>
     <br>
     <button class="sm-close" onclick="document.getElementById('streak-modal').classList.remove('show')">SWEET!</button>
+  </div>
+</div>
+
+<!-- IGLOO VISIT RESULT POPUP -->
+<div id="igloo-result-overlay">
+  <div id="igloo-result-box">
+    <div class="igloo-result-title" id="igloo-result-title">IGLOO VISIT</div>
+    <div class="igloo-result-sub" id="igloo-result-sub">Welcome in! 🍪</div>
+    <div class="igloo-result-rewards" id="igloo-result-rewards"></div>
+    <div class="igloo-result-rel" id="igloo-result-rel" style="display:none;"></div>
+    <button class="igloo-result-ok" onclick="closeIglooResult()">OK</button>
+  </div>
+</div>
+
+<!-- RELATIONSHIP MODAL -->
+<div id="rel-modal-overlay" onclick="if(event.target===this)closeRelationshipModal()">
+  <div id="rel-modal">
+    <div class="rel-modal-header">
+      <div class="rel-modal-title">RELATIONSHIPS</div>
+      <span class="rel-modal-close" onclick="closeRelationshipModal()">✕</span>
+    </div>
+    <div id="rel-modal-body">
+      <div class="rel-empty">LOADING...</div>
+    </div>
   </div>
 </div>
 
@@ -5014,6 +5196,309 @@
     document.getElementById('wb-overlay').classList.remove('show');
   }
 
+  // ── SOCIAL MODE ──────────────────────────────────────────────────────────
+
+  let _socialMode   = 'social';
+  let _socialTarget = null;
+  let _acDebounce   = null;
+
+  function _updateSocialModeButtons(mode) {
+    ['social','homebody','focused'].forEach(m => {
+      const btn = document.getElementById('smb-' + m);
+      if (!btn) return;
+      btn.className = 'social-mode-btn' + (m === mode ? ' active-' + m : '');
+    });
+    const wrap = document.getElementById('social-target-wrap');
+    if (wrap) wrap.classList.toggle('visible', mode === 'focused');
+  }
+
+  async function loadSocialMode() {
+    try {
+      const res  = await fetch(`/profile/${CURRENT_USER}`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        _socialMode   = data.penguin.social_mode   || 'social';
+        _socialTarget = data.penguin.social_target || null;
+        _updateSocialModeButtons(_socialMode);
+        _renderSocialTargetLabel();
+      }
+    } catch(e) {}
+  }
+
+  function _renderSocialTargetLabel() {
+    const lbl = document.getElementById('social-target-label');
+    if (!lbl) return;
+    if (_socialTarget) {
+      lbl.className = 'social-target-current';
+      lbl.textContent = 'Focusing on: ' + _socialTarget;
+    } else {
+      lbl.className = 'social-target-none';
+      lbl.textContent = 'No target set';
+    }
+  }
+
+  async function setSocialMode(mode) {
+    const payload = { username: CURRENT_USER, mode };
+    if (mode === 'focused' && _socialTarget) payload.target = _socialTarget;
+    try {
+      const res  = await fetch('/penguin/social-mode', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        _socialMode = mode;
+        if (mode !== 'focused') _socialTarget = null;
+        _updateSocialModeButtons(mode);
+        _renderSocialTargetLabel();
+        Sounds.socialModeChange();
+        showToast('Social mode: ' + data.mode_name, '#4aff6b');
+      } else {
+        showToast(data.message || 'Error', '#ff6b6b');
+      }
+    } catch(e) { showToast('Error', '#ff6b6b'); }
+  }
+
+  async function socialTargetSearch(q) {
+    clearTimeout(_acDebounce);
+    const ac = document.getElementById('social-autocomplete');
+    if (!q || q.length < 1) { if (ac) ac.style.display = 'none'; return; }
+    _acDebounce = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/penguin/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!ac) return;
+        if (!data.results || data.results.length === 0) { ac.style.display = 'none'; return; }
+        ac.innerHTML = data.results.map(r => {
+          const name = r.penguin_name || r.username;
+          return `<div class="social-autocomplete-item" onclick="pickSocialTarget('${r.username}','${name}')">`
+               + `${name} <span style="color:#555">(${r.username}) LV${r.level}</span></div>`;
+        }).join('');
+        ac.style.display = 'block';
+      } catch(e) {}
+    }, 250);
+  }
+
+  function pickSocialTarget(username, displayName) {
+    _socialTarget = username;
+    const inp = document.getElementById('social-target-input');
+    if (inp) inp.value = displayName;
+    const ac = document.getElementById('social-autocomplete');
+    if (ac) ac.style.display = 'none';
+    _renderSocialTargetLabel();
+  }
+
+  async function confirmSocialTarget() {
+    const inp = document.getElementById('social-target-input');
+    if (!inp || !inp.value.trim()) return;
+    if (!_socialTarget) _socialTarget = inp.value.trim();
+    await setSocialMode('focused');
+  }
+
+  // Close autocomplete when clicking outside
+  document.addEventListener('click', e => {
+    const ac = document.getElementById('social-autocomplete');
+    if (ac && !ac.contains(e.target) && e.target.id !== 'social-target-input') {
+      ac.style.display = 'none';
+    }
+  });
+
+  // ── IGLOO VISITS ─────────────────────────────────────────────────────────
+
+  async function loadIglooVisits() {
+    try {
+      const res  = await fetch(`/igloo/visits-today/${CURRENT_USER}`);
+      const data = await res.json();
+
+      const countEl = document.getElementById('sb-visits-count');
+      if (countEl) {
+        const remaining = data.visits_remaining || 0;
+        if (remaining === 0) {
+          countEl.innerHTML = '<span style="color:#888;">All visits used! Come back tomorrow 🏠</span>';
+        } else {
+          countEl.textContent = `Visits today: ${data.visits_today} / ${data.max_visits_per_day}`;
+        }
+      }
+
+      const listEl = document.getElementById('sb-visits-list');
+      if (!listEl) return;
+
+      const visited = new Set((data.visited_today || []).map(v => v.username));
+      if (VillageMap && VillageMap.setVisitedToday) VillageMap.setVisitedToday([...visited]);
+
+      if (!data.suggestions || data.suggestions.length === 0) {
+        listEl.innerHTML = '<div style="color:#555;font-size:7px;">No one to visit yet!</div>';
+        return;
+      }
+
+      listEl.innerHTML = data.suggestions.map(s => {
+        const name     = s.penguin_name || s.username;
+        const relEmoji = _relEmoji(s.rel_level);
+        const isVisited = visited.has(s.username);
+        const targetMark = s.is_target ? ' 🎯' : '';
+        return `<div class="sb-igloo-visit-row" id="sbv-${s.username}">
+          <span class="sb-visit-name">${name}${targetMark}</span>
+          <span class="sb-visit-rel">${relEmoji}</span>
+          ${isVisited
+            ? '<span class="sb-visit-btn visited">VISITED ✅</span>'
+            : `<button class="sb-visit-btn" onclick="visitIgloo('${s.username}')">VISIT</button>`
+          }
+        </div>`;
+      }).join('');
+    } catch(e) {}
+  }
+
+  function _relEmoji(level) {
+    const map = { stranger:'❓', acquaintance:'👋', friend:'🤝', good_friend:'💛', best_friend:'⭐', rivalry:'⚡', crush:'💘', mentor:'📚' };
+    return map[level] || '❓';
+  }
+
+  async function visitIgloo(hostUsername) {
+    try {
+      const res  = await fetch('/igloo/visit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitor_username: CURRENT_USER, host_username: hostUsername })
+      });
+      const data = await res.json();
+      if (data.status !== 'success') {
+        showToast(data.message || 'Error', '#ff6b6b');
+        return;
+      }
+
+      Sounds.doorbell();
+
+      // Show result popup
+      const R = data.rewards;
+      const resEmojis = { fish:'🐟', herbs:'🌿', bones:'🦴', spell_fragments:'✨' };
+      document.getElementById('igloo-result-title').textContent = hostUsername + "'s Igloo";
+      document.getElementById('igloo-result-sub').textContent   = 'Welcome in! 🍪';
+      document.getElementById('igloo-result-rewards').innerHTML =
+        `🪙 +${R.gold} gold | ${resEmojis[R.resource_type]||'📦'} +${R.resource_amount} ${R.resource_type.replace(/_/g,' ')} | ⭐ +${R.xp} XP`;
+
+      const relEl = document.getElementById('igloo-result-rel');
+      const rel   = data.relationship;
+      if (rel && rel.level_changed) {
+        relEl.textContent = `Relationship: ${rel.old_level} → ${rel.level}!`;
+        relEl.style.display = '';
+        Sounds.relationshipLevelUp();
+      } else if (rel) {
+        relEl.textContent = `Relationship with ${hostUsername}: ${rel.level}`;
+        relEl.style.display = '';
+      } else {
+        relEl.style.display = 'none';
+      }
+
+      document.getElementById('igloo-result-overlay').classList.add('show');
+
+      // Mark as visited in UI
+      const rowEl = document.getElementById(`sbv-${hostUsername}`);
+      if (rowEl) {
+        const btn = rowEl.querySelector('.sb-visit-btn');
+        if (btn) { btn.textContent = 'VISITED ✅'; btn.className = 'sb-visit-btn visited'; }
+      }
+      // Update map visited set
+      if (VillageMap && VillageMap.setVisitedToday) {
+        const countEl = document.getElementById('sb-visits-count');
+        fetch(`/igloo/visits-today/${CURRENT_USER}`).then(r => r.json()).then(d => {
+          const vis = new Set((d.visited_today || []).map(v => v.username));
+          VillageMap.setVisitedToday([...vis]);
+          const remaining = d.visits_remaining || 0;
+          if (countEl) {
+            countEl.textContent = remaining === 0
+              ? 'All visits used! Come back tomorrow 🏠'
+              : `Visits today: ${d.visits_today} / ${d.max_visits_per_day}`;
+          }
+        }).catch(() => {});
+      }
+
+      await refreshStats();
+    } catch(e) { showToast('Error visiting igloo', '#ff6b6b'); }
+  }
+
+  function closeIglooResult() {
+    document.getElementById('igloo-result-overlay').classList.remove('show');
+  }
+
+  // Called from village_map.js via window._mapVisitIgloo
+  window._mapVisitIgloo = function(hostUsername) {
+    visitIgloo(hostUsername);
+  };
+
+  // ── RELATIONSHIPS ─────────────────────────────────────────────────────────
+
+  async function loadRelationships() {
+    try {
+      const res  = await fetch(`/relationships/${CURRENT_USER}`);
+      const data = await res.json();
+      const rels = data.relationships || [];
+
+      const listEl = document.getElementById('sb-rel-list');
+      if (!listEl) return;
+
+      const top5 = rels.slice(0, 5);
+      if (top5.length === 0) {
+        listEl.innerHTML = '<div style="color:#555;font-size:7px;">Visit igloos to build relationships!</div>';
+        return;
+      }
+
+      listEl.innerHTML = top5.map(r => `
+        <div style="padding:4px 0;border-bottom:1px solid #2a2a2a;">
+          <div style="display:flex;align-items:center;gap:5px;font-size:7px;">
+            <span>${r.emoji}</span>
+            <span style="flex:1;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.penguin_name || r.username}</span>
+            <span style="color:#888;font-size:6px;">${r.level_name}</span>
+          </div>
+          ${r.next_level ? `<div class="rel-progress-wrap"><div class="rel-progress-fill" style="width:${r.progress_pct}%;"></div></div>` : ''}
+        </div>`).join('');
+    } catch(e) {}
+  }
+
+  async function openRelationshipModal() {
+    document.getElementById('rel-modal-overlay').classList.add('show');
+    await _loadRelationshipModal();
+  }
+
+  function closeRelationshipModal() {
+    document.getElementById('rel-modal-overlay').classList.remove('show');
+  }
+
+  async function _loadRelationshipModal() {
+    const body = document.getElementById('rel-modal-body');
+    if (!body) return;
+    body.innerHTML = '<div class="rel-empty">LOADING...</div>';
+    try {
+      const res  = await fetch(`/relationships/${CURRENT_USER}`);
+      const data = await res.json();
+      const rels = data.relationships || [];
+      if (rels.length === 0) {
+        body.innerHTML = '<div class="rel-empty">No relationships yet!<br><br>Visit some igloos to start building connections.</div>';
+        return;
+      }
+      body.innerHTML = rels.map(r => `
+        <div class="rel-modal-row">
+          <span class="rel-modal-emoji">${r.emoji}</span>
+          <div style="flex:1;min-width:0;">
+            <div class="rel-modal-name">${r.penguin_name || r.username}</div>
+            <div style="color:#555;font-size:6px;">${r.interaction_count} interactions</div>
+            ${r.next_level ? `<div class="rel-progress-wrap" style="margin-top:3px;"><div class="rel-progress-fill" style="width:${r.progress_pct}%;"></div></div>` : ''}
+          </div>
+          <span class="rel-modal-level">${r.level_name}</span>
+          ${!r.visited_today
+            ? `<button class="rel-modal-visit-btn" onclick="visitIglooFromModal('${r.username}', this)">VISIT</button>`
+            : '<span class="rel-modal-visit-btn visited">✅</span>'
+          }
+        </div>`).join('');
+    } catch(e) {
+      body.innerHTML = '<div class="rel-empty">Failed to load.</div>';
+    }
+  }
+
+  async function visitIglooFromModal(hostUsername, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '...'; }
+    await visitIgloo(hostUsername);
+    if (btn) { btn.className = 'rel-modal-visit-btn visited'; btn.textContent = '✅'; }
+  }
+
   // ── INIT ──
   checkLiveStatus();
   loadBuildingLevels();
@@ -5025,6 +5510,9 @@
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
   setInterval(loadBuildingLevels, 300000);
+  loadSocialMode();
+  loadIglooVisits();
+  loadRelationships();
 
   // Map tab is active by default — trigger init now
   switchContentTab('map', null);
