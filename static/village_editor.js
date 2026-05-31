@@ -303,7 +303,7 @@ function drawBuildingFootprintPreview(key, gx, gy) {
 // ── RENDER LOOP ───────────────────────────────────────────────────────────────
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#1C1C1C";
+    ctx.fillStyle = "#E8F0F0";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Apply pan + zoom — all drawing below uses world-space coordinates
