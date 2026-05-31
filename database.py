@@ -261,6 +261,9 @@ def init_db():
     _add_col(c, "penguins", "social_target TEXT DEFAULT NULL")
     _add_col(c, "penguins", "total_visits_given INTEGER DEFAULT 0")
     _add_col(c, "penguins", "total_visits_received INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "trait_social TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "trait_interest TEXT DEFAULT NULL")
+    _add_col(c, "penguins", "trait_quirk TEXT DEFAULT NULL")
 
     # Existing players (level > 1) skip character creation — they can reshape at the Cursed Temple
     try:

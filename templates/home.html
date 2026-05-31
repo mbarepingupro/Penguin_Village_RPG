@@ -1166,6 +1166,8 @@
     .event-row.combat      { border-color: var(--pink); }
     .event-row.village     { border-color: var(--purple); }
     .event-row.achievement { border-color: #4aff6b; }
+    .event-row.autonomous  { border-color: #444; }
+    .event-row.autonomous .event-msg { color: #888; }
     .event-time { color: #555; flex-shrink: 0; width: 48px; }
     .event-msg  { color: #ccc; flex: 1; }
 
@@ -1503,6 +1505,39 @@
     }
     .rs-confirm-btn:hover { background: #A86EFF; color: #1C1C1C; }
     .rs-confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── TRAIT POPUP ── */
+    #trait-popup-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+      z-index: 3000; display: flex; align-items: center; justify-content: center;
+      font-family: 'Press Start 2P', monospace;
+    }
+    #trait-popup-box {
+      background: #1C1C1C; border: 3px solid #A86EFF; padding: 22px 20px;
+      max-width: 540px; width: 94vw; max-height: 88vh; overflow-y: auto;
+    }
+    #trait-popup-title { color: #A86EFF; font-size: 13px; text-align: center; margin-bottom: 8px; }
+    #trait-popup-sub { color: #888; font-size: 7px; line-height: 2; text-align: center; margin-bottom: 14px; }
+    .tp-section-title { color: #A86EFF; font-size: 8px; margin: 10px 0 6px; letter-spacing: 1px; }
+    .tp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 4px; }
+    .tp-grid-wide { grid-template-columns: repeat(3, 1fr); }
+    .tp-card {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      border: 2px solid #333; padding: 7px 8px; background: #141414;
+      transition: border-color 0.1s;
+    }
+    .tp-card:hover { border-color: #666; }
+    .tp-card.selected { border-color: #A86EFF; background: #2a1a4a; }
+    .tp-emoji { font-size: 16px; flex-shrink: 0; }
+    .tp-name { font-size: 7px; color: #ccc; }
+    .tp-card.selected .tp-name { color: #A86EFF; }
+    #trait-popup-btn {
+      display: block; margin: 14px auto 0; font-family: 'Press Start 2P', monospace;
+      font-size: 10px; padding: 12px 22px; border: 3px solid #4aff6b;
+      color: #4aff6b; background: transparent; cursor: pointer;
+    }
+    #trait-popup-btn:hover { background: #4aff6b; color: #1C1C1C; }
+    #trait-popup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -1560,6 +1595,13 @@
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
           {% if penguin['prestige'] and penguin['prestige'] > 0 %}
           <div style="color:var(--pink);font-size:8px;">{{ '★' * penguin['prestige'] }} PRESTIGE</div>
+          {% endif %}
+          {% set _ts = penguin['trait_social'] %}
+          {% set _ti = penguin['trait_interest'] %}
+          {% set _tq = penguin['trait_quirk'] %}
+          {% if _ts or _ti or _tq %}
+          {% set _tm = {'friendly':'🤝','shy':'🤫','dramatic':'🎭','flirty':'💘','curious':'🔍','religious':'🙏','greedy':'💰','fancy':'🎨','clumsy':'🤕','lucky':'🍀','sleepy':'😴','hungry':'🐟','musical':'🎵','paranoid':'👀'} %}
+          <div style="font-size:14px;letter-spacing:2px;margin:4px 0;" title="{{ [_ts,_ti,_tq]|select|join(' · ') }}">{{ _tm.get(_ts,'') }}{{ _tm.get(_ti,'') }}{{ _tm.get(_tq,'') }}</div>
           {% endif %}
           <div class="sidebar-title-row">
             <span id="sidebar-active-title" class="sidebar-no-title">No title equipped</span>
@@ -2026,6 +2068,7 @@
     <hr class="wb-divider">
     <div id="wb-job-section"></div>
     <div id="wb-passive-section"></div>
+    <div id="wb-activities-section"></div>
     <div id="wb-news-section"></div>
     <button id="wb-ok-btn" class="wb-collect-btn" onclick="wbDismiss()">OK</button>
   </div>
@@ -2053,6 +2096,45 @@
     <button class="igloo-result-ok" onclick="closeIglooResult()">OK</button>
   </div>
 </div>
+
+<!-- TRAIT SELECTION POPUP (one-time free, for players without traits) -->
+{% if logged_in and not penguin['trait_social'] and not penguin['trait_interest'] and not penguin['trait_quirk'] %}
+<div id="trait-popup-overlay">
+  <div id="trait-popup-box">
+    <div id="trait-popup-title">✨ DISCOVER YOUR TRAITS</div>
+    <div id="trait-popup-sub">Your penguin has a unique personality. Pick one trait from each category — this is free and permanent (or change later at the Cursed Temple).</div>
+    <div class="tp-section-title">HOW DOES YOUR PENGUIN INTERACT?</div>
+    <div class="tp-grid" id="tp-social">
+      {% for key, t in social_traits.items() %}
+      <div class="tp-card" data-ttype="social" data-tkey="{{ key }}" onclick="tpSelect('social','{{ key }}',this)">
+        <span class="tp-emoji">{{ t.emoji }}</span>
+        <span class="tp-name">{{ t.name }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="tp-section-title">WHAT DRIVES YOUR PENGUIN?</div>
+    <div class="tp-grid" id="tp-interest">
+      {% for key, t in interest_traits.items() %}
+      <div class="tp-card" data-ttype="interest" data-tkey="{{ key }}" onclick="tpSelect('interest','{{ key }}',this)">
+        <span class="tp-emoji">{{ t.emoji }}</span>
+        <span class="tp-name">{{ t.name }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="tp-section-title">EVERY PENGUIN HAS A QUIRK...</div>
+    <div class="tp-grid tp-grid-wide" id="tp-quirk">
+      {% for key, t in quirk_traits.items() %}
+      <div class="tp-card" data-ttype="quirk" data-tkey="{{ key }}" onclick="tpSelect('quirk','{{ key }}',this)">
+        <span class="tp-emoji">{{ t.emoji }}</span>
+        <span class="tp-name">{{ t.name }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="trait-popup-error" style="color:#ff6b6b;font-size:7px;min-height:14px;margin-bottom:4px;text-align:center;"></div>
+    <button id="trait-popup-btn" onclick="tpConfirm()">CONFIRM TRAITS</button>
+  </div>
+</div>
+{% endif %}
 
 <!-- RELATIONSHIP MODAL -->
 <div id="rel-modal-overlay" onclick="if(event.target===this)closeRelationshipModal()">
@@ -5171,7 +5253,17 @@
       if (pe.xp   > 0) passiveHtml += `<div class="wb-row">⭐ +${pe.xp} XP</div>`;
       document.getElementById('wb-passive-section').innerHTML = passiveHtml;
 
-      // ── Section 3: village news ──
+      // ── Section 3: penguin adventures ──
+      let activitiesHtml = '';
+      if (data.penguin_activities && data.penguin_activities.length > 0) {
+        activitiesHtml += '<hr class="wb-divider"><div class="wb-section">WHILE YOU WERE AWAY...</div>';
+        for (const act of data.penguin_activities) {
+          activitiesHtml += `<div class="wb-news-row" style="color:#888;">${act.message}</div>`;
+        }
+      }
+      document.getElementById('wb-activities-section').innerHTML = activitiesHtml;
+
+      // ── Section 4: village news ──
       let newsHtml = '';
       if (data.village_news && data.village_news.length > 0) {
         newsHtml += '<hr class="wb-divider"><div class="wb-section">VILLAGE NEWS</div>';
@@ -5194,6 +5286,51 @@
 
   function wbDismiss() {
     document.getElementById('wb-overlay').classList.remove('show');
+  }
+
+  // ── TRAIT POPUP ──────────────────────────────────────────────────────────
+  const _tpSelected = { social: null, interest: null, quirk: null };
+
+  function tpSelect(type, key, el) {
+    _tpSelected[type] = key;
+    document.querySelectorAll(`.tp-card[data-ttype="${type}"]`).forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  async function tpConfirm() {
+    const errEl = document.getElementById('trait-popup-error');
+    if (!_tpSelected.social || !_tpSelected.interest || !_tpSelected.quirk) {
+      errEl.textContent = 'Please select one trait from each category.';
+      return;
+    }
+    errEl.textContent = '';
+    const btn = document.getElementById('trait-popup-btn');
+    btn.disabled = true;
+    btn.textContent = 'SAVING...';
+    try {
+      const res = await fetch('/penguin/set-traits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trait_social:   _tpSelected.social,
+          trait_interest: _tpSelected.interest,
+          trait_quirk:    _tpSelected.quirk,
+        }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        document.getElementById('trait-popup-overlay').remove();
+        showToast('Traits set! ✨ Your penguin has a personality now.', 'ok');
+      } else {
+        errEl.textContent = data.message || 'Error saving traits.';
+        btn.disabled = false;
+        btn.textContent = 'CONFIRM TRAITS';
+      }
+    } catch (_) {
+      errEl.textContent = 'Network error. Try again.';
+      btn.disabled = false;
+      btn.textContent = 'CONFIRM TRAITS';
+    }
   }
 
   // ── SOCIAL MODE ──────────────────────────────────────────────────────────

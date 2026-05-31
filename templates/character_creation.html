@@ -271,6 +271,41 @@
       color: #888;
     }
 
+    /* ── TRAIT SECTIONS ── */
+    .trait-section {
+      background: var(--panel);
+      border: 2px solid #333;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .trait-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .trait-grid-wide { grid-template-columns: repeat(3, 1fr); }
+    .trait-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      border: 2px solid #333;
+      padding: 8px 6px;
+      background: var(--input-bg);
+      text-align: center;
+      transition: border-color 0.1s;
+    }
+    .trait-card:hover { border-color: #666; }
+    .trait-card.selected { border: 3px solid var(--purple); background: #2a1a4a; }
+    .trait-emoji { font-size: 20px; line-height: 1; }
+    .trait-name { font-size: 8px; color: var(--white); letter-spacing: 0.5px; }
+    .trait-card.selected .trait-name { color: var(--purple); }
+    .trait-desc { font-size: 6px; color: #888; line-height: 1.8; }
+    @media (max-width: 767px) {
+      .trait-grid-wide { grid-template-columns: repeat(2, 1fr); }
+    }
+
     /* ── FOOTER ── */
     .creation-footer {
       margin-top: 28px;
@@ -405,6 +440,48 @@
           </div>
         </div>
 
+        <!-- Trait — Social -->
+        <div class="trait-section">
+          <div class="section-title">HOW DOES YOUR PENGUIN INTERACT?</div>
+          <div class="trait-grid" id="trait-social-grid">
+            {% for key, t in social_traits.items() %}
+            <div class="trait-card" data-trait-type="social" data-trait-key="{{ key }}" onclick="selectTrait('social','{{ key }}',this)">
+              <div class="trait-emoji">{{ t.emoji }}</div>
+              <div class="trait-name">{{ t.name }}</div>
+              <div class="trait-desc">{{ t.description }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Trait — Interest -->
+        <div class="trait-section">
+          <div class="section-title">WHAT DRIVES YOUR PENGUIN?</div>
+          <div class="trait-grid" id="trait-interest-grid">
+            {% for key, t in interest_traits.items() %}
+            <div class="trait-card" data-trait-type="interest" data-trait-key="{{ key }}" onclick="selectTrait('interest','{{ key }}',this)">
+              <div class="trait-emoji">{{ t.emoji }}</div>
+              <div class="trait-name">{{ t.name }}</div>
+              <div class="trait-desc">{{ t.description }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Trait — Quirk -->
+        <div class="trait-section">
+          <div class="section-title">EVERY PENGUIN HAS A QUIRK...</div>
+          <div class="trait-grid trait-grid-wide" id="trait-quirk-grid">
+            {% for key, t in quirk_traits.items() %}
+            <div class="trait-card" data-trait-type="quirk" data-trait-key="{{ key }}" onclick="selectTrait('quirk','{{ key }}',this)">
+              <div class="trait-emoji">{{ t.emoji }}</div>
+              <div class="trait-name">{{ t.name }}</div>
+              <div class="trait-desc">{{ t.description }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
       </div><!-- /.creation-left -->
 
       <!-- RIGHT: preview -->
@@ -412,6 +489,9 @@
         <div class="preview-label">PREVIEW</div>
         <canvas id="preview-canvas" width="160" height="200"></canvas>
         <div id="preview-name" class="placeholder">{{ username }}</div>
+        <div id="preview-traits" style="color:#888;font-size:7px;margin-top:8px;line-height:2;text-align:center;font-family:'Press Start 2P',monospace;">
+          Pick your traits below
+        </div>
       </div>
 
     </div><!-- /.creation-wrap -->
@@ -557,6 +637,19 @@
 
     // ── STATE ───────────────────────────────────────────────────
     let selectedColor = CURRENT_COLOR;
+    const selectedTraits = { social: null, interest: null, quirk: null };
+
+    function selectTrait(type, key, el) {
+      selectedTraits[type] = key;
+      document.querySelectorAll(`.trait-card[data-trait-type="${type}"]`).forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      const el2 = document.getElementById('preview-traits');
+      const parts = [];
+      if (selectedTraits.social)   parts.push(selectedTraits.social);
+      if (selectedTraits.interest) parts.push(selectedTraits.interest);
+      if (selectedTraits.quirk)    parts.push(selectedTraits.quirk);
+      el2.textContent = parts.length ? parts.join(' · ') : 'Pick your traits below';
+    }
 
     function isColorAvailable(colorId) {
       if (STARTER_COLORS[colorId]) return true;
@@ -748,8 +841,11 @@
       const btn      = document.getElementById('confirm-btn');
       const endpoint = MODE === 'reshape' ? '/penguin/reshape' : '/penguin/create';
       const payload  = {
-        penguin_name:  result.value,
-        penguin_color: selectedColor,
+        penguin_name:   result.value,
+        penguin_color:  selectedColor,
+        trait_social:   selectedTraits.social,
+        trait_interest: selectedTraits.interest,
+        trait_quirk:    selectedTraits.quirk,
       };
 
       btn.disabled    = true;
