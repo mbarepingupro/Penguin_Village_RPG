@@ -7,8 +7,18 @@ from flask import Flask, jsonify, redirect, request, session, url_for, render_te
 from database import init_db, get_db, backfill_cosmetics
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
+from personality_config import (
+    SOCIAL_TRAITS, INTEREST_TRAITS, QUIRK_TRAITS, ALL_TRAITS,
+    AUTONOMOUS_ACTIONS, CATEGORY_EMOJIS,
+    pick_autonomous_action, pick_other_penguin, generate_action_text,
+)
 import time
 import requests as http_requests
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    _APSCHEDULER_AVAILABLE = True
+except ImportError:
+    _APSCHEDULER_AVAILABLE = False
 
 load_dotenv()
 
@@ -1284,6 +1294,72 @@ _seed_db.commit()
 _seed_db.close()
 
 
+def run_autonomous_actions():
+    db = get_db()
+    try:
+        all_penguins = [dict(p) for p in db.execute(
+            "SELECT username, penguin_name, trait_social, trait_interest, trait_quirk, "
+            "social_mode, social_target FROM penguins WHERE character_created=1"
+        ).fetchall()]
+    except Exception:
+        db.close()
+        return
+    if not all_penguins:
+        db.close()
+        return
+    now = int(time.time())
+    for penguin in all_penguins:
+        smode   = penguin.get("social_mode") or "social"
+        starget = penguin.get("social_target")
+        action  = pick_autonomous_action(penguin, all_penguins, smode, starget)
+        other_penguin = None
+        if action["requires_other"]:
+            other_penguin = pick_other_penguin(penguin, all_penguins, smode, starget)
+            if not other_penguin:
+                continue
+        text   = generate_action_text(action, penguin, other_penguin)
+        prefix = CATEGORY_EMOJIS.get(action.get("category", "solo"), "🐧")
+        db.execute(
+            "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
+            ("autonomous", f"{prefix} {text}", penguin["username"], now)
+        )
+        if action["requires_other"] and other_penguin:
+            _record_auto_interaction(db, penguin["username"], other_penguin["username"], action, now)
+    db.commit()
+    db.close()
+
+
+def _record_auto_interaction(db, user_a, user_b, action, now):
+    u1, u2 = sorted([user_a, user_b])
+    db.execute("INSERT OR IGNORE INTO relationships (username1, username2) VALUES (?,?)", (u1, u2))
+    row = db.execute(
+        "SELECT interaction_count, relationship_level FROM relationships WHERE username1=? AND username2=?",
+        (u1, u2)
+    ).fetchone()
+    if not row:
+        return
+    new_count = row["interaction_count"] + 1
+    new_level = row["relationship_level"]
+    if action.get("category") == "conflict" and new_count >= 3:
+        new_level = "rivalry"
+    elif new_level not in ("rivalry", "crush", "mentor"):
+        for entry in sorted(RELATIONSHIP_LEVELS, key=lambda x: x["threshold"]):
+            if new_count >= entry["threshold"]:
+                new_level = entry["level"]
+    db.execute(
+        "UPDATE relationships SET interaction_count=?, relationship_level=?, last_interaction=? "
+        "WHERE username1=? AND username2=?",
+        (new_count, new_level, now, u1, u2)
+    )
+
+
+if _APSCHEDULER_AVAILABLE and os.environ.get("WERKZEUG_RUN_MAIN") != "false":
+    _scheduler = BackgroundScheduler(daemon=True)
+    _scheduler.add_job(run_autonomous_actions, "interval", minutes=30, id="autonomous_actions",
+                       misfire_grace_time=60)
+    _scheduler.start()
+
+
 # ── ROUTES ───────────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -1318,6 +1394,9 @@ def home():
             current_name=None,
             current_color="classic_black",
             player_unlocked_colors=unlocked,
+            social_traits=SOCIAL_TRAITS,
+            interest_traits=INTEREST_TRAITS,
+            quirk_traits=QUIRK_TRAITS,
         )
 
     # ── Streak + daily mission — trigger once per calendar day ──────────────
@@ -1355,6 +1434,9 @@ def home():
         features=FEATURES,
         level_data=LEVEL_DATA,
         tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
+        social_traits=SOCIAL_TRAITS,
+        interest_traits=INTEREST_TRAITS,
+        quirk_traits=QUIRK_TRAITS,
     )
 
 
@@ -3046,20 +3128,42 @@ def welcome_back(username):
     if not streak_row or streak_row["last_login_date"] != today:
         update_login_streak(db, username, today)
 
+    # ── Autonomous activities while away ─────────────────────────────────────
+    penguin_activities = []
+    try:
+        auto_rows = db.execute(
+            "SELECT message, created_at FROM event_log "
+            "WHERE username=? AND event_type='autonomous' AND created_at > ? "
+            "ORDER BY created_at DESC LIMIT 5",
+            (username, last_active)
+        ).fetchall()
+        for row in auto_rows:
+            ago_secs = now - (row["created_at"] or 0)
+            if ago_secs < 3600:
+                ago_str = f"{max(1, ago_secs // 60)}m ago"
+            elif ago_secs < 86400:
+                ago_str = f"{ago_secs // 3600}h ago"
+            else:
+                ago_str = f"{ago_secs // 86400}d ago"
+            penguin_activities.append({"message": row["message"], "time_ago": ago_str})
+    except Exception:
+        pass
+
     db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
     db.commit()
     db.close()
 
     return jsonify({
-        "show":             True,
-        "hours_away":       round(hours_away, 1),
-        "active_job":       active_job,
-        "passive_earnings": {
+        "show":               True,
+        "hours_away":         round(hours_away, 1),
+        "active_job":         active_job,
+        "passive_earnings":   {
             "gold":       passive_gold,
             "xp":         passive_xp,
             "leveled_up": leveled_passive,
         },
-        "village_news": village_news,
+        "village_news":       village_news,
+        "penguin_activities": penguin_activities,
     })
 
 
@@ -3636,10 +3740,15 @@ def penguin_create():
     if pcolor not in STARTER_COLORS:
         return jsonify({"status": "error", "message": "Invalid color."})
 
+    t_social   = data.get("trait_social")   if data.get("trait_social")   in SOCIAL_TRAITS   else None
+    t_interest = data.get("trait_interest") if data.get("trait_interest") in INTEREST_TRAITS else None
+    t_quirk    = data.get("trait_quirk")    if data.get("trait_quirk")    in QUIRK_TRAITS    else None
+
     db = get_db()
     db.execute(
-        "UPDATE penguins SET penguin_name=?, penguin_color=?, character_created=1 WHERE username=?",
-        (pname, pcolor, username)
+        "UPDATE penguins SET penguin_name=?, penguin_color=?, character_created=1, "
+        "trait_social=?, trait_interest=?, trait_quirk=? WHERE username=?",
+        (pname, pcolor, t_social, t_interest, t_quirk, username)
     )
     db.commit()
     db.close()
@@ -3680,14 +3789,62 @@ def penguin_reshape():
         return jsonify({"status": "error", "message": "Not enough gold. Need 2,000 gold."})
 
     add_gold(db, username, -2000)
-    db.execute(
-        "UPDATE penguins SET penguin_name=?, penguin_color=? WHERE username=?",
-        (pname, pcolor, username)
-    )
+
+    t_social   = data.get("trait_social")   if data.get("trait_social")   in SOCIAL_TRAITS   else None
+    t_interest = data.get("trait_interest") if data.get("trait_interest") in INTEREST_TRAITS else None
+    t_quirk    = data.get("trait_quirk")    if data.get("trait_quirk")    in QUIRK_TRAITS    else None
+
+    if t_social or t_interest or t_quirk:
+        db.execute(
+            "UPDATE penguins SET penguin_name=?, penguin_color=?, trait_social=?, trait_interest=?, trait_quirk=? "
+            "WHERE username=?",
+            (pname, pcolor,
+             t_social or penguin["trait_social"],
+             t_interest or penguin["trait_interest"],
+             t_quirk or penguin["trait_quirk"],
+             username)
+        )
+    else:
+        db.execute(
+            "UPDATE penguins SET penguin_name=?, penguin_color=? WHERE username=?",
+            (pname, pcolor, username)
+        )
     db.commit()
     log_event(db, "reshape", f"{username} reshaped their penguin at the Cursed Temple!", username)
     db.close()
     return jsonify({"status": "success", "new_name": pname, "new_color": pcolor})
+
+
+@app.route("/penguin/set-traits", methods=["POST"])
+def penguin_set_traits():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    data = request.get_json(silent=True) or {}
+
+    t_social   = data.get("trait_social")   if data.get("trait_social")   in SOCIAL_TRAITS   else None
+    t_interest = data.get("trait_interest") if data.get("trait_interest") in INTEREST_TRAITS else None
+    t_quirk    = data.get("trait_quirk")    if data.get("trait_quirk")    in QUIRK_TRAITS    else None
+
+    db = get_db()
+    penguin = db.execute(
+        "SELECT trait_social, trait_interest, trait_quirk FROM penguins WHERE username=?", (username,)
+    ).fetchone()
+    if not penguin:
+        db.close()
+        return jsonify({"status": "error", "message": "Not found."})
+
+    if penguin["trait_social"] or penguin["trait_interest"] or penguin["trait_quirk"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Traits already set. Use Cursed Temple to change them."})
+
+    db.execute(
+        "UPDATE penguins SET trait_social=?, trait_interest=?, trait_quirk=? WHERE username=?",
+        (t_social, t_interest, t_quirk, username)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
 
 
 @app.route("/tutorial/complete", methods=["POST"])
