@@ -219,6 +219,15 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS discovered_sets (
+            username TEXT NOT NULL,
+            set_name TEXT NOT NULL,
+            discovered_at INTEGER NOT NULL,
+            PRIMARY KEY (username, set_name)
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -234,6 +243,7 @@ def init_db():
     _add_col(c, "gear", "speed_bonus INTEGER DEFAULT 0")
     _add_col(c, "gear", "hp_bonus INTEGER DEFAULT 0")
     _add_col(c, "gear", "obtained_at INTEGER DEFAULT 0")
+    _add_col(c, "gear", "combat_power INTEGER DEFAULT 0")
     _add_col(c, "login_streaks", "last_login_date TEXT DEFAULT NULL")
     _add_col(c, "login_streaks", "daily_reward_claimed TEXT DEFAULT NULL")
     _add_col(c, "monster_kills", "killed_date TEXT DEFAULT ''")
@@ -284,6 +294,25 @@ def init_db():
             "WHERE building_id IN ('sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine') "
             "AND current_level > 3"
         )
+    except Exception:
+        pass
+
+    # Migrate gear slot names to standardized names
+    try:
+        c.execute("UPDATE gear SET slot = 'armor' WHERE slot IN ('arm', 'chest', 'cape') AND type = 'combat'")
+        c.execute("UPDATE gear SET slot = 'helmet' WHERE slot = 'head' AND type = 'combat'")
+        c.execute("UPDATE gear SET slot = 'outfit' WHERE slot IN ('cape', 'back') AND type = 'cosmetic'")
+        c.execute("UPDATE gear SET slot = 'hat' WHERE slot = 'head' AND type = 'cosmetic'")
+    except Exception:
+        pass
+
+    # Backfill combat_power from old stat columns for existing gear
+    try:
+        c.execute("""
+            UPDATE gear SET combat_power = attack_bonus + defense_bonus + speed_bonus + (hp_bonus / 5)
+            WHERE type = 'combat' AND combat_power = 0
+              AND (attack_bonus > 0 OR defense_bonus > 0 OR speed_bonus > 0 OR hp_bonus > 0)
+        """)
     except Exception:
         pass
 

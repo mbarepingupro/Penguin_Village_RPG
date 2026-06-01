@@ -3,3 +3,4 @@ venv/
 village.db
 penguin_village.db
 __pycache__/
+.claude/

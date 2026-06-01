@@ -1669,10 +1669,10 @@
             <span class="wardrobe-slot-lbl">HAT</span>
             <span class="wardrobe-slot-val" id="wardrobe-hat">EMPTY</span>
           </div>
-          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('back')">
-            <span class="wardrobe-slot-icon">🧥</span>
-            <span class="wardrobe-slot-lbl">BACK</span>
-            <span class="wardrobe-slot-val" id="wardrobe-back">EMPTY</span>
+          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('outfit')">
+            <span class="wardrobe-slot-icon">👕</span>
+            <span class="wardrobe-slot-lbl">OUTFIT</span>
+            <span class="wardrobe-slot-val" id="wardrobe-outfit">EMPTY</span>
           </div>
           <div class="wardrobe-slot-row" onclick="openCosmeticSlot('accessory')">
             <span class="wardrobe-slot-icon">💎</span>
@@ -1712,26 +1712,26 @@
         {% if features.get("gear_equip", False) %}
         <!-- COMBAT GEAR slots (only when combat gear is enabled) -->
         <div class="gear-slots">
-          <div class="section-title">EQUIPPED GEAR</div>
+          <div class="section-title">COMBAT GEAR</div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
             <span class="gear-slot-icon">⚔️</span>
-            <span class="gear-slot-lbl">WPN</span>
+            <span class="gear-slot-lbl">WEAPON</span>
             <span class="gear-slot-val" id="gear-slot-weapon">---</span>
           </div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
             <span class="gear-slot-icon">🛡️</span>
-            <span class="gear-slot-lbl">ARM</span>
+            <span class="gear-slot-lbl">ARMOR</span>
             <span class="gear-slot-val" id="gear-slot-armor">---</span>
           </div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-icon">🎩</span>
-            <span class="gear-slot-lbl">HAT</span>
-            <span class="gear-slot-val" id="gear-slot-hat">---</span>
+            <span class="gear-slot-icon">⛑️</span>
+            <span class="gear-slot-lbl">HELMET</span>
+            <span class="gear-slot-val" id="gear-slot-helmet">---</span>
           </div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-icon">🧣</span>
-            <span class="gear-slot-lbl">CAPE</span>
-            <span class="gear-slot-val" id="gear-slot-cape">---</span>
+            <span class="gear-slot-icon">🥾</span>
+            <span class="gear-slot-lbl">BOOTS</span>
+            <span class="gear-slot-val" id="gear-slot-boots">---</span>
           </div>
         </div>
         {% endif %}
@@ -1783,6 +1783,12 @@
             <span class="sb-award-count" id="sb-award-count">-- / -- UNLOCKED</span>
             <button class="sb-award-btn" onclick="switchContentTab('awards', document.querySelector('[data-tab=awards]'))">VIEW →</button>
           </div>
+        </div>
+
+        <!-- SECRET BONUSES -->
+        <div class="sb-section" id="sb-secret-bonuses-section" style="display:none;">
+          <div class="sb-section-title" style="color:#FF7FE5;">🔮 SECRET BONUSES</div>
+          <div id="sb-secret-bonuses-list" style="color:#888;font-size:7px;line-height:1.8;"></div>
         </div>
 
         <!-- IGLOO VISITS -->
@@ -2580,19 +2586,23 @@
       }
 
       if (gData.gear && FEATURES.gear_equip) {
-        const slots = { weapon: '---', armor: '---', hat: '---', cape: '---' };
-        gData.gear.forEach(g => {
+        const slots = { weapon: '---', armor: '---', helmet: '---', boots: '---' };
+        gData.gear.filter(g => g.type === 'combat').forEach(g => {
           if (g.equipped) slots[g.slot] = g.name;
         });
         const wEl = document.getElementById('gear-slot-weapon');
         if (wEl) {
           wEl.textContent = slots.weapon;
-          document.getElementById('gear-slot-armor').textContent  = slots.armor;
-          document.getElementById('gear-slot-hat').textContent    = slots.hat;
-          document.getElementById('gear-slot-cape').textContent   = slots.cape;
+          const arEl = document.getElementById('gear-slot-armor');
+          const hmEl = document.getElementById('gear-slot-helmet');
+          const btEl = document.getElementById('gear-slot-boots');
+          if (arEl) arEl.textContent = slots.armor;
+          if (hmEl) hmEl.textContent = slots.helmet;
+          if (btEl) btEl.textContent = slots.boots;
         }
       }
       loadWardrobe();
+      loadSecretBonuses();
     } catch(e) {}
   }
 
@@ -3885,7 +3895,7 @@
       _cosmeticCache = data.cosmetics || [];
       const equipped = {};
       _cosmeticCache.forEach(c => { if (c.equipped) equipped[c.slot] = c.name; });
-      ['hat', 'back', 'accessory', 'footwear'].forEach(slot => {
+      ['hat', 'outfit', 'accessory', 'footwear'].forEach(slot => {
         const el = document.getElementById(`wardrobe-${slot}`);
         if (!el) return;
         if (equipped[slot]) {
@@ -3899,7 +3909,7 @@
     } catch(e) {}
   }
 
-  const SLOT_LABELS = { hat: 'HAT', back: 'BACK', accessory: 'ITEM', footwear: 'FOOTWEAR' };
+  const SLOT_LABELS = { hat: 'HAT', outfit: 'OUTFIT', accessory: 'ITEM', footwear: 'FOOTWEAR' };
 
   function openCosmeticSlot(slot) {
     const items = _cosmeticCache.filter(c => c.slot === slot);
@@ -3934,6 +3944,9 @@
       if (data.status === 'success') {
         await loadWardrobe();
         closeCosmeticModal();
+        if (data.newly_discovered && data.newly_discovered.length > 0) {
+          data.newly_discovered.forEach(s => showSetDiscovery(s.set_name, s.description));
+        }
       } else {
         showToast(data.message, 'err');
       }
@@ -3942,6 +3955,36 @@
 
   function closeCosmeticModal() {
     document.getElementById('cosmetic-modal').classList.remove('show');
+  }
+
+  function showSetDiscovery(setName, description) {
+    const overlay = document.getElementById('set-discovery-overlay');
+    document.getElementById('set-discovery-name').textContent = setName;
+    document.getElementById('set-discovery-desc').textContent = description;
+    overlay.style.display = 'flex';
+    Sounds.equip();
+  }
+
+  function closeSetDiscovery() {
+    document.getElementById('set-discovery-overlay').style.display = 'none';
+  }
+
+  async function loadSecretBonuses() {
+    try {
+      const res  = await fetch(`/gear/cosmetics/discovered?username=${CURRENT_USER}`);
+      const data = await res.json();
+      const section = document.getElementById('sb-secret-bonuses-section');
+      const list    = document.getElementById('sb-secret-bonuses-list');
+      if (!section || !list) return;
+      if (data.discovered && data.discovered.length > 0) {
+        section.style.display = '';
+        list.innerHTML = data.discovered.map(s =>
+          `<div>${s.set_name}: ${s.description}</div>`
+        ).join('');
+      } else {
+        section.style.display = 'none';
+      }
+    } catch(e) {}
   }
 
   // ── INVENTORY MODAL ──
@@ -4004,7 +4047,7 @@
   function renderCosmeticsTab() {
     const COSMETIC_SLOTS = [
       { key: 'hat',         label: 'HAT',        icon: '🎩' },
-      { key: 'back',        label: 'BACK',        icon: '🧥' },
+      { key: 'outfit',      label: 'OUTFIT',      icon: '👕' },
       { key: 'accessory',   label: 'ACCESSORY',   icon: '💎' },
       { key: 'footwear',    label: 'FOOTWEAR',    icon: '👟' },
       { key: 'card_frame',  label: 'CARD FRAME',  icon: '🖼️' },
@@ -4038,9 +4081,9 @@
     if (!FEATURES.gear_equip) return '<div class="inv-empty">Combat gear coming soon!</div>';
     const COMBAT_SLOTS = [
       { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
-      { key: 'chest',  label: 'ARMOR',  icon: '🛡️' },
-      { key: 'head',   label: 'HELMET', icon: '🎩' },
-      { key: 'boots',  label: 'BOOTS',  icon: '👢' },
+      { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
+      { key: 'helmet', label: 'HELMET', icon: '⛑️' },
+      { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
     ];
     let html = '';
     for (const slot of COMBAT_SLOTS) {
@@ -4050,12 +4093,7 @@
       for (const item of items) {
         const rc = _invRarityClass(item);
         const equippedLabel = item.equipped ? '<div class="inv-item-equipped">▶ EQUIPPED</div>' : '';
-        const stats = [];
-        if (item.attack_bonus)  stats.push(`ATK +${item.attack_bonus}`);
-        if (item.defense_bonus) stats.push(`DEF +${item.defense_bonus}`);
-        if (item.speed_bonus)   stats.push(`SPD +${item.speed_bonus}`);
-        if (item.hp_bonus)      stats.push(`HP +${item.hp_bonus}`);
-        const statsLine = stats.length ? `<div class="inv-item-stats">${stats.join(' · ')}</div>` : '';
+        const statsLine = item.combat_power ? `<div class="inv-item-stats" style="color:#FF8C00">CP: +${item.combat_power}</div>` : '';
         const setLine   = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
         const btn = item.equipped
           ? `<button class="inv-btn unequip" onclick="invGearAction(${item.id})">UNEQUIP</button>`
@@ -4089,6 +4127,9 @@
         }
         renderInventory();
         await loadWardrobe();
+        if (data.newly_discovered && data.newly_discovered.length > 0) {
+          data.newly_discovered.forEach(s => showSetDiscovery(s.set_name, s.description));
+        }
       } else {
         showToast(data.message || 'Error.', 'err');
       }
@@ -4639,12 +4680,12 @@
       const gData = await gRes.json();
 
       let html = '<div class="gear-section-title">OWNED GEAR</div><div class="gear-grid">';
-      const slotIconMap = {weapon:'⚔️', chest:'🛡️', boots:'👟', hat:'🎩', cape:'🧣'};
+      const slotIconMap = {weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'🥾', hat:'🎩', outfit:'👕', footwear:'👟', accessory:'✨'};
       if (gData.gear && gData.gear.length) {
         gData.gear.forEach(g => {
           const eq       = g.equipped ? ' equipped' : '';
           const rarity   = g.rarity || 'common';
-          const statsStr = (g.attack_bonus > 0 ? `+${g.attack_bonus} ATK ` : '') + (g.defense_bonus > 0 ? `+${g.defense_bonus} DEF` : '');
+          const statsStr = g.type === 'combat' && g.combat_power > 0 ? `CP: +${g.combat_power}` : '';
           const gIcon    = slotIconMap[g.slot] || '❓';
           html += `<div class="gear-card ${g.type} ${rarity}${eq}">
             <div class="gear-card-icon">${gIcon}</div>
@@ -4669,8 +4710,7 @@
           const have = res === 'gold' ? (gData.gold || 0) : ((gData.resources || {})[res] || 0);
           if (have < amt) { canAfford = false; }
         }
-        const statsStr = (defn.attack_bonus > 0 ? `+${defn.attack_bonus} ATK ` : '') +
-                         (defn.defense_bonus > 0 ? `+${defn.defense_bonus} DEF` : '');
+        const statsStr = defn.type === 'combat' && defn.combat_power > 0 ? `CP: +${defn.combat_power}` : '';
         const rarityClass = defn.rarity || 'common';
         const itemIcon = slotIconMap[defn.slot] || '❓';
         html += `<div class="gear-card ${defn.type} ${rarityClass}">
@@ -5959,5 +5999,15 @@
       <button class="rs-confirm-btn" id="rs-confirm-btn" onclick="submitReshape()">CONFIRM RESHAPE 🔮</button>
     </div>
   </div>
+
+<!-- SET DISCOVERY POPUP -->
+<div id="set-discovery-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#1C1C1C;border:2px solid #FF7FE5;padding:20px 24px;max-width:300px;text-align:center;font-family:'Press Start 2P',monospace;">
+    <div style="font-size:14px;color:#FF7FE5;margin-bottom:10px;">🔮 SECRET SET DISCOVERED!</div>
+    <div id="set-discovery-name" style="font-size:9px;color:#FFFFFF;margin-bottom:8px;"></div>
+    <div id="set-discovery-desc" style="font-size:8px;color:#888888;margin-bottom:14px;line-height:1.6;"></div>
+    <button onclick="closeSetDiscovery()" style="background:#FF7FE5;color:#1C1C1C;border:none;padding:8px 16px;font-family:'Press Start 2P',monospace;font-size:8px;cursor:pointer;">AWESOME!</button>
+  </div>
+</div>
 </body>
 </html>
