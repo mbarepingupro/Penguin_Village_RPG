@@ -228,15 +228,15 @@ BOUTIQUE_ITEMS = {
         {"id": "pirate_hat",    "name": "Pirate Hat",     "slot": "hat", "price": 1000, "tier": "expensive"},
     ],
     "outfits": [
-        {"id": "plain_tshirt",    "name": "Plain T-Shirt",    "slot": "cape", "price": 200,  "tier": "cheap"},
-        {"id": "hawaiian_shirt",  "name": "Hawaiian Shirt",   "slot": "cape", "price": 350,  "tier": "cheap"},
-        {"id": "hoodie",          "name": "Hoodie",           "slot": "cape", "price": 400,  "tier": "mid"},
-        {"id": "bra",             "name": "Bra",              "slot": "cape", "price": 500,  "tier": "mid"},
-        {"id": "lab_coat",        "name": "Lab Coat",         "slot": "cape", "price": 600,  "tier": "mid"},
-        {"id": "leather_jacket",  "name": "Leather Jacket",   "slot": "cape", "price": 800,  "tier": "mid"},
-        {"id": "tuxedo_vest",     "name": "Tuxedo Vest",      "slot": "cape", "price": 1200, "tier": "expensive"},
-        {"id": "superhero_cape",  "name": "Superhero Cape",   "slot": "cape", "price": 1500, "tier": "expensive"},
-        {"id": "tuxedo",          "name": "Full Tuxedo",      "slot": "cape", "price": 2500, "tier": "expensive"},
+        {"id": "plain_tshirt",    "name": "Plain T-Shirt",    "slot": "outfit", "price": 200,  "tier": "cheap"},
+        {"id": "hawaiian_shirt",  "name": "Hawaiian Shirt",   "slot": "outfit", "price": 350,  "tier": "cheap"},
+        {"id": "hoodie",          "name": "Hoodie",           "slot": "outfit", "price": 400,  "tier": "mid"},
+        {"id": "bra",             "name": "Bra",              "slot": "outfit", "price": 500,  "tier": "mid"},
+        {"id": "lab_coat",        "name": "Lab Coat",         "slot": "outfit", "price": 600,  "tier": "mid"},
+        {"id": "leather_jacket",  "name": "Leather Jacket",   "slot": "outfit", "price": 800,  "tier": "mid"},
+        {"id": "tuxedo_vest",     "name": "Tuxedo Vest",      "slot": "outfit", "price": 1200, "tier": "expensive"},
+        {"id": "superhero_cape",  "name": "Superhero Cape",   "slot": "outfit", "price": 1500, "tier": "expensive"},
+        {"id": "tuxedo",          "name": "Full Tuxedo",      "slot": "outfit", "price": 2500, "tier": "expensive"},
     ],
     "footwear": [
         {"id": "sandals",       "name": "Sandals",       "slot": "footwear", "price": 150, "tier": "cheap"},
@@ -652,58 +652,58 @@ COMMUNITY_BOSS = {
 # cost keys: 'gold' + resource names (never gold alone)
 GEAR_CATALOG = {
     # Weapons
-    "fish_club":   {"name":"FISH CLUB",       "set_name":None,            "type":"combat",  "slot":"weapon","rarity":"common",   "attack_bonus":5,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":50}},
-    "bone_dagger": {"name":"BONE DAGGER",     "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"uncommon", "attack_bonus":10, "defense_bonus":0, "speed_bonus":2,"hp_bonus":0, "cost":{"gold":80,  "bones":10}},
-    "ice_sword":   {"name":"ICE SWORD",       "set_name":"Frost Guardian","type":"combat",  "slot":"weapon","rarity":"rare",     "attack_bonus":18, "defense_bonus":2, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":200, "fish":30}},
-    "blood_axe":   {"name":"BLOOD AXE",       "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"epic",     "attack_bonus":30, "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":500, "blood_gems":15}},
-    # Chest armor
-    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":"Frost Guardian","type":"combat",  "slot":"chest", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"cost":{"gold":60,  "fish":15}},
-    "bone_plate":  {"name":"BONE PLATE",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"chest", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":12,"speed_bonus":0,"hp_bonus":15,"cost":{"gold":120, "bones":20}},
-    "ice_plate":   {"name":"ICE PLATE",       "set_name":"Frost Guardian","type":"combat",  "slot":"chest", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":22,"speed_bonus":0,"hp_bonus":25,"cost":{"gold":300, "fish":40,"herbs":10}},
+    "fish_club":   {"name":"FISH CLUB",       "set_name":None,            "type":"combat",  "slot":"weapon","rarity":"common",   "attack_bonus":5,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":5,  "cost":{"gold":50}},
+    "bone_dagger": {"name":"BONE DAGGER",     "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"uncommon", "attack_bonus":10, "defense_bonus":0, "speed_bonus":2,"hp_bonus":0, "combat_power":12, "cost":{"gold":80,  "bones":10}},
+    "ice_sword":   {"name":"ICE SWORD",       "set_name":"Frost Guardian","type":"combat",  "slot":"weapon","rarity":"rare",     "attack_bonus":18, "defense_bonus":2, "speed_bonus":0,"hp_bonus":0, "combat_power":20, "cost":{"gold":200, "fish":30}},
+    "blood_axe":   {"name":"BLOOD AXE",       "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"epic",     "attack_bonus":30, "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":30, "cost":{"gold":500, "blood_gems":15}},
+    # Armor
+    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":"Frost Guardian","type":"combat",  "slot":"armor", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"combat_power":10, "cost":{"gold":60,  "fish":15}},
+    "bone_plate":  {"name":"BONE PLATE",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"armor", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":12,"speed_bonus":0,"hp_bonus":15,"combat_power":15, "cost":{"gold":120, "bones":20}},
+    "ice_plate":   {"name":"ICE PLATE",       "set_name":"Frost Guardian","type":"combat",  "slot":"armor", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":22,"speed_bonus":0,"hp_bonus":25,"combat_power":27, "cost":{"gold":300, "fish":40,"herbs":10}},
     # Boots
-    "leather_boots":{"name":"LEATHER BOOTS",  "set_name":None,            "type":"combat",  "slot":"boots", "rarity":"common",   "attack_bonus":0,  "defense_bonus":3, "speed_bonus":5,"hp_bonus":0, "cost":{"gold":40}},
-    "bone_boots":  {"name":"BONE BOOTS",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"boots", "rarity":"uncommon", "attack_bonus":2,  "defense_bonus":5, "speed_bonus":8,"hp_bonus":0, "cost":{"gold":100, "bones":15}},
-    "frost_boots": {"name":"FROST BOOTS",     "set_name":"Frost Guardian","type":"combat",  "slot":"boots", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":8, "speed_bonus":12,"hp_bonus":5,"cost":{"gold":250, "fish":20,"spell_fragments":5}},
+    "leather_boots":{"name":"LEATHER BOOTS", "set_name":None,            "type":"combat",  "slot":"boots", "rarity":"common",   "attack_bonus":0,  "defense_bonus":3, "speed_bonus":5,"hp_bonus":0, "combat_power":8,  "cost":{"gold":40}},
+    "bone_boots":  {"name":"BONE BOOTS",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"boots", "rarity":"uncommon", "attack_bonus":2,  "defense_bonus":5, "speed_bonus":8,"hp_bonus":0, "combat_power":15, "cost":{"gold":100, "bones":15}},
+    "frost_boots": {"name":"FROST BOOTS",     "set_name":"Frost Guardian","type":"combat",  "slot":"boots", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":8, "speed_bonus":12,"hp_bonus":5,"combat_power":21, "cost":{"gold":250, "fish":20,"spell_fragments":5}},
     # Cosmetics
-    "tophat":      {"name":"TOP HAT",         "set_name":None,            "type":"cosmetic","slot":"hat",   "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":25}},
-    "party_hat":   {"name":"PARTY HAT",       "set_name":None,            "type":"cosmetic","slot":"hat",   "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":15}},
-    "crown":       {"name":"CROWN",           "set_name":None,            "type":"cosmetic","slot":"hat",   "rarity":"rare",     "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":200}},
-    "red_cape":    {"name":"RED CAPE",        "set_name":None,            "type":"cosmetic","slot":"cape",  "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":20}},
-    "star_cape":   {"name":"STAR CAPE",       "set_name":None,            "type":"cosmetic","slot":"cape",  "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "cost":{"gold":80,  "herbs":10}},
+    "tophat":      {"name":"TOP HAT",         "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":25}},
+    "party_hat":   {"name":"PARTY HAT",       "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":15}},
+    "crown":       {"name":"CROWN",           "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"rare",     "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":200}},
+    "red_cape":    {"name":"RED CAPE",        "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":20}},
+    "star_cape":   {"name":"STAR CAPE",       "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":80,  "herbs":10}},
 }
 
 # ── GEAR DROP TEMPLATES ───────────────────────────────────────────────────────
 GEAR_TEMPLATES = {
-    "common": {
-        "weapon": {"attack_bonus":(3,8),   "defense_bonus":(0,2),  "speed_bonus":(0,2),  "hp_bonus":(0,5)},
-        "chest":  {"attack_bonus":(0,2),   "defense_bonus":(5,12), "speed_bonus":(0,2),  "hp_bonus":(5,15)},
-        "boots":  {"attack_bonus":(0,2),   "defense_bonus":(2,6),  "speed_bonus":(3,8),  "hp_bonus":(0,5)},
-        "helm":   {"attack_bonus":(0,2),   "defense_bonus":(3,8),  "speed_bonus":(0,2),  "hp_bonus":(5,10)},
-    },
-    "uncommon": {
-        "weapon": {"attack_bonus":(8,15),  "defense_bonus":(0,3),  "speed_bonus":(2,5),  "hp_bonus":(0,8)},
-        "chest":  {"attack_bonus":(0,3),   "defense_bonus":(12,22),"speed_bonus":(0,3),  "hp_bonus":(15,25)},
-        "boots":  {"attack_bonus":(2,5),   "defense_bonus":(5,10), "speed_bonus":(8,14), "hp_bonus":(0,8)},
-        "helm":   {"attack_bonus":(0,3),   "defense_bonus":(8,15), "speed_bonus":(2,5),  "hp_bonus":(10,18)},
-    },
-    "rare": {
-        "weapon": {"attack_bonus":(15,25), "defense_bonus":(2,5),  "speed_bonus":(3,8),  "hp_bonus":(5,15)},
-        "chest":  {"attack_bonus":(2,5),   "defense_bonus":(22,35),"speed_bonus":(2,5),  "hp_bonus":(25,40)},
-        "boots":  {"attack_bonus":(3,8),   "defense_bonus":(8,16), "speed_bonus":(12,20),"hp_bonus":(5,12)},
-        "helm":   {"attack_bonus":(2,5),   "defense_bonus":(15,25),"speed_bonus":(3,8),  "hp_bonus":(18,30)},
-    },
-    "epic": {
-        "weapon": {"attack_bonus":(25,40), "defense_bonus":(3,8),  "speed_bonus":(5,12), "hp_bonus":(10,20)},
-        "chest":  {"attack_bonus":(3,8),   "defense_bonus":(35,50),"speed_bonus":(3,8),  "hp_bonus":(40,60)},
-        "boots":  {"attack_bonus":(5,12),  "defense_bonus":(14,24),"speed_bonus":(18,28),"hp_bonus":(8,18)},
-        "helm":   {"attack_bonus":(3,8),   "defense_bonus":(24,38),"speed_bonus":(5,12), "hp_bonus":(28,45)},
-    },
-    "legendary": {
-        "weapon": {"attack_bonus":(40,60), "defense_bonus":(5,12), "speed_bonus":(8,18), "hp_bonus":(15,30)},
-        "chest":  {"attack_bonus":(5,12),  "defense_bonus":(50,70),"speed_bonus":(5,12), "hp_bonus":(60,90)},
-        "boots":  {"attack_bonus":(8,18),  "defense_bonus":(22,36),"speed_bonus":(26,40),"hp_bonus":(12,25)},
-        "helm":   {"attack_bonus":(5,12),  "defense_bonus":(36,55),"speed_bonus":(8,18), "hp_bonus":(42,65)},
-    },
+    "common": [
+        {"name": "Rusty Sword",  "slot": "weapon", "set_name": None, "combat_power": 3},
+        {"name": "Leather Cap",  "slot": "helmet", "set_name": None, "combat_power": 3},
+        {"name": "Worn Boots",   "slot": "boots",  "set_name": None, "combat_power": 3},
+        {"name": "Padded Vest",  "slot": "armor",  "set_name": None, "combat_power": 3},
+    ],
+    "uncommon": [
+        {"name": "Frost Blade",   "slot": "weapon", "set_name": "Frost Guardian", "combat_power": 7},
+        {"name": "Frost Helm",    "slot": "helmet", "set_name": "Frost Guardian", "combat_power": 6},
+        {"name": "Frost Greaves", "slot": "boots",  "set_name": "Frost Guardian", "combat_power": 6},
+        {"name": "Frost Mail",    "slot": "armor",  "set_name": "Frost Guardian", "combat_power": 7},
+    ],
+    "rare": [
+        {"name": "Blood Reaper",    "slot": "weapon", "set_name": "Blood Reaper", "combat_power": 14},
+        {"name": "Blood Crown",     "slot": "helmet", "set_name": "Blood Reaper", "combat_power": 12},
+        {"name": "Blood Stompers",  "slot": "boots",  "set_name": "Blood Reaper", "combat_power": 11},
+        {"name": "Blood Plate",     "slot": "armor",  "set_name": "Blood Reaper", "combat_power": 14},
+    ],
+    "epic": [
+        {"name": "Temple Mystic Staff",    "slot": "weapon", "set_name": "Temple Mystic", "combat_power": 25},
+        {"name": "Temple Mystic Hood",     "slot": "helmet", "set_name": "Temple Mystic", "combat_power": 20},
+        {"name": "Temple Mystic Sandals",  "slot": "boots",  "set_name": "Temple Mystic", "combat_power": 17},
+        {"name": "Temple Mystic Robes",    "slot": "armor",  "set_name": "Temple Mystic", "combat_power": 22},
+    ],
+    "legendary": [
+        {"name": "Emperor's Scepter",  "slot": "weapon", "set_name": "Penguin Emperor", "combat_power": 40},
+        {"name": "Emperor's Diadem",   "slot": "helmet", "set_name": "Penguin Emperor", "combat_power": 32},
+        {"name": "Emperor's Sabatons", "slot": "boots",  "set_name": "Penguin Emperor", "combat_power": 27},
+        {"name": "Emperor's Regalia",  "slot": "armor",  "set_name": "Penguin Emperor", "combat_power": 38},
+    ],
 }
 
 _GEAR_DROP_RARITY_WEIGHTS = {
@@ -714,22 +714,74 @@ _GEAR_DROP_RARITY_WEIGHTS = {
     5: {"common": 0,  "uncommon": 10, "rare": 25, "epic": 40, "legendary": 25},
 }
 
-_GEAR_DROP_NAMES = {
-    "weapon": {"common":"Worn Blade",    "uncommon":"Sturdy Blade",  "rare":"Ice Blade",    "epic":"Cursed Blade",   "legendary":"Divine Blade"},
-    "chest":  {"common":"Worn Plate",    "uncommon":"Sturdy Plate",  "rare":"Ice Plate",    "epic":"Cursed Plate",   "legendary":"Divine Plate"},
-    "boots":  {"common":"Worn Boots",    "uncommon":"Sturdy Boots",  "rare":"Ice Boots",    "epic":"Cursed Boots",   "legendary":"Divine Boots"},
-    "helm":   {"common":"Worn Helm",     "uncommon":"Sturdy Helm",   "rare":"Ice Helm",     "epic":"Cursed Helm",    "legendary":"Divine Helm"},
-}
-
 # ── SET BONUSES ───────────────────────────────────────────────────────────────
 SET_BONUSES = {
     "Frost Guardian": {
-        2: {"defense_bonus": 10, "hp_bonus": 20},
-        3: {"defense_bonus": 20, "hp_bonus": 40, "speed_bonus": 5},
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 5,  "description": "+5 Combat Power"},
+        "3pc": {"combat_power_bonus": 15, "description": "+15 Combat Power"},
+        "secret": {"cosmetic_required": "Golden Scarf", "combat_power_bonus": 10, "description": "+10 CP (secret!)"},
     },
     "Blood Reaper": {
-        2: {"attack_bonus": 12, "speed_bonus": 5},
-        3: {"attack_bonus": 25, "speed_bonus": 10, "defense_bonus": 5},
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 8,  "description": "+8 Combat Power"},
+        "3pc": {"combat_power_bonus": 20, "description": "+20 Combat Power"},
+        "secret": {"cosmetic_required": "Shadow Cloak", "combat_power_bonus": 15, "description": "+15 CP (secret!)"},
+    },
+    "Temple Mystic": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 12, "description": "+12 Combat Power"},
+        "3pc": {"combat_power_bonus": 25, "description": "+25 Combat Power"},
+        "secret": {"cosmetic_required": "Ancient Amulet", "combat_power_bonus": 20, "description": "+20 CP (secret!)"},
+    },
+    "Penguin Emperor": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 15, "description": "+15 Combat Power"},
+        "3pc": {"combat_power_bonus": 35, "description": "+35 Combat Power"},
+        "secret": {"cosmetic_required": "Prestige Crown", "combat_power_bonus": 30, "description": "+30 CP (secret!)"},
+    },
+}
+
+COSMETIC_SET_BONUSES = {
+    "Street Style": {
+        "required_items": ["Baseball Cap", "Plain T-Shirt", "Sneakers"],
+        "bonus": {"gold_per_hour": 2, "description": "+2 gold/hr passive income"},
+        "secret": True,
+    },
+    "Fancy Night Out": {
+        "required_items": ["Top Hat", "Full Tuxedo", "Cowboy Boots"],
+        "bonus": {"gold_per_hour": 5, "description": "+5 gold/hr passive income"},
+        "secret": True,
+    },
+    "Beach Day": {
+        "required_items": ["Party Hat", "Hawaiian Shirt", "Sandals"],
+        "bonus": {"fish_per_hour": 1, "description": "+1 fish/hr passive gathering"},
+        "secret": True,
+    },
+    "Mystic Wanderer": {
+        "required_items": ["Beret", "Lab Coat", "Rain Boots"],
+        "bonus": {"spell_fragments_per_hour": 1, "description": "+1 spell fragment/hr"},
+        "secret": True,
+    },
+    "Dark Lord": {
+        "required_items": ["Viking Helmet", "Leather Jacket", "Cowboy Boots"],
+        "bonus": {"blood_gems_per_hour": 1, "description": "+1 blood gem/hr"},
+        "secret": True,
+    },
+    "Village Hero": {
+        "required_items": ["Village Bandana", "Superhero Cape", "Roller Skates"],
+        "bonus": {"xp_per_hour": 3, "description": "+3 XP/hr passive"},
+        "secret": True,
+    },
+    "Royal Penguin": {
+        "required_items": ["Pirate Hat", "Tuxedo Vest", "Gold Chain"],
+        "bonus": {"gold_per_hour": 8, "description": "+8 gold/hr"},
+        "secret": True,
+    },
+    "Ultimate Collector": {
+        "required_items": ["Dragon Wings", "Full Tuxedo", "Monocle"],
+        "bonus": {"gold_per_hour": 10, "description": "+10 gold/hr, +1 all resources/hr"},
+        "secret": True,
     },
 }
 
@@ -778,7 +830,7 @@ IGLOO_ROWS = 8
 # ── SEAL SHOP ─────────────────────────────────────────────────────────────────
 SEAL_SHOP = [
     {"id": "royal_crown",         "name": "Royal Crown",          "cost": 50,  "slot": "hat",         "description": "A crown fit for stream royalty."},
-    {"id": "stream_cape",         "name": "Streamer's Cape",       "cost": 80,  "slot": "back",        "description": "Flows with the energy of live content."},
+    {"id": "stream_cape",         "name": "Streamer's Cape",       "cost": 80,  "slot": "outfit",      "description": "Flows with the energy of live content."},
     {"id": "neon_scarf",          "name": "Neon Scarf",            "cost": 30,  "slot": "accessory",   "description": "Glows in the dark. Like your dedication."},
     {"id": "aurora_boots",        "name": "Aurora Sliders",        "cost": 40,  "slot": "footwear",    "description": "Leave sparkly trails. Fancy."},
     {"id": "penguin_pet",         "name": "Mini Penguin Pet",      "cost": 100, "slot": "accessory",   "description": "A tiny penguin follows you around. Adorable."},
@@ -1002,24 +1054,47 @@ def get_daily_variant(monster_type_id):
 
 
 def calculate_set_bonuses(db, username):
-    """Sum up set bonuses from all equipped gear pieces."""
+    """Sum up combat set bonuses from equipped gear pieces. Returns combat_power_bonus."""
     equipped = db.execute(
-        "SELECT set_name FROM gear WHERE username=? AND equipped=1 AND set_name IS NOT NULL",
+        "SELECT set_name FROM gear WHERE username=? AND equipped=1 AND type='combat' AND set_name IS NOT NULL",
         (username,)
     ).fetchall()
-    counts = {}
+    set_counts = {}
     for g in equipped:
         sn = g["set_name"]
         if sn:
-            counts[sn] = counts.get(sn, 0) + 1
-    bonuses = {"attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0, "hp_bonus": 0}
-    for set_name, count in counts.items():
-        if set_name in SET_BONUSES:
-            for pieces, bonus in sorted(SET_BONUSES[set_name].items()):
-                if count >= pieces:
-                    for stat, val in bonus.items():
-                        bonuses[stat] = bonuses.get(stat, 0) + val
-    return bonuses
+            set_counts[sn] = set_counts.get(sn, 0) + 1
+
+    equipped_cosmetics = db.execute(
+        "SELECT name FROM gear WHERE username=? AND equipped=1 AND type='cosmetic'",
+        (username,)
+    ).fetchall()
+    cosmetic_names = [c["name"] for c in equipped_cosmetics]
+
+    total_cp_bonus = 0
+    active_descriptions = []
+
+    for set_name, count in set_counts.items():
+        if set_name not in SET_BONUSES:
+            continue
+        set_data = SET_BONUSES[set_name]
+        if count >= 2 and "2pc" in set_data:
+            total_cp_bonus += set_data["2pc"]["combat_power_bonus"]
+            active_descriptions.append(f"{set_name} 2pc: {set_data['2pc']['description']}")
+        if count >= 3 and "3pc" in set_data:
+            total_cp_bonus += set_data["3pc"]["combat_power_bonus"]
+            active_descriptions.append(f"{set_name} 3pc: {set_data['3pc']['description']}")
+        if count >= 3 and "secret" in set_data:
+            if set_data["secret"]["cosmetic_required"] in cosmetic_names:
+                total_cp_bonus += set_data["secret"]["combat_power_bonus"]
+                active_descriptions.append(f"{set_name} SECRET: {set_data['secret']['description']}")
+
+    return {
+        "combat_power_bonus": total_cp_bonus,
+        "active_bonuses": active_descriptions,
+        # Keep backward compat keys at zero so get_combat_stats() doesn't crash
+        "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0, "hp_bonus": 0,
+    }
 
 
 def get_combat_power(username):
@@ -1029,19 +1104,48 @@ def get_combat_power(username):
         level = p["level"] if p else 1
         cp = 10 + level * 3
         equipped = db.execute(
-            "SELECT attack_bonus, defense_bonus, speed_bonus, hp_bonus FROM gear "
-            "WHERE username=? AND equipped=1 AND type='combat'", (username,)
+            "SELECT combat_power FROM gear WHERE username=? AND equipped=1 AND type='combat'",
+            (username,)
         ).fetchall()
         for item in equipped:
-            cp += item["attack_bonus"] + item["defense_bonus"] + item["speed_bonus"] + (item["hp_bonus"] // 5)
+            cp += item["combat_power"] or 0
         sb = calculate_set_bonuses(db, username)
-        cp += sb["attack_bonus"] + sb["defense_bonus"] + sb["speed_bonus"] + (sb["hp_bonus"] // 5)
+        cp += sb.get("combat_power_bonus", 0)
         for buff in get_active_buffs(db):
             if buff["buff_type"] == "festival":
                 cp = int(cp * 1.1)
     finally:
         db.close()
     return cp
+
+
+def check_cosmetic_sets(username, db=None):
+    """Check which cosmetic sets are complete and return active bonuses."""
+    close_db = False
+    if db is None:
+        db = get_db()
+        close_db = True
+    try:
+        equipped_cosmetics = db.execute(
+            "SELECT name FROM gear WHERE username=? AND equipped=1 AND type='cosmetic'",
+            (username,)
+        ).fetchall()
+        equipped_names = [c["name"] for c in equipped_cosmetics]
+    finally:
+        if close_db:
+            db.close()
+
+    active_bonuses = {}
+    for set_name, set_data in COSMETIC_SET_BONUSES.items():
+        if all(item in equipped_names for item in set_data["required_items"]):
+            for key, val in set_data["bonus"].items():
+                if key != "description":
+                    active_bonuses[key] = active_bonuses.get(key, 0) + val
+            active_bonuses.setdefault("active_sets", []).append({
+                "name": set_name,
+                "description": set_data["bonus"]["description"],
+            })
+    return active_bonuses
 
 def update_passive_energy(username):
     """Lazy 10-energy/hr passive regen. Manages its own DB connection."""
@@ -1127,13 +1231,18 @@ def generate_gear_drop(monster_tier):
     weights  = _GEAR_DROP_RARITY_WEIGHTS.get(monster_tier, _GEAR_DROP_RARITY_WEIGHTS[1])
     pool     = [r for r, w in weights.items() for _ in range(w)]
     rarity   = random.choice(pool)
-    slot     = random.choice(["weapon", "chest", "boots", "helm"])
-    tmpl     = GEAR_TEMPLATES[rarity][slot]
-    stats    = {k: random.randint(v[0], v[1]) for k, v in tmpl.items()}
-    name     = _GEAR_DROP_NAMES[slot][rarity]
-    item_id  = f"drop_{slot}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
-    return {"name": name.upper(), "item_id": item_id, "type": "combat", "slot": slot,
-            "rarity": rarity, "set_name": None, **stats}
+    tmpl     = random.choice(GEAR_TEMPLATES[rarity])
+    item_id  = f"drop_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
+    return {
+        "name": tmpl["name"].upper(),
+        "item_id": item_id,
+        "type": "combat",
+        "slot": tmpl["slot"],
+        "rarity": rarity,
+        "set_name": tmpl["set_name"],
+        "combat_power": tmpl["combat_power"],
+        "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0, "hp_bonus": 0,
+    }
 
 
 def apply_level_rewards(db, username, reward):
@@ -1942,6 +2051,31 @@ def work_collect():
         else:
             db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
 
+    # Apply cosmetic set bonuses
+    cosmetic_bonuses = check_cosmetic_sets(username)
+    if cosmetic_bonuses and hours_worked > 0:
+        extra_gold = int(cosmetic_bonuses.get("gold_per_hour", 0) * hours_worked)
+        extra_fish = int(cosmetic_bonuses.get("fish_per_hour", 0) * hours_worked)
+        extra_frags = int(cosmetic_bonuses.get("spell_fragments_per_hour", 0) * hours_worked)
+        extra_blood_gems = int(cosmetic_bonuses.get("blood_gems_per_hour", 0) * hours_worked)
+        extra_xp = int(cosmetic_bonuses.get("xp_per_hour", 0) * hours_worked)
+        if extra_gold > 0:
+            add_gold(db, username, extra_gold)
+            earned["gold"] = earned.get("gold", 0) + extra_gold
+        if extra_fish > 0:
+            db.execute("UPDATE resources SET fish=fish+? WHERE username=?", (extra_fish, username))
+            earned["fish"] = earned.get("fish", 0) + extra_fish
+        if extra_frags > 0:
+            db.execute("UPDATE resources SET spell_fragments=spell_fragments+? WHERE username=?", (extra_frags, username))
+            earned["spell_fragments"] = earned.get("spell_fragments", 0) + extra_frags
+        if extra_blood_gems > 0:
+            db.execute("UPDATE resources SET blood_gems=blood_gems+? WHERE username=?", (extra_blood_gems, username))
+            earned["blood_gems"] = earned.get("blood_gems", 0) + extra_blood_gems
+        if extra_xp > 0:
+            _, lvl_rewards = award_xp(db, username, extra_xp)
+            level_ups.extend(lvl_rewards)
+            earned["xp"] = earned.get("xp", 0) + extra_xp
+
     # Track job hours and check for new titles
     new_title = None
     if p["job"] in JOB_HOUR_COL:
@@ -2113,8 +2247,58 @@ def gear_cosmetics_equip():
         )
         db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_id,))
     db.commit()
+
+    # Check for newly discovered cosmetic sets
+    newly_discovered = []
+    if action == "equip":
+        equipped_cosmetics = db.execute(
+            "SELECT name FROM gear WHERE username=? AND equipped=1 AND type='cosmetic'",
+            (username,)
+        ).fetchall()
+        equipped_names = [c["name"] for c in equipped_cosmetics]
+        now = int(time.time())
+        for set_name, set_data in COSMETIC_SET_BONUSES.items():
+            if all(itm in equipped_names for itm in set_data["required_items"]):
+                already = db.execute(
+                    "SELECT 1 FROM discovered_sets WHERE username=? AND set_name=?",
+                    (username, set_name)
+                ).fetchone()
+                if not already:
+                    db.execute(
+                        "INSERT OR IGNORE INTO discovered_sets (username, set_name, discovered_at) VALUES (?,?,?)",
+                        (username, set_name, now)
+                    )
+                    newly_discovered.append({
+                        "set_name": set_name,
+                        "description": set_data["bonus"]["description"],
+                    })
+                    log_event(db, "village",
+                              f"🔮 {username} discovered the secret of the {set_name} set!", username)
+        if newly_discovered:
+            db.commit()
+
     db.close()
-    return jsonify({"status": "success"})
+    return jsonify({"status": "success", "newly_discovered": newly_discovered})
+
+
+@app.route("/gear/cosmetics/discovered")
+def gear_cosmetics_discovered():
+    username = request.args.get("username", "")
+    db = get_db()
+    rows = db.execute(
+        "SELECT set_name FROM discovered_sets WHERE username=? ORDER BY discovered_at",
+        (username,)
+    ).fetchall()
+    db.close()
+    result = []
+    for row in rows:
+        sn = row["set_name"]
+        if sn in COSMETIC_SET_BONUSES:
+            result.append({
+                "set_name": sn,
+                "description": COSMETIC_SET_BONUSES[sn]["bonus"]["description"],
+            })
+    return jsonify({"discovered": result})
 
 
 # ── COMBAT ───────────────────────────────────────────────────────────────────
@@ -2261,12 +2445,13 @@ def combat_fight():
                 gear_drop = generate_gear_drop(mtype["tier"])
                 db.execute(
                     "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
-                    "attack_bonus, defense_bonus, speed_bonus, hp_bonus, equipped, obtained_at) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?)",
+                    "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?)",
                     (username, gear_drop["item_id"], gear_drop["name"], gear_drop["set_name"],
                      gear_drop["type"], gear_drop["slot"], gear_drop["rarity"],
                      gear_drop["attack_bonus"], gear_drop["defense_bonus"],
-                     gear_drop["speed_bonus"], gear_drop["hp_bonus"], int(time.time()))
+                     gear_drop["speed_bonus"], gear_drop["hp_bonus"],
+                     gear_drop["combat_power"], int(time.time()))
                 )
 
             rewards = {"gold": gold, "xp": xp, "resources": resources}
@@ -2544,11 +2729,11 @@ def gear_buy():
             db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
 
     db.execute(
-        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, attack_bonus, defense_bonus, speed_bonus, hp_bonus, obtained_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, obtained_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (username, item_id, defn["name"], defn.get("set_name"), defn["type"], defn["slot"],
          defn.get("rarity","common"), defn["attack_bonus"], defn["defense_bonus"],
-         defn["speed_bonus"], defn["hp_bonus"], int(time.time()))
+         defn["speed_bonus"], defn["hp_bonus"], defn.get("combat_power", 0), int(time.time()))
     )
     new_ach = check_achievements(db, username)
     db.commit()
