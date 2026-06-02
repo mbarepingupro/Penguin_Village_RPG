@@ -220,6 +220,16 @@ def init_db():
     """)
 
     c.execute("""
+        CREATE TABLE IF NOT EXISTS building_contributions_tracker (
+            username TEXT NOT NULL,
+            building_id TEXT NOT NULL,
+            total_contributed INTEGER DEFAULT 0,
+            background_unlocked INTEGER DEFAULT 0,
+            PRIMARY KEY (username, building_id)
+        )
+    """)
+
+    c.execute("""
         CREATE TABLE IF NOT EXISTS discovered_sets (
             username TEXT NOT NULL,
             set_name TEXT NOT NULL,
