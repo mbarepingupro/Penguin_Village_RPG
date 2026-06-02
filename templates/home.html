@@ -350,8 +350,16 @@
     .gear-slots { padding: 10px 12px; border-bottom: var(--border-thin); }
     .gear-slot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; }
     .gear-slot-row:hover .gear-slot-val { color: var(--pink); }
-    .gear-slot-lbl { color: #666; font-size: 8px; width: 44px; flex-shrink: 0; }
+    .gear-slot-lbl { color: #666; font-size: 8px; width: 52px; flex-shrink: 0; }
     .gear-slot-val { color: var(--white); font-size: 8px; flex: 1; }
+    .sidebar-section-combat {
+      color: #ff6b6b; font-size: 9px; margin-bottom: 6px;
+      padding-bottom: 4px; border-bottom: 2px solid #ff6b6b;
+    }
+    .sidebar-section-cosmetic {
+      color: #A86EFF; font-size: 9px; margin-bottom: 6px;
+      padding-bottom: 4px; border-bottom: 2px solid #A86EFF;
+    }
 
     /* ── CONTENT AREA ── */
     .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -491,7 +499,7 @@
     .wardrobe-slot-row:last-child { border-bottom: none; }
     .wardrobe-slot-row:hover { background: #252525; }
     .wardrobe-slot-icon { font-size: 14px; width: 20px; flex-shrink: 0; }
-    .wardrobe-slot-lbl  { color: #555; font-size: 7px; width: 28px; flex-shrink: 0; }
+    .wardrobe-slot-lbl  { color: #555; font-size: 7px; width: 52px; flex-shrink: 0; }
     .wardrobe-slot-val  { color: #888; font-size: 7px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .wardrobe-slot-val.equipped { color: #FF7FE5; }
 
@@ -1661,9 +1669,9 @@
         <!-- INVENTORY button -->
         <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
 
-        <!-- WARDROBE — always visible, shows cosmetic gear from level rewards -->
+        <!-- COSMETICS — always visible, shows cosmetic gear -->
         <div class="wardrobe-slots">
-          <div class="section-title">WARDROBE</div>
+          <div class="sidebar-section-cosmetic">COSMETICS</div>
           <div class="wardrobe-slot-row" onclick="openCosmeticSlot('hat')">
             <span class="wardrobe-slot-icon">🎩</span>
             <span class="wardrobe-slot-lbl">HAT</span>
@@ -1675,13 +1683,13 @@
             <span class="wardrobe-slot-val" id="wardrobe-outfit">EMPTY</span>
           </div>
           <div class="wardrobe-slot-row" onclick="openCosmeticSlot('accessory')">
-            <span class="wardrobe-slot-icon">💎</span>
-            <span class="wardrobe-slot-lbl">ITEM</span>
+            <span class="wardrobe-slot-icon">✨</span>
+            <span class="wardrobe-slot-lbl">ACCESSORY</span>
             <span class="wardrobe-slot-val" id="wardrobe-accessory">EMPTY</span>
           </div>
           <div class="wardrobe-slot-row" onclick="openCosmeticSlot('footwear')">
             <span class="wardrobe-slot-icon">👟</span>
-            <span class="wardrobe-slot-lbl">FEET</span>
+            <span class="wardrobe-slot-lbl">FOOTWEAR</span>
             <span class="wardrobe-slot-val" id="wardrobe-footwear">EMPTY</span>
           </div>
         </div>
@@ -1712,7 +1720,7 @@
         {% if features.get("gear_equip", False) %}
         <!-- COMBAT GEAR slots (only when combat gear is enabled) -->
         <div class="gear-slots">
-          <div class="section-title">COMBAT GEAR</div>
+          <div class="sidebar-section-combat">COMBAT GEAR</div>
           <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
             <span class="gear-slot-icon">⚔️</span>
             <span class="gear-slot-lbl">WEAPON</span>
