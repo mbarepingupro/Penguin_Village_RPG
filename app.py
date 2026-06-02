@@ -310,6 +310,27 @@ BOUTIQUE_ITEMS = {
     ],
 }
 
+BARRACKS_SHOP = {
+    "common": [
+        {"id": "iron_sword",   "name": "Iron Sword",   "slot": "weapon", "combat_power": 5,  "cost": {"gold": 200, "bones": 50}},
+        {"id": "iron_helmet",  "name": "Iron Helmet",  "slot": "helmet", "combat_power": 4,  "cost": {"gold": 200, "bones": 40}},
+        {"id": "iron_boots",   "name": "Iron Boots",   "slot": "boots",  "combat_power": 4,  "cost": {"gold": 150, "bones": 30}},
+        {"id": "iron_plate",   "name": "Iron Plate",   "slot": "armor",  "combat_power": 5,  "cost": {"gold": 250, "bones": 60}},
+    ],
+    "uncommon": [
+        {"id": "steel_sword",  "name": "Steel Sword",  "slot": "weapon", "combat_power": 10, "cost": {"gold": 500,  "bones": 100, "blood_gems": 20}},
+        {"id": "steel_helmet", "name": "Steel Helmet", "slot": "helmet", "combat_power": 8,  "cost": {"gold": 500,  "bones": 80,  "blood_gems": 15}},
+        {"id": "steel_boots",  "name": "Steel Boots",  "slot": "boots",  "combat_power": 8,  "cost": {"gold": 400,  "bones": 70,  "blood_gems": 15}},
+        {"id": "steel_plate",  "name": "Steel Plate",  "slot": "armor",  "combat_power": 10, "cost": {"gold": 600,  "bones": 120, "blood_gems": 25}},
+    ],
+    "rare": [
+        {"id": "crystal_blade",   "name": "Crystal Blade",   "slot": "weapon", "combat_power": 18, "cost": {"gold": 1500, "blood_gems": 80,  "spell_fragments": 40}},
+        {"id": "crystal_crown",   "name": "Crystal Crown",   "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "blood_gems": 60,  "spell_fragments": 30}},
+        {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "blood_gems": 50,  "spell_fragments": 25}},
+        {"id": "crystal_armor",   "name": "Crystal Armor",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}},
+    ],
+}
+
 # resource column name in building_upgrades table
 _RES_COL = {
     "fish": "fish_donated", "herbs": "herbs_donated", "gold": "gold_donated",
@@ -4018,6 +4039,94 @@ def boutique_preview(item_id):
     if not item:
         return jsonify({"status": "error", "message": "Item not found."})
     return jsonify({"status": "success", "item": item})
+
+
+# ── BARRACKS SHOP ─────────────────────────────────────────────────────────────
+
+@app.route("/barracks/shop/<username>")
+def barracks_shop(username):
+    if not FEATURES.get("gear_equip", False):
+        return jsonify({"status": "disabled", "shop": BARRACKS_SHOP, "owned_ids": [], "gold": 0, "resources": {}})
+    db = get_db()
+    ensure_resources(db, username)
+    owned = db.execute(
+        "SELECT item_id FROM gear WHERE username=? AND type='combat'", (username,)
+    ).fetchall()
+    owned_ids = [r["item_id"] for r in owned if r["item_id"]]
+    gold = get_gold(db, username)
+    res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    db.close()
+    return jsonify({
+        "status": "ok",
+        "shop": BARRACKS_SHOP,
+        "owned_ids": owned_ids,
+        "gold": gold,
+        "resources": dict(res) if res else {},
+    })
+
+
+@app.route("/barracks/buy", methods=["POST"])
+def barracks_buy():
+    if not FEATURES.get("gear_equip", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    item_id  = data.get("item_id", "")
+
+    defn = None
+    rarity = None
+    for r, items in BARRACKS_SHOP.items():
+        for item in items:
+            if item["id"] == item_id:
+                defn   = item
+                rarity = r
+                break
+        if defn:
+            break
+
+    if not defn:
+        return jsonify({"status": "error", "message": "Unknown item."})
+
+    db = get_db()
+    ensure_resources(db, username)
+
+    already = db.execute(
+        "SELECT id FROM gear WHERE username=? AND item_id=? AND type='combat'",
+        (username, item_id)
+    ).fetchone()
+    if already:
+        db.close()
+        return jsonify({"status": "error", "message": "You already own this item."})
+
+    r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    if not r:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    for resource, amount in defn["cost"].items():
+        have = r["gold"] if resource == "gold" else (r[resource] if resource in r.keys() else 0)
+        if have < amount:
+            db.close()
+            return jsonify({"status": "error", "message": f"Need {amount} {resource}."})
+
+    for resource, amount in defn["cost"].items():
+        if resource == "gold":
+            add_gold(db, username, -amount)
+        else:
+            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
+        "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, obtained_at) "
+        "VALUES (?,?,?,NULL,'combat',?,?,0,0,0,0,?,?)",
+        (username, item_id, defn["name"], defn["slot"], rarity,
+         defn["combat_power"], int(time.time()))
+    )
+    log_event(db, "gear_purchase", f"{username} forged {defn['name']} from the Barracks", username)
+    new_ach = check_achievements(db, username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"{defn['name']} forged!", "new_achievements": new_ach})
 
 
 # ── PENGUIN CUSTOMIZATION ─────────────────────────────────────────────────────
