@@ -2032,9 +2032,18 @@
     <div class="card-modal-actions">
       <button class="card-modal-action-btn" onclick="shareCard()">🔗 SHARE</button>
       <button class="card-modal-action-btn dl" onclick="downloadCard()">⬇ DOWNLOAD</button>
+      <button class="card-modal-action-btn" onclick="openBgSelection()">🖼️ BACKGROUND</button>
     </div>
     <div class="card-modal-url" id="card-modal-url"></div>
     <button class="card-modal-close" onclick="closeCardModal()">CLOSE</button>
+  </div>
+</div>
+<!-- CARD BACKGROUND SELECTION MODAL -->
+<div id="bg-selection-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:#1C1C1C;border:3px solid #A86EFF;padding:16px;max-width:480px;width:95%;max-height:80vh;overflow-y:auto;font-family:'Press Start 2P',monospace;animation:popIn 0.2s ease;">
+    <div style="color:#A86EFF;font-size:9px;margin-bottom:12px;">🖼️ CARD BACKGROUNDS</div>
+    <div id="bg-selection-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;"></div>
+    <button onclick="closeBgSelection()" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:7px 14px;border:2px solid #555;background:transparent;color:#888;cursor:pointer;">CLOSE</button>
   </div>
 </div>
 <!-- COSMETIC EQUIP MODAL -->
@@ -3549,6 +3558,21 @@
       }
     }
 
+    // Card background progress for this building
+    if (typeof upgData.player_bg_progress !== 'undefined') {
+      html += `<hr class="bm-divider-thin">`;
+      if (upgData.player_bg_unlocked) {
+        html += `<div style="color:#4aff6b;font-size:8px;margin-bottom:4px;">🖼️ BACKGROUND UNLOCKED ✅</div>`;
+        html += `<div style="color:#888;font-size:7px;">Go to your Penguin Card to equip it!</div>`;
+      } else {
+        const bgPct = Math.min(100, Math.round((upgData.player_bg_progress||0) / 100 * 100));
+        html += `<div style="color:#A86EFF;font-size:8px;margin-bottom:6px;">🖼️ CARD BACKGROUND</div>`;
+        html += `<div style="font-size:7px;color:#888;margin-bottom:4px;">${(upgData.player_bg_progress||0).toLocaleString()} / 100 resources donated</div>`;
+        html += `<div class="bm-prog-track" style="border:1px solid #333;margin-bottom:4px;"><div class="bm-prog-fill" style="width:${bgPct}%;background:#A86EFF;"></div></div>`;
+        html += `<div style="font-size:6px;color:#666;margin-bottom:4px;">Donate 100 total resources to unlock this building's card background!</div>`;
+      }
+    }
+
     return html;
   }
 
@@ -3599,6 +3623,7 @@
         }
         if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
         if (data.milestone_unlocked) setTimeout(() => _showMilestone(data.milestone_unlocked), 400);
+        if (data.building_bg_unlocked) setTimeout(() => _showBgUnlock(data.building_bg_unlocked), 600);
         if (data.level_up) {
           Sounds.buildingLevelUp();
           setTimeout(() => showToast(`🏗️ Building upgraded to Level ${data.building_level}!`, 'ok'), 400);
@@ -3630,6 +3655,23 @@
       <button onclick="this.closest('[data-ms-overlay]').remove()" style="font-family:'Press Start 2P',monospace;font-size:8px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
     </div>`;
     overlay.setAttribute('data-ms-overlay', '1');
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  }
+
+  function _showBgUnlock(bg) {
+    Sounds.levelUp();
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
+    overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #A86EFF;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Press Start 2P',monospace;animation:popIn 0.3s ease;">
+      <div style="font-size:24px;margin-bottom:10px;">🖼️</div>
+      <div style="color:#A86EFF;font-size:11px;margin-bottom:8px;">CARD BACKGROUND UNLOCKED!</div>
+      <div style="color:#FF7FE5;font-size:9px;margin-bottom:8px;">${bg.name}</div>
+      <div style="color:#888;font-size:7px;margin-bottom:16px;line-height:2;">${bg.description}</div>
+      <div style="color:#4aff6b;font-size:7px;margin-bottom:16px;">Go to VIEW CARD to equip it!</div>
+      <button onclick="this.closest('[data-bg-overlay]').remove()" style="font-family:'Press Start 2P',monospace;font-size:8px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
+    </div>`;
+    overlay.setAttribute('data-bg-overlay', '1');
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
   }
@@ -3828,6 +3870,62 @@
 
   function closeCardModal() {
     document.getElementById('card-modal').classList.remove('show');
+  }
+
+  function openBgSelection() {
+    document.getElementById('bg-selection-modal').style.display = 'flex';
+    loadBgList();
+  }
+
+  function closeBgSelection() {
+    document.getElementById('bg-selection-modal').style.display = 'none';
+  }
+
+  async function loadBgList() {
+    const list = document.getElementById('bg-selection-list');
+    list.innerHTML = '<div style="color:#666;font-size:7px;grid-column:span 2;text-align:center;padding:10px;">LOADING...</div>';
+    try {
+      const res  = await fetch(`/card/backgrounds/${CURRENT_USER}`);
+      const data = await res.json();
+      const bgs  = data.backgrounds || [];
+      if (bgs.length === 0) {
+        list.innerHTML = '<div style="color:#555;font-size:7px;grid-column:span 2;text-align:center;padding:12px;line-height:1.8;">No backgrounds yet.<br>Donate 100 resources to a building<br>to unlock its background!</div>';
+        return;
+      }
+      list.innerHTML = bgs.map(bg => {
+        const equippedBorder = bg.equipped ? 'border:2px solid #FF7FE5;' : 'border:2px solid #333;';
+        const equippedLabel  = bg.equipped ? '<div style="color:#FF7FE5;font-size:6px;margin-top:3px;">▶ EQUIPPED</div>' : '';
+        const btnHtml = bg.equipped
+          ? `<div style="color:#4aff6b;font-size:6px;margin-top:5px;">EQUIPPED ✅</div>`
+          : `<button onclick="equipBg('${bg.item_id}')" style="font-family:'Press Start 2P',monospace;font-size:6px;padding:4px 8px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;margin-top:5px;">EQUIP</button>`;
+        return `<div style="background:#2E2E2E;padding:8px;cursor:pointer;${equippedBorder}">
+          <div style="width:100%;height:40px;background:${bg.color};margin-bottom:6px;"></div>
+          <div style="color:#FFFFFF;font-size:7px;margin-bottom:3px;line-height:1.4;">${bg.name}</div>
+          <div style="color:#888;font-size:6px;">${bg.source}</div>
+          ${equippedLabel}${btnHtml}
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div style="color:#ff6b6b;font-size:7px;grid-column:span 2;text-align:center;padding:10px;">ERROR LOADING</div>';
+    }
+  }
+
+  async function equipBg(itemId) {
+    try {
+      const res  = await fetch('/card/background/equip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, item_id: itemId }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast('Card background equipped!', 'ok');
+        Sounds.equip();
+        await loadBgList();
+      } else {
+        showToast(data.message || 'Error.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
   }
 
   function shareCard() {

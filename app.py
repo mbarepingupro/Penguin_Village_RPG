@@ -195,6 +195,57 @@ CONTRIBUTION_MILESTONES = {
     5000: {"name": "Legendary Founder's Frame", "description": "A living legend of Penguin Village."},
 }
 
+BUILDING_CARD_BACKGROUNDS = {
+    "sea_lion_pit": {
+        "name": "Sea Lion Pit Background",
+        "description": "Ocean waves and fishing nets",
+        "unlock_amount": 100,
+        "image": "card_bg_sea_lion_pit.png",
+        "color": "#4a9eff",
+        "source": "Ash's Sea Lion Pit",
+    },
+    "club_soda": {
+        "name": "Club Soda Background",
+        "description": "Herbs and musical notes",
+        "unlock_amount": 100,
+        "image": "card_bg_club_soda.png",
+        "color": "#4aff6b",
+        "source": "Club Soda",
+    },
+    "parkmusement": {
+        "name": "Parkmusement Background",
+        "description": "Circus lights and confetti",
+        "unlock_amount": 100,
+        "image": "card_bg_parkmusement.png",
+        "color": "#FF8C00",
+        "source": "Ash's Parkmusement",
+    },
+    "cursed_temple": {
+        "name": "Cursed Temple Background",
+        "description": "Mystical runes and candles",
+        "unlock_amount": 100,
+        "image": "card_bg_cursed_temple.png",
+        "color": "#A86EFF",
+        "source": "Cursed Temple",
+    },
+    "guillotine": {
+        "name": "Gil's Workshop Background",
+        "description": "Dark steel and crimson gems",
+        "unlock_amount": 100,
+        "image": "card_bg_guillotine.png",
+        "color": "#ff6b6b",
+        "source": "Gil the Guillotine",
+    },
+    "hotel": {
+        "name": "Hotel Lounge Background",
+        "description": "Cozy fireplace and warm lights",
+        "unlock_amount": 100,
+        "image": "card_bg_hotel.png",
+        "color": "#C0392B",
+        "source": "Penguin Hotel",
+    },
+}
+
 BUILDING_BONUS_RATES = {1: 0.0, 2: 0.15, 3: 0.30}
 
 STARTER_COLORS = {
@@ -3569,13 +3620,28 @@ def building_upgrade_info(building_id):
                 next_milestone = {"threshold": threshold, **CONTRIBUTION_MILESTONES[threshold]}
                 break
 
+    # Building background progress
+    player_bg_progress = 0
+    player_bg_unlocked = False
+    if username and building_id in BUILDING_CARD_BACKGROUNDS:
+        bct = db.execute(
+            "SELECT total_contributed, background_unlocked FROM building_contributions_tracker "
+            "WHERE username=? AND building_id=?",
+            (username, building_id)
+        ).fetchone()
+        if bct:
+            player_bg_progress = bct["total_contributed"] or 0
+            player_bg_unlocked = bool(bct["background_unlocked"])
+
     db.close()
     return jsonify({"status": "success", **info,
                     "contributors": contributors,
                     "player_resources": player_resources,
                     "player_building_total": player_building_total,
                     "player_total_contributions": player_total_contributions,
-                    "next_milestone": next_milestone})
+                    "next_milestone": next_milestone,
+                    "player_bg_progress": player_bg_progress,
+                    "player_bg_unlocked": player_bg_unlocked})
 
 
 @app.route("/building/donate", methods=["POST"])
@@ -3663,6 +3729,47 @@ def building_donate():
     new_total = old_total + amount
     db.execute("UPDATE penguins SET total_contributions=? WHERE username=?", (new_total, username))
 
+    # Track per-building contribution for card background unlock
+    building_bg_unlocked = None
+    if building_id in BUILDING_CARD_BACKGROUNDS:
+        db.execute(
+            "INSERT INTO building_contributions_tracker (username, building_id, total_contributed, background_unlocked) "
+            "VALUES (?, ?, ?, 0) ON CONFLICT(username, building_id) DO UPDATE SET "
+            "total_contributed = total_contributed + excluded.total_contributed",
+            (username, building_id, amount)
+        )
+        bct = db.execute(
+            "SELECT total_contributed, background_unlocked FROM building_contributions_tracker "
+            "WHERE username=? AND building_id=?",
+            (username, building_id)
+        ).fetchone()
+        if bct and (bct["total_contributed"] or 0) >= 100 and not bct["background_unlocked"]:
+            bg_info = BUILDING_CARD_BACKGROUNDS[building_id]
+            db.execute(
+                "UPDATE building_contributions_tracker SET background_unlocked=1 "
+                "WHERE username=? AND building_id=?",
+                (username, building_id)
+            )
+            item_id = f"card_bg_{building_id}"
+            existing_bg = db.execute(
+                "SELECT COUNT(*) as cnt FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+                (username, item_id)
+            ).fetchone()
+            if not existing_bg or existing_bg["cnt"] == 0:
+                db.execute(
+                    "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+                    "VALUES (?,?,?,'cosmetic','card_background','building',0,?)",
+                    (username, item_id, bg_info["name"], int(time.time()))
+                )
+            log_event(db, "milestone",
+                      f"🖼️ {username} unlocked the {bg_info['source']} card background!",
+                      username)
+            building_bg_unlocked = {
+                "name": bg_info["name"],
+                "description": bg_info["description"],
+                "source": bg_info["source"],
+            }
+
     # Milestone check
     milestone_unlocked = None
     for milestone, reward in sorted(CONTRIBUTION_MILESTONES.items()):
@@ -3719,6 +3826,7 @@ def building_donate():
         "new_total_contributions": new_total,
         "milestone_unlocked":      milestone_unlocked,
         "level_ups":               donation_level_ups,
+        "building_bg_unlocked":    building_bg_unlocked,
     })
 
 
@@ -3736,6 +3844,72 @@ def building_contributors(building_id):
         "contributors": [{"rank": i+1, "username": r["username"], "total": r["total"]}
                          for i, r in enumerate(rows)]
     })
+
+
+@app.route("/card/backgrounds/<username>")
+def card_backgrounds(username):
+    db = get_db()
+    rows = db.execute(
+        "SELECT item_id, name, slot, rarity, equipped FROM gear "
+        "WHERE username=? AND type='cosmetic' AND slot IN ('card_frame', 'card_background') "
+        "ORDER BY obtained_at",
+        (username,)
+    ).fetchall()
+    db.close()
+
+    # Build lookup for color and source
+    bg_color_map = {f"card_bg_{bid}": info["color"] for bid, info in BUILDING_CARD_BACKGROUNDS.items()}
+    bg_source_map = {f"card_bg_{bid}": info["source"] for bid, info in BUILDING_CARD_BACKGROUNDS.items()}
+    milestone_names = {v["name"]: True for v in CONTRIBUTION_MILESTONES.values()}
+
+    results = []
+    for r in rows:
+        item_id = r["item_id"] or ""
+        name = r["name"] or ""
+        is_milestone = name in milestone_names
+        source = bg_source_map.get(item_id, ("Contribution Milestone" if is_milestone else "Unknown"))
+        color = bg_color_map.get(item_id, "#888888")
+        image = None
+        for bid, info in BUILDING_CARD_BACKGROUNDS.items():
+            if item_id == f"card_bg_{bid}":
+                image = info["image"]
+                break
+        results.append({
+            "item_id": item_id,
+            "name": name,
+            "slot": r["slot"],
+            "source": source,
+            "color": color,
+            "image": image,
+            "equipped": bool(r["equipped"]),
+        })
+    return jsonify({"backgrounds": results})
+
+
+@app.route("/card/background/equip", methods=["POST"])
+def card_background_equip():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    item_id  = data.get("item_id", "").strip()
+    db = get_db()
+    item = db.execute(
+        "SELECT * FROM gear WHERE username=? AND item_id=? AND type='cosmetic' "
+        "AND slot IN ('card_frame', 'card_background')",
+        (username, item_id)
+    ).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Background not owned."})
+    # Unequip all card frames and backgrounds for this user
+    db.execute(
+        "UPDATE gear SET equipped=0 WHERE username=? AND type='cosmetic' "
+        "AND slot IN ('card_frame', 'card_background')",
+        (username,)
+    )
+    db.execute("UPDATE gear SET equipped=1 WHERE username=? AND item_id=?", (username, item_id))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
 
 
 @app.route("/building/all_levels")
@@ -4120,6 +4294,13 @@ def _get_public_penguin(username):
         (username,)
     ).fetchall()
     cosmetic_ids = {c["item_id"] for c in cosmetics if c["item_id"]}
+    # equipped card background
+    bg_row = db.execute(
+        "SELECT item_id, name FROM gear WHERE username=? AND type='cosmetic' "
+        "AND slot IN ('card_frame','card_background') AND equipped=1 LIMIT 1",
+        (username,)
+    ).fetchone()
+    equipped_bg = dict(bg_row) if bg_row else None
     db.close()
     level, _, _ = xp_progress(p["xp"] or 0)
     pcolor   = p["penguin_color"] if p["penguin_color"] else "classic_black"
@@ -4135,6 +4316,7 @@ def _get_public_penguin(username):
         "penguin_name": pname,
         "penguin_color": pcolor,
         "color_palette": palette,
+        "equipped_bg": equipped_bg,
     }
 
 
@@ -4142,6 +4324,33 @@ def _generate_card_image(data):
     d   = data["p"]
     lv  = data["level"]
     img = Image.new("RGB", (CARD_W, CARD_H), _COLORS["bg"])
+    # Card background — try image file, fall back to theme color
+    equipped_bg = data.get("equipped_bg")
+    if equipped_bg:
+        item_id = equipped_bg.get("item_id", "")
+        bg_drawn = False
+        # Try to load image
+        bg_img_path = os.path.join(os.path.dirname(__file__), "static", "card_backgrounds",
+                                   BUILDING_CARD_BACKGROUNDS.get(
+                                       item_id.replace("card_bg_", ""), {}
+                                   ).get("image", ""))
+        if bg_img_path.endswith(".png") and os.path.exists(bg_img_path):
+            try:
+                bg_img = Image.open(bg_img_path).convert("RGB").resize((CARD_W, CARD_H), Image.LANCZOS)
+                img.paste(bg_img)
+                bg_drawn = True
+            except Exception:
+                pass
+        if not bg_drawn:
+            # Solid theme color fallback
+            bid = item_id.replace("card_bg_", "")
+            bg_info = BUILDING_CARD_BACKGROUNDS.get(bid)
+            if bg_info:
+                hex_col = bg_info["color"].lstrip("#")
+                r_val = int(hex_col[0:2], 16)
+                g_val = int(hex_col[2:4], 16)
+                b_val = int(hex_col[4:6], 16)
+                img.paste(Image.new("RGB", (CARD_W, CARD_H), (r_val, g_val, b_val)))
     draw = ImageDraw.Draw(img)
 
     has_golden_frame  = "golden_frame"  in data["cosmetic_ids"]
