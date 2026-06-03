@@ -1573,7 +1573,7 @@
   {% if not logged_in %}
   <!-- LOGIN SCREEN -->
   <div class="login-screen">
-    <img src="/static/penguin.png" class="login-penguin" alt="Penguin"
+    <img src="/static/penguin_static.png" class="login-penguin" alt="Penguin"
          onerror="this.style.display='none'"/>
     <div class="login-title">PENGUIN<br><span>VILLAGE</span></div>
     <div class="login-sub">
@@ -1598,7 +1598,7 @@
       <div class="sidebar-panel active" id="sidebar-penguin">
 
         <div class="penguin-display">
-          <img src="/static/penguin.png" class="penguin-sprite" alt="Penguin"
+          <img src="/static/penguin_static.png" class="penguin-sprite" alt="Penguin"
                onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
           {% if penguin['prestige'] and penguin['prestige'] > 0 %}
@@ -2971,7 +2971,7 @@
     prev.innerHTML = `
       <div class="bq-preview-penguin" style="border:3px solid ${tierColor};padding:10px;">
         <div class="bq-preview-slot-label">[${slotLabel}: ${item.name}]</div>
-        <img src="/static/penguin.png" alt="penguin">
+        <img src="/static/penguin_static.png" alt="penguin" onerror="this.style.display='none'">
         <img src="/static/penguin_wearing/${item.slot}/${item.id}.png" alt=""
              style="position:absolute;top:10px;left:10px;width:80px;height:80px;image-rendering:pixelated;"
              onerror="this.style.display='none'">
@@ -3860,7 +3860,7 @@
     const prestigeStars = prestige > 0 ? '★'.repeat(prestige) : '';
     inner.innerHTML = `
       <div class="card-preview-left">
-        <img src="/static/penguin.png" class="card-preview-sprite" alt="penguin"
+        <img src="/static/penguin_static.png" class="card-preview-sprite" alt="penguin"
              onerror="this.style.display='none'">
         <div class="card-preview-username">${CURRENT_USER.toUpperCase()}</div>
         ${_activeTitle ? `<div class="card-preview-title">${_activeTitle}</div>` : ''}
