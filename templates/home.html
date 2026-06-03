@@ -547,36 +547,58 @@
     #inventory-overlay.show { display: flex; }
     .inv-box {
       background: #2E2E2E; border: 3px solid #A86EFF;
-      max-width: 450px; width: 95%; max-height: 80vh;
-      display: flex; flex-direction: column;
+      max-width: 680px; width: 95%; max-height: 85vh;
+      display: flex; flex-direction: row;
       font-family: 'Press Start 2P', monospace;
       animation: popIn 0.2s ease;
     }
-    .inv-header { padding: 16px 16px 0; flex-shrink: 0; position: relative; }
-    .inv-title { color: #A86EFF; font-size: 11px; margin-bottom: 12px; padding-right: 24px; }
+    /* Left preview column */
+    .inv-col-left {
+      width: 160px; flex-shrink: 0;
+      border-right: 2px solid #333;
+      display: flex; flex-direction: column;
+      align-items: center; padding: 20px 12px 16px;
+      background: #1C1C1C;
+    }
+    .inv-preview-penguin { margin-bottom: 10px; }
+    .inv-preview-penguin img { width: 64px; height: 64px; image-rendering: pixelated; }
+    .inv-preview-label { color: #A86EFF; font-size: 8px; margin-bottom: 14px; text-align: center; }
+    .inv-preview-legend { width: 100%; margin-top: auto; }
+    .inv-legend-row {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 6px; color: #666; margin-bottom: 6px; line-height: 1.6;
+    }
+    .inv-legend-icon { font-size: 9px; flex-shrink: 0; }
+    .inv-legend-sep { width: 100%; border: none; border-top: 1px solid #333; margin: 6px 0; }
+    /* Right content column */
+    .inv-col-right {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+    }
+    .inv-header { padding: 14px 16px 0; flex-shrink: 0; position: relative; }
+    .inv-title { color: #A86EFF; font-size: 10px; margin-bottom: 10px; padding-right: 24px; }
     .inv-close-x {
-      position: absolute; top: 12px; right: 12px;
+      position: absolute; top: 10px; right: 12px;
       background: none; border: none; color: #FF7FE5; font-size: 14px;
       cursor: pointer; font-family: 'Press Start 2P', monospace; line-height: 1;
     }
     .inv-close-x:hover { color: #fff; }
     .inv-tabs { display: flex; border-bottom: 2px solid #444; margin-top: 4px; }
     .inv-tab {
-      font-family: 'Press Start 2P', monospace; font-size: 8px;
-      padding: 8px 12px; border: none; background: none;
+      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      padding: 8px 10px; border: none; background: none;
       color: #555; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
     }
     .inv-tab.active { color: #A86EFF; border-bottom-color: #A86EFF; }
     .inv-tab:hover:not(.active) { color: #888; }
-    .inv-body { flex: 1; overflow-y: auto; padding: 12px 16px 16px; }
-    .inv-slot-group { margin-bottom: 16px; }
+    .inv-body { flex: 1; overflow-y: auto; padding: 12px 14px 16px; }
+    .inv-slot-group { margin-bottom: 14px; }
     .inv-slot-title {
-      color: #888; font-size: 8px; margin-bottom: 8px;
+      color: #888; font-size: 7px; margin-bottom: 8px;
       padding-bottom: 4px; border-bottom: 1px solid #333;
     }
     .inv-item {
       display: flex; align-items: center; gap: 8px;
-      padding: 8px; margin-bottom: 4px;
+      padding: 7px 8px; margin-bottom: 4px;
       border: 2px solid #333; background: #1C1C1C;
     }
     .inv-item.rarity-milestone { border-color: #A86EFF; }
@@ -586,19 +608,30 @@
     .inv-item.rarity-epic      { border-color: #A86EFF; }
     .inv-item.rarity-uncommon  { border-color: #4aff6b; }
     .inv-item-info { flex: 1; min-width: 0; }
-    .inv-item-name { color: #fff; font-size: 9px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .inv-item-source { color: #666; font-size: 7px; margin-bottom: 2px; }
-    .inv-item-equipped { color: #4aff6b; font-size: 7px; margin-top: 2px; }
-    .inv-item-stats { color: #888; font-size: 7px; margin-top: 2px; }
-    .inv-set-line { color: #FF8C00; font-size: 7px; margin-top: 2px; }
+    .inv-item-name { color: #fff; font-size: 8px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inv-item-source { color: #666; font-size: 6px; margin-bottom: 2px; }
+    .inv-item-status { font-size: 6px; margin-top: 2px; }
+    .inv-item-stats { color: #888; font-size: 6px; margin-top: 2px; }
+    .inv-set-line { color: #FF8C00; font-size: 6px; margin-top: 2px; }
+    /* Dual-button pair */
+    .inv-btn-pair { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
     .inv-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 7px;
-      padding: 5px 8px; border: 1px solid; cursor: pointer; background: none; flex-shrink: 0;
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      padding: 4px 7px; border: 1px solid; cursor: pointer; background: none; white-space: nowrap;
     }
+    /* Legacy single-button styles (kept for cosmetic modal) */
     .inv-btn.equip   { border-color: #A86EFF; color: #A86EFF; }
     .inv-btn.equip:hover   { background: #A86EFF; color: #1C1C1C; }
     .inv-btn.unequip { border-color: #4aff6b; color: #4aff6b; }
     .inv-btn.unequip:hover { background: #4aff6b; color: #1C1C1C; }
+    /* ⚡ EQUIP button — orange (stats) */
+    .inv-btn.equip-action           { border-color: #FF8C00; color: #FF8C00; }
+    .inv-btn.equip-action:hover     { background: #FF8C00; color: #1C1C1C; }
+    .inv-btn.equip-action.active    { background: #FF8C00; color: #1C1C1C; }
+    /* 👁 WEAR button — purple (look) */
+    .inv-btn.wear-action            { border-color: #A86EFF; color: #A86EFF; }
+    .inv-btn.wear-action:hover      { background: #A86EFF; color: #1C1C1C; }
+    .inv-btn.wear-action.active     { background: #A86EFF; color: #1C1C1C; }
     .inv-empty { color: #555; font-size: 8px; padding: 8px 0; text-align: center; line-height: 2.2; }
     /* Button that opens inventory from sidebar */
     .inv-open-btn {
@@ -609,6 +642,8 @@
     }
     .inv-open-btn:hover { background: #A86EFF; color: #1C1C1C; }
     .wardrobe-slots { padding-top: 6px; }
+    /* WEARING sidebar slot value colour */
+    .wardrobe-slot-val.worn { color: #A86EFF; }
 
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
 
@@ -1250,8 +1285,17 @@
 
       /* ── Modals ── */
       .inv-box {
-        width: 98%; max-width: none; max-height: 90vh; margin: 0;
+        width: 98%; max-width: none; max-height: 90vh; margin: 0; flex-direction: column;
       }
+      .inv-col-left {
+        width: 100%; border-right: none; border-bottom: 2px solid #333;
+        flex-direction: row; align-items: center; justify-content: flex-start;
+        padding: 10px 14px; gap: 12px;
+      }
+      .inv-preview-penguin { margin-bottom: 0; }
+      .inv-preview-label { margin-bottom: 0; }
+      .inv-preview-legend { display: none; }
+      .inv-legend-sep { display: none; }
       .wb-box {
         width: 95%; max-width: none; max-height: 85vh; overflow-y: auto;
       }
@@ -1669,28 +1713,28 @@
         <!-- INVENTORY button -->
         <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
 
-        <!-- COSMETICS — always visible, shows cosmetic gear -->
+        <!-- WEARING — shows what is visually worn per visual area -->
         <div class="wardrobe-slots">
-          <div class="sidebar-section-cosmetic">COSMETICS</div>
-          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('hat')">
+          <div class="sidebar-section-cosmetic">👁 WEARING</div>
+          <div class="wardrobe-slot-row" onclick="openInventory()">
             <span class="wardrobe-slot-icon">🎩</span>
-            <span class="wardrobe-slot-lbl">HAT</span>
-            <span class="wardrobe-slot-val" id="wardrobe-hat">EMPTY</span>
+            <span class="wardrobe-slot-lbl">HEAD</span>
+            <span class="wardrobe-slot-val" id="wearing-head">BARE</span>
           </div>
-          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('outfit')">
+          <div class="wardrobe-slot-row" onclick="openInventory()">
             <span class="wardrobe-slot-icon">👕</span>
-            <span class="wardrobe-slot-lbl">OUTFIT</span>
-            <span class="wardrobe-slot-val" id="wardrobe-outfit">EMPTY</span>
+            <span class="wardrobe-slot-lbl">BODY</span>
+            <span class="wardrobe-slot-val" id="wearing-body">BARE</span>
           </div>
-          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('accessory')">
-            <span class="wardrobe-slot-icon">✨</span>
-            <span class="wardrobe-slot-lbl">ACCESSORY</span>
-            <span class="wardrobe-slot-val" id="wardrobe-accessory">EMPTY</span>
-          </div>
-          <div class="wardrobe-slot-row" onclick="openCosmeticSlot('footwear')">
+          <div class="wardrobe-slot-row" onclick="openInventory()">
             <span class="wardrobe-slot-icon">👟</span>
-            <span class="wardrobe-slot-lbl">FOOTWEAR</span>
-            <span class="wardrobe-slot-val" id="wardrobe-footwear">EMPTY</span>
+            <span class="wardrobe-slot-lbl">FEET</span>
+            <span class="wardrobe-slot-val" id="wearing-feet">BARE</span>
+          </div>
+          <div class="wardrobe-slot-row" onclick="openInventory()">
+            <span class="wardrobe-slot-icon">✨</span>
+            <span class="wardrobe-slot-lbl">HAND</span>
+            <span class="wardrobe-slot-val" id="wearing-hand">BARE</span>
           </div>
         </div>
 
@@ -2058,17 +2102,41 @@
 <!-- INVENTORY MODAL -->
 <div id="inventory-overlay">
   <div class="inv-box">
-    <div class="inv-header">
-      <div class="inv-title">📦 INVENTORY</div>
-      <button class="inv-close-x" onclick="closeInventory()">✕</button>
-      <div class="inv-tabs">
-        <button class="inv-tab active" id="inv-tab-cosmetics" onclick="switchInvTab('cosmetics')">COSMETICS</button>
-        {% if features.get("gear_equip", False) %}
-        <button class="inv-tab" id="inv-tab-gear" onclick="switchInvTab('gear')">COMBAT GEAR</button>
-        {% endif %}
+    <!-- LEFT: penguin preview + legend -->
+    <div class="inv-col-left">
+      <div class="inv-preview-penguin">
+        <img src="/static/penguin_static.png" alt="Your penguin">
+      </div>
+      <div class="inv-preview-label">📦 INVENTORY</div>
+      <hr class="inv-legend-sep">
+      <div class="inv-preview-legend">
+        <div class="inv-legend-row">
+          <span class="inv-legend-icon" style="color:#FF8C00">⚡</span>
+          <span>EQUIP = STAT BONUS</span>
+        </div>
+        <div class="inv-legend-row">
+          <span class="inv-legend-icon" style="color:#A86EFF">👁</span>
+          <span>WEAR = VISUAL LOOK</span>
+        </div>
+        <div class="inv-legend-row" style="color:#444;margin-top:4px;">
+          Independent — equip for CP, wear anything visually.
+        </div>
       </div>
     </div>
-    <div class="inv-body" id="inv-body"></div>
+    <!-- RIGHT: tabs + item list -->
+    <div class="inv-col-right">
+      <div class="inv-header">
+        <div class="inv-title">YOUR GEAR</div>
+        <button class="inv-close-x" onclick="closeInventory()">✕</button>
+        <div class="inv-tabs">
+          <button class="inv-tab active" id="inv-tab-cosmetics" onclick="switchInvTab('cosmetics')">✨ COSMETICS</button>
+          {% if features.get("gear_equip", False) %}
+          <button class="inv-tab" id="inv-tab-gear" onclick="switchInvTab('gear')">⚔️ COMBAT</button>
+          {% endif %}
+        </div>
+      </div>
+      <div class="inv-body" id="inv-body"></div>
+    </div>
   </div>
 </div>
 
@@ -4008,21 +4076,36 @@
   // ── WARDROBE ──
   let _cosmeticCache = [];
 
+  // Maps gear slot → visual area
+  const _SLOT_TO_AREA = {
+    hat: 'head', helmet: 'head',
+    outfit: 'body', armor: 'body',
+    footwear: 'feet', boots: 'feet',
+    accessory: 'hand', weapon: 'hand',
+  };
+
   async function loadWardrobe() {
     try {
       const res  = await fetch(`/gear/cosmetics/${CURRENT_USER}`);
       const data = await res.json();
       _cosmeticCache = data.cosmetics || [];
-      const equipped = {};
-      _cosmeticCache.forEach(c => { if (c.equipped) equipped[c.slot] = c.name; });
-      ['hat', 'outfit', 'accessory', 'footwear'].forEach(slot => {
-        const el = document.getElementById(`wardrobe-${slot}`);
+
+      // Update WEARING sidebar by visual area (uses worn=1)
+      const worn = { head: null, body: null, feet: null, hand: null };
+      _cosmeticCache.forEach(c => {
+        if (c.worn) {
+          const area = _SLOT_TO_AREA[c.slot];
+          if (area) worn[area] = c.name;
+        }
+      });
+      ['head', 'body', 'feet', 'hand'].forEach(area => {
+        const el = document.getElementById(`wearing-${area}`);
         if (!el) return;
-        if (equipped[slot]) {
-          el.textContent = equipped[slot];
-          el.className   = 'wardrobe-slot-val equipped';
+        if (worn[area]) {
+          el.textContent = worn[area];
+          el.className   = 'wardrobe-slot-val worn';
         } else {
-          el.textContent = 'EMPTY';
+          el.textContent = 'BARE';
           el.className   = 'wardrobe-slot-val';
         }
       });
@@ -4166,12 +4249,12 @@
 
   function renderCosmeticsTab() {
     const COSMETIC_SLOTS = [
-      { key: 'hat',         label: 'HAT',        icon: '🎩' },
-      { key: 'outfit',      label: 'OUTFIT',      icon: '👕' },
-      { key: 'accessory',   label: 'ACCESSORY',   icon: '💎' },
-      { key: 'footwear',    label: 'FOOTWEAR',    icon: '👟' },
-      { key: 'card_frame',  label: 'CARD FRAME',  icon: '🖼️' },
-      { key: 'card_effect', label: 'CARD EFFECT', icon: '✨' },
+      { key: 'hat',              label: 'HAT',         icon: '🎩', hasArea: true  },
+      { key: 'outfit',           label: 'OUTFIT',       icon: '👕', hasArea: true  },
+      { key: 'accessory',        label: 'ACCESSORY',    icon: '💎', hasArea: true  },
+      { key: 'footwear',         label: 'FOOTWEAR',     icon: '👟', hasArea: true  },
+      { key: 'card_frame',       label: 'CARD FRAME',   icon: '🖼️', hasArea: false },
+      { key: 'card_background',  label: 'CARD BG',      icon: '🎨', hasArea: false },
     ];
     let html = '';
     for (const slot of COSMETIC_SLOTS) {
@@ -4179,17 +4262,32 @@
       if (items.length === 0) continue;
       html += `<div class="inv-slot-group"><div class="inv-slot-title">${slot.icon} ${slot.label}</div>`;
       for (const item of items) {
-        const rc = _invRarityClass(item);
-        const equippedLabel = item.equipped ? '<div class="inv-item-equipped">▶ EQUIPPED</div>' : '';
-        const btn = item.equipped
-          ? `<button class="inv-btn unequip" onclick="invCosmeticAction(${item.id},'unequip')">UNEQUIP</button>`
-          : `<button class="inv-btn equip"   onclick="invCosmeticAction(${item.id},'equip')">EQUIP</button>`;
+        const rc         = _invRarityClass(item);
+        const isEquipped = !!item.equipped;
+        const isWorn     = !!item.worn;
+        const statusHtml = [
+          isEquipped ? `<span style="color:#FF8C00">⚡ EQUIPPED</span>` : '',
+          isWorn     ? `<span style="color:#A86EFF">👁 WORN</span>`     : '',
+        ].filter(Boolean).join(' ');
+
+        const equipBtn = isEquipped
+          ? `<button class="inv-btn equip-action active" onclick="invCosmeticEquipAction(${item.id},'unequip')">⚡ UNEQUIP</button>`
+          : `<button class="inv-btn equip-action"        onclick="invCosmeticEquipAction(${item.id},'equip')">⚡ EQUIP</button>`;
+
+        const wearBtn = slot.hasArea
+          ? (isWorn
+            ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})">👁 UNWEAR</button>`
+            : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})">👁 WEAR</button>`)
+          : '';
+
         html += `<div class="inv-item ${rc}">
           <div class="inv-item-info">
             <div class="inv-item-name">${item.name}</div>
             <div class="inv-item-source">${item.source || ''}</div>
-            ${equippedLabel}
-          </div>${btn}</div>`;
+            ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
+          </div>
+          <div class="inv-btn-pair">${equipBtn}${wearBtn}</div>
+        </div>`;
       }
       html += `</div>`;
     }
@@ -4211,18 +4309,32 @@
       if (items.length === 0) continue;
       html += `<div class="inv-slot-group"><div class="inv-slot-title">${slot.icon} ${slot.label}</div>`;
       for (const item of items) {
-        const rc = _invRarityClass(item);
-        const equippedLabel = item.equipped ? '<div class="inv-item-equipped">▶ EQUIPPED</div>' : '';
-        const statsLine = item.combat_power ? `<div class="inv-item-stats" style="color:#FF8C00">CP: +${item.combat_power}</div>` : '';
-        const setLine   = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
-        const btn = item.equipped
-          ? `<button class="inv-btn unequip" onclick="invGearAction(${item.id})">UNEQUIP</button>`
-          : `<button class="inv-btn equip"   onclick="invGearAction(${item.id})">EQUIP</button>`;
+        const rc         = _invRarityClass(item);
+        const isEquipped = !!item.equipped;
+        const isWorn     = !!item.worn;
+        const statsLine  = item.combat_power ? `<div class="inv-item-stats" style="color:#FF8C00">CP: +${item.combat_power}</div>` : '';
+        const setLine    = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
+        const statusHtml = [
+          isEquipped ? `<span style="color:#FF8C00">⚡ EQUIPPED</span>` : '',
+          isWorn     ? `<span style="color:#A86EFF">👁 WORN</span>`     : '',
+        ].filter(Boolean).join(' ');
+
+        const equipBtn = isEquipped
+          ? `<button class="inv-btn equip-action active" onclick="invGearEquipAction(${item.id})">⚡ UNEQUIP</button>`
+          : `<button class="inv-btn equip-action"        onclick="invGearEquipAction(${item.id})">⚡ EQUIP</button>`;
+
+        const wearBtn = isWorn
+          ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})">👁 UNWEAR</button>`
+          : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})">👁 WEAR</button>`;
+
         html += `<div class="inv-item ${rc}">
           <div class="inv-item-info">
             <div class="inv-item-name">${item.name}</div>
-            ${statsLine}${setLine}${equippedLabel}
-          </div>${btn}</div>`;
+            ${statsLine}${setLine}
+            ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
+          </div>
+          <div class="inv-btn-pair">${equipBtn}${wearBtn}</div>
+        </div>`;
       }
       html += `</div>`;
     }
@@ -4230,7 +4342,7 @@
     return html;
   }
 
-  async function invCosmeticAction(gearId, action) {
+  async function invCosmeticEquipAction(gearId, action) {
     try {
       const res = await fetch('/gear/cosmetics/equip', {
         method: 'POST',
@@ -4239,11 +4351,15 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
-        showToast(action === 'equip' ? 'Item equipped!' : 'Item unequipped!', 'ok');
         const target = _invCosmeticData.find(c => c.id === gearId);
         if (target) {
-          _invCosmeticData.filter(c => c.slot === target.slot).forEach(c => c.equipped = 0);
-          if (action === 'equip') target.equipped = 1;
+          if (action === 'equip') {
+            _invCosmeticData.filter(c => c.slot === target.slot).forEach(c => c.equipped = 0);
+            target.equipped = 1;
+            Sounds.equip();
+          } else {
+            target.equipped = 0;
+          }
         }
         renderInventory();
         await loadWardrobe();
@@ -4256,7 +4372,58 @@
     } catch(e) { showToast('Error.', 'err'); }
   }
 
-  async function invGearAction(gearId) {
+  async function invWearAction(gearId) {
+    const cosmetic = _invCosmeticData.find(c => c.id === gearId);
+    const combat   = _invGearData.find(g => g.id === gearId);
+    const item = cosmetic || combat;
+    if (!item) return;
+    try {
+      const res = await fetch('/gear/wear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, gear_id: gearId }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        const area = _SLOT_TO_AREA[item.slot];
+        if (area) {
+          const areaSlots = Object.keys(_SLOT_TO_AREA).filter(s => _SLOT_TO_AREA[s] === area);
+          _invCosmeticData.filter(c => areaSlots.includes(c.slot)).forEach(c => c.worn = 0);
+          _invGearData.filter(g => areaSlots.includes(g.slot)).forEach(g => g.worn = 0);
+        }
+        item.worn = 1;
+        Sounds.wear();
+        renderInventory();
+        await loadWardrobe();
+      } else {
+        showToast(data.message || 'Error.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function invUnwearAction(gearId) {
+    try {
+      const res = await fetch('/gear/unwear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, gear_id: gearId }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        const cosmetic = _invCosmeticData.find(c => c.id === gearId);
+        const combat   = _invGearData.find(g => g.id === gearId);
+        if (cosmetic) cosmetic.worn = 0;
+        if (combat)   combat.worn   = 0;
+        Sounds.unwear();
+        renderInventory();
+        await loadWardrobe();
+      } else {
+        showToast(data.message || 'Error.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function invGearEquipAction(gearId) {
     if (!FEATURES.gear_equip) return;
     try {
       const res = await fetch('/gear/equip', {
