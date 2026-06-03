@@ -338,6 +338,14 @@ _RES_COL = {
     "spell_fragments": "spell_fragments_donated",
 }
 
+# Maps gear slot → visual area (for WEAR system: one item shown per area)
+_VISUAL_AREA = {
+    "helmet": "head",   "hat":       "head",
+    "armor":  "body",   "outfit":    "body",
+    "boots":  "feet",   "footwear":  "feet",
+    "weapon": "hand",   "accessory": "hand",
+}
+
 
 def get_building_level(db, building_id):
     row = db.execute(
@@ -2830,12 +2838,73 @@ def gear_equip():
         db.commit()
         db.close()
         return jsonify({"status": "success", "equipped": False, "message": f"{item['name']} unequipped."})
-    db.execute("UPDATE gear SET equipped=0 WHERE username=? AND slot=?", (username, item["slot"]))
+    db.execute("UPDATE gear SET equipped=0 WHERE username=? AND type=? AND slot=?", (username, item["type"], item["slot"]))
     db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_id,))
     new_ach = check_achievements(db, username)
     db.commit()
     db.close()
     return jsonify({"status": "success", "equipped": True, "message": f"{item['name']} equipped.", "new_achievements": new_ach})
+
+
+@app.route("/gear/unequip", methods=["POST"])
+def gear_unequip():
+    if not FEATURES.get("gear_equip", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    gear_id  = int(data.get("gear_id", 0))
+    db = get_db()
+    item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+    db.execute("UPDATE gear SET equipped=0 WHERE id=?", (gear_id,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "equipped": False, "message": f"{item['name']} unequipped."})
+
+
+@app.route("/gear/wear", methods=["POST"])
+def gear_wear():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    gear_id  = int(data.get("gear_id", 0))
+    db = get_db()
+    item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+    area = _VISUAL_AREA.get(item["slot"])
+    if not area:
+        db.close()
+        return jsonify({"status": "error", "message": "This item has no visual area."})
+    # Unwear all items in the same visual area (across all types)
+    slots_in_area = [s for s, a in _VISUAL_AREA.items() if a == area]
+    placeholders  = ",".join("?" * len(slots_in_area))
+    db.execute(
+        f"UPDATE gear SET worn=0 WHERE username=? AND slot IN ({placeholders})",
+        (username, *slots_in_area)
+    )
+    db.execute("UPDATE gear SET worn=1 WHERE id=?", (gear_id,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "worn": True, "message": f"{item['name']} is now worn."})
+
+
+@app.route("/gear/unwear", methods=["POST"])
+def gear_unwear():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    gear_id  = int(data.get("gear_id", 0))
+    db = get_db()
+    item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+    db.execute("UPDATE gear SET worn=0 WHERE id=?", (gear_id,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "worn": False, "message": f"{item['name']} unworn."})
 
 
 # ── MISSIONS ─────────────────────────────────────────────────────────────────
@@ -4397,13 +4466,13 @@ def _get_public_penguin(username):
         "SELECT achievement_id FROM achievements WHERE username=? ORDER BY unlocked_at ASC LIMIT 1",
         (username,)
     ).fetchone()
-    # card cosmetics
+    # worn cosmetics (for card visual)
     cosmetics = db.execute(
-        "SELECT item_id FROM gear WHERE username=? AND type='cosmetic' AND equipped=1",
+        "SELECT item_id FROM gear WHERE username=? AND type='cosmetic' AND worn=1",
         (username,)
     ).fetchall()
     cosmetic_ids = {c["item_id"] for c in cosmetics if c["item_id"]}
-    # equipped card background
+    # equipped card background (still uses equipped=1 since card frames are not visual-area items)
     bg_row = db.execute(
         "SELECT item_id, name FROM gear WHERE username=? AND type='cosmetic' "
         "AND slot IN ('card_frame','card_background') AND equipped=1 LIMIT 1",
@@ -4675,6 +4744,21 @@ def village_penguins():
            LIMIT 50""",
         (cutoff,)
     ).fetchall()
+
+    # Build worn_items map for all active penguins in one query
+    worn_map = {}
+    if rows:
+        unames = tuple(r["username"] for r in rows)
+        placeholders = ",".join("?" * len(unames))
+        worn_rows = db.execute(
+            f"SELECT username, slot, item_id FROM gear WHERE worn=1 AND username IN ({placeholders})",
+            unames
+        ).fetchall()
+        for w in worn_rows:
+            area = _VISUAL_AREA.get(w["slot"])
+            if area and w["item_id"]:
+                worn_map.setdefault(w["username"], {})[area] = w["item_id"]
+
     db.close()
 
     penguins = []
@@ -4696,6 +4780,7 @@ def village_penguins():
             "active_title": r["active_title"],
             "startGridX":   home[0],
             "startGridY":   home[1],
+            "worn_items":   worn_map.get(r["username"], {}),
         })
 
     return jsonify({"penguins": penguins})
