@@ -284,6 +284,13 @@ def init_db():
     _add_col(c, "penguins", "trait_social TEXT DEFAULT NULL")
     _add_col(c, "penguins", "trait_interest TEXT DEFAULT NULL")
     _add_col(c, "penguins", "trait_quirk TEXT DEFAULT NULL")
+    _add_col(c, "gear", "worn INTEGER DEFAULT 0")
+
+    # Migrate: cosmetics that were equipped should also be worn (they were shown visually)
+    try:
+        c.execute("UPDATE gear SET worn=1 WHERE equipped=1 AND type='cosmetic' AND worn=0")
+    except Exception:
+        pass
 
     # Existing players (level > 1) skip character creation — they can reshape at the Cursed Temple
     try:

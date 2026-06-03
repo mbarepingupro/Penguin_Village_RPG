@@ -412,6 +412,26 @@ function drawPenguin(sx, sy, penguin) {
         ctx.fill();
     }
 
+    // Layer worn item sprites (body first so head renders on top)
+    if (penguin.worn_items) {
+        const DRAW_ORDER = ['body', 'feet', 'hand', 'head'];
+        for (const area of DRAW_ORDER) {
+            const itemId = penguin.worn_items[area];
+            if (!itemId) continue;
+            const spriteUrl = `/static/penguin_wearing/${area}/${itemId}.png`;
+            const wornSprite = SpriteLoader.get(spriteUrl);
+            if (!wornSprite) continue;
+            ctx.save();
+            ctx.imageSmoothingEnabled = false;
+            if (!penguin.facingRight) {
+                ctx.translate(sx * 2, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(wornSprite, drawX, drawY, drawWidth, drawHeight);
+            ctx.restore();
+        }
+    }
+
     // Labels (name + title)
     if (fontReady) {
         const displayName = penguin.display_name || penguin.username;
@@ -549,6 +569,7 @@ function mergePenguins(incoming) {
             ep.prestige = p.prestige;
             ep.working = !!p.job;
             ep.isCurrentUser = p.username === currentUser;
+            ep.worn_items = p.worn_items || {};
         } else {
             let spawn;
             if (p.startGridX !== undefined) {
@@ -579,6 +600,7 @@ function mergePenguins(incoming) {
                 lastFrameTime: performance.now(),
                 facingRight: true,
                 isMoving: false,
+                worn_items: p.worn_items || {},
             };
         }
     }
