@@ -7,6 +7,11 @@ const GRID_SIZE = 20;
 
 const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5;
 
+const PENGUIN_FRAME_WIDTH  = 35;
+const PENGUIN_FRAME_HEIGHT = 35;
+const PENGUIN_FRAME_COUNT  = 2;
+const PENGUIN_ANIM_SPEED   = 400; // ms per frame
+
 const TILE_COLORS = {
     0: "#C8DADA",
     1: "#8B7355",
@@ -46,7 +51,7 @@ async function loadAllSprites() {
     const buildingLoads = Object.keys(buildingLayout).map(
         id => SpriteLoader.load(`/static/buildings/${id}.png`)
     );
-    await Promise.all([...tileLoads, ...buildingLoads]);
+    await Promise.all([...tileLoads, ...buildingLoads, SpriteLoader.load('/static/penguin.png')]);
 }
 
 const BUILDING_CFG = {
@@ -364,78 +369,77 @@ function drawBuilding(id, bdef, level) {
     }
 }
 
-function drawPenguinAt(sx, sy, penguin, pulse) {
-    const bodyColor  = penguin.body_color  || "#111111";
-    const bellyColor = penguin.belly_color || "#FFFFFF";
-    const displayName = penguin.display_name || penguin.username;
+function drawPenguin(sx, sy, penguin) {
+    const drawWidth  = TILE_W * 0.6;                              // ~38px world units
+    const drawHeight = (PENGUIN_FRAME_HEIGHT / PENGUIN_FRAME_WIDTH) * drawWidth; // 1:1
+    const drawX = sx - drawWidth / 2;
+    const drawY = sy - drawHeight;                                // feet at tile centre
 
+    // Pulsing ring for current user
     if (penguin.isCurrentUser) {
+        const alpha = 0.5 + 0.5 * Math.sin(_time / 500);
         ctx.save();
-        ctx.beginPath();
-        ctx.arc(sx, sy, 14 + pulse * 3, 0, Math.PI * 2);
-        ctx.strokeStyle = "#FF7FE5";
+        ctx.strokeStyle = `rgba(255,127,229,${alpha})`;
         ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy - drawHeight / 2, drawWidth / 2 + 4, drawHeight / 2 + 4, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
     }
 
-    // Body
-    ctx.beginPath();
-    ctx.arc(sx, sy, 10, 0, Math.PI * 2);
-    ctx.fillStyle = bodyColor;
-    ctx.fill();
+    const sprite = SpriteLoader.get('/static/penguin.png');
+    if (sprite) {
+        // Frame 1: sx=0  Frame 2: sx=36  (35px wide + 1px gap)
+        const frameX = penguin.animFrame * 36;
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        if (!penguin.facingRight) {
+            // Mirror around the sprite's centre x
+            ctx.translate(sx * 2, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(
+            sprite,
+            frameX, 0, PENGUIN_FRAME_WIDTH, PENGUIN_FRAME_HEIGHT,
+            drawX, drawY, drawWidth, drawHeight
+        );
+        ctx.restore();
+    } else {
+        // Fallback: simple circle
+        ctx.beginPath();
+        ctx.arc(sx, sy - drawHeight / 2, drawWidth / 2, 0, Math.PI * 2);
+        ctx.fillStyle = penguin.body_color || '#1a1a1a';
+        ctx.fill();
+    }
 
-    // Belly
-    ctx.beginPath();
-    ctx.arc(sx, sy + 1, 6, 0, Math.PI * 2);
-    ctx.fillStyle = bellyColor;
-    ctx.fill();
-
-    // Eyes (white)
-    ctx.beginPath();
-    ctx.arc(sx - 3, sy - 3, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(sx + 3, sy - 3, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fill();
-
-    // Pupils
-    ctx.beginPath();
-    ctx.arc(sx - 3, sy - 3, 1, 0, Math.PI * 2);
-    ctx.fillStyle = "#000000";
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(sx + 3, sy - 3, 1, 0, Math.PI * 2);
-    ctx.fillStyle = "#000000";
-    ctx.fill();
-
+    // Labels (name + title)
     if (fontReady) {
+        const displayName = penguin.display_name || penguin.username;
         ctx.save();
         ctx.shadowColor = "rgba(0,0,0,0.9)";
-        ctx.shadowBlur = 3;
-        ctx.textAlign = "center";
+        ctx.shadowBlur  = 3;
+        ctx.textAlign   = "center";
         ctx.textBaseline = "middle";
 
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "6px 'Press Start 2P', monospace";
-        ctx.fillText(displayName, sx, sy - 26);
+        ctx.fillText(displayName, sx, drawY - 5);
 
         if (penguin.active_title) {
             ctx.fillStyle = "#A86EFF";
             ctx.font = "5px 'Press Start 2P', monospace";
-            ctx.fillText(penguin.active_title, sx, sy - 18);
+            ctx.fillText(penguin.active_title, sx, drawY + 5);
         }
 
         ctx.restore();
     }
 
+    // Job icon beside the sprite
     if (penguin.job && JOB_ICONS[penguin.job]) {
         ctx.font = "10px monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(JOB_ICONS[penguin.job], sx + 14, sy);
+        ctx.fillText(JOB_ICONS[penguin.job], sx + drawWidth / 2 + 6, sy - drawHeight / 2);
     }
 }
 
@@ -498,15 +502,27 @@ function stepPenguin(penguin) {
     penguin.targetGridX = target.x;
     penguin.targetGridY = target.y;
     penguin.progress = 0;
+
+    if (target.x > penguin.gridX)      penguin.facingRight = true;
+    else if (target.x < penguin.gridX) penguin.facingRight = false;
+    // y-only movement: keep current facing
 }
 
 function updatePenguins(dt) {
+    const now = performance.now();
     for (const p of penguins) {
         if (p.progress < 1) {
             p.progress = Math.min(1, p.progress + dt / 1000);
+            p.isMoving = true;
+            if (now - p.lastFrameTime > PENGUIN_ANIM_SPEED) {
+                p.animFrame    = (p.animFrame + 1) % PENGUIN_FRAME_COUNT;
+                p.lastFrameTime = now;
+            }
         } else {
-            p.gridX = p.targetGridX;
-            p.gridY = p.targetGridY;
+            p.gridX    = p.targetGridX;
+            p.gridY    = p.targetGridY;
+            p.isMoving = false;
+            p.animFrame = 0;
             p.nextMoveIn -= dt;
             if (p.nextMoveIn <= 0) {
                 stepPenguin(p);
@@ -559,6 +575,10 @@ function mergePenguins(incoming) {
                 homeX: p.homeX !== undefined ? p.homeX : gx,
                 homeY: p.homeY !== undefined ? p.homeY : gy,
                 working: !!p.job,
+                animFrame: 0,
+                lastFrameTime: performance.now(),
+                facingRight: true,
+                isMoving: false,
             };
         }
     }
@@ -885,6 +905,7 @@ function gameLoop(ts) {
 
     // Apply pan + zoom transform for world rendering
     ctx.save();
+    ctx.imageSmoothingEnabled = false;
     ctx.translate(cameraX, cameraY);
     ctx.scale(zoomLevel, zoomLevel);
 
@@ -929,8 +950,6 @@ function gameLoop(ts) {
 
     updatePenguins(dt);
 
-    const pulse = (Math.sin(_time / 300) + 1) / 2;
-
     const sortedPenguins = penguins.slice().sort((a, b) => {
         const aSort = (a.gridX + (a.targetGridX - a.gridX) * a.progress) + (a.gridY + (a.targetGridY - a.gridY) * a.progress);
         const bSort = (b.gridX + (b.targetGridX - b.gridX) * b.progress) + (b.gridY + (b.targetGridY - b.gridY) * b.progress);
@@ -941,7 +960,7 @@ function gameLoop(ts) {
         const ix = p.gridX + (p.targetGridX - p.gridX) * p.progress;
         const iy = p.gridY + (p.targetGridY - p.gridY) * p.progress;
         const pos = gridToScreen(ix, iy);
-        drawPenguinAt(pos.x, pos.y, p, pulse);
+        drawPenguin(pos.x, pos.y, p);
     }
 
     ctx.restore();
