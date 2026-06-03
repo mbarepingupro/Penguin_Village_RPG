@@ -4332,7 +4332,7 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 
 CARD_FONT_PATH  = os.path.join(os.path.dirname(__file__), "static", "fonts", "PressStart2P-Regular.ttf")
-CARD_SPRITE_PATH = os.path.join(os.path.dirname(__file__), "static", "penguin.png")
+CARD_SPRITE_PATH = os.path.join(os.path.dirname(__file__), "static", "penguin_static.png")
 CARD_W, CARD_H  = 600, 340
 LEFT_W           = 190
 
