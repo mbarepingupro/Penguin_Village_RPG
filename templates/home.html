@@ -3213,12 +3213,26 @@
         if (!canAff) html += `<div style="color:#ff6b6b;font-size:7px;margin-top:5px;text-align:center;">Need ${cost} gold (have ${gold})</div>`;
       }
     } else if (btype === 'combat') {
+      const hasGearShop = FEATURES.gear_equip;
+      html += `<div class="bm-tab-bar" style="display:flex;gap:4px;margin-bottom:10px;">
+        <button class="bm-tab active" id="barracks-tab-monsters" onclick="switchBarracksTab('monsters')" style="flex:1;font-size:8px;padding:6px 4px;background:#1a1a1a;border:1px solid #ff6b6b;color:#ff6b6b;cursor:pointer;font-family:inherit;">⚔️ MONSTERS</button>
+        <button class="bm-tab" id="barracks-tab-shop" onclick="switchBarracksTab('shop')" style="flex:1;font-size:8px;padding:6px 4px;background:#1a1a1a;border:1px solid #666;color:#666;cursor:pointer;font-family:inherit;">🛡️ GEAR SHOP</button>
+      </div>`;
+      html += `<div id="barracks-pane-monsters">`;
       if (FEATURES.combat) {
         html += `<div class="bp-info">Fight monsters. Win loot.</div>`;
         html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">ENTER BARRACKS</button>`;
       } else {
         html += bpComingSoon('🚧', 'THE BARRACKS ARE BEING PREPARED...', 'Combat, gear, and monsters are coming soon.');
       }
+      html += `</div>`;
+      html += `<div id="barracks-pane-shop" style="display:none;">`;
+      if (hasGearShop) {
+        html += `<div id="barracks-shop-content" style="min-height:60px;"><div style="color:#666;font-size:7px;text-align:center;padding:10px;">LOADING...</div></div>`;
+      } else {
+        html += bpComingSoon('🛡️', 'GEAR SHOP COMING SOON', 'Forge powerful combat equipment here.');
+      }
+      html += `</div>`;
     } else if (btype === 'achievements') {
       html += `<button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW ACHIEVEMENTS</button>`;
     } else if (btype === 'placeholder') {
@@ -4328,6 +4342,106 @@
     } catch(e) { showToast('Error.', 'err'); }
   }
 
+  // ── BARRACKS SHOP ──
+  function switchBarracksTab(tab) {
+    document.getElementById('barracks-pane-monsters').style.display = tab === 'monsters' ? '' : 'none';
+    document.getElementById('barracks-pane-shop').style.display     = tab === 'shop'     ? '' : 'none';
+    const mBtn = document.getElementById('barracks-tab-monsters');
+    const sBtn = document.getElementById('barracks-tab-shop');
+    if (mBtn && sBtn) {
+      mBtn.style.borderColor = tab === 'monsters' ? '#ff6b6b' : '#666';
+      mBtn.style.color       = tab === 'monsters' ? '#ff6b6b' : '#666';
+      sBtn.style.borderColor = tab === 'shop'     ? '#ff6b6b' : '#666';
+      sBtn.style.color       = tab === 'shop'     ? '#ff6b6b' : '#666';
+    }
+    if (tab === 'shop') loadBarracksShop();
+  }
+
+  const _RESOURCE_ICONS = { gold: '🪙', bones: '🦴', blood_gems: '💎', spell_fragments: '✨', fish: '🐟', herbs: '🌿' };
+
+  async function loadBarracksShop() {
+    const container = document.getElementById('barracks-shop-content');
+    if (!container) return;
+    container.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:10px;">LOADING...</div>';
+    try {
+      const res  = await fetch(`/barracks/shop/${CURRENT_USER}`);
+      const data = await res.json();
+
+      const gold = data.gold || 0;
+      const res_ = data.resources || {};
+      const ownedIds = data.owned_ids || [];
+      const shop = data.shop || {};
+
+      const resLine = `🪙 ${gold.toLocaleString()} &nbsp; 🦴 ${res_.bones||0} &nbsp; 💎 ${res_.blood_gems||0} &nbsp; ✨ ${res_.spell_fragments||0}`;
+      let html = `<div style="color:#ff6b6b;font-size:12px;margin-bottom:4px;">🛡️ GEAR SHOP</div>`;
+      html += `<div style="color:#888;font-size:8px;margin-bottom:8px;">Forge your own gear with resources</div>`;
+      html += `<div style="color:#FF8C00;font-size:7px;margin-bottom:10px;line-height:2;">${resLine}</div>`;
+
+      const rarityHeaders = { common: { label: 'COMMON GEAR', color: '#888' }, uncommon: { label: 'UNCOMMON GEAR', color: '#4aff6b' }, rare: { label: 'RARE GEAR', color: '#6b9fff' } };
+      const slotIcons = { weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'🥾' };
+
+      for (const [rarity, items] of Object.entries(shop)) {
+        const rh = rarityHeaders[rarity] || { label: rarity.toUpperCase(), color: '#888' };
+        html += `<div style="color:${rh.color};font-size:8px;border-bottom:1px solid ${rh.color};padding-bottom:3px;margin:10px 0 6px;">— ${rh.label} —</div>`;
+        items.forEach(item => {
+          const owned = ownedIds.includes(item.id);
+          let canAfford = true;
+          const shortList = [];
+          for (const [r, amt] of Object.entries(item.cost)) {
+            const have = r === 'gold' ? gold : (res_[r] || 0);
+            if (have < amt) { canAfford = false; shortList.push(`${_RESOURCE_ICONS[r]||r} ${amt-have} more`); }
+          }
+          const costStr = Object.entries(item.cost).map(([r,v]) => `${_RESOURCE_ICONS[r]||r} ${v}`).join(' | ');
+          const slotIcon = slotIcons[item.slot] || '❓';
+
+          html += `<div style="background:#111;border:1px solid #333;padding:8px;margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="color:#fff;font-size:9px;">${item.name}</div>
+                <div style="color:#FF8C00;font-size:9px;margin-top:2px;">CP: +${item.combat_power}</div>
+                <div style="color:#888;font-size:7px;margin-top:2px;">${slotIcon} ${item.slot.toUpperCase()}</div>
+                <div style="color:#aaa;font-size:7px;margin-top:4px;">${costStr}</div>
+                ${!canAfford && !owned ? `<div style="color:#ff6b6b;font-size:7px;margin-top:2px;">Need: ${shortList.join(', ')}</div>` : ''}
+              </div>
+              <div style="flex-shrink:0;margin-left:8px;">
+                ${owned
+                  ? `<div style="color:#4aff6b;font-size:8px;margin-top:8px;">OWNED ✅</div>`
+                  : `<button onclick="barracksForge('${item.id}')"
+                       style="font-family:inherit;font-size:7px;padding:5px 8px;background:#1a1a1a;
+                              border:1px solid ${canAfford ? '#4aff6b' : '#666'};
+                              color:${canAfford ? '#4aff6b' : '#666'};cursor:${canAfford ? 'pointer' : 'not-allowed'};"
+                       ${canAfford ? '' : 'disabled'}>FORGE</button>`
+                }
+              </div>
+            </div>
+          </div>`;
+        });
+      }
+
+      container.innerHTML = html;
+    } catch(e) {
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:8px;text-align:center;padding:10px;">ERROR LOADING SHOP</div>';
+    }
+  }
+
+  async function barracksForge(itemId) {
+    try {
+      const res  = await fetch('/barracks/buy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, item_id: itemId })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'ok');
+        await refreshStats();
+        loadBarracksShop();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error forging gear.', 'err'); }
+  }
+
   // ── COMBAT ──
   let _fightInProgress = false;
   let _pendingCombatRefresh = false;
@@ -4808,50 +4922,10 @@
       }
       html += '</div>';
 
-      html += '<div class="gear-section-title">GEAR CATALOG</div><div class="gear-grid">';
-      Object.entries(gData.catalog || {}).forEach(([itemId, defn]) => {
-        const costStr = Object.entries(defn.cost).map(([k,v]) => `${v} ${k}`).join(', ');
-        let canAfford = true;
-        for (const [res, amt] of Object.entries(defn.cost)) {
-          const have = res === 'gold' ? (gData.gold || 0) : ((gData.resources || {})[res] || 0);
-          if (have < amt) { canAfford = false; }
-        }
-        const statsStr = defn.type === 'combat' && defn.combat_power > 0 ? `CP: +${defn.combat_power}` : '';
-        const rarityClass = defn.rarity || 'common';
-        const itemIcon = slotIconMap[defn.slot] || '❓';
-        html += `<div class="gear-card ${defn.type} ${rarityClass}">
-          <div class="gear-card-icon">${itemIcon}</div>
-          <div class="gear-card-name">${defn.name}</div>
-          ${statsStr ? `<div class="gear-card-stats">${statsStr}</div>` : ''}
-          <div class="gear-card-name" style="color:#666;font-size:8px;">${defn.slot.toUpperCase()}</div>
-          <div class="gear-card-cost">${costStr}</div>
-          <button class="gear-card-btn buy-btn" ${canAfford ? '' : 'disabled'} onclick="buyGear('${itemId}')">BUY</button>
-        </div>`;
-      });
-      html += '</div>';
-
       container.innerHTML = html;
     } catch(e) {
       container.innerHTML = '<div style="color:#ff6b6b;font-size:9px;text-align:center;padding:20px;">ERROR LOADING GEAR</div>';
     }
-  }
-
-  async function buyGear(itemId) {
-    try {
-      const res = await fetch('/gear/buy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, item_id: itemId })
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        showToast(data.message, 'ok');
-        await refreshStats();
-        loadGear();
-      } else {
-        showToast(data.message, 'err');
-      }
-    } catch(e) { showToast('Error buying gear.', 'err'); }
   }
 
   async function equipGear(gearId) {

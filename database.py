@@ -326,6 +326,15 @@ def init_db():
     except Exception:
         pass
 
+    # Cosmetic items must never have combat stats
+    try:
+        c.execute(
+            "UPDATE gear SET combat_power=0, attack_bonus=0, defense_bonus=0, speed_bonus=0, hp_bonus=0 "
+            "WHERE type='cosmetic'"
+        )
+    except Exception:
+        pass
+
     conn.commit()
     conn.close()
 
