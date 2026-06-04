@@ -4532,13 +4532,13 @@
         : `⚡ ${energy} / ${maxEnergy} <span style="color:#888">+10/hr</span>`;
 
       const tierLabels = {
-        1: 'TIER 1 — NEWCOMER GROUNDS',
-        2: 'TIER 2 — FROZEN FRONTIER',
-        3: 'TIER 3 — SHADOW TERRITORY',
-        4: 'TIER 4 — CURSED DEPTHS',
-        5: 'TIER 5 — THE ABYSS',
+        1: 'TIER 1 — NEWCOMER GROUNDS (LV 1-4)',
+        2: 'TIER 2 — FROZEN FRONTIER (LV 5-9)',
+        3: 'TIER 3 — SHADOW TERRITORY (LV 10-14)',
+        4: 'TIER 4 — CURSED DEPTHS (LV 15-24)',
+        5: 'TIER 5 — THE ABYSS (LV 25-30)',
       };
-      const tierMinLevels = {1:1, 2:6, 3:11, 4:16, 5:26};
+      const tierMinLevels = {1:1, 2:5, 3:10, 4:15, 5:25};
       const playerLevel   = data.player_level || 1;
 
       let currentTier = 1;
