@@ -136,7 +136,6 @@
       font-family: 'Press Start 2P', monospace; padding: 5px 8px; cursor: pointer;
     }
     .sb-award-btn:hover { border-color: var(--pink); color: var(--pink); }
-    .gear-slot-icon { font-size: 14px; flex-shrink: 0; }
 
     /* ── PENGUIN PANEL ── */
     .penguin-display {
@@ -347,19 +346,6 @@
     .res-val  { color: var(--white); font-size: 9px; }
 
     /* ── GEAR SLOTS IN SIDEBAR ── */
-    .gear-slots { padding: 10px 12px; border-bottom: var(--border-thin); }
-    .gear-slot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; cursor: pointer; }
-    .gear-slot-row:hover .gear-slot-val { color: var(--pink); }
-    .gear-slot-lbl { color: #666; font-size: 8px; width: 52px; flex-shrink: 0; }
-    .gear-slot-val { color: var(--white); font-size: 8px; flex: 1; }
-    .sidebar-section-combat {
-      color: #ff6b6b; font-size: 9px; margin-bottom: 6px;
-      padding-bottom: 4px; border-bottom: 2px solid #ff6b6b;
-    }
-    .sidebar-section-cosmetic {
-      color: #A86EFF; font-size: 9px; margin-bottom: 6px;
-      padding-bottom: 4px; border-bottom: 2px solid #A86EFF;
-    }
 
     /* ── CONTENT AREA ── */
     .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -490,18 +476,6 @@
     .bq-preview-penguin img { width:80px; height:80px; image-rendering:pixelated; }
     .bq-preview-slot-label { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:7px; color:#fff; white-space:nowrap; font-family:'Press Start 2P',monospace; }
 
-    /* ── WARDROBE (sidebar) ── */
-    .wardrobe-slots { padding: 8px 12px; border-bottom: var(--border-thin); }
-    .wardrobe-slot-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 5px 2px; cursor: pointer; border-bottom: 1px solid #222;
-    }
-    .wardrobe-slot-row:last-child { border-bottom: none; }
-    .wardrobe-slot-row:hover { background: #252525; }
-    .wardrobe-slot-icon { font-size: 14px; width: 20px; flex-shrink: 0; }
-    .wardrobe-slot-lbl  { color: #555; font-size: 7px; width: 52px; flex-shrink: 0; }
-    .wardrobe-slot-val  { color: #888; font-size: 7px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .wardrobe-slot-val.equipped { color: #FF7FE5; }
 
     /* ── COSMETIC EQUIP MODAL ── */
     #cosmetic-modal {
@@ -641,9 +615,6 @@
       background: #1C1C1C; cursor: pointer; text-align: center;
     }
     .inv-open-btn:hover { background: #A86EFF; color: #1C1C1C; }
-    .wardrobe-slots { padding-top: 6px; }
-    /* WEARING sidebar slot value colour */
-    .wardrobe-slot-val.worn { color: #A86EFF; }
 
     .bp-info { font-size: 8px; color: #888; line-height: 2; }
 
@@ -1319,8 +1290,6 @@
       .bp-btn { min-height: 44px; }
       .collect-btn { min-height: 44px; }
       .inv-btn { min-height: 40px; padding: 8px 12px; }
-      .wardrobe-slot-row { min-height: 44px; padding: 8px 2px; }
-      .gear-slot-row { min-height: 44px; }
       .cosmetic-action-btn { min-height: 40px; padding: 6px 10px; }
       .seal-buy-btn { min-height: 40px; padding: 6px 10px; }
       .sm-close { min-height: 44px; }
@@ -1710,33 +1679,11 @@
           <div id="stream-bonus-tier-label" style="font-size:7px; line-height:1.8;"></div>
         </div>
 
-        <!-- INVENTORY button -->
+        <!-- INVENTORY button (+ CP when combat enabled) -->
+        {% if features.get("combat", False) %}
+        <div style="padding:4px 12px 0;font-size:9px;color:#FF8C00;" id="sidebar-cp-line">⚔️ CP: <span id="sidebar-cp-val">—</span></div>
+        {% endif %}
         <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
-
-        <!-- WEARING — shows what is visually worn per visual area -->
-        <div class="wardrobe-slots">
-          <div class="sidebar-section-cosmetic">👁 WEARING</div>
-          <div class="wardrobe-slot-row" onclick="openInventory()">
-            <span class="wardrobe-slot-icon">🎩</span>
-            <span class="wardrobe-slot-lbl">HEAD</span>
-            <span class="wardrobe-slot-val" id="wearing-head">BARE</span>
-          </div>
-          <div class="wardrobe-slot-row" onclick="openInventory()">
-            <span class="wardrobe-slot-icon">👕</span>
-            <span class="wardrobe-slot-lbl">BODY</span>
-            <span class="wardrobe-slot-val" id="wearing-body">BARE</span>
-          </div>
-          <div class="wardrobe-slot-row" onclick="openInventory()">
-            <span class="wardrobe-slot-icon">👟</span>
-            <span class="wardrobe-slot-lbl">FEET</span>
-            <span class="wardrobe-slot-val" id="wearing-feet">BARE</span>
-          </div>
-          <div class="wardrobe-slot-row" onclick="openInventory()">
-            <span class="wardrobe-slot-icon">✨</span>
-            <span class="wardrobe-slot-lbl">HAND</span>
-            <span class="wardrobe-slot-val" id="wearing-hand">BARE</span>
-          </div>
-        </div>
 
         <!-- SOCIAL MODE -->
         <div class="social-mode-section">
@@ -1760,33 +1707,6 @@
             <div id="social-target-label" class="social-target-none">No target set</div>
           </div>
         </div>
-
-        {% if features.get("gear_equip", False) %}
-        <!-- COMBAT GEAR slots (only when combat gear is enabled) -->
-        <div class="gear-slots">
-          <div class="sidebar-section-combat">COMBAT GEAR</div>
-          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-icon">⚔️</span>
-            <span class="gear-slot-lbl">WEAPON</span>
-            <span class="gear-slot-val" id="gear-slot-weapon">---</span>
-          </div>
-          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-icon">🛡️</span>
-            <span class="gear-slot-lbl">ARMOR</span>
-            <span class="gear-slot-val" id="gear-slot-armor">---</span>
-          </div>
-          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-icon">⛑️</span>
-            <span class="gear-slot-lbl">HELMET</span>
-            <span class="gear-slot-val" id="gear-slot-helmet">---</span>
-          </div>
-          <div class="gear-slot-row" onclick="switchContentTab('gear', document.querySelector('[data-tab=gear]'))">
-            <span class="gear-slot-icon">🥾</span>
-            <span class="gear-slot-lbl">BOOTS</span>
-            <span class="gear-slot-val" id="gear-slot-boots">---</span>
-          </div>
-        </div>
-        {% endif %}
 
       </div>
 
@@ -1889,9 +1809,6 @@
         {% if features.get("combat", False) %}
         <button class="content-tab"        data-tab="combat"  onclick="switchContentTab('combat', this)">COMBAT</button>
         {% endif %}
-        {% if features.get("gear_equip", False) or features.get("gear_crafting", False) %}
-        <button class="content-tab"        data-tab="gear"    onclick="switchContentTab('gear', this)">GEAR</button>
-        {% endif %}
         <button class="content-tab"        data-tab="missions"onclick="switchContentTab('missions', this)">MISSIONS</button>
         <button class="content-tab"        data-tab="igloo"   onclick="switchContentTab('igloo', this)">IGLOO</button>
         {% if features.get("achievements", True) %}
@@ -1928,15 +1845,6 @@
         <div id="boss-banner" style="display:none;padding:12px;"></div>
         <div class="combat-panel" id="combat-list">
           <div style="color:#666;font-size:9px;text-align:center;padding:20px;">LOADING...</div>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if features.get("gear_equip", False) or features.get("gear_crafting", False) %}
-      <!-- GEAR TAB -->
-      <div class="content-panel" id="panel-gear">
-        <div class="gear-panel" id="gear-content">
-          <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
       {% endif %}
@@ -2277,7 +2185,6 @@
     if (name === 'missions')  loadMissions();
     if (name === 'igloo')     loadIgloo();
     if (name === 'combat')    loadCombat();
-    if (name === 'gear')      loadGear();
     if (name === 'awards')    loadAwards();
     if (name === 'eventlog')  loadEventLog();
     if (name === 'levels')    loadLevelsTab();
@@ -2670,23 +2577,12 @@
         _playerSeals = pData.penguin.mayor_seals || 0;
       }
 
-      if (gData.gear && FEATURES.gear_equip) {
-        const slots = { weapon: '---', armor: '---', helmet: '---', boots: '---' };
-        gData.gear.filter(g => g.type === 'combat').forEach(g => {
-          if (g.equipped) slots[g.slot] = g.name;
-        });
-        const wEl = document.getElementById('gear-slot-weapon');
-        if (wEl) {
-          wEl.textContent = slots.weapon;
-          const arEl = document.getElementById('gear-slot-armor');
-          const hmEl = document.getElementById('gear-slot-helmet');
-          const btEl = document.getElementById('gear-slot-boots');
-          if (arEl) arEl.textContent = slots.armor;
-          if (hmEl) hmEl.textContent = slots.helmet;
-          if (btEl) btEl.textContent = slots.boots;
-        }
+      if (gData.gear && FEATURES.combat) {
+        const cp = (gData.gear.filter(g => g.type === 'combat' && g.equipped)
+                         .reduce((s, g) => s + (g.combat_power || 0), 0));
+        const cpEl = document.getElementById('sidebar-cp-val');
+        if (cpEl) cpEl.textContent = cp || '—';
       }
-      loadWardrobe();
       loadSecretBonuses();
     } catch(e) {}
   }
