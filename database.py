@@ -342,6 +342,57 @@ def init_db():
     except Exception:
         pass
 
+    # Rebalance CP on existing gear to match updated GEAR_TEMPLATES and BARRACKS_SHOP values
+    try:
+        # Common monster drops
+        c.execute("UPDATE gear SET combat_power=3  WHERE name='Rusty Sword'          AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=2  WHERE name='Leather Cap'          AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=2  WHERE name='Worn Boots'           AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=3  WHERE name='Padded Vest'          AND type='combat'")
+        # Uncommon monster drops (Frost Guardian set)
+        c.execute("UPDATE gear SET combat_power=7  WHERE name='Frost Blade'          AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=5  WHERE name='Frost Helm'           AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=5  WHERE name='Frost Greaves'        AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=7  WHERE name='Frost Mail'           AND type='combat'")
+        # Rare monster drops (Blood Reaper set)
+        c.execute("UPDATE gear SET combat_power=15 WHERE name='Blood Reaper'         AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=12 WHERE name='Blood Crown'          AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=11 WHERE name='Blood Stompers'       AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=14 WHERE name='Blood Plate'          AND type='combat'")
+        # Epic monster drops (Temple Mystic set)
+        c.execute("UPDATE gear SET combat_power=28 WHERE name='Temple Mystic Staff'  AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=22 WHERE name='Temple Mystic Hood'   AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=20 WHERE name='Temple Mystic Sandals'AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=25 WHERE name='Temple Mystic Robes'  AND type='combat'")
+        # Legendary monster drops (Penguin Emperor set)
+        c.execute("UPDATE gear SET combat_power=45 WHERE name=\"Emperor's Scepter\"  AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=35 WHERE name=\"Emperor's Diadem\"   AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=32 WHERE name=\"Emperor's Sabatons\" AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=42 WHERE name=\"Emperor's Regalia\"  AND type='combat'")
+        # Barracks forged — common
+        c.execute("UPDATE gear SET combat_power=4  WHERE name='Iron Sword'           AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=3  WHERE name='Iron Helmet'          AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=3  WHERE name='Iron Boots'           AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=4  WHERE name='Iron Plate'           AND type='combat'")
+        # Barracks forged — uncommon
+        c.execute("UPDATE gear SET combat_power=9  WHERE name='Steel Sword'          AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=7  WHERE name='Steel Helmet'         AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=6  WHERE name='Steel Boots'          AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=9  WHERE name='Steel Plate'          AND type='combat'")
+        # Barracks forged — rare
+        c.execute("UPDATE gear SET combat_power=19 WHERE name='Crystal Blade'        AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=15 WHERE name='Crystal Crown'        AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=14 WHERE name='Crystal Greaves'      AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=18 WHERE name='Crystal Armor'        AND type='combat'")
+        # Catch-all: reset any remaining inflated starter/misc items
+        c.execute("UPDATE gear SET combat_power=2  WHERE name LIKE 'Worn%'  AND type='combat' AND combat_power > 2")
+        c.execute("UPDATE gear SET combat_power=2  WHERE name LIKE 'Fish%'  AND type='combat' AND combat_power > 2")
+        c.execute("UPDATE gear SET combat_power=1  WHERE name LIKE 'Basic%' AND type='combat' AND combat_power > 1")
+        # Safety: cosmetics always 0 CP
+        c.execute("UPDATE gear SET combat_power=0  WHERE type='cosmetic'")
+    except Exception:
+        pass
+
     conn.commit()
     conn.close()
 

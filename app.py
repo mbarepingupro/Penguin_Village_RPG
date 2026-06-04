@@ -312,19 +312,19 @@ BOUTIQUE_ITEMS = {
 
 BARRACKS_SHOP = {
     "common": [
-        {"id": "iron_sword",   "name": "Iron Sword",   "slot": "weapon", "combat_power": 5,  "cost": {"gold": 200, "bones": 50}},
-        {"id": "iron_helmet",  "name": "Iron Helmet",  "slot": "helmet", "combat_power": 4,  "cost": {"gold": 200, "bones": 40}},
-        {"id": "iron_boots",   "name": "Iron Boots",   "slot": "boots",  "combat_power": 4,  "cost": {"gold": 150, "bones": 30}},
-        {"id": "iron_plate",   "name": "Iron Plate",   "slot": "armor",  "combat_power": 5,  "cost": {"gold": 250, "bones": 60}},
+        {"id": "iron_sword",   "name": "Iron Sword",   "slot": "weapon", "combat_power": 4,  "cost": {"gold": 200, "bones": 50}},
+        {"id": "iron_helmet",  "name": "Iron Helmet",  "slot": "helmet", "combat_power": 3,  "cost": {"gold": 200, "bones": 40}},
+        {"id": "iron_boots",   "name": "Iron Boots",   "slot": "boots",  "combat_power": 3,  "cost": {"gold": 150, "bones": 30}},
+        {"id": "iron_plate",   "name": "Iron Plate",   "slot": "armor",  "combat_power": 4,  "cost": {"gold": 250, "bones": 60}},
     ],
     "uncommon": [
-        {"id": "steel_sword",  "name": "Steel Sword",  "slot": "weapon", "combat_power": 10, "cost": {"gold": 500,  "bones": 100, "blood_gems": 20}},
-        {"id": "steel_helmet", "name": "Steel Helmet", "slot": "helmet", "combat_power": 8,  "cost": {"gold": 500,  "bones": 80,  "blood_gems": 15}},
-        {"id": "steel_boots",  "name": "Steel Boots",  "slot": "boots",  "combat_power": 8,  "cost": {"gold": 400,  "bones": 70,  "blood_gems": 15}},
-        {"id": "steel_plate",  "name": "Steel Plate",  "slot": "armor",  "combat_power": 10, "cost": {"gold": 600,  "bones": 120, "blood_gems": 25}},
+        {"id": "steel_sword",  "name": "Steel Sword",  "slot": "weapon", "combat_power": 9,  "cost": {"gold": 500,  "bones": 100, "blood_gems": 20}},
+        {"id": "steel_helmet", "name": "Steel Helmet", "slot": "helmet", "combat_power": 7,  "cost": {"gold": 500,  "bones": 80,  "blood_gems": 15}},
+        {"id": "steel_boots",  "name": "Steel Boots",  "slot": "boots",  "combat_power": 6,  "cost": {"gold": 400,  "bones": 70,  "blood_gems": 15}},
+        {"id": "steel_plate",  "name": "Steel Plate",  "slot": "armor",  "combat_power": 9,  "cost": {"gold": 600,  "bones": 120, "blood_gems": 25}},
     ],
     "rare": [
-        {"id": "crystal_blade",   "name": "Crystal Blade",   "slot": "weapon", "combat_power": 18, "cost": {"gold": 1500, "blood_gems": 80,  "spell_fragments": 40}},
+        {"id": "crystal_blade",   "name": "Crystal Blade",   "slot": "weapon", "combat_power": 19, "cost": {"gold": 1500, "blood_gems": 80,  "spell_fragments": 40}},
         {"id": "crystal_crown",   "name": "Crystal Crown",   "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "blood_gems": 60,  "spell_fragments": 30}},
         {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "blood_gems": 50,  "spell_fragments": 25}},
         {"id": "crystal_armor",   "name": "Crystal Armor",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}},
@@ -756,33 +756,33 @@ GEAR_CATALOG = {
 GEAR_TEMPLATES = {
     "common": [
         {"name": "Rusty Sword",  "slot": "weapon", "set_name": None, "combat_power": 3},
-        {"name": "Leather Cap",  "slot": "helmet", "set_name": None, "combat_power": 3},
-        {"name": "Worn Boots",   "slot": "boots",  "set_name": None, "combat_power": 3},
+        {"name": "Leather Cap",  "slot": "helmet", "set_name": None, "combat_power": 2},
+        {"name": "Worn Boots",   "slot": "boots",  "set_name": None, "combat_power": 2},
         {"name": "Padded Vest",  "slot": "armor",  "set_name": None, "combat_power": 3},
     ],
     "uncommon": [
         {"name": "Frost Blade",   "slot": "weapon", "set_name": "Frost Guardian", "combat_power": 7},
-        {"name": "Frost Helm",    "slot": "helmet", "set_name": "Frost Guardian", "combat_power": 6},
-        {"name": "Frost Greaves", "slot": "boots",  "set_name": "Frost Guardian", "combat_power": 6},
+        {"name": "Frost Helm",    "slot": "helmet", "set_name": "Frost Guardian", "combat_power": 5},
+        {"name": "Frost Greaves", "slot": "boots",  "set_name": "Frost Guardian", "combat_power": 5},
         {"name": "Frost Mail",    "slot": "armor",  "set_name": "Frost Guardian", "combat_power": 7},
     ],
     "rare": [
-        {"name": "Blood Reaper",    "slot": "weapon", "set_name": "Blood Reaper", "combat_power": 14},
+        {"name": "Blood Reaper",    "slot": "weapon", "set_name": "Blood Reaper", "combat_power": 15},
         {"name": "Blood Crown",     "slot": "helmet", "set_name": "Blood Reaper", "combat_power": 12},
         {"name": "Blood Stompers",  "slot": "boots",  "set_name": "Blood Reaper", "combat_power": 11},
         {"name": "Blood Plate",     "slot": "armor",  "set_name": "Blood Reaper", "combat_power": 14},
     ],
     "epic": [
-        {"name": "Temple Mystic Staff",    "slot": "weapon", "set_name": "Temple Mystic", "combat_power": 25},
-        {"name": "Temple Mystic Hood",     "slot": "helmet", "set_name": "Temple Mystic", "combat_power": 20},
-        {"name": "Temple Mystic Sandals",  "slot": "boots",  "set_name": "Temple Mystic", "combat_power": 17},
-        {"name": "Temple Mystic Robes",    "slot": "armor",  "set_name": "Temple Mystic", "combat_power": 22},
+        {"name": "Temple Mystic Staff",    "slot": "weapon", "set_name": "Temple Mystic", "combat_power": 28},
+        {"name": "Temple Mystic Hood",     "slot": "helmet", "set_name": "Temple Mystic", "combat_power": 22},
+        {"name": "Temple Mystic Sandals",  "slot": "boots",  "set_name": "Temple Mystic", "combat_power": 20},
+        {"name": "Temple Mystic Robes",    "slot": "armor",  "set_name": "Temple Mystic", "combat_power": 25},
     ],
     "legendary": [
-        {"name": "Emperor's Scepter",  "slot": "weapon", "set_name": "Penguin Emperor", "combat_power": 40},
-        {"name": "Emperor's Diadem",   "slot": "helmet", "set_name": "Penguin Emperor", "combat_power": 32},
-        {"name": "Emperor's Sabatons", "slot": "boots",  "set_name": "Penguin Emperor", "combat_power": 27},
-        {"name": "Emperor's Regalia",  "slot": "armor",  "set_name": "Penguin Emperor", "combat_power": 38},
+        {"name": "Emperor's Scepter",  "slot": "weapon", "set_name": "Penguin Emperor", "combat_power": 45},
+        {"name": "Emperor's Diadem",   "slot": "helmet", "set_name": "Penguin Emperor", "combat_power": 35},
+        {"name": "Emperor's Sabatons", "slot": "boots",  "set_name": "Penguin Emperor", "combat_power": 32},
+        {"name": "Emperor's Regalia",  "slot": "armor",  "set_name": "Penguin Emperor", "combat_power": 42},
     ],
 }
 
