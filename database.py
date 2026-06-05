@@ -434,6 +434,7 @@ def init_db():
     except Exception:
         pass
 
+
     conn.commit()
     conn.close()
 
