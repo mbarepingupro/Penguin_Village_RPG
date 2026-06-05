@@ -48,9 +48,30 @@ def init_db():
         CREATE TABLE IF NOT EXISTS igloo_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
-            item_key TEXT NOT NULL,
-            x INTEGER NOT NULL DEFAULT 0,
-            y INTEGER NOT NULL DEFAULT 0
+            item_id TEXT NOT NULL,
+            obtained_at INTEGER NOT NULL,
+            placed INTEGER DEFAULT 0,
+            UNIQUE(username, item_id)
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS igloos (
+            username TEXT PRIMARY KEY,
+            room_level INTEGER DEFAULT 1,
+            floor_type TEXT DEFAULT 'ice',
+            wall_type TEXT DEFAULT 'snow'
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS igloo_furniture (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            grid_x INTEGER NOT NULL,
+            grid_y INTEGER NOT NULL,
+            rotation INTEGER DEFAULT 0
         )
     """)
 
@@ -392,6 +413,27 @@ def init_db():
         c.execute("UPDATE gear SET combat_power=0  WHERE type='cosmetic'")
     except Exception:
         pass
+
+    # Migrate igloo_items to new schema (replaces old x/y placement system)
+    try:
+        c.execute("SELECT obtained_at FROM igloo_items LIMIT 1")
+    except Exception:
+        c.execute("DROP TABLE IF EXISTS igloo_items")
+        c.execute("""CREATE TABLE igloo_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            obtained_at INTEGER NOT NULL,
+            placed INTEGER DEFAULT 0,
+            UNIQUE(username, item_id)
+        )""")
+
+    # Initialize igloo rows for all existing penguins
+    try:
+        c.execute("INSERT OR IGNORE INTO igloos (username) SELECT username FROM penguins")
+    except Exception:
+        pass
+
 
     conn.commit()
     conn.close()

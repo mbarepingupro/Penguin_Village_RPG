@@ -891,21 +891,64 @@ ACHIEVEMENT_DEFS = {
     "village_socialite":  {"title":"THE SOCIALITE",    "desc":"Have 10+ relationships at Friend+",   "icon":"🌟", "category":"social"},
 }
 
-# ── FURNITURE CATALOG ─────────────────────────────────────────────────────────
-FURNITURE_CATALOG = {
-    "rug":      {"name":"COSY RUG",    "cost":8,  "icon":"🟥"},
-    "lamp":     {"name":"ICE LAMP",    "cost":8,  "icon":"🕯️"},
-    "chair":    {"name":"ICE CHAIR",   "cost":15, "icon":"🪑"},
-    "plant":    {"name":"SNOW PLANT",  "cost":12, "icon":"🌿"},
-    "table":    {"name":"FISH TABLE",  "cost":20, "icon":"🍽️"},
-    "tv":       {"name":"STREAM TV",   "cost":25, "icon":"📺"},
-    "bed":      {"name":"SNOW BED",    "cost":30, "icon":"🛏️"},
-    "fishtank": {"name":"FISH TANK",   "cost":35, "icon":"🐠"},
-    "penguin":  {"name":"PET PENGUIN", "cost":40, "icon":"🐧"},
-    "trophy":   {"name":"TROPHY",      "cost":50, "icon":"🏆"},
+# ── IGLOO SYSTEM ──────────────────────────────────────────────────────────────
+
+IGLOO_LEVELS = {
+    1: {"size": 6,  "name": "Cozy Corner",     "cost": None},
+    2: {"size": 8,  "name": "Comfortable Room", "cost": {"gold": 500, "fish": 200}},
+    3: {"size": 10, "name": "Spacious Lodge",   "cost": {"gold": 2000, "herbs": 500}},
+    4: {"size": 12, "name": "Grand Hall",       "cost": {"gold": 5000}},
 }
-IGLOO_COLS = 11
-IGLOO_ROWS = 8
+
+FLOOR_TYPES = {
+    "ice":    {"name": "Ice Floor",   "color": "#b8d8e8", "cost": None},
+    "wood":   {"name": "Wood Floor",  "color": "#8B7355", "cost": {"gold": 300}},
+    "stone":  {"name": "Stone Floor", "color": "#888888", "cost": {"gold": 500}},
+    "carpet": {"name": "Red Carpet",  "color": "#8B2252", "cost": {"gold": 1000}},
+    "marble": {"name": "Marble Floor","color": "#e8e8e8", "cost": {"gold": 2500}},
+    "dark":   {"name": "Dark Wood",   "color": "#3a2a1a", "cost": {"gold": 1500}},
+}
+
+WALL_TYPES = {
+    "snow":       {"name": "Snow Walls",   "color": "#e0e8f0", "cost": None},
+    "wood":       {"name": "Wooden Walls", "color": "#a0784a", "cost": {"gold": 300}},
+    "brick":      {"name": "Brick Walls",  "color": "#8B4513", "cost": {"gold": 800}},
+    "crystal":    {"name": "Crystal Walls","color": "#88c8e8", "cost": {"gold": 2000}},
+    "dark_stone": {"name": "Dark Stone",   "color": "#4a4a4a", "cost": {"gold": 1500}},
+}
+
+IGLOO_FURNITURE = {
+    "small_table":        {"name": "Small Table",        "width": 1, "height": 1, "cost": {"gold": 100},  "category": "furniture"},
+    "wooden_chair":       {"name": "Wooden Chair",       "width": 1, "height": 1, "cost": {"gold": 80},   "category": "furniture"},
+    "rug_small":          {"name": "Small Rug",          "width": 2, "height": 2, "cost": {"gold": 150},  "category": "decor"},
+    "candle":             {"name": "Candle",             "width": 1, "height": 1, "cost": {"gold": 50},   "category": "decor"},
+    "bookshelf":          {"name": "Bookshelf",          "width": 2, "height": 1, "cost": {"gold": 200},  "category": "furniture"},
+    "potted_plant":       {"name": "Potted Plant",       "width": 1, "height": 1, "cost": {"gold": 120},  "category": "decor"},
+    "bed":                {"name": "Bed",                "width": 2, "height": 2, "cost": {"gold": 400},  "category": "furniture"},
+    "fireplace":          {"name": "Fireplace",          "width": 2, "height": 1, "cost": {"gold": 500},  "category": "furniture"},
+    "fish_tank":          {"name": "Fish Tank",          "width": 2, "height": 1, "cost": {"gold": 350, "fish": 50},   "category": "decor"},
+    "painting":           {"name": "Painting",           "width": 1, "height": 1, "cost": {"gold": 300},  "category": "decor"},
+    "lamp":               {"name": "Floor Lamp",         "width": 1, "height": 1, "cost": {"gold": 200},  "category": "decor"},
+    "desk":               {"name": "Writing Desk",       "width": 2, "height": 1, "cost": {"gold": 350},  "category": "furniture"},
+    "wardrobe":           {"name": "Wardrobe",           "width": 2, "height": 1, "cost": {"gold": 400},  "category": "furniture"},
+    "rug_large":          {"name": "Large Rug",          "width": 3, "height": 3, "cost": {"gold": 500},  "category": "decor"},
+    "throne":             {"name": "Throne",             "width": 2, "height": 2, "cost": {"gold": 2000}, "category": "furniture"},
+    "grand_piano":        {"name": "Grand Piano",        "width": 3, "height": 2, "cost": {"gold": 3000}, "category": "furniture"},
+    "fountain":           {"name": "Indoor Fountain",    "width": 2, "height": 2, "cost": {"gold": 2500, "spell_fragments": 50}, "category": "decor"},
+    "trophy_case":        {"name": "Trophy Case",        "width": 2, "height": 1, "cost": {"gold": 1500}, "category": "furniture"},
+    "crystal_chandelier": {"name": "Crystal Chandelier", "width": 1, "height": 1, "cost": {"gold": 4000, "spell_fragments": 100}, "category": "decor"},
+    "mayors_portrait":    {"name": "Mayor's Portrait",   "width": 1, "height": 1, "cost": None, "category": "special", "source": "Mayor gift"},
+    "golden_fish":        {"name": "Golden Fish Trophy", "width": 1, "height": 1, "cost": None, "category": "special", "source": "500 fish collected"},
+    "combat_banner":      {"name": "Combat Banner",      "width": 1, "height": 2, "cost": None, "category": "special", "source": "50 monsters defeated"},
+}
+
+
+def _ensure_igloo(db, username):
+    db.execute("INSERT OR IGNORE INTO igloos (username) VALUES (?)", (username,))
+
+
+def _igloo_overlaps(ax, ay, aw, ah, bx, by, bw, bh):
+    return ax < bx + bw and ax + aw > bx and ay < by + bh and ay + ah > by
 
 # ── SEAL SHOP ─────────────────────────────────────────────────────────────────
 SEAL_SHOP = [
@@ -1409,7 +1452,7 @@ def check_achievements(db, username):
     p     = db.execute("SELECT level, xp FROM penguins WHERE username=?", (username,)).fetchone()
     r     = db.execute("SELECT gold, fish FROM resources WHERE username=?", (username,)).fetchone()
     kills = db.execute("SELECT COUNT(*) as c FROM monster_kills WHERE username=?", (username,)).fetchone()
-    igloo = db.execute("SELECT COUNT(*) as c FROM igloo_items WHERE username=?", (username,)).fetchone()
+    igloo = db.execute("SELECT COUNT(*) as c FROM igloo_furniture WHERE username=?", (username,)).fetchone()
     streak = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
     prest  = db.execute("SELECT prestige FROM penguins WHERE username=?", (username,)).fetchone()
 
@@ -3096,6 +3139,28 @@ def igloo_visit():
         f"🏠 {visitor_name} visited {host_name}'s igloo and found "
         f"{res_emojis.get(res_type,'📦')} {res_amount} {res_type} and 🪙 {gold_reward} gold!", visitor)
 
+    # Fetch host igloo data for frontend rendering
+    _ensure_igloo(db, host)
+    host_igloo_row  = db.execute("SELECT * FROM igloos WHERE username=?", (host,)).fetchone()
+    host_furniture_rows = db.execute(
+        "SELECT item_id, grid_x, grid_y, rotation FROM igloo_furniture WHERE username=?", (host,)
+    ).fetchall()
+    host_igloo = None
+    if host_igloo_row:
+        rl = host_igloo_row["room_level"]
+        hf = []
+        for r in host_furniture_rows:
+            d = IGLOO_FURNITURE.get(r["item_id"], {})
+            hf.append({"item_id": r["item_id"], "grid_x": r["grid_x"], "grid_y": r["grid_y"],
+                       "rotation": r["rotation"], "width": d.get("width",1), "height": d.get("height",1)})
+        host_igloo = {
+            "room_level": rl, "room_size": IGLOO_LEVELS[rl]["size"],
+            "room_name":  IGLOO_LEVELS[rl]["name"],
+            "floor_type": host_igloo_row["floor_type"],
+            "wall_type":  host_igloo_row["wall_type"],
+            "furniture":  hf,
+        }
+
     db.commit()
     db.close()
 
@@ -3123,6 +3188,7 @@ def igloo_visit():
         },
         "new_achievements": new_ach,
         "visits_remaining": MAX_IGLOO_VISITS_PER_DAY - (visits_today + 1),
+        "host_igloo": host_igloo,
     })
 
 
@@ -3263,80 +3329,293 @@ def get_events():
 
 @app.route("/igloo/<username>")
 def get_igloo(username):
-    db    = get_db()
-    items = db.execute("SELECT id, item_key, x, y FROM igloo_items WHERE username=? ORDER BY id", (username,)).fetchall()
-    ensure_resources(db, username)
-    gold = get_gold(db, username)
+    db = get_db()
+    _ensure_igloo(db, username)
+    igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+    room_level = igloo["room_level"]
+    room_size  = IGLOO_LEVELS[room_level]["size"]
+    placed = db.execute(
+        "SELECT id, item_id, grid_x, grid_y, rotation FROM igloo_furniture WHERE username=? ORDER BY grid_y*100+grid_x",
+        (username,)
+    ).fetchall()
+    furniture_list = []
+    for row in placed:
+        defn = IGLOO_FURNITURE.get(row["item_id"], {})
+        furniture_list.append({
+            "id":      row["id"],
+            "item_id": row["item_id"],
+            "grid_x":  row["grid_x"],
+            "grid_y":  row["grid_y"],
+            "rotation":row["rotation"],
+            "width":   defn.get("width",  1),
+            "height":  defn.get("height", 1),
+        })
+    owned = db.execute(
+        "SELECT item_id, placed FROM igloo_items WHERE username=? ORDER BY obtained_at",
+        (username,)
+    ).fetchall()
+    db.commit()
     db.close()
-    return jsonify({"items": [dict(r) for r in items], "coins": gold, "catalog": FURNITURE_CATALOG})
+    return jsonify({
+        "room_level":  room_level,
+        "room_size":   room_size,
+        "room_name":   IGLOO_LEVELS[room_level]["name"],
+        "floor_type":  igloo["floor_type"],
+        "wall_type":   igloo["wall_type"],
+        "furniture":   furniture_list,
+        "owned_items": [{"item_id": r["item_id"], "placed": bool(r["placed"])} for r in owned],
+    })
 
 
-@app.route("/igloo/<username>/place", methods=["POST"])
-def igloo_place(username):
+@app.route("/igloo/shop")
+def igloo_shop():
+    username = request.args.get("username", "")
+    db = get_db()
+    owned_ids = set()
+    igloo_data = None
+    player_gold = 0
+    if username:
+        _ensure_igloo(db, username)
+        owned_ids = {r["item_id"] for r in db.execute(
+            "SELECT item_id FROM igloo_items WHERE username=?", (username,)
+        ).fetchall()}
+        igloo_row = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+        if igloo_row:
+            igloo_data = dict(igloo_row)
+        ensure_resources(db, username)
+        player_gold = get_gold(db, username)
+    db.commit()
+    db.close()
+    furniture = {iid: {**defn, "owned": iid in owned_ids} for iid, defn in IGLOO_FURNITURE.items()}
+    return jsonify({
+        "status":       "success",
+        "furniture":    furniture,
+        "floor_types":  FLOOR_TYPES,
+        "wall_types":   WALL_TYPES,
+        "igloo_levels": {k: dict(v) for k, v in IGLOO_LEVELS.items()},
+        "current_igloo":igloo_data,
+        "player_gold":  player_gold,
+    })
+
+
+@app.route("/igloo/buy-furniture", methods=["POST"])
+def igloo_buy_furniture():
     data     = request.get_json(silent=True) or {}
-    item_key = data.get("item_key")
-    x        = int(data.get("x", -1))
-    y        = int(data.get("y", -1))
-    if item_key not in FURNITURE_CATALOG:
-        return jsonify({"status": "error", "message": "Unknown item."})
-    if not (0 <= x < IGLOO_COLS and 0 <= y < IGLOO_ROWS):
-        return jsonify({"status": "error", "message": "Out of bounds."})
-    cost = FURNITURE_CATALOG[item_key]["cost"]
-    db   = get_db()
+    username = data.get("username") or session.get("username")
+    item_id  = data.get("item_id", "")
+    defn = IGLOO_FURNITURE.get(item_id)
+    if not defn:
+        return jsonify({"status": "error", "message": "Item not found."})
+    cost = defn.get("cost")
+    if cost is None:
+        return jsonify({"status": "error", "message": "This item cannot be purchased."})
+    db = get_db()
+    if db.execute("SELECT 1 FROM igloo_items WHERE username=? AND item_id=?", (username, item_id)).fetchone():
+        db.close()
+        return jsonify({"status": "error", "message": "Already owned!"})
     ensure_resources(db, username)
-    gold = get_gold(db, username)
-    if gold < cost:
-        db.close()
-        return jsonify({"status": "error", "message": f"Need {cost}G!"})
-    if db.execute("SELECT id FROM igloo_items WHERE username=? AND x=? AND y=?", (username, x, y)).fetchone():
-        db.close()
-        return jsonify({"status": "error", "message": "That spot is taken!"})
-    add_gold(db, username, -cost)
-    cur    = db.execute("INSERT INTO igloo_items (username, item_key, x, y) VALUES (?,?,?,?)", (username, item_key, x, y))
-    new_id = cur.lastrowid
+    res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    for resource, amount in cost.items():
+        if (res[resource] or 0) < amount:
+            db.close()
+            return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
+    for resource, amount in cost.items():
+        db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+    db.execute(
+        "INSERT INTO igloo_items (username, item_id, obtained_at, placed) VALUES (?,?,?,0)",
+        (username, item_id, int(time.time()))
+    )
     new_gold = get_gold(db, username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "item_id": item_id, "gold_remaining": new_gold})
+
+
+@app.route("/igloo/place", methods=["POST"])
+def igloo_place():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    item_id  = data.get("item_id", "")
+    grid_x   = int(data.get("grid_x", -1))
+    grid_y   = int(data.get("grid_y", -1))
+    defn = IGLOO_FURNITURE.get(item_id)
+    if not defn:
+        return jsonify({"status": "error", "message": "Unknown item."})
+    db = get_db()
+    _ensure_igloo(db, username)
+    owned = db.execute(
+        "SELECT id, placed FROM igloo_items WHERE username=? AND item_id=?", (username, item_id)
+    ).fetchone()
+    if not owned:
+        db.close()
+        return jsonify({"status": "error", "message": "You don't own this item."})
+    if owned["placed"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Item is already placed."})
+    igloo = db.execute("SELECT room_level FROM igloos WHERE username=?", (username,)).fetchone()
+    room_size = IGLOO_LEVELS[igloo["room_level"]]["size"]
+    w, h = defn["width"], defn["height"]
+    if grid_x < 0 or grid_y < 0 or grid_x + w > room_size or grid_y + h > room_size:
+        db.close()
+        return jsonify({"status": "error", "message": "Out of bounds."})
+    placed = db.execute(
+        "SELECT item_id, grid_x, grid_y FROM igloo_furniture WHERE username=?", (username,)
+    ).fetchall()
+    for p in placed:
+        pd = IGLOO_FURNITURE.get(p["item_id"], {})
+        if _igloo_overlaps(grid_x, grid_y, w, h, p["grid_x"], p["grid_y"], pd.get("width",1), pd.get("height",1)):
+            db.close()
+            return jsonify({"status": "error", "message": "That space is occupied!"})
+    cur = db.execute(
+        "INSERT INTO igloo_furniture (username, item_id, grid_x, grid_y, rotation) VALUES (?,?,?,?,0)",
+        (username, item_id, grid_x, grid_y)
+    )
+    placement_id = cur.lastrowid
+    db.execute("UPDATE igloo_items SET placed=1 WHERE username=? AND item_id=?", (username, item_id))
     check_achievements(db, username)
     db.commit()
     db.close()
-    return jsonify({"status": "success", "item": {"id": new_id, "item_key": item_key, "x": x, "y": y}, "coins": new_gold})
+    return jsonify({"status": "success", "placement_id": placement_id})
 
 
-@app.route("/igloo/<username>/move/<int:item_id>", methods=["POST"])
-def igloo_move(username, item_id):
-    data = request.get_json(silent=True) or {}
-    x    = int(data.get("x", -1))
-    y    = int(data.get("y", -1))
-    if not (0 <= x < IGLOO_COLS and 0 <= y < IGLOO_ROWS):
-        return jsonify({"status": "error", "message": "Out of bounds."})
-    db   = get_db()
-    item = db.execute("SELECT id FROM igloo_items WHERE id=? AND username=?", (item_id, username)).fetchone()
-    if not item:
+@app.route("/igloo/remove", methods=["POST"])
+def igloo_remove():
+    data         = request.get_json(silent=True) or {}
+    username     = data.get("username") or session.get("username")
+    placement_id = int(data.get("placement_id", -1))
+    db = get_db()
+    row = db.execute(
+        "SELECT item_id FROM igloo_furniture WHERE id=? AND username=?", (placement_id, username)
+    ).fetchone()
+    if not row:
         db.close()
-        return jsonify({"status": "error", "message": "Item not found."})
-    if db.execute("SELECT id FROM igloo_items WHERE username=? AND x=? AND y=? AND id!=?", (username, x, y, item_id)).fetchone():
-        db.close()
-        return jsonify({"status": "error", "message": "That spot is taken!"})
-    db.execute("UPDATE igloo_items SET x=?, y=? WHERE id=?", (x, y, item_id))
+        return jsonify({"status": "error", "message": "Placement not found."})
+    db.execute("DELETE FROM igloo_furniture WHERE id=?", (placement_id,))
+    db.execute("UPDATE igloo_items SET placed=0 WHERE username=? AND item_id=?", (username, row["item_id"]))
     db.commit()
     db.close()
     return jsonify({"status": "success"})
 
 
-@app.route("/igloo/<username>/remove/<int:item_id>", methods=["POST"])
-def igloo_remove(username, item_id):
-    db   = get_db()
-    item = db.execute("SELECT item_key FROM igloo_items WHERE id=? AND username=?", (item_id, username)).fetchone()
-    if not item:
+@app.route("/igloo/move", methods=["POST"])
+def igloo_move():
+    data         = request.get_json(silent=True) or {}
+    username     = data.get("username") or session.get("username")
+    placement_id = int(data.get("placement_id", -1))
+    new_x        = int(data.get("new_grid_x", -1))
+    new_y        = int(data.get("new_grid_y", -1))
+    db = get_db()
+    row = db.execute(
+        "SELECT item_id FROM igloo_furniture WHERE id=? AND username=?", (placement_id, username)
+    ).fetchone()
+    if not row:
         db.close()
-        return jsonify({"status": "error", "message": "Item not found."})
-    refund = FURNITURE_CATALOG.get(item["item_key"], {}).get("cost", 0) // 2
-    db.execute("DELETE FROM igloo_items WHERE id=?", (item_id,))
-    ensure_resources(db, username)
-    add_gold(db, username, refund)
-    new_gold = get_gold(db, username)
+        return jsonify({"status": "error", "message": "Placement not found."})
+    defn = IGLOO_FURNITURE.get(row["item_id"], {})
+    w, h = defn.get("width", 1), defn.get("height", 1)
+    igloo = db.execute("SELECT room_level FROM igloos WHERE username=?", (username,)).fetchone()
+    room_size = IGLOO_LEVELS[igloo["room_level"]]["size"]
+    if new_x < 0 or new_y < 0 or new_x + w > room_size or new_y + h > room_size:
+        db.close()
+        return jsonify({"status": "error", "message": "Out of bounds."})
+    others = db.execute(
+        "SELECT item_id, grid_x, grid_y FROM igloo_furniture WHERE username=? AND id!=?",
+        (username, placement_id)
+    ).fetchall()
+    for p in others:
+        pd = IGLOO_FURNITURE.get(p["item_id"], {})
+        if _igloo_overlaps(new_x, new_y, w, h, p["grid_x"], p["grid_y"], pd.get("width",1), pd.get("height",1)):
+            db.close()
+            return jsonify({"status": "error", "message": "That space is occupied!"})
+    db.execute("UPDATE igloo_furniture SET grid_x=?, grid_y=? WHERE id=?", (new_x, new_y, placement_id))
     db.commit()
     db.close()
-    return jsonify({"status": "success", "refund": refund, "coins": new_gold})
+    return jsonify({"status": "success"})
+
+
+@app.route("/igloo/upgrade", methods=["POST"])
+def igloo_upgrade():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    db = get_db()
+    _ensure_igloo(db, username)
+    igloo = db.execute("SELECT room_level FROM igloos WHERE username=?", (username,)).fetchone()
+    current_level = igloo["room_level"]
+    next_level    = current_level + 1
+    if next_level not in IGLOO_LEVELS:
+        db.close()
+        return jsonify({"status": "error", "message": "Already at max level!"})
+    cost = IGLOO_LEVELS[next_level]["cost"]
+    if cost:
+        ensure_resources(db, username)
+        res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+        for resource, amount in cost.items():
+            if (res[resource] or 0) < amount:
+                db.close()
+                return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
+        for resource, amount in cost.items():
+            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+    db.execute("UPDATE igloos SET room_level=? WHERE username=?", (next_level, username))
+    level_name = IGLOO_LEVELS[next_level]["name"]
+    log_event(db, "igloo", f"🏠 {username} upgraded their igloo to {level_name}!", username)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status":     "success",
+        "room_level": next_level,
+        "room_size":  IGLOO_LEVELS[next_level]["size"],
+        "level_name": level_name,
+    })
+
+
+@app.route("/igloo/floor", methods=["POST"])
+def igloo_change_floor():
+    data       = request.get_json(silent=True) or {}
+    username   = data.get("username") or session.get("username")
+    floor_type = data.get("floor_type", "")
+    if floor_type not in FLOOR_TYPES:
+        return jsonify({"status": "error", "message": "Invalid floor type."})
+    ft = FLOOR_TYPES[floor_type]
+    db = get_db()
+    _ensure_igloo(db, username)
+    if ft["cost"]:
+        ensure_resources(db, username)
+        res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+        for resource, amount in ft["cost"].items():
+            if (res[resource] or 0) < amount:
+                db.close()
+                return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
+        for resource, amount in ft["cost"].items():
+            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+    db.execute("UPDATE igloos SET floor_type=? WHERE username=?", (floor_type, username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "floor_type": floor_type})
+
+
+@app.route("/igloo/wall", methods=["POST"])
+def igloo_change_wall():
+    data      = request.get_json(silent=True) or {}
+    username  = data.get("username") or session.get("username")
+    wall_type = data.get("wall_type", "")
+    if wall_type not in WALL_TYPES:
+        return jsonify({"status": "error", "message": "Invalid wall type."})
+    wt = WALL_TYPES[wall_type]
+    db = get_db()
+    _ensure_igloo(db, username)
+    if wt["cost"]:
+        ensure_resources(db, username)
+        res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+        for resource, amount in wt["cost"].items():
+            if (res[resource] or 0) < amount:
+                db.close()
+                return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
+        for resource, amount in wt["cost"].items():
+            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+    db.execute("UPDATE igloos SET wall_type=? WHERE username=?", (wall_type, username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "wall_type": wall_type})
 
 
 # ── WELCOME BACK / OFFLINE PROGRESS ──────────────────────────────────────────
