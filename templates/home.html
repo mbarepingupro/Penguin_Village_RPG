@@ -1390,14 +1390,14 @@
       display: block;
       margin-top: 8px;
       font-size: 7px;
-      color: var(--pink);
+      color: #A86EFF;
       cursor: pointer;
       background: none;
-      border: none;
+      border: 1px solid #A86EFF;
       font-family: 'Press Start 2P', monospace;
-      padding: 0;
+      padding: 3px 8px;
     }
-    .ctx-tip-close:hover { text-decoration: underline; }
+    .ctx-tip-close:hover { background: rgba(168,110,255,0.15); }
 
     /* ── Help button in nav ── */
     #help-btn {
@@ -1517,7 +1517,7 @@
     <div class="nav-right">
       {% if logged_in %}
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
-        <button id="help-btn" onclick="openTutorial()" title="Help &amp; Tutorial">❓</button>
+        <button id="help-btn" onclick="resetHelpTooltips();openTutorial()" title="Help &amp; Tutorial">❓</button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -6191,17 +6191,31 @@
     'seal-shop':           'MAYOR\'S SEAL SHOP! Spend Mayor\'s Seals (earned during live streams) on exclusive items.',
   };
 
-  function showCtxTip(key, anchorEl) {
-    const msg = _CTX_TIPS[key];
-    if (!msg) return;
-    if (sessionStorage.getItem('ctx_seen_' + key)) return;
-    sessionStorage.setItem('ctx_seen_' + key, '1');
+  let _dismissedHelp    = new Set();
+  let _helpReadyResolve = null;
+  const _helpReady      = new Promise(r => { _helpReadyResolve = r; });
+
+  async function loadDismissedHelp() {
+    if (!CURRENT_USER) { _helpReadyResolve(); return; }
+    try {
+      const res  = await fetch(`/help/dismissed/${CURRENT_USER}`);
+      const data = await res.json();
+      _dismissedHelp = new Set(data.keys || []);
+    } catch(e) {}
+    _helpReadyResolve();
+  }
+
+  async function showCtxTip(key, anchorEl) {
+    await _helpReady;
+    if (!_CTX_TIPS[key]) return;
+    if (_dismissedHelp.has(key)) return;
 
     const container = document.getElementById('ctx-tip-container');
     container.innerHTML = '';
     const tip = document.createElement('div');
-    tip.className = 'ctx-tip';
-    tip.id = 'active-ctx-tip';
+    tip.className     = 'ctx-tip';
+    tip.id            = 'active-ctx-tip';
+    tip.dataset.helpKey = key;
 
     const rect = anchorEl ? anchorEl.getBoundingClientRect() : null;
     if (rect) {
@@ -6215,18 +6229,34 @@
       tip.style.transform = 'translateX(-50%)';
     }
 
-    tip.innerHTML = '<div class="ctx-tip-arrow"></div>' + msg +
-      '<button class="ctx-tip-close" onclick="closeCtxTip()">[ GOT IT ]</button>';
+    tip.innerHTML = '<div class="ctx-tip-arrow"></div>' + _CTX_TIPS[key] +
+      `<button class="ctx-tip-close" onclick="closeCtxTip('${key}')">GOT IT ✓</button>`;
     container.appendChild(tip);
-
-    // Auto-dismiss after 8s
-    setTimeout(closeCtxTip, 8000);
   }
 
-  function closeCtxTip() {
+  function closeCtxTip(key) {
     const t = document.getElementById('active-ctx-tip');
     if (t) t.remove();
+    if (key) {
+      _dismissedHelp.add(key);
+      fetch('/help/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, key }),
+      }).catch(() => {});
+    }
   }
+
+  function resetHelpTooltips() {
+    _dismissedHelp.clear();
+    fetch('/help/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: CURRENT_USER }),
+    }).catch(() => {});
+  }
+
+  loadDismissedHelp();
 
   // Contextual tips are triggered from within switchContentTab, openBuilding,
   // openSealShop, and switchInvTab (see inline calls in those functions above).

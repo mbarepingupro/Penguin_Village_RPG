@@ -4675,6 +4675,41 @@ def tutorial_complete():
     return jsonify({"status": "success"})
 
 
+@app.route("/help/dismissed/<username>")
+def help_dismissed_list(username):
+    db = get_db()
+    rows = db.execute("SELECT help_key FROM help_dismissed WHERE username=?", (username,)).fetchall()
+    db.close()
+    return jsonify({"keys": [r["help_key"] for r in rows]})
+
+
+@app.route("/help/dismiss", methods=["POST"])
+def help_dismiss():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    help_key = data.get("key", "")
+    if not username or not help_key:
+        return jsonify({"status": "error"})
+    db = get_db()
+    db.execute("INSERT OR IGNORE INTO help_dismissed (username, help_key) VALUES (?,?)", (username, help_key))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
+
+
+@app.route("/help/reset", methods=["POST"])
+def help_reset():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    if not username:
+        return jsonify({"status": "error"})
+    db = get_db()
+    db.execute("DELETE FROM help_dismissed WHERE username=?", (username,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
+
+
 # ── PENGUIN CARD & PUBLIC PROFILE ─────────────────────────────────────────────
 import io
 from PIL import Image, ImageDraw, ImageFont
