@@ -76,6 +76,14 @@ def init_db():
     """)
 
     c.execute("""
+        CREATE TABLE IF NOT EXISTS help_dismissed (
+            username TEXT NOT NULL,
+            help_key TEXT NOT NULL,
+            PRIMARY KEY (username, help_key)
+        )
+    """)
+
+    c.execute("""
         CREATE TABLE IF NOT EXISTS resources (
             username TEXT PRIMARY KEY,
             gold INTEGER DEFAULT 0,
