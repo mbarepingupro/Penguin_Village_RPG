@@ -127,6 +127,42 @@
     }
     .sb-mission-claim:hover:not(:disabled) { border-color: var(--pink); }
     .sb-mission-claim:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── MISSIONS CONTENT PANEL ── */
+    .missions-panel { padding: 8px; overflow-y: auto; flex: 1; }
+    .missions-date  { color: #555; font-size: 7px; font-family: 'Press Start 2P', monospace; margin-bottom: 8px; }
+    .mission-card   { background: #1C1C1C; border: 2px solid #2E2E2E; padding: 6px 8px; margin-bottom: 4px; }
+    .mission-card.done   { border-color: #333; opacity: 0.6; }
+    .mission-card.stream { border-color: #6441a5; }
+    .weekly-card    { border-left: 3px solid #FF7FE5; }
+    .mission-header { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+    .mission-icon   { font-size: 12px; flex-shrink: 0; }
+    .mission-title  { color: #FFFFFF; font-size: 8px; font-family: 'Press Start 2P', monospace; flex: 1; min-width: 0; }
+    .mission-name   { color: #FFFFFF; font-size: 8px; font-family: 'Press Start 2P', monospace; }
+    .mission-badge  { font-size: 6px; font-family: 'Press Start 2P', monospace; padding: 1px 4px; flex-shrink: 0; }
+    .mission-badge.done   { color: #4aff6b; border: 1px solid #4aff6b; }
+    .mission-badge.stream { color: #A86EFF; border: 1px solid #A86EFF; }
+    .mission-desc   { color: #555; font-size: 7px; font-family: 'Press Start 2P', monospace; margin-bottom: 4px; line-height: 1.7; }
+    .mission-bar-wrap { background: #2E2E2E; height: 4px; margin-bottom: 4px; }
+    .mission-bar-fill { background: #A86EFF; height: 4px; transition: width 0.3s; }
+    .mission-bar-fill.done { background: #4aff6b; }
+    .mission-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .mission-reward { color: #FF8C00; font-size: 7px; font-family: 'Press Start 2P', monospace; }
+    .mission-prog   { color: #888;    font-size: 7px; font-family: 'Press Start 2P', monospace; }
+    .mission-progress { color: #888;  font-size: 7px; font-family: 'Press Start 2P', monospace; }
+    .mission-claim  { border: 2px solid #4aff6b; color: #4aff6b; font-size: 7px; font-family: 'Press Start 2P', monospace;
+                      padding: 2px 6px; cursor: pointer; background: transparent;
+                      animation: mission-pulse 1.2s ease-in-out infinite; }
+    .mission-claim-btn { border: 2px solid #4aff6b; color: #4aff6b; font-size: 7px; font-family: 'Press Start 2P', monospace;
+                      padding: 2px 6px; cursor: pointer; background: transparent;
+                      animation: mission-pulse 1.2s ease-in-out infinite; }
+    @keyframes mission-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(74,255,107,0.4); }
+      50%       { box-shadow: 0 0 0 4px rgba(74,255,107,0); }
+    }
+    .mission-weekly-hdr { color: #FF7FE5; font-size: 8px; font-family: 'Press Start 2P', monospace;
+                          margin: 10px 0 5px; padding-bottom: 4px; border-bottom: 1px solid #FF7FE5; }
+
     .sb-streak-count { color: var(--orange); font-size: 11px; }
     .sb-award-row { display: flex; align-items: center; justify-content: space-between; }
     .sb-award-count { color: var(--white); font-size: 8px; }
@@ -2278,27 +2314,32 @@
 
   // ── MISSIONS ──────────────────────────────────────────
   function renderMissions(missions, date, container, isLive) {
-    let html = `<div class="missions-date">DAILY MISSIONS &mdash; ${date} &mdash; RESETS AT MIDNIGHT</div>`;
+    const midnightTs = (() => {
+      const now = new Date();
+      const m = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+      return Math.floor(m.getTime() / 1000);
+    })();
+    startCountdown('missions-reset-countdown', midnightTs, () => {});
+    startCountdown('sb-missions-countdown', midnightTs, () => {});
+
+    let html = `<div class="missions-date">DAILY MISSIONS — ${date}</div>`;
     missions.forEach(m => {
-      const pct  = m.target > 0 ? Math.round((m.progress / m.target) * 100) : 0;
-      const done = m.completed;
+      const pct    = m.target > 0 ? Math.min(100, Math.round((m.progress / m.target) * 100)) : 0;
+      const done   = m.completed;
       const stream = m.stream;
       let cardClass = 'mission-card' + (done ? ' done' : stream ? ' stream' : '');
-      let badge = done
-        ? '<span class="mission-badge done">&#x2713; DONE</span>'
+      const badge = done
+        ? '<span class="mission-badge done">✓ DONE</span>'
         : stream ? '<span class="mission-badge stream">STREAM</span>' : '';
-      let footer;
+      let rightEl;
       if (done) {
-        footer = `<span class="mission-reward">+${m.gold} GOLD EARNED</span>
-                  <span class="mission-prog">${m.progress}/${m.target}</span>`;
+        rightEl = `<span style="color:#4aff6b;font-size:9px;">✅</span>`;
       } else if (stream) {
-        const claimBtn = isLive
-          ? `<button class="mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>`
-          : `<span class="mission-prog" style="color:#666;">STREAM OFFLINE</span>`;
-        footer = `<span class="mission-reward">+${m.gold} GOLD</span>${claimBtn}`;
+        rightEl = isLive
+          ? `<button class="mission-claim" onclick="claimMissionFromCard('${m.key}', this)">CLAIM</button>`
+          : `<span class="mission-prog">OFFLINE</span>`;
       } else {
-        footer = `<span class="mission-reward">+${m.gold} GOLD</span>
-                  <span class="mission-prog">${m.progress}/${m.target}</span>`;
+        rightEl = `<span class="mission-prog">${m.progress}/${m.target}</span>`;
       }
       html += `
         <div class="${cardClass}" id="mission-card-${m.key}">
@@ -2308,13 +2349,41 @@
             ${badge}
           </div>
           <div class="mission-desc">${m.desc}</div>
-          <div class="mission-bar-wrap">
-            <div class="mission-bar-fill${done ? ' done' : ''}" style="width:${pct}%"></div>
+          <div class="mission-bar-wrap"><div class="mission-bar-fill${done ? ' done' : ''}" style="width:${pct}%"></div></div>
+          <div class="mission-footer">
+            <span class="mission-reward">🪙 ${m.gold} GOLD</span>
+            ${rightEl}
           </div>
-          <div class="mission-footer">${footer}</div>
         </div>`;
     });
     container.innerHTML = html;
+  }
+
+  async function claimMissionFromCard(key, btn) {
+    if (btn) btn.disabled = true;
+    try {
+      const res  = await fetch(`/missions/${CURRENT_USER}/claim/${key}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        Sounds.collect && Sounds.collect();
+        const card = document.getElementById('mission-card-' + key);
+        if (card) {
+          const footer = card.querySelector('.mission-footer');
+          if (footer) {
+            const right = footer.querySelector('.mission-claim, .mission-prog');
+            if (right) right.outerHTML = `<span style="color:#4aff6b;font-size:9px;">✅</span>`;
+          }
+          card.classList.add('done');
+        }
+        loadStatsMissions();
+        refreshStats();
+      } else {
+        if (btn) btn.disabled = false;
+        showToast(data.message || 'Cannot claim.', 'err');
+      }
+    } catch(e) {
+      if (btn) btn.disabled = false;
+    }
   }
 
   {% if logged_in %}
@@ -2380,34 +2449,48 @@
     const el = document.getElementById('sb-missions-list');
     if (!el) return;
     try {
-      const res  = await fetch(`/missions/${CURRENT_USER}`);
-      const data = await res.json();
+      const res    = await fetch(`/missions/${CURRENT_USER}`);
+      const data   = await res.json();
       const isLive = data.is_live;
+      const midnightTs = (() => {
+        const now = new Date();
+        const m = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+        return Math.floor(m.getTime() / 1000);
+      })();
+      startCountdown('sb-missions-countdown', midnightTs, () => {});
+      startCountdown('missions-reset-countdown', midnightTs, () => {});
+
       let html = '';
       (data.missions || []).forEach(m => {
-        const done  = m.completed;
-        const stream = m.stream;
-        const check = done ? '✓' : '○';
+        const done       = m.completed;
+        const stream     = m.stream;
+        const pct        = m.target > 0 ? Math.min(100, Math.round((m.progress / m.target) * 100)) : 0;
+        const check      = done ? '✓' : '○';
         const titleColor = done ? '#555' : stream ? '#9b72d8' : 'var(--white)';
         const checkColor = done ? '#4aff6b' : stream ? '#9b72d8' : '#555';
-        const desc = (m.desc || '').replace(/'/g, "\\'");
-        const claimEl = stream && !done
-          ? (isLive
-              ? `<button class="sb-mission-claim" onclick="claimStreamMission('${m.key}', this)">CLAIM</button>`
-              : `<span style="font-size:6px;color:#555;">OFFLINE</span>`)
-          : '';
+        const desc       = (m.desc || '').replace(/'/g, "\\'");
+        const progEl     = done
+          ? `<span style="color:#4aff6b;font-size:7px;font-family:'Press Start 2P',monospace;">✅</span>`
+          : stream && isLive
+            ? `<button class="sb-mission-claim" onclick="claimMissionFromCard('${m.key}', this)">CLAIM</button>`
+            : stream
+              ? `<span style="font-size:6px;font-family:'Press Start 2P',monospace;color:#555;">OFFLINE</span>`
+              : `<span style="color:#888;font-size:7px;font-family:'Press Start 2P',monospace;">${m.progress}/${m.target}</span>`;
         html += `<div class="sb-mission-row" onmouseenter="showSbTooltip(this,'${desc}')" onmouseleave="hideSbTooltip()">
-          <span class="sb-mission-check" style="color:${checkColor}">${check}</span>
+          <span class="sb-mission-check" style="color:${checkColor};font-size:9px;font-family:'Press Start 2P',monospace;">${check}</span>
           <div class="sb-mission-info">
-            <div class="sb-mission-title" style="color:${titleColor}">${m.icon} ${m.title}</div>
-            <div class="sb-mission-reward">+${m.gold}G</div>
+            <div class="sb-mission-title" style="color:${titleColor};font-size:8px;font-family:'Press Start 2P',monospace;">${m.icon} ${m.title}</div>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
+              <div style="flex:1;background:#2E2E2E;height:3px;"><div style="background:${done?'#4aff6b':'#A86EFF'};height:3px;width:${pct}%;"></div></div>
+              <div class="sb-mission-reward" style="font-size:7px;font-family:'Press Start 2P',monospace;">🪙${m.gold}</div>
+            </div>
           </div>
-          ${claimEl}
+          <div style="margin-left:4px;flex-shrink:0;">${progEl}</div>
         </div>`;
       });
-      el.innerHTML = html || '<span style="color:#555;font-size:7px;">NO MISSIONS</span>';
+      el.innerHTML = html || '<span style="color:#555;font-size:7px;font-family:\'Press Start 2P\',monospace;">NO MISSIONS</span>';
     } catch(e) {
-      el.innerHTML = '<span style="color:#555;font-size:7px;">ERROR</span>';
+      el.innerHTML = '<span style="color:#555;font-size:7px;font-family:\'Press Start 2P\',monospace;">ERROR</span>';
     }
   }
 
