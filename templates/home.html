@@ -405,6 +405,49 @@
     .content-panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
     .content-panel.active { display: flex; }
 
+    /* ── RESOURCE BAR ── */
+    .resource-bar {
+      display: flex; justify-content: center; gap: 12px;
+      padding: 6px 12px; background: #1C1C1C;
+      border-bottom: 2px solid #A86EFF;
+      flex-shrink: 0; flex-wrap: wrap;
+      position: relative; z-index: 50;
+    }
+    .resource-item {
+      display: flex; align-items: center; gap: 4px;
+      padding: 3px 8px; background: #2E2E2E;
+      border: 1px solid #444; min-width: 70px;
+    }
+    .res-icon  { font-size: 14px; }
+    .res-count {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px; color: #FFFFFF;
+    }
+    .res-count.updated {
+      animation: res-pulse 0.5s ease-out forwards;
+    }
+    @keyframes res-pulse {
+      0%   { transform: scale(1.3); color: #4aff6b; }
+      100% { transform: scale(1);   color: inherit; }
+    }
+    #res-gold         { border-color: #FF8C00; }
+    #res-gold         .res-count { color: #FF8C00; }
+    #res-fish         { border-color: #4a9eff; }
+    #res-fish         .res-count { color: #4a9eff; }
+    #res-herbs        { border-color: #4aff6b; }
+    #res-herbs        .res-count { color: #4aff6b; }
+    #res-blood_gems   { border-color: #ff6b6b; }
+    #res-blood_gems   .res-count { color: #ff6b6b; }
+    #res-bones        { border-color: #CCCCCC; }
+    #res-bones        .res-count { color: #CCCCCC; }
+    #res-spell_fragments { border-color: #A86EFF; }
+    #res-spell_fragments .res-count { color: #A86EFF; }
+    .flying-emoji {
+      position: fixed; font-size: 18px;
+      pointer-events: none; z-index: 10000;
+      text-shadow: 0 0 4px rgba(0,0,0,0.5);
+    }
+
     /* ── VILLAGE MAP ── */
     .map-area {
       flex: 1;
@@ -1295,6 +1338,13 @@
       .login-title { font-size: 16px; }
       .login-sub { font-size: 9px; }
       .login-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; }
+
+      /* ── Resource bar ── */
+      .resource-bar { gap: 6px; padding: 4px 6px; }
+      .resource-item { min-width: 55px; padding: 2px 5px; }
+      .res-icon  { font-size: 11px; }
+      .res-count { font-size: 7px; }
+      .flying-emoji { font-size: 12px; }
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -1696,16 +1746,18 @@
       <!-- STATS TAB -->
       <div class="sidebar-panel" id="sidebar-stats">
 
-        <!-- RESOURCES -->
+        <!-- RESOURCES (compact — full display is on the map resource bar) -->
         <div class="sb-section">
           <div class="sb-section-title">RESOURCES</div>
-          <div class="sb-res-row"><span class="sb-res-lbl">🪙 GOLD</span><span class="sb-res-val" id="res-gold">{{ resources.gold if resources else 0 }}</span></div>
-          <div class="sb-res-row"><span class="sb-res-lbl">🐟 FISH</span><span class="sb-res-val" id="res-fish">0</span></div>
-          <div class="sb-res-row"><span class="sb-res-lbl">🌿 HERBS</span><span class="sb-res-val" id="res-herbs">0</span></div>
-          <div class="sb-res-row"><span class="sb-res-lbl">💎 BLOOD GEMS</span><span class="sb-res-val" id="res-blood-gems">0</span></div>
-          <div class="sb-res-row"><span class="sb-res-lbl">🦴 BONES</span><span class="sb-res-val" id="res-bones">0</span></div>
-          <div class="sb-res-row"><span class="sb-res-lbl">✨ SPELL FRAGS</span><span class="sb-res-val" id="res-frags">0</span></div>
-          <div class="sb-res-row seals-row" onclick="openSealShop()" title="Earned exclusively by watching the stream!">
+          <div style="font-size:7px;font-family:'Press Start 2P',monospace;color:#888;line-height:2.2;">
+            🪙 <span id="sb-r-gold">{{ resources.gold if resources else 0 }}</span> &nbsp;
+            🐟 <span id="sb-r-fish">0</span> &nbsp;
+            🌿 <span id="sb-r-herbs">0</span><br>
+            💎 <span id="sb-r-blood-gems">0</span> &nbsp;
+            🦴 <span id="sb-r-bones">0</span> &nbsp;
+            ✨ <span id="sb-r-frags">0</span>
+          </div>
+          <div class="sb-res-row seals-row" style="margin-top:6px;" onclick="openSealShop()" title="Earned exclusively by watching the stream!">
             <span class="sb-res-lbl">👑 MAYOR'S SEALS</span>
             <span class="sb-res-val" id="res-seals" style="color:#FF7FE5;">0</span>
             <span class="seals-shop-link">[SHOP]</span>
@@ -1804,6 +1856,32 @@
 
       <!-- MAP TAB -->
       <div class="content-panel active" id="panel-map">
+        <div class="resource-bar" id="resource-bar">
+          <div class="resource-item" id="res-gold" data-resource="gold">
+            <span class="res-icon">🪙</span>
+            <span class="res-count" id="count-gold">{{ resources.gold if resources else 0 }}</span>
+          </div>
+          <div class="resource-item" id="res-fish" data-resource="fish">
+            <span class="res-icon">🐟</span>
+            <span class="res-count" id="count-fish">0</span>
+          </div>
+          <div class="resource-item" id="res-herbs" data-resource="herbs">
+            <span class="res-icon">🌿</span>
+            <span class="res-count" id="count-herbs">0</span>
+          </div>
+          <div class="resource-item" id="res-blood_gems" data-resource="blood_gems">
+            <span class="res-icon">💎</span>
+            <span class="res-count" id="count-blood_gems">0</span>
+          </div>
+          <div class="resource-item" id="res-bones" data-resource="bones">
+            <span class="res-icon">🦴</span>
+            <span class="res-count" id="count-bones">0</span>
+          </div>
+          <div class="resource-item" id="res-spell_fragments" data-resource="spell_fragments">
+            <span class="res-icon">✨</span>
+            <span class="res-count" id="count-spell_fragments">0</span>
+          </div>
+        </div>
         <div class="map-area" id="map-area">
           <canvas id="village-canvas"></canvas>
           <div class="igloo-ghost" id="igloo-ghost"></div>
@@ -2366,6 +2444,8 @@
       const data = await res.json();
       if (data.status === 'success') {
         Sounds.collect && Sounds.collect();
+        if (data.reward_gold) Effects.animateResourceCollection('gold', data.reward_gold, btn);
+        if (data.reward_xp)   Effects.animateXPGain(data.reward_xp, btn);
         const card = document.getElementById('mission-card-' + key);
         if (card) {
           const footer = card.querySelector('.mission-footer');
@@ -2555,7 +2635,9 @@
         const xpPct    = Math.round((xpInto / xpNeeded) * 100);
         document.getElementById('stat-xp').textContent = xpInto + '/' + xpNeeded;
         document.getElementById('xp-bar').style.width = xpPct + '%';
-        document.getElementById('res-gold').textContent = p.gold || 0;
+        const _goldVal = (p.gold || 0).toLocaleString();
+        const _cg = document.getElementById('count-gold'); if (_cg) _cg.textContent = _goldVal;
+        const _sg = document.getElementById('sb-r-gold');  if (_sg) _sg.textContent = _goldVal;
 
         _playerLevel = p.level || 1;
 
@@ -2603,11 +2685,21 @@
       }
 
       if (rData.fish !== undefined) {
-        document.getElementById('res-fish').textContent      = rData.fish || 0;
-        document.getElementById('res-herbs').textContent     = rData.herbs || 0;
-        document.getElementById('res-blood-gems').textContent = rData.blood_gems || 0;
-        document.getElementById('res-bones').textContent     = rData.bones || 0;
-        document.getElementById('res-frags').textContent     = rData.spell_fragments || 0;
+        const _rv = {
+          fish: rData.fish || 0, herbs: rData.herbs || 0,
+          blood_gems: rData.blood_gems || 0, bones: rData.bones || 0,
+          spell_fragments: rData.spell_fragments || 0,
+        };
+        for (const [k, v] of Object.entries(_rv)) {
+          const bar = document.getElementById('count-' + k);
+          if (bar) bar.textContent = v.toLocaleString();
+        }
+        // Compact sidebar
+        const _sf = document.getElementById('sb-r-fish');    if (_sf) _sf.textContent = _rv.fish;
+        const _sh = document.getElementById('sb-r-herbs');   if (_sh) _sh.textContent = _rv.herbs;
+        const _sb = document.getElementById('sb-r-blood-gems'); if (_sb) _sb.textContent = _rv.blood_gems;
+        const _sn = document.getElementById('sb-r-bones');   if (_sn) _sn.textContent = _rv.bones;
+        const _sx = document.getElementById('sb-r-frags');   if (_sx) _sx.textContent = _rv.spell_fragments;
         const sealsEl = document.getElementById('res-seals');
         if (sealsEl) sealsEl.textContent = rData.mayor_seals || 0;
       }
@@ -2624,6 +2716,34 @@
         if (cpEl) cpEl.textContent = cp || '—';
       }
       loadSecretBonuses();
+    } catch(e) {}
+  }
+
+  async function updateResourceBar() {
+    try {
+      const res  = await fetch(`/resources/${CURRENT_USER}`);
+      const data = await res.json();
+      const keys = ['gold','fish','herbs','blood_gems','bones','spell_fragments'];
+      for (const k of keys) {
+        if (data[k] === undefined) continue;
+        const el = document.getElementById('count-' + k);
+        if (!el) continue;
+        const oldVal = parseInt(el.textContent.replace(/,/g,'')) || 0;
+        const newVal = data[k] || 0;
+        el.textContent = newVal.toLocaleString();
+        if (newVal > oldVal) {
+          el.classList.add('updated');
+          setTimeout(() => el.classList.remove('updated'), 500);
+        }
+      }
+      // Sidebar compact
+      const _m = {
+        'sb-r-gold': data.gold, 'sb-r-fish': data.fish, 'sb-r-herbs': data.herbs,
+        'sb-r-blood-gems': data.blood_gems, 'sb-r-bones': data.bones, 'sb-r-frags': data.spell_fragments,
+      };
+      for (const [id, val] of Object.entries(_m)) {
+        const el = document.getElementById(id); if (el) el.textContent = val || 0;
+      }
     } catch(e) {}
   }
 
@@ -2793,6 +2913,7 @@
         showToast(msg, 'ok');
         Sounds.collect();
         if (parts.length) Effects.floatText(btn, parts.join('  '), '#4aff6b');
+        Effects.animateEarned(data.earned, btn);
         if (data.level_ups && data.level_ups.length) showLevelUpModal(data.level_ups);
         if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         if (data.new_achievements && data.new_achievements.length) {
@@ -3913,7 +4034,7 @@
 
   // ── PENGUIN CARD MODAL ──
   function openCardModal() {
-    const goldEl = document.getElementById('res-gold');
+    const goldEl = document.getElementById('count-gold');
     const gold   = goldEl ? goldEl.textContent : '0';
     const level  = _playerLevel || 1;
     const job    = (_currentJob || '').replace(/_/g, ' ').toUpperCase() || 'IDLE';
@@ -4480,6 +4601,7 @@
         Sounds.collect();
         const bpcBtn = document.getElementById('bp-collect-btn');
         if (bpcBtn && parts.length) Effects.floatText(bpcBtn, parts.join('  '), '#4aff6b');
+        Effects.animateEarned(data.earned, bpcBtn);
         if (data.new_title) setTimeout(() => showToast('🏅 New title unlocked: ' + data.new_title, 'ok'), 600);
         await refreshStats();
         closeBuildingPanel();
@@ -4903,6 +5025,13 @@
         }
       }
       rewardsEl.innerHTML = rhtml;
+      if (data.rewards) {
+        setTimeout(() => {
+          if (data.rewards.gold) Effects.animateResourceCollection('gold', data.rewards.gold, null);
+          if (data.rewards.xp)   Effects.animateXPGain(data.rewards.xp, null);
+          if (data.rewards.resources) Effects.animateEarned(data.rewards.resources, null);
+        }, 2500);
+      }
     } else {
       playFightSound('defeat');
       titleEl.textContent = 'DEFEATED';
@@ -6099,6 +6228,7 @@
 
   // Map tab is active by default — trigger init now
   switchContentTab('map', null);
+  updateResourceBar();
 
   // ── DAILY LOGIN STREAK POPUP ──
   let _dailyPopupShown = false;
@@ -6138,6 +6268,8 @@
         setTimeout(() => { document.getElementById('daily-popup').style.display = 'none'; }, 350);
         const e = data.earned;
         showToast(`+${e.gold} gold & ${e.resource_amount} ${e.resource_icon} ${e.resource}!`, 'ok');
+        if (e.gold)            Effects.animateResourceCollection('gold',       e.gold,            btn);
+        if (e.resource_amount) Effects.animateResourceCollection(e.resource,   e.resource_amount, btn);
         await refreshStats();
       } else {
         document.getElementById('daily-popup').style.display = 'none';
