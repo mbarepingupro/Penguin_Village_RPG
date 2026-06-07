@@ -23,10 +23,16 @@ const IglooRenderer = (function () {
     let _canvas, _ctx, _data = null;
     let _editMode = false, _pendingItem = null;
     let _hoverCell = null, _selectedId = null;
+    // Paint mode state
+    let _paintMode = null;  // null | 'floor' | 'wall'
+    let _paintBrush = null; // selected type id
+    let _hoverWall = null;  // { side: 'left'|'right', index }
 
     const pub = {
         onCellClick: null,
         onFurnitureSelect: null,
+        onPaintCell: null,  // (gx, gy, type)
+        onWallClick: null,  // (side, index, type)
     };
 
     function _ox(s) { return s * TW / 2; }
@@ -75,48 +81,68 @@ const IglooRenderer = (function () {
         return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
     }
 
-    function _drawWalls(s, wallType) {
-        const wc  = WALL_COLORS[wallType] || WALL_COLORS.snow;
+    // Wall segment screen coords for a given side and index
+    function _wallSegPts(side, idx, s) {
+        const ox = _ox(s), oy = _oy(s);
+        if (side === 'right') {
+            const x0 = ox + idx * TW / 2,       y0 = oy - TH / 2 + idx * TH / 2;
+            const x1 = ox + (idx + 1) * TW / 2, y1 = oy - TH / 2 + (idx + 1) * TH / 2;
+            return [
+                { x: x0, y: y0 - WALL_H }, { x: x1, y: y1 - WALL_H },
+                { x: x1, y: y1 },          { x: x0, y: y0 },
+            ];
+        } else {
+            const x0 = ox - idx * TW / 2,       y0 = oy - TH / 2 + idx * TH / 2;
+            const x1 = ox - (idx + 1) * TW / 2, y1 = oy - TH / 2 + (idx + 1) * TH / 2;
+            return [
+                { x: x0, y: y0 - WALL_H }, { x: x1, y: y1 - WALL_H },
+                { x: x1, y: y1 },          { x: x0, y: y0 },
+            ];
+        }
+    }
+
+    function _drawWalls(s, wallType, wallCells) {
+        wallCells = wallCells || {};
         const ox  = _ox(s), oy = _oy(s);
         const border = 'rgba(0,0,0,0.2)';
 
-        // Right wall (gy=0 axis → goes right)
-        _poly(_ctx, [
-            { x: ox,           y: oy - TH / 2         },
-            { x: ox + s*TW/2,  y: oy + (s-1)*TH/2     },
-            { x: ox + s*TW/2,  y: oy + (s-1)*TH/2 - WALL_H },
-            { x: ox,           y: oy - TH / 2 - WALL_H },
-        ], _shade(wc, 15), border);
+        // Right wall — per-segment (gx axis, gy=0 side)
+        for (let i = 0; i < s; i++) {
+            const wt = wallCells[`right_${i}`] || wallType;
+            const wc = WALL_COLORS[wt] || WALL_COLORS.snow;
+            _poly(_ctx, _wallSegPts('right', i, s), _shade(wc, 15), border);
+        }
 
-        // Left wall (gx=0 axis → goes left)
-        _poly(_ctx, [
-            { x: ox,           y: oy - TH / 2         },
-            { x: ox - s*TW/2,  y: oy + (s-1)*TH/2     },
-            { x: ox - s*TW/2,  y: oy + (s-1)*TH/2 - WALL_H },
-            { x: ox,           y: oy - TH / 2 - WALL_H },
-        ], _shade(wc, -20), border);
+        // Left wall — per-segment (gy axis, gx=0 side)
+        for (let j = 0; j < s; j++) {
+            const wt = wallCells[`left_${j}`] || wallType;
+            const wc = WALL_COLORS[wt] || WALL_COLORS.snow;
+            _poly(_ctx, _wallSegPts('left', j, s), _shade(wc, -20), border);
+        }
 
         // Top ridge line
-        _ctx.strokeStyle = _shade(wc, 50);
+        _ctx.strokeStyle = _shade(WALL_COLORS[wallType] || WALL_COLORS.snow, 50);
         _ctx.lineWidth = 2;
         _ctx.beginPath();
-        _ctx.moveTo(ox - s*TW/2, oy + (s-1)*TH/2 - WALL_H);
-        _ctx.lineTo(ox,          oy - TH/2 - WALL_H);
-        _ctx.lineTo(ox + s*TW/2, oy + (s-1)*TH/2 - WALL_H);
+        _ctx.moveTo(ox - s * TW / 2, oy + (s - 1) * TH / 2 - WALL_H);
+        _ctx.lineTo(ox,              oy - TH / 2 - WALL_H);
+        _ctx.lineTo(ox + s * TW / 2, oy + (s - 1) * TH / 2 - WALL_H);
         _ctx.stroke();
     }
 
-    function _drawFloor(s, floorType) {
-        const fc = FLOOR_COLORS[floorType] || FLOOR_COLORS.ice;
-        const fd = _shade(fc, -12);
+    function _drawFloor(s, floorType, floorCells) {
+        floorCells = floorCells || {};
         for (let gx = 0; gx < s; gx++) {
             for (let gy = 0; gy < s; gy++) {
-                const c = _tc(gx, gy, s);
+                const cellType = floorCells[`${gx},${gy}`] || floorType;
+                const fc = FLOOR_COLORS[cellType] || FLOOR_COLORS.ice;
+                const fd = _shade(fc, -12);
+                const c  = _tc(gx, gy, s);
                 const color = (gx + gy) % 2 === 0 ? fc : fd;
                 _ctx.beginPath();
-                _ctx.moveTo(c.x,         c.y - TH / 2);
+                _ctx.moveTo(c.x,          c.y - TH / 2);
                 _ctx.lineTo(c.x + TW / 2, c.y         );
-                _ctx.lineTo(c.x,         c.y + TH / 2);
+                _ctx.lineTo(c.x,          c.y + TH / 2);
                 _ctx.lineTo(c.x - TW / 2, c.y         );
                 _ctx.closePath();
                 _ctx.fillStyle = color;
@@ -140,20 +166,10 @@ const IglooRenderer = (function () {
         const fp   = _footprint(item.grid_x, item.grid_y, w, h, s);
         const topF = fp.map(p => ({ x: p.x, y: p.y - BOX_H }));
 
-        // Right face
-        _poly(_ctx,
-            [topF[0], topF[1], fp[1], fp[0]],
-            _shade(base, 20), border, 0.5
-        );
-        // Left face
-        _poly(_ctx,
-            [topF[3], topF[2], fp[2], fp[3]],
-            _shade(base, -15), border, 0.5
-        );
-        // Top face
+        _poly(_ctx, [topF[0], topF[1], fp[1], fp[0]], _shade(base, 20), border, 0.5);
+        _poly(_ctx, [topF[3], topF[2], fp[2], fp[3]], _shade(base, -15), border, 0.5);
         _poly(_ctx, topF, _shade(base, 35), border, sel ? 2 : 0.5);
 
-        // Emoji
         const cx = (topF[0].x + topF[1].x + topF[2].x + topF[3].x) / 4;
         const cy = (topF[0].y + topF[1].y + topF[2].y + topF[3].y) / 4;
         const fs = Math.max(10, Math.min(18, TW * Math.min(w, h) * 0.35));
@@ -162,7 +178,6 @@ const IglooRenderer = (function () {
         _ctx.textBaseline = 'middle';
         _ctx.fillText(emoji, cx, cy);
 
-        // Special item: golden border
         if (cat === 'special') {
             _ctx.strokeStyle = '#FFD700';
             _ctx.lineWidth = 2;
@@ -185,8 +200,8 @@ const IglooRenderer = (function () {
             _overlaps(gx, gy, pw, ph, f.grid_x, f.grid_y, f.width || 1, f.height || 1)
         );
 
-        const pts   = _footprint(gx, gy, pw, ph, s);
-        const fill  = occupied ? 'rgba(255,68,68,0.30)' : 'rgba(74,255,107,0.30)';
+        const pts    = _footprint(gx, gy, pw, ph, s);
+        const fill   = occupied ? 'rgba(255,68,68,0.30)' : 'rgba(74,255,107,0.30)';
         const stroke = occupied ? '#ff4444' : '#4aff6b';
         _poly(_ctx, pts, fill, stroke, 1.5);
 
@@ -203,6 +218,45 @@ const IglooRenderer = (function () {
         }
     }
 
+    // Highlight hovered floor cell in paint mode
+    function _drawPaintHover(s) {
+        if (_paintMode === 'floor' && _hoverCell) {
+            const { gx, gy } = _hoverCell;
+            if (gx >= 0 && gy >= 0 && gx < s && gy < s) {
+                const pts = _footprint(gx, gy, 1, 1, s);
+                _poly(_ctx, pts, 'rgba(74,255,107,0.35)', '#4aff6b', 1.5);
+            }
+        }
+        if (_paintMode === 'wall' && _hoverWall) {
+            const { side, index } = _hoverWall;
+            _poly(_ctx, _wallSegPts(side, index, s), 'rgba(74,255,107,0.35)', '#4aff6b', 2);
+        }
+    }
+
+    // Hit-test which wall segment (if any) was clicked
+    function _hitTestWall(sx, sy, s) {
+        const ox = _ox(s), oy = _oy(s);
+        // Right wall: sx >= ox
+        if (sx >= ox) {
+            const i = Math.floor((sx - ox) / (TW / 2));
+            if (i >= 0 && i < s) {
+                const y0 = oy - TH / 2 + i * TH / 2;
+                const y1 = oy - TH / 2 + (i + 1) * TH / 2;
+                if (sy >= y0 - WALL_H && sy <= y1) return { side: 'right', index: i };
+            }
+        }
+        // Left wall: sx <= ox
+        if (sx <= ox) {
+            const j = Math.floor((ox - sx) / (TW / 2));
+            if (j >= 0 && j < s) {
+                const y0 = oy - TH / 2 + j * TH / 2;
+                const y1 = oy - TH / 2 + (j + 1) * TH / 2;
+                if (sy >= y0 - WALL_H && sy <= y1) return { side: 'left', index: j };
+            }
+        }
+        return null;
+    }
+
     function _render() {
         if (!_canvas || !_ctx || !_data) return;
         const s = _data.room_size || 6;
@@ -210,35 +264,66 @@ const IglooRenderer = (function () {
         _canvas.height = WALL_H + s * TH;
         _ctx.clearRect(0, 0, _canvas.width, _canvas.height);
 
-        _drawWalls(s, _data.wall_type  || 'snow');
-        _drawFloor(s, _data.floor_type || 'ice');
+        _drawWalls(s, _data.wall_type  || 'snow', _data.wall_cells  || {});
+        _drawFloor(s, _data.floor_type || 'ice',  _data.floor_cells || {});
 
         const sorted = [...(_data.furniture || [])].sort(
             (a, b) => (a.grid_x + a.grid_y) - (b.grid_x + b.grid_y)
         );
         for (const item of sorted) _drawItem(item, s);
 
-        if (_editMode) _drawHover(s);
+        if (_paintMode) {
+            _drawPaintHover(s);
+        } else if (_editMode) {
+            _drawHover(s);
+        }
     }
 
     function _onMouseMove(e) {
         if (!_data) return;
         const rect = _canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
         const s = _data.room_size || 6;
-        _hoverCell = _s2g(e.clientX - rect.left, e.clientY - rect.top, s);
+        if (_paintMode === 'wall') {
+            _hoverWall = _hitTestWall(sx, sy, s);
+            _hoverCell = null;
+        } else {
+            _hoverCell = _s2g(sx, sy, s);
+            _hoverWall = null;
+        }
         _render();
     }
 
     function _onMouseLeave() {
         _hoverCell = null;
+        _hoverWall = null;
         _render();
     }
 
     function _onClick(e) {
-        if (!_editMode || !_data) return;
+        if (!_data) return;
         const rect = _canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
         const s = _data.room_size || 6;
-        const g = _s2g(e.clientX - rect.left, e.clientY - rect.top, s);
+
+        // Paint mode — floor
+        if (_paintMode === 'floor') {
+            const g = _s2g(sx, sy, s);
+            if (g.gx >= 0 && g.gy >= 0 && g.gx < s && g.gy < s) {
+                if (pub.onPaintCell) pub.onPaintCell(g.gx, g.gy, _paintBrush);
+            }
+            return;
+        }
+
+        // Paint mode — wall
+        if (_paintMode === 'wall') {
+            const hit = _hitTestWall(sx, sy, s);
+            if (hit && pub.onWallClick) pub.onWallClick(hit.side, hit.index, _paintBrush);
+            return;
+        }
+
+        if (!_editMode) return;
+        const g = _s2g(sx, sy, s);
 
         if (_pendingItem) {
             if (pub.onCellClick) pub.onCellClick(g.gx, g.gy);
@@ -258,7 +343,6 @@ const IglooRenderer = (function () {
         }
     }
 
-    // Client-side furniture def cache (set by init)
     let IGLOO_FURNITURE_CLIENT = {};
 
     Object.assign(pub, {
@@ -277,6 +361,7 @@ const IglooRenderer = (function () {
             _selectedId  = null;
             _pendingItem = null;
             _hoverCell   = null;
+            _hoverWall   = null;
             _render();
         },
 
@@ -286,14 +371,30 @@ const IglooRenderer = (function () {
         },
 
         setEditMode(on) {
-            _editMode   = on;
+            _editMode    = on;
             _pendingItem = null;
             _selectedId  = null;
-            _canvas.style.cursor = on ? 'crosshair' : 'default';
+            if (!on) { _paintMode = null; _paintBrush = null; }
+            _canvas.style.cursor = (on || _paintMode) ? 'crosshair' : 'default';
             _render();
         },
 
+        // Enter/exit paint mode. mode = 'floor' | 'wall' | null
+        setPaintMode(mode, brushType) {
+            _paintMode  = mode;
+            _paintBrush = brushType || null;
+            _pendingItem = null;
+            _hoverWall   = null;
+            _canvas.style.cursor = mode ? 'crosshair' : (_editMode ? 'crosshair' : 'default');
+            _render();
+        },
+
+        setPaintBrush(brushType) {
+            _paintBrush = brushType;
+        },
+
         startPlacing(itemId, itemDef) {
+            _paintMode   = null;
             _pendingItem = { item_id: itemId, ...itemDef };
             _canvas.style.cursor = 'crosshair';
         },
@@ -301,7 +402,7 @@ const IglooRenderer = (function () {
         cancelPlacing() {
             _pendingItem = null;
             _selectedId  = null;
-            _canvas.style.cursor = _editMode ? 'crosshair' : 'default';
+            _canvas.style.cursor = (_editMode || _paintMode) ? 'crosshair' : 'default';
             _render();
         },
 
@@ -312,6 +413,7 @@ const IglooRenderer = (function () {
 
         get pendingItem() { return _pendingItem; },
         get selectedId()  { return _selectedId;  },
+        get paintMode()   { return _paintMode;   },
 
         FLOOR_COLORS,
         WALL_COLORS,

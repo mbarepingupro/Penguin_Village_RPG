@@ -436,9 +436,33 @@ def init_db():
             UNIQUE(username, item_id)
         )""")
 
+    _add_col(c, "igloos", "unlocked_floors TEXT DEFAULT 'ice'")
+    _add_col(c, "igloos", "unlocked_walls TEXT DEFAULT 'snow'")
+    _add_col(c, "igloos", "floor_cells TEXT DEFAULT '{}'")
+    _add_col(c, "igloos", "wall_cells TEXT DEFAULT '{}'")
+
     # Initialize igloo rows for all existing penguins
     try:
         c.execute("INSERT OR IGNORE INTO igloos (username) SELECT username FROM penguins")
+    except Exception:
+        pass
+
+    # Backfill: players who already use a non-default floor/wall get it unlocked for free
+    try:
+        c.execute("""
+            UPDATE igloos SET unlocked_floors =
+              CASE WHEN floor_type != 'ice' AND instr(COALESCE(unlocked_floors,'ice'), floor_type) = 0
+                   THEN COALESCE(unlocked_floors,'ice') || ',' || floor_type
+                   ELSE COALESCE(unlocked_floors,'ice')
+              END
+        """)
+        c.execute("""
+            UPDATE igloos SET unlocked_walls =
+              CASE WHEN wall_type != 'snow' AND instr(COALESCE(unlocked_walls,'snow'), wall_type) = 0
+                   THEN COALESCE(unlocked_walls,'snow') || ',' || wall_type
+                   ELSE COALESCE(unlocked_walls,'snow')
+              END
+        """)
     except Exception:
         pass
 
