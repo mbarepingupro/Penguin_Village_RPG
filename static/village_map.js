@@ -7,8 +7,8 @@ const GRID_SIZE = 20;
 
 const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5;
 
-const PENGUIN_FRAME_WIDTH  = 35;
-const PENGUIN_FRAME_HEIGHT = 35;
+const PENGUIN_FRAME_WIDTH  = 32;
+const PENGUIN_FRAME_HEIGHT = 32;
 const PENGUIN_FRAME_COUNT  = 2;
 const PENGUIN_ANIM_SPEED   = 400; // ms per frame
 
@@ -389,8 +389,8 @@ function drawPenguin(sx, sy, penguin) {
 
     const sprite = SpriteLoader.get('/static/penguin.png');
     if (sprite) {
-        // Frame 1: sx=0  Frame 2: sx=36  (35px wide + 1px gap)
-        const frameX = penguin.animFrame * 36;
+        // Frame 1: sx=0  Frame 2: sx=32  (32px wide, no gap)
+        const frameX = penguin.animFrame * PENGUIN_FRAME_WIDTH;
         ctx.save();
         ctx.imageSmoothingEnabled = false;
         if (!penguin.facingRight) {

@@ -1,7 +1,7 @@
 # Penguin Wearing Sprites
 Items as they appear ON the penguin sprite. Layered on top of the base penguin.
 
-Dimensions: same as penguin.png base sprite
+Dimensions: 64x32 pixels (two 32x32 frames, matching the base penguin strip)
 Format: PNG with transparent background — ONLY the item, no penguin
 No anti-aliasing — pixel art only
 
