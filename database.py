@@ -438,6 +438,8 @@ def init_db():
 
     _add_col(c, "igloos", "unlocked_floors TEXT DEFAULT 'ice'")
     _add_col(c, "igloos", "unlocked_walls TEXT DEFAULT 'snow'")
+    _add_col(c, "igloos", "floor_cells TEXT DEFAULT '{}'")
+    _add_col(c, "igloos", "wall_cells TEXT DEFAULT '{}'")
 
     # Initialize igloo rows for all existing penguins
     try:

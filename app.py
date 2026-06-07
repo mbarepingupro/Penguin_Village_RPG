@@ -3354,8 +3354,13 @@ def get_igloo(username):
         "SELECT item_id, placed FROM igloo_items WHERE username=? ORDER BY obtained_at",
         (username,)
     ).fetchall()
+    import json as _json
     unlocked_floors = list(set((igloo["unlocked_floors"] or "ice").split(",")))
     unlocked_walls  = list(set((igloo["unlocked_walls"]  or "snow").split(",")))
+    try:    floor_cells = _json.loads(igloo["floor_cells"] or "{}")
+    except: floor_cells = {}
+    try:    wall_cells  = _json.loads(igloo["wall_cells"]  or "{}")
+    except: wall_cells  = {}
     db.commit()
     db.close()
     return jsonify({
@@ -3368,6 +3373,8 @@ def get_igloo(username):
         "owned_items":      [{"item_id": r["item_id"], "placed": bool(r["placed"])} for r in owned],
         "unlocked_floors":  unlocked_floors,
         "unlocked_walls":   unlocked_walls,
+        "floor_cells":      floor_cells,
+        "wall_cells":       wall_cells,
     })
 
 
@@ -3596,10 +3603,10 @@ def igloo_change_floor():
                 db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
         unlocked.add(floor_type)
         db.execute("UPDATE igloos SET unlocked_floors=? WHERE username=?", (",".join(sorted(unlocked)), username))
-    db.execute("UPDATE igloos SET floor_type=? WHERE username=?", (floor_type, username))
+    db.execute("UPDATE igloos SET floor_type=?, floor_cells='{}' WHERE username=?", (floor_type, username))
     db.commit()
     db.close()
-    return jsonify({"status": "success", "floor_type": floor_type, "unlocked_floors": sorted(list(unlocked))})
+    return jsonify({"status": "success", "floor_type": floor_type, "floor_cells": {}, "unlocked_floors": sorted(list(unlocked))})
 
 
 @app.route("/igloo/wall", methods=["POST"])
@@ -3626,10 +3633,78 @@ def igloo_change_wall():
                 db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
         unlocked.add(wall_type)
         db.execute("UPDATE igloos SET unlocked_walls=? WHERE username=?", (",".join(sorted(unlocked)), username))
-    db.execute("UPDATE igloos SET wall_type=? WHERE username=?", (wall_type, username))
+    db.execute("UPDATE igloos SET wall_type=?, wall_cells='{}' WHERE username=?", (wall_type, username))
     db.commit()
     db.close()
-    return jsonify({"status": "success", "wall_type": wall_type, "unlocked_walls": sorted(list(unlocked))})
+    return jsonify({"status": "success", "wall_type": wall_type, "wall_cells": {}, "unlocked_walls": sorted(list(unlocked))})
+
+
+@app.route("/igloo/floor-cell", methods=["POST"])
+def igloo_paint_floor_cell():
+    import json as _json
+    data       = request.get_json(silent=True) or {}
+    username   = data.get("username") or session.get("username")
+    floor_type = data.get("floor_type", "")
+    gx         = data.get("gx")
+    gy         = data.get("gy")
+    if floor_type not in FLOOR_TYPES:
+        return jsonify({"status": "error", "message": "Invalid floor type."})
+    if gx is None or gy is None:
+        return jsonify({"status": "error", "message": "Missing cell coordinates."})
+    db = get_db()
+    _ensure_igloo(db, username)
+    igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+    unlocked = set((igloo["unlocked_floors"] or "ice").split(","))
+    if floor_type not in unlocked:
+        db.close()
+        return jsonify({"status": "error", "message": f"Unlock '{floor_type}' first from the floor palette."})
+    room_level = igloo["room_level"]
+    room_size  = IGLOO_LEVELS[room_level]["size"]
+    if not (0 <= int(gx) < room_size and 0 <= int(gy) < room_size):
+        db.close()
+        return jsonify({"status": "error", "message": "Cell out of range."})
+    try:    cells = _json.loads(igloo["floor_cells"] or "{}")
+    except: cells = {}
+    cell_key = f"{int(gx)},{int(gy)}"
+    cells[cell_key] = floor_type
+    db.execute("UPDATE igloos SET floor_cells=? WHERE username=?", (_json.dumps(cells), username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "floor_cells": cells})
+
+
+@app.route("/igloo/wall-cell", methods=["POST"])
+def igloo_paint_wall_cell():
+    import json as _json
+    data      = request.get_json(silent=True) or {}
+    username  = data.get("username") or session.get("username")
+    wall_type = data.get("wall_type", "")
+    side      = data.get("side", "")
+    index     = data.get("index")
+    if wall_type not in WALL_TYPES:
+        return jsonify({"status": "error", "message": "Invalid wall type."})
+    if side not in ("left", "right") or index is None:
+        return jsonify({"status": "error", "message": "Missing wall side/index."})
+    db = get_db()
+    _ensure_igloo(db, username)
+    igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+    unlocked = set((igloo["unlocked_walls"] or "snow").split(","))
+    if wall_type not in unlocked:
+        db.close()
+        return jsonify({"status": "error", "message": f"Unlock '{wall_type}' first from the wall palette."})
+    room_level = igloo["room_level"]
+    room_size  = IGLOO_LEVELS[room_level]["size"]
+    if not (0 <= int(index) < room_size):
+        db.close()
+        return jsonify({"status": "error", "message": "Wall index out of range."})
+    try:    cells = _json.loads(igloo["wall_cells"] or "{}")
+    except: cells = {}
+    cell_key = f"{side}_{int(index)}"
+    cells[cell_key] = wall_type
+    db.execute("UPDATE igloos SET wall_cells=? WHERE username=?", (_json.dumps(cells), username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "wall_cells": cells})
 
 
 # ── WELCOME BACK / OFFLINE PROGRESS ──────────────────────────────────────────

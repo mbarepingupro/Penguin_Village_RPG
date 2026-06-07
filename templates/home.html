@@ -767,6 +767,13 @@
     .igloo-palette-tile.active { border-color: var(--purple); }
     .igloo-palette-tile.locked { opacity: 0.55; }
     .igloo-palette-tile .tile-lock { font-size: 9px; line-height: 1; pointer-events: none; }
+    .igloo-paint-toggle {
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      background: transparent; border: 1px solid #555; color: #aaa;
+      padding: 2px 5px; cursor: pointer;
+    }
+    .igloo-paint-toggle:hover { border-color: #4aff6b; color: #4aff6b; }
+    .igloo-paint-toggle.active { border-color: #4aff6b; color: #4aff6b; background: rgba(74,255,107,0.1); }
     .igloo-status-bar {
       background: #0d1a0d; border-top: 2px solid #4aff6b;
       padding: 6px 12px; display: none; align-items: center; gap: 10px;
@@ -5349,6 +5356,8 @@
   let _iglooLoaded = false;
   let _iglooEditMode = false;
   let _iglooPlacingItemId = null;
+  let _iglooPaintMode = null;   // null | 'floor' | 'wall'
+  let _iglooPaintBrush = null;  // selected type id
 
   const IGLOO_FURNITURE_DEFS = {};  // populated by loadIgloo()
 
@@ -5387,6 +5396,8 @@
       // Set up callbacks
       IglooRenderer.onCellClick = iglooOnCellClick;
       IglooRenderer.onFurnitureSelect = iglooOnFurnitureSelect;
+      IglooRenderer.onPaintCell = iglooPaintFloorCell;
+      IglooRenderer.onWallClick = iglooPaintWallCell;
     } catch(e) { showToast('Error loading igloo.', 'err'); }
   }
 
@@ -5490,33 +5501,65 @@
     const unlockedFloors = new Set(data.unlocked_floors || ['ice']);
     const unlockedWalls  = new Set(data.unlocked_walls  || ['snow']);
 
-    html += `<div class="igloo-subsection-label">🎨 FLOOR</div>`;
+    // Floor section
+    const floorPainting = _iglooPaintMode === 'floor';
+    html += `<div class="igloo-subsection-label" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>🎨 FLOOR</span>
+      <button class="igloo-paint-toggle${floorPainting ? ' active' : ''}"
+        onclick="iglooTogglePaint('floor')" title="Paint individual floor cells">
+        ${floorPainting ? '✏️ PAINTING' : '✏️ PAINT'}
+      </button>
+    </div>`;
     html += `<div class="igloo-palette">`;
     for (const [fid, ft] of Object.entries(FLOORS)) {
-      const isActive   = data.floor_type === fid;
-      const isUnlocked = unlockedFloors.has(fid);
-      const tipSuffix  = isUnlocked ? (ft.cost ? ' — ✓ UNLOCKED' : '') : (ft.cost ? ` — BUY ${ft.cost.gold}🪙` : '');
+      const isActive      = floorPainting ? (_iglooPaintBrush === fid) : (data.floor_type === fid);
+      const isUnlocked    = unlockedFloors.has(fid);
+      const clickHandler  = floorPainting
+        ? `iglooSelectPaintBrush('${fid}')`
+        : `iglooDoFloor('${fid}')`;
+      const tipSuffix     = isUnlocked ? (ft.cost ? ' — ✓ UNLOCKED' : '') : (ft.cost ? ` — BUY ${ft.cost.gold}🪙` : '');
       html += `<div class="igloo-palette-tile${isActive ? ' active' : ''}${!isUnlocked ? ' locked' : ''}"
         style="background:${ft.color};" title="${ft.name}${tipSuffix}"
-        onclick="iglooDoFloor('${fid}')">
+        onclick="${clickHandler}">
         ${!isUnlocked ? `<span class="tile-lock">🔒</span>` : ''}
       </div>`;
     }
     html += `</div>`;
+    if (floorPainting) {
+      html += `<div style="color:#4aff6b;font-size:7px;padding:2px 8px 6px;">
+        Click tiles above to select brush, then click the floor to paint cells
+      </div>`;
+    }
 
-    html += `<div class="igloo-subsection-label">🧱 WALLS</div>`;
+    // Walls section
+    const wallPainting = _iglooPaintMode === 'wall';
+    html += `<div class="igloo-subsection-label" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>🧱 WALLS</span>
+      <button class="igloo-paint-toggle${wallPainting ? ' active' : ''}"
+        onclick="iglooTogglePaint('wall')" title="Paint individual wall segments">
+        ${wallPainting ? '✏️ PAINTING' : '✏️ PAINT'}
+      </button>
+    </div>`;
     html += `<div class="igloo-palette">`;
     for (const [wid, wt] of Object.entries(WALLS)) {
-      const isActive   = data.wall_type === wid;
-      const isUnlocked = unlockedWalls.has(wid);
-      const tipSuffix  = isUnlocked ? (wt.cost ? ' — ✓ UNLOCKED' : '') : (wt.cost ? ` — BUY ${wt.cost.gold}🪙` : '');
+      const isActive      = wallPainting ? (_iglooPaintBrush === wid) : (data.wall_type === wid);
+      const isUnlocked    = unlockedWalls.has(wid);
+      const clickHandler  = wallPainting
+        ? `iglooSelectPaintBrush('${wid}')`
+        : `iglooDoWall('${wid}')`;
+      const tipSuffix     = isUnlocked ? (wt.cost ? ' — ✓ UNLOCKED' : '') : (wt.cost ? ` — BUY ${wt.cost.gold}🪙` : '');
       html += `<div class="igloo-palette-tile${isActive ? ' active' : ''}${!isUnlocked ? ' locked' : ''}"
         style="background:${wt.color};" title="${wt.name}${tipSuffix}"
-        onclick="iglooDoWall('${wid}')">
+        onclick="${clickHandler}">
         ${!isUnlocked ? `<span class="tile-lock">🔒</span>` : ''}
       </div>`;
     }
     html += `</div>`;
+    if (wallPainting) {
+      html += `<div style="color:#4aff6b;font-size:7px;padding:2px 8px 6px;">
+        Click tiles above to select brush, then click wall segments to paint
+      </div>`;
+    }
 
     html += `<div class="igloo-subsection-label">🛋️ FURNITURE</div>`;
     html += `<button class="igloo-room-opt-btn" onclick="openBoutiqueFurniture()"
@@ -5596,6 +5639,7 @@
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
       if (_iglooData) {
         _iglooData.floor_type = floorType;
+        _iglooData.floor_cells = {};
         if (data.unlocked_floors) _iglooData.unlocked_floors = data.unlocked_floors;
       }
       IglooRenderer.updateData(_iglooData);
@@ -5614,12 +5658,64 @@
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
       if (_iglooData) {
         _iglooData.wall_type = wallType;
+        _iglooData.wall_cells = {};
         if (data.unlocked_walls) _iglooData.unlocked_walls = data.unlocked_walls;
       }
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomOptions();
       refreshStats();
     } catch(e) { showToast('Error changing walls.', 'err'); }
+  }
+
+  function iglooTogglePaint(mode) {
+    if (_iglooPaintMode === mode) {
+      // Exit paint mode
+      _iglooPaintMode  = null;
+      _iglooPaintBrush = null;
+      IglooRenderer.setPaintMode(null);
+    } else {
+      // Enter paint mode for this surface; default brush = current type
+      _iglooPaintMode  = mode;
+      _iglooPaintBrush = mode === 'floor'
+        ? (_iglooData && _iglooData.floor_type || 'ice')
+        : (_iglooData && _iglooData.wall_type  || 'snow');
+      IglooRenderer.setPaintMode(mode, _iglooPaintBrush);
+    }
+    iglooRenderRoomOptions();
+  }
+
+  function iglooSelectPaintBrush(typeId) {
+    _iglooPaintBrush = typeId;
+    IglooRenderer.setPaintBrush(typeId);
+    iglooRenderRoomOptions();
+  }
+
+  async function iglooPaintFloorCell(gx, gy, floorType) {
+    if (!floorType) return;
+    try {
+      const res  = await fetch('/igloo/floor-cell', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: CURRENT_USER, floor_type: floorType, gx, gy }),
+      });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast(data.message, 'err'); return; }
+      if (_iglooData) _iglooData.floor_cells = data.floor_cells;
+      IglooRenderer.updateData(_iglooData);
+    } catch(e) { showToast('Error painting floor cell.', 'err'); }
+  }
+
+  async function iglooPaintWallCell(side, index, wallType) {
+    if (!wallType) return;
+    try {
+      const res  = await fetch('/igloo/wall-cell', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: CURRENT_USER, wall_type: wallType, side, index }),
+      });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast(data.message, 'err'); return; }
+      if (_iglooData) _iglooData.wall_cells = data.wall_cells;
+      IglooRenderer.updateData(_iglooData);
+    } catch(e) { showToast('Error painting wall cell.', 'err'); }
   }
 
   async function iglooRefresh() {
