@@ -369,11 +369,60 @@ function drawBuilding(id, bdef, level) {
     }
 }
 
-function drawPenguin(sx, sy, penguin) {
-    const drawWidth  = TILE_W * 0.6;                              // ~38px world units
-    const drawHeight = (PENGUIN_FRAME_HEIGHT / PENGUIN_FRAME_WIDTH) * drawWidth; // 1:1
+function _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight) {
+    const sprite = SpriteLoader.get('/static/penguin.png');
+    if (sprite) {
+        // Frame 1: sx=0  Frame 2: sx=32  (32px wide, no gap)
+        const frameX = penguin.animFrame * PENGUIN_FRAME_WIDTH;
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        if (!penguin.facingRight) {
+            ctx.translate(sx * 2, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(
+            sprite,
+            frameX, 0, PENGUIN_FRAME_WIDTH, PENGUIN_FRAME_HEIGHT,
+            drawX, drawY, drawWidth, drawHeight
+        );
+        ctx.restore();
+    } else {
+        ctx.beginPath();
+        ctx.arc(sx, sy - drawHeight / 2, drawWidth / 2, 0, Math.PI * 2);
+        ctx.fillStyle = penguin.body_color || '#1a1a1a';
+        ctx.fill();
+    }
+}
+
+function drawPenguin(sx, sy, penguin, isBehind) {
+    const drawWidth  = TILE_W * 0.6;
+    const drawHeight = (PENGUIN_FRAME_HEIGHT / PENGUIN_FRAME_WIDTH) * drawWidth;
     const drawX = sx - drawWidth / 2;
-    const drawY = sy - drawHeight;                                // feet at tile centre
+    const drawY = sy - drawHeight;
+
+    if (isBehind) {
+        // Draw as a semi-transparent dark silhouette
+        const supportsFilter = typeof ctx.filter !== 'undefined';
+        ctx.save();
+        ctx.globalAlpha = 0.35;
+        if (supportsFilter) ctx.filter = 'brightness(0.2) saturate(0)';
+        _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight);
+        if (supportsFilter) ctx.filter = 'none';
+        ctx.restore();
+
+        // 📍 indicator above the occluding building for the current player only
+        if (penguin.isCurrentUser && fontReady) {
+            ctx.save();
+            ctx.font = '12px serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('📍', sx, drawY - 6);
+            ctx.restore();
+        }
+        return;
+    }
+
+    // ── Normal rendering ─────────────────────────────────────────────────────
 
     // Pulsing ring for current user
     if (penguin.isCurrentUser) {
@@ -387,30 +436,7 @@ function drawPenguin(sx, sy, penguin) {
         ctx.restore();
     }
 
-    const sprite = SpriteLoader.get('/static/penguin.png');
-    if (sprite) {
-        // Frame 1: sx=0  Frame 2: sx=32  (32px wide, no gap)
-        const frameX = penguin.animFrame * PENGUIN_FRAME_WIDTH;
-        ctx.save();
-        ctx.imageSmoothingEnabled = false;
-        if (!penguin.facingRight) {
-            // Mirror around the sprite's centre x
-            ctx.translate(sx * 2, 0);
-            ctx.scale(-1, 1);
-        }
-        ctx.drawImage(
-            sprite,
-            frameX, 0, PENGUIN_FRAME_WIDTH, PENGUIN_FRAME_HEIGHT,
-            drawX, drawY, drawWidth, drawHeight
-        );
-        ctx.restore();
-    } else {
-        // Fallback: simple circle
-        ctx.beginPath();
-        ctx.arc(sx, sy - drawHeight / 2, drawWidth / 2, 0, Math.PI * 2);
-        ctx.fillStyle = penguin.body_color || '#1a1a1a';
-        ctx.fill();
-    }
+    _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight);
 
     // Layer worn item sprites (body first so head renders on top)
     if (penguin.worn_items) {
@@ -461,6 +487,21 @@ function drawPenguin(sx, sy, penguin) {
         ctx.textBaseline = "middle";
         ctx.fillText(JOB_ICONS[penguin.job], sx + drawWidth / 2 + 6, sy - drawHeight / 2);
     }
+}
+
+function isPenguinBehindBuilding(penguinX, penguinY) {
+    const penguinDepth = penguinX + penguinY;
+    for (const [, bdef] of Object.entries(buildingLayout)) {
+        // Building renders after (on top of) penguin only when building depth > penguin depth
+        const buildingDepth = (bdef.gridX + bdef.width - 1) + (bdef.gridY + bdef.height - 1);
+        if (buildingDepth <= penguinDepth) continue;
+        // Check spatial overlap within the building footprint
+        if (penguinX >= bdef.gridX - 0.5 && penguinX < bdef.gridX + bdef.width &&
+            penguinY >= bdef.gridY - 0.5 && penguinY < bdef.gridY + bdef.height) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function isWalkable(gx, gy) {
@@ -931,6 +972,7 @@ function gameLoop(ts) {
     ctx.translate(cameraX, cameraY);
     ctx.scale(zoomLevel, zoomLevel);
 
+    // ── Phase 1: Ground tiles (always flat — draw first) ─────────────────────
     const margin = TILE_W * 2;
     for (let diag = 0; diag < 2 * GRID_SIZE - 1; diag++) {
         for (let xi = Math.max(0, diag - GRID_SIZE + 1); xi <= Math.min(diag, GRID_SIZE - 1); xi++) {
@@ -952,37 +994,58 @@ function gameLoop(ts) {
                 drawTile(pos.x, pos.y, TILE_COLORS[tileType] || TILE_COLORS[0], tileType);
             }
 
-            if (tileType === TILE_TREE) {
-                const key = x + ',' + y;
-                const seed = treeSeed[key] || 0;
-                drawTree(pos.x, pos.y, seed);
-            } else if (tileType === TILE_FENCE) {
+            if (tileType === TILE_FENCE) {
                 drawFence(pos.x, pos.y);
             }
+            // Trees drawn in Phase 2 for correct depth ordering with buildings and penguins
         }
-    }
-
-    const sortedBuildings = Object.entries(buildingLayout).sort(([, a], [, b]) =>
-        (a.gridX + a.gridY) - (b.gridX + b.gridY)
-    );
-    for (const [id, bdef] of sortedBuildings) {
-        const level = buildingLevels[id] !== undefined ? buildingLevels[id] : 1;
-        drawBuilding(id, bdef, level);
     }
 
     updatePenguins(dt);
 
-    const sortedPenguins = penguins.slice().sort((a, b) => {
-        const aSort = (a.gridX + (a.targetGridX - a.gridX) * a.progress) + (a.gridY + (a.targetGridY - a.gridY) * a.progress);
-        const bSort = (b.gridX + (b.targetGridX - b.gridX) * b.progress) + (b.gridY + (b.targetGridY - b.gridY) * b.progress);
-        return aSort - bSort;
-    });
+    // ── Phase 2: Upright objects sorted back-to-front (painter's algorithm) ──
+    const uprightObjects = [];
 
-    for (const p of sortedPenguins) {
+    // Trees — sort key is their single grid cell
+    for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+            if (grid[y] && grid[y][x] === TILE_TREE) {
+                uprightObjects.push({ type: 'tree', gridX: x, gridY: y, sortKey: x + y });
+            }
+        }
+    }
+
+    // Buildings — use front corner (bottom-right) for depth so they cover objects behind them
+    for (const [id, bdef] of Object.entries(buildingLayout)) {
+        const level = buildingLevels[id] !== undefined ? buildingLevels[id] : 1;
+        uprightObjects.push({
+            type: 'building', id, bdef, level,
+            sortKey: (bdef.gridX + bdef.width - 1) + (bdef.gridY + bdef.height - 1),
+        });
+    }
+
+    // Penguins — use interpolated position for smooth depth during movement
+    for (const p of penguins) {
         const ix = p.gridX + (p.targetGridX - p.gridX) * p.progress;
         const iy = p.gridY + (p.targetGridY - p.gridY) * p.progress;
-        const pos = gridToScreen(ix, iy);
-        drawPenguin(pos.x, pos.y, p);
+        uprightObjects.push({ type: 'penguin', data: p, ix, iy, sortKey: ix + iy });
+    }
+
+    // Sort: lower sortKey = further from viewer = drawn first
+    uprightObjects.sort((a, b) => a.sortKey - b.sortKey);
+
+    for (const obj of uprightObjects) {
+        if (obj.type === 'tree') {
+            const pos = gridToScreen(obj.gridX, obj.gridY);
+            const seed = treeSeed[obj.gridX + ',' + obj.gridY] || 0;
+            drawTree(pos.x, pos.y, seed);
+        } else if (obj.type === 'building') {
+            drawBuilding(obj.id, obj.bdef, obj.level);
+        } else {
+            const pos = gridToScreen(obj.ix, obj.iy);
+            const isBehind = isPenguinBehindBuilding(obj.ix, obj.iy);
+            drawPenguin(pos.x, pos.y, obj.data, isBehind);
+        }
     }
 
     ctx.restore();
