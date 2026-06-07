@@ -3354,16 +3354,20 @@ def get_igloo(username):
         "SELECT item_id, placed FROM igloo_items WHERE username=? ORDER BY obtained_at",
         (username,)
     ).fetchall()
+    unlocked_floors = list(set((igloo["unlocked_floors"] or "ice").split(",")))
+    unlocked_walls  = list(set((igloo["unlocked_walls"]  or "snow").split(",")))
     db.commit()
     db.close()
     return jsonify({
-        "room_level":  room_level,
-        "room_size":   room_size,
-        "room_name":   IGLOO_LEVELS[room_level]["name"],
-        "floor_type":  igloo["floor_type"],
-        "wall_type":   igloo["wall_type"],
-        "furniture":   furniture_list,
-        "owned_items": [{"item_id": r["item_id"], "placed": bool(r["placed"])} for r in owned],
+        "room_level":       room_level,
+        "room_size":        room_size,
+        "room_name":        IGLOO_LEVELS[room_level]["name"],
+        "floor_type":       igloo["floor_type"],
+        "wall_type":        igloo["wall_type"],
+        "furniture":        furniture_list,
+        "owned_items":      [{"item_id": r["item_id"], "placed": bool(r["placed"])} for r in owned],
+        "unlocked_floors":  unlocked_floors,
+        "unlocked_walls":   unlocked_walls,
     })
 
 
@@ -3578,19 +3582,24 @@ def igloo_change_floor():
     ft = FLOOR_TYPES[floor_type]
     db = get_db()
     _ensure_igloo(db, username)
-    if ft["cost"]:
-        ensure_resources(db, username)
-        res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-        for resource, amount in ft["cost"].items():
-            if (res[resource] or 0) < amount:
-                db.close()
-                return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
-        for resource, amount in ft["cost"].items():
-            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+    igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+    unlocked = set((igloo["unlocked_floors"] or "ice").split(","))
+    if floor_type not in unlocked:
+        if ft["cost"]:
+            ensure_resources(db, username)
+            res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+            for resource, amount in ft["cost"].items():
+                if (res[resource] or 0) < amount:
+                    db.close()
+                    return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
+            for resource, amount in ft["cost"].items():
+                db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+        unlocked.add(floor_type)
+        db.execute("UPDATE igloos SET unlocked_floors=? WHERE username=?", (",".join(sorted(unlocked)), username))
     db.execute("UPDATE igloos SET floor_type=? WHERE username=?", (floor_type, username))
     db.commit()
     db.close()
-    return jsonify({"status": "success", "floor_type": floor_type})
+    return jsonify({"status": "success", "floor_type": floor_type, "unlocked_floors": sorted(list(unlocked))})
 
 
 @app.route("/igloo/wall", methods=["POST"])
@@ -3603,19 +3612,24 @@ def igloo_change_wall():
     wt = WALL_TYPES[wall_type]
     db = get_db()
     _ensure_igloo(db, username)
-    if wt["cost"]:
-        ensure_resources(db, username)
-        res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-        for resource, amount in wt["cost"].items():
-            if (res[resource] or 0) < amount:
-                db.close()
-                return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
-        for resource, amount in wt["cost"].items():
-            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+    igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+    unlocked = set((igloo["unlocked_walls"] or "snow").split(","))
+    if wall_type not in unlocked:
+        if wt["cost"]:
+            ensure_resources(db, username)
+            res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+            for resource, amount in wt["cost"].items():
+                if (res[resource] or 0) < amount:
+                    db.close()
+                    return jsonify({"status": "error", "message": f"Need {amount} {resource.replace('_',' ')}!"})
+            for resource, amount in wt["cost"].items():
+                db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+        unlocked.add(wall_type)
+        db.execute("UPDATE igloos SET unlocked_walls=? WHERE username=?", (",".join(sorted(unlocked)), username))
     db.execute("UPDATE igloos SET wall_type=? WHERE username=?", (wall_type, username))
     db.commit()
     db.close()
-    return jsonify({"status": "success", "wall_type": wall_type})
+    return jsonify({"status": "success", "wall_type": wall_type, "unlocked_walls": sorted(list(unlocked))})
 
 
 # ── WELCOME BACK / OFFLINE PROGRESS ──────────────────────────────────────────

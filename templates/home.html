@@ -761,9 +761,12 @@
     .igloo-palette { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 8px 8px; flex-shrink: 0; }
     .igloo-palette-tile {
       width: 26px; height: 26px; border: 2px solid #333; cursor: pointer; flex-shrink: 0;
+      position: relative; display: flex; align-items: center; justify-content: center;
     }
     .igloo-palette-tile:hover { border-color: #888; }
     .igloo-palette-tile.active { border-color: var(--purple); }
+    .igloo-palette-tile.locked { opacity: 0.55; }
+    .igloo-palette-tile .tile-lock { font-size: 9px; line-height: 1; pointer-events: none; }
     .igloo-status-bar {
       background: #0d1a0d; border-top: 2px solid #4aff6b;
       padding: 6px 12px; display: none; align-items: center; gap: 10px;
@@ -5484,25 +5487,34 @@
       html += `<button class="igloo-room-opt-btn" disabled>🏠 MAX LEVEL — ${LEVELS[rl].size}×${LEVELS[rl].size} (${LEVELS[rl].name.toUpperCase()})</button>`;
     }
 
+    const unlockedFloors = new Set(data.unlocked_floors || ['ice']);
+    const unlockedWalls  = new Set(data.unlocked_walls  || ['snow']);
+
     html += `<div class="igloo-subsection-label">🎨 FLOOR</div>`;
     html += `<div class="igloo-palette">`;
     for (const [fid, ft] of Object.entries(FLOORS)) {
-      const isActive = data.floor_type === fid;
-      const costLabel = ft.cost ? ` (${ft.cost.gold}🪙)` : '';
-      html += `<div class="igloo-palette-tile${isActive ? ' active' : ''}"
-        style="background:${ft.color};" title="${ft.name}${costLabel}"
-        onclick="iglooDoFloor('${fid}')"></div>`;
+      const isActive   = data.floor_type === fid;
+      const isUnlocked = unlockedFloors.has(fid);
+      const tipSuffix  = isUnlocked ? (ft.cost ? ' — ✓ UNLOCKED' : '') : (ft.cost ? ` — BUY ${ft.cost.gold}🪙` : '');
+      html += `<div class="igloo-palette-tile${isActive ? ' active' : ''}${!isUnlocked ? ' locked' : ''}"
+        style="background:${ft.color};" title="${ft.name}${tipSuffix}"
+        onclick="iglooDoFloor('${fid}')">
+        ${!isUnlocked ? `<span class="tile-lock">🔒</span>` : ''}
+      </div>`;
     }
     html += `</div>`;
 
     html += `<div class="igloo-subsection-label">🧱 WALLS</div>`;
     html += `<div class="igloo-palette">`;
     for (const [wid, wt] of Object.entries(WALLS)) {
-      const isActive = data.wall_type === wid;
-      const costLabel = wt.cost ? ` (${wt.cost.gold}🪙)` : '';
-      html += `<div class="igloo-palette-tile${isActive ? ' active' : ''}"
-        style="background:${wt.color};" title="${wt.name}${costLabel}"
-        onclick="iglooDoWall('${wid}')"></div>`;
+      const isActive   = data.wall_type === wid;
+      const isUnlocked = unlockedWalls.has(wid);
+      const tipSuffix  = isUnlocked ? (wt.cost ? ' — ✓ UNLOCKED' : '') : (wt.cost ? ` — BUY ${wt.cost.gold}🪙` : '');
+      html += `<div class="igloo-palette-tile${isActive ? ' active' : ''}${!isUnlocked ? ' locked' : ''}"
+        style="background:${wt.color};" title="${wt.name}${tipSuffix}"
+        onclick="iglooDoWall('${wid}')">
+        ${!isUnlocked ? `<span class="tile-lock">🔒</span>` : ''}
+      </div>`;
     }
     html += `</div>`;
 
@@ -5582,9 +5594,13 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
-      if (_iglooData) _iglooData.floor_type = floorType;
+      if (_iglooData) {
+        _iglooData.floor_type = floorType;
+        if (data.unlocked_floors) _iglooData.unlocked_floors = data.unlocked_floors;
+      }
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomOptions();
+      refreshStats();
     } catch(e) { showToast('Error changing floor.', 'err'); }
   }
 
@@ -5596,9 +5612,13 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
-      if (_iglooData) _iglooData.wall_type = wallType;
+      if (_iglooData) {
+        _iglooData.wall_type = wallType;
+        if (data.unlocked_walls) _iglooData.unlocked_walls = data.unlocked_walls;
+      }
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomOptions();
+      refreshStats();
     } catch(e) { showToast('Error changing walls.', 'err'); }
   }
 
