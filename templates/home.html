@@ -3008,6 +3008,11 @@
   const _BQ_TIER_COLORS = { cheap: '#4aff6b', mid: '#4a9eff', expensive: '#FF8C00' };
   const _BQ_TAB_LABELS  = { hats: '🎩 HATS', outfits: '👕 OUTFITS', footwear: '👟 FOOTWEAR', accessories: '✨ ACCESSORIES', furniture: '🛋️ FURNITURE' };
 
+  async function openBoutiqueFurniture() {
+    await openBoutique();
+    bqSwitchTab('furniture');
+  }
+
   async function openBoutique() {
     document.getElementById('bm-overlay').style.display = 'block';
     document.getElementById('building-modal').style.display = 'block';
@@ -5472,10 +5477,11 @@
         : 'FREE';
       html += `<button class="igloo-room-opt-btn" onclick="iglooDoUpgrade()">
         🏠 UPGRADE → ${nextLvl.name.toUpperCase()}<br>
+        <span style="color:#aaa;font-size:6px;">${LEVELS[rl].size}×${LEVELS[rl].size} → ${nextLvl.size}×${nextLvl.size} GRID</span><br>
         <span style="color:#FF8C00;font-size:6px;">${costStr}</span>
       </button>`;
     } else {
-      html += `<button class="igloo-room-opt-btn" disabled>🏠 MAX LEVEL (${LEVELS[rl].name.toUpperCase()})</button>`;
+      html += `<button class="igloo-room-opt-btn" disabled>🏠 MAX LEVEL — ${LEVELS[rl].size}×${LEVELS[rl].size} (${LEVELS[rl].name.toUpperCase()})</button>`;
     }
 
     html += `<div class="igloo-subsection-label">🎨 FLOOR</div>`;
@@ -5499,6 +5505,13 @@
         onclick="iglooDoWall('${wid}')"></div>`;
     }
     html += `</div>`;
+
+    html += `<div class="igloo-subsection-label">🛋️ FURNITURE</div>`;
+    html += `<button class="igloo-room-opt-btn" onclick="openBoutiqueFurniture()"
+      style="background:rgba(168,110,255,0.15);border-color:#A86EFF;">
+      🛋️ OPEN FURNITURE SHOP →<br>
+      <span style="color:#A86EFF;font-size:6px;">Buy items to place in your igloo</span>
+    </button>`;
 
     el.innerHTML = html;
   }
