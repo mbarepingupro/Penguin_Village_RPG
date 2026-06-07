@@ -3632,13 +3632,18 @@
 
     // Play mystical chime
     try {
-      const actx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = actx.createOscillator(); const gain = actx.createGain();
-      osc.connect(gain); gain.connect(actx.destination);
-      osc.type = 'sine'; osc.frequency.value = 523;
-      gain.gain.setValueAtTime(0.3, actx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 1.5);
-      osc.start(); osc.stop(actx.currentTime + 1.5);
+      if (!window.Sounds || !Sounds.muted) {
+        const actx = Sounds.getCtx();
+        if (actx) {
+          const osc = actx.createOscillator(); const gain = actx.createGain();
+          osc.connect(gain); gain.connect(actx.destination);
+          osc.type = 'sine'; osc.frequency.value = 523;
+          const t = actx.currentTime;
+          gain.gain.setValueAtTime(0.3, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+          osc.start(t); osc.stop(t + 1.5);
+        }
+      }
     } catch(e) {}
 
     try {
@@ -5080,18 +5085,9 @@
   }
 
   // ── SOUND EFFECTS ──
-  let _sharedAudioCtx = null;
-  function _audioCtx() {
-    try {
-      if (!_sharedAudioCtx || _sharedAudioCtx.state === 'closed') {
-        _sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (_sharedAudioCtx.state === 'suspended') _sharedAudioCtx.resume();
-      return _sharedAudioCtx;
-    } catch(e) { return null; }
-  }
   function playFightSound(type) {
-    const ctx = _audioCtx(); if (!ctx) return;
+    if (window.Sounds && Sounds.muted) return;
+    const ctx = window.Sounds ? Sounds.getCtx() : null; if (!ctx) return;
     const osc = ctx.createOscillator(), gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
     const t = ctx.currentTime;

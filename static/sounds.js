@@ -3,7 +3,10 @@ const Sounds = (function () {
   let _muted = false;
 
   function _getCtx() {
-    if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!_ctx || _ctx.state === 'closed') {
+      _ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_ctx.state === 'suspended') _ctx.resume();
     return _ctx;
   }
 
@@ -38,6 +41,8 @@ const Sounds = (function () {
 
   return {
     get muted() { return _muted; },
+
+    getCtx() { return _getCtx(); },
 
     toggleMute() {
       _muted = !_muted;

@@ -135,18 +135,20 @@ const Effects = (function () {
 
   function playCollectTink() {
     try {
-      if (window.Sounds && Sounds._muted) return;
-      const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+      if (window.Sounds && Sounds.muted) return;
+      const ctx = window.Sounds ? Sounds.getCtx() : new (window.AudioContext || window.webkitAudioContext)();
+      if (!ctx) return;
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(1200 + Math.random() * 400, ctx.currentTime);
+      const t = ctx.currentTime;
+      osc.frequency.setValueAtTime(1200 + Math.random() * 400, t);
       osc.type = 'sine';
-      gain.gain.setValueAtTime(0.05, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.05, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.start(t);
+      osc.stop(t + 0.1);
     } catch(e) {}
   }
 
