@@ -3,10 +3,12 @@ const Sounds = (function () {
   let _muted = false;
 
   function _getCtx() {
-    if (!_ctx || _ctx.state === 'closed') {
-      _ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (_ctx.state === 'suspended') _ctx.resume();
+    try {
+      if (!_ctx || _ctx.state === 'closed') {
+        _ctx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (_ctx.state === 'suspended') _ctx.resume();
+    } catch(e) { return null; }
     return _ctx;
   }
 
@@ -28,7 +30,8 @@ const Sounds = (function () {
     if (_muted) return;
     try {
       const ctx = _getCtx();
-      let t = ctx.currentTime;
+      if (!ctx) return;
+      let t = ctx.currentTime + 0.05;
       for (const [freq, dur] of notes) {
         _tone(ctx, freq, type, t, dur, 0.15);
         t += dur;
@@ -38,6 +41,13 @@ const Sounds = (function () {
 
   const C4 = 261.63, D4 = 293.66, E4 = 329.63, F4 = 349.23,
         G4 = 392.00, A4 = 440.00, B4 = 493.88, C5 = 523.25, E5 = 659.25;
+
+  // Warm up AudioContext on first user interaction so resume() has already
+  // fired before the first sound is actually needed.
+  function _warmUp() { try { _getCtx(); } catch(e) {} }
+  document.addEventListener('click',      _warmUp, { once: true, capture: true });
+  document.addEventListener('keydown',    _warmUp, { once: true, capture: true });
+  document.addEventListener('touchstart', _warmUp, { once: true, capture: true });
 
   return {
     get muted() { return _muted; },
@@ -62,8 +72,8 @@ const Sounds = (function () {
     donate() {
       if (_muted) return;
       try {
-        const ctx = _getCtx();
-        _tone(ctx, 150, 'sine', ctx.currentTime, 0.15, 0.20);
+        const ctx = _getCtx(); if (!ctx) return;
+        _tone(ctx, 150, 'sine', ctx.currentTime + 0.05, 0.15, 0.20);
       } catch (e) {}
     },
 
@@ -85,16 +95,16 @@ const Sounds = (function () {
     equip() {
       if (_muted) return;
       try {
-        const ctx = _getCtx();
-        _tone(ctx, 800, 'square', ctx.currentTime, 0.10, 0.10);
+        const ctx = _getCtx(); if (!ctx) return;
+        _tone(ctx, 800, 'square', ctx.currentTime + 0.05, 0.10, 0.10);
       } catch (e) {}
     },
 
     purchase() {
       if (_muted) return;
       try {
-        const ctx = _getCtx();
-        const t = ctx.currentTime;
+        const ctx = _getCtx(); if (!ctx) return;
+        const t = ctx.currentTime + 0.05;
         _tone(ctx, 523.25, 'square', t,        0.07, 0.18);
         _tone(ctx, 783.99, 'square', t + 0.07, 0.12, 0.18);
       } catch (e) {}
@@ -111,21 +121,21 @@ const Sounds = (function () {
     socialModeChange() {
       if (_muted) return;
       try {
-        const ctx = _getCtx();
-        _tone(ctx, 600, 'square', ctx.currentTime, 0.10, 0.12);
+        const ctx = _getCtx(); if (!ctx) return;
+        _tone(ctx, 600, 'square', ctx.currentTime + 0.05, 0.10, 0.12);
       } catch (e) {}
     },
 
     wear() {
       if (_muted) return;
       try {
-        const ctx = _getCtx();
+        const ctx = _getCtx(); if (!ctx) return;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
-        const t = ctx.currentTime;
+        const t = ctx.currentTime + 0.05;
         osc.frequency.setValueAtTime(400, t);
         osc.frequency.linearRampToValueAtTime(200, t + 0.15);
         gain.gain.setValueAtTime(0, t);
@@ -139,13 +149,13 @@ const Sounds = (function () {
     unwear() {
       if (_muted) return;
       try {
-        const ctx = _getCtx();
+        const ctx = _getCtx(); if (!ctx) return;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
-        const t = ctx.currentTime;
+        const t = ctx.currentTime + 0.05;
         osc.frequency.setValueAtTime(200, t);
         osc.frequency.linearRampToValueAtTime(400, t + 0.15);
         gain.gain.setValueAtTime(0, t);
