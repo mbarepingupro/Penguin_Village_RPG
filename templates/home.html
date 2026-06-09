@@ -4914,7 +4914,7 @@
 
     // Show modal
     showFightModal(CURRENT_USER, playerCp, monIcon, monName, '?');
-    playFightSound('start');
+    playCombatStartSound();
 
     try {
       const res  = await fetch('/combat/fight', {
@@ -5021,7 +5021,7 @@
     resultDiv.style.display = '';
 
     if (data.victory) {
-      playFightSound('victory');
+      playVictorySound();
       titleEl.textContent  = 'VICTORY!';
       titleEl.className    = 'fight-result-title win';
       spawnConfetti();
@@ -5053,7 +5053,7 @@
         }, 2500);
       }
     } else {
-      playFightSound('defeat');
+      playDefeatSound();
       titleEl.textContent = 'DEFEATED';
       titleEl.className   = 'fight-result-title loss';
       rewardsEl.innerHTML = `<div class="fight-reward-row" style="color:#888">⭐ +${data.consolation_xp} consolation XP</div>`;
@@ -5155,7 +5155,7 @@
     showFightModal(CURRENT_USER, '?', '👑', 'THE BLIZZARD KING', '???');
     document.getElementById('fight-modal-header').textContent = 'COMMUNITY BATTLE';
     document.getElementById('fight-modal-header').style.color = '#FF7FE5';
-    playFightSound('start');
+    playCombatStartSound();
     try {
       const res  = await fetch('/combat/boss/attack', {
         method: 'POST',
@@ -5186,7 +5186,7 @@
         rhtml += `<div style="color:#FF8C00;font-size:10px;margin-top:6px;">🏆 THE VILLAGE HAS TRIUMPHED!</div>`;
         if (data.kill_rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.kill_rewards.xp} BONUS XP</div>`;
         if (data.kill_rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.kill_rewards.gold} BONUS GOLD</div>`;
-        playFightSound('victory');
+        playVictorySound();
         spawnConfetti();
       }
       rewardsEl.innerHTML = rhtml;

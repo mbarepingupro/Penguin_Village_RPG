@@ -49,7 +49,7 @@ const Sounds = (function () {
   document.addEventListener('keydown',    _warmUp, { once: true, capture: true });
   document.addEventListener('touchstart', _warmUp, { once: true, capture: true });
 
-  return {
+  const _pub = {
     get muted() { return _muted; },
 
     getCtx() { return _getCtx(); },
@@ -165,5 +165,65 @@ const Sounds = (function () {
         osc.stop(t + 0.15);
       } catch (e) {}
     },
+
+    combatStart() {
+      if (_muted) return;
+      try {
+        const ctx = _getCtx(); if (!ctx) return;
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'square';
+        const now = ctx.currentTime + 0.05;
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.linearRampToValueAtTime(400, now + 0.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+      } catch(e) {}
+    },
+
+    victory() {
+      if (_muted) return;
+      try {
+        const ctx = _getCtx(); if (!ctx) return;
+        const now = ctx.currentTime + 0.05;
+        [523, 659, 784, 1047].forEach((freq, i) => {
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, now + i * 0.12);
+          gain.gain.setValueAtTime(0.2, now + i * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.15);
+          osc.start(now + i * 0.12);
+          osc.stop(now + i * 0.12 + 0.15);
+        });
+      } catch(e) {}
+    },
+
+    defeat() {
+      if (_muted) return;
+      try {
+        const ctx = _getCtx(); if (!ctx) return;
+        const now = ctx.currentTime + 0.05;
+        [400, 300, 200].forEach((freq, i) => {
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, now + i * 0.15);
+          gain.gain.setValueAtTime(0.2, now + i * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.2);
+          osc.start(now + i * 0.15);
+          osc.stop(now + i * 0.15 + 0.2);
+        });
+      } catch(e) {}
+    },
   };
+
+  // Global aliases so combat code can call them directly regardless of
+  // whether it references Sounds.* or the standalone function names.
+  window.playCombatStartSound = () => _pub.combatStart();
+  window.playVictorySound     = () => _pub.victory();
+  window.playDefeatSound      = () => _pub.defeat();
+
+  return _pub;
 })();
