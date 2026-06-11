@@ -267,6 +267,23 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bank_listings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_username TEXT NOT NULL,
+            listing_type TEXT NOT NULL,
+            offer_gear_id INTEGER DEFAULT NULL,
+            offer_resource TEXT DEFAULT NULL,
+            offer_amount INTEGER DEFAULT 0,
+            ask_resource TEXT NOT NULL,
+            ask_amount INTEGER NOT NULL,
+            status TEXT DEFAULT 'open',
+            created_at INTEGER DEFAULT 0,
+            completed_at INTEGER DEFAULT 0,
+            buyer_username TEXT DEFAULT NULL
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -314,6 +331,7 @@ def init_db():
     _add_col(c, "penguins", "trait_interest TEXT DEFAULT NULL")
     _add_col(c, "penguins", "trait_quirk TEXT DEFAULT NULL")
     _add_col(c, "gear", "worn INTEGER DEFAULT 0")
+    _add_col(c, "gear", "listed INTEGER DEFAULT 0")
 
     # Migrate: cosmetics that were equipped should also be worn (they were shown visually)
     try:

@@ -5536,5 +5536,225 @@ def mayor_lookup():
     })
 
 
+# ── PENGUIN BANK ─────────────────────────────────────────────────────────────
+
+_BANK_RESOURCES = {"gold", "fish", "herbs", "blood_gems", "bones", "spell_fragments"}
+
+
+@app.route("/bank/listings")
+def bank_get_listings():
+    username = request.args.get("username", "")
+    db = get_db()
+    rows = db.execute(
+        "SELECT bl.*, g.name AS gear_name, g.slot AS gear_slot, g.type AS gear_type, "
+        "g.rarity AS gear_rarity, g.combat_power AS gear_cp, g.set_name AS gear_set "
+        "FROM bank_listings bl LEFT JOIN gear g ON bl.offer_gear_id = g.id "
+        "WHERE bl.status='open' AND bl.seller_username != ? "
+        "ORDER BY bl.created_at DESC LIMIT 60",
+        (username,)
+    ).fetchall()
+    db.close()
+    return jsonify({"listings": [dict(r) for r in rows]})
+
+
+@app.route("/bank/my-listings")
+def bank_my_listings():
+    username = request.args.get("username", "")
+    db = get_db()
+    rows = db.execute(
+        "SELECT bl.*, g.name AS gear_name, g.slot AS gear_slot, g.type AS gear_type, "
+        "g.rarity AS gear_rarity, g.combat_power AS gear_cp, g.set_name AS gear_set "
+        "FROM bank_listings bl LEFT JOIN gear g ON bl.offer_gear_id = g.id "
+        "WHERE bl.seller_username=? AND bl.status='open' "
+        "ORDER BY bl.created_at DESC",
+        (username,)
+    ).fetchall()
+    db.close()
+    return jsonify({"listings": [dict(r) for r in rows]})
+
+
+@app.route("/bank/list-item", methods=["POST"])
+def bank_list_item():
+    data        = request.get_json(silent=True) or {}
+    username    = data.get("username", "")
+    gear_id     = data.get("gear_id")
+    ask_resource = data.get("ask_resource", "")
+    ask_amount  = int(data.get("ask_amount", 0))
+
+    if ask_resource not in _BANK_RESOURCES:
+        return jsonify({"status": "error", "message": "Invalid resource."})
+    if ask_amount <= 0:
+        return jsonify({"status": "error", "message": "Amount must be positive."})
+
+    db = get_db()
+    g = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
+    if not g:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+    if g["equipped"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Unequip the item before listing it."})
+    if g["worn"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Remove the item before listing it."})
+    if g.get("listed"):
+        db.close()
+        return jsonify({"status": "error", "message": "Item is already listed."})
+
+    now = int(time.time())
+    db.execute("UPDATE gear SET listed=1 WHERE id=?", (gear_id,))
+    db.execute(
+        "INSERT INTO bank_listings "
+        "(seller_username, listing_type, offer_gear_id, ask_resource, ask_amount, status, created_at) "
+        "VALUES (?,?,?,?,?,'open',?)",
+        (username, "item", gear_id, ask_resource, ask_amount, now)
+    )
+    log_event(db, "bank", f"🏦 {username} listed an item for sale in the Penguin Bank!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": "Item listed for sale."})
+
+
+@app.route("/bank/list-resource", methods=["POST"])
+def bank_list_resource():
+    data           = request.get_json(silent=True) or {}
+    username       = data.get("username", "")
+    offer_resource = data.get("offer_resource", "")
+    offer_amount   = int(data.get("offer_amount", 0))
+    ask_resource   = data.get("ask_resource", "")
+    ask_amount     = int(data.get("ask_amount", 0))
+
+    if offer_resource not in _BANK_RESOURCES or ask_resource not in _BANK_RESOURCES:
+        return jsonify({"status": "error", "message": "Invalid resource."})
+    if offer_resource == ask_resource:
+        return jsonify({"status": "error", "message": "Can't trade a resource for itself."})
+    if offer_amount <= 0 or ask_amount <= 0:
+        return jsonify({"status": "error", "message": "Amounts must be positive."})
+
+    db = get_db()
+    ensure_resources(db, username)
+    res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    if not res:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    have = res["gold"] if offer_resource == "gold" else res[offer_resource]
+    if have < offer_amount:
+        db.close()
+        return jsonify({"status": "error", "message": f"Not enough {offer_resource.replace('_', ' ')}."})
+
+    col = offer_resource
+    db.execute(f"UPDATE resources SET {col}={col}-? WHERE username=?", (offer_amount, username))
+
+    now = int(time.time())
+    db.execute(
+        "INSERT INTO bank_listings "
+        "(seller_username, listing_type, offer_resource, offer_amount, ask_resource, ask_amount, status, created_at) "
+        "VALUES (?,?,?,?,?,?,'open',?)",
+        (username, "resource", offer_resource, offer_amount, ask_resource, ask_amount, now)
+    )
+    log_event(db, "bank",
+        f"🏦 {username} posted a trade: {offer_amount} {offer_resource.replace('_',' ')} "
+        f"for {ask_amount} {ask_resource.replace('_',' ')}!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": "Trade offer posted."})
+
+
+@app.route("/bank/cancel/<int:listing_id>", methods=["POST"])
+def bank_cancel_listing(listing_id):
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    db       = get_db()
+    listing  = db.execute(
+        "SELECT * FROM bank_listings WHERE id=? AND seller_username=? AND status='open'",
+        (listing_id, username)
+    ).fetchone()
+    if not listing:
+        db.close()
+        return jsonify({"status": "error", "message": "Listing not found."})
+
+    if listing["listing_type"] == "item":
+        db.execute("UPDATE gear SET listed=0 WHERE id=?", (listing["offer_gear_id"],))
+    else:
+        col = listing["offer_resource"]
+        ensure_resources(db, username)
+        db.execute(f"UPDATE resources SET {col}={col}+? WHERE username=?",
+                   (listing["offer_amount"], username))
+
+    db.execute("UPDATE bank_listings SET status='cancelled' WHERE id=?", (listing_id,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": "Listing cancelled."})
+
+
+@app.route("/bank/accept/<int:listing_id>", methods=["POST"])
+def bank_accept_listing(listing_id):
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")  # the buyer
+    db       = get_db()
+    listing  = db.execute(
+        "SELECT * FROM bank_listings WHERE id=? AND status='open'", (listing_id,)
+    ).fetchone()
+    if not listing:
+        db.close()
+        return jsonify({"status": "error", "message": "Listing not found or already completed."})
+    if listing["seller_username"] == username:
+        db.close()
+        return jsonify({"status": "error", "message": "You can't accept your own listing."})
+
+    ensure_resources(db, username)
+    buyer_res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    if not buyer_res:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    ask_col  = listing["ask_resource"]
+    ask_have = buyer_res["gold"] if ask_col == "gold" else buyer_res[ask_col]
+    if ask_have < listing["ask_amount"]:
+        db.close()
+        return jsonify({
+            "status": "error",
+            "message": f"You need {listing['ask_amount']} {listing['ask_resource'].replace('_', ' ')}."
+        })
+
+    seller = listing["seller_username"]
+    ensure_resources(db, seller)
+    now    = int(time.time())
+
+    # Buyer pays seller the asked resource
+    db.execute(f"UPDATE resources SET {ask_col}={ask_col}-? WHERE username=?",
+               (listing["ask_amount"], username))
+    db.execute(f"UPDATE resources SET {ask_col}={ask_col}+? WHERE username=?",
+               (listing["ask_amount"], seller))
+
+    if listing["listing_type"] == "item":
+        db.execute(
+            "UPDATE gear SET username=?, listed=0, equipped=0, worn=0 WHERE id=?",
+            (username, listing["offer_gear_id"])
+        )
+        gear = db.execute("SELECT name FROM gear WHERE id=?",
+                          (listing["offer_gear_id"],)).fetchone()
+        item_name = gear["name"] if gear else "item"
+        log_event(db, "bank",
+            f"🏦 {username} bought {item_name} from {seller} "
+            f"for {listing['ask_amount']} {listing['ask_resource'].replace('_', ' ')}!", username)
+    else:
+        offer_col = listing["offer_resource"]
+        db.execute(f"UPDATE resources SET {offer_col}={offer_col}+? WHERE username=?",
+                   (listing["offer_amount"], username))
+        log_event(db, "bank",
+            f"🏦 {seller} traded {listing['offer_amount']} {listing['offer_resource'].replace('_', ' ')} "
+            f"with {username} for {listing['ask_amount']} {listing['ask_resource'].replace('_', ' ')}!", username)
+
+    db.execute(
+        "UPDATE bank_listings SET status='completed', completed_at=?, buyer_username=? WHERE id=?",
+        (now, username, listing_id)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": "Trade complete!"})
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5001)
