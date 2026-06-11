@@ -334,6 +334,19 @@ def init_db():
     _add_col(c, "gear", "listed INTEGER DEFAULT 0")
     _add_col(c, "gear", "bank_sell_price INTEGER DEFAULT 0")
     _add_col(c, "gear", "bank_listed_at INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "total_monsters_defeated INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "total_resources_collected INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "total_gold_collected INTEGER DEFAULT 0")
+
+    # Backfill total_monsters_defeated from existing monster_kills rows
+    try:
+        c.execute("""
+            UPDATE penguins SET total_monsters_defeated = (
+                SELECT COUNT(*) FROM monster_kills WHERE monster_kills.username = penguins.username
+            ) WHERE total_monsters_defeated = 0
+        """)
+    except Exception:
+        pass
 
     # Migrate: cosmetics that were equipped should also be worn (they were shown visually)
     try:

@@ -890,6 +890,10 @@ ACHIEVEMENT_DEFS = {
     "best_friends_forever":{"title":"BFF",             "desc":"Reach Best Friend with any penguin",  "icon":"⭐", "category":"social"},
     "popular_penguin":    {"title":"POPULAR PENGUIN",  "desc":"Receive 20 igloo visits",             "icon":"🎉", "category":"social"},
     "village_socialite":  {"title":"THE SOCIALITE",    "desc":"Have 10+ relationships at Friend+",   "icon":"🌟", "category":"social"},
+    "lb_top20": {"title":"RISING STAR",     "desc":"Reach top 20 in any leaderboard category", "icon":"📊", "category":"leaderboard"},
+    "lb_top10": {"title":"CONTENDER",       "desc":"Reach top 10 in any leaderboard category",  "icon":"🏆", "category":"leaderboard"},
+    "lb_top3":  {"title":"CHAMPION",        "desc":"Reach top 3 in any leaderboard category",   "icon":"🥇", "category":"leaderboard"},
+    "lb_first": {"title":"VILLAGE LEGEND",  "desc":"Reach #1 in any leaderboard category",      "icon":"👑", "category":"leaderboard"},
 }
 
 # ── IGLOO SYSTEM ──────────────────────────────────────────────────────────────
@@ -1516,6 +1520,63 @@ def check_achievements(db, username):
     return new_ach
 
 
+# ── LEADERBOARD ───────────────────────────────────────────────────────────────
+
+_LB_CATEGORIES = {
+    "monsters":  {"col": "total_monsters_defeated",  "label": "Monsters Defeated", "icon": "⚔️"},
+    "resources": {"col": "total_resources_collected", "label": "Resources Collected", "icon": "📦"},
+    "gold":      {"col": "total_gold_collected",      "label": "Gold Collected",    "icon": "💰"},
+    "prestige":  {"col": "prestige",                  "label": "Prestige",          "icon": "♻️"},
+    "level":     {"col": "level",                     "label": "Level",             "icon": "⭐"},
+}
+
+
+def _check_lb_achievements(db, username):
+    best_rank = None
+    for cat, cfg in _LB_CATEGORIES.items():
+        col = cfg["col"]
+        if cat == "level":
+            rows = db.execute(f"SELECT username FROM penguins ORDER BY {col} DESC, xp DESC").fetchall()
+        else:
+            rows = db.execute(f"SELECT username FROM penguins ORDER BY {col} DESC").fetchall()
+        names = [r["username"] for r in rows]
+        if username in names:
+            rank = names.index(username) + 1
+            if best_rank is None or rank < best_rank:
+                best_rank = rank
+
+    if best_rank is None:
+        return []
+
+    now = int(time.time())
+    new_ach = []
+
+    def lb_unlock(aid, gold_reward=0):
+        try:
+            db.execute(
+                "INSERT INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
+                (username, aid, now)
+            )
+            new_ach.append(aid)
+            defn = ACHIEVEMENT_DEFS.get(aid, {})
+            log_event(db, "achievement",
+                      f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username)
+            if gold_reward > 0:
+                ensure_resources(db, username)
+                add_gold(db, username, gold_reward)
+            if aid == "lb_top3":
+                log_event(db, "village",
+                          f"🏆 {username} has reached the TOP 3 on the leaderboard!", username)
+        except Exception:
+            pass
+
+    if best_rank <= 20: lb_unlock("lb_top20", 100)
+    if best_rank <= 10: lb_unlock("lb_top10", 200)
+    if best_rank <= 3:  lb_unlock("lb_top3")
+    if best_rank == 1:  lb_unlock("lb_first")
+    return new_ach
+
+
 # ── APP INIT ──────────────────────────────────────────────────────────────────
 init_db()
 backfill_cosmetics(LEVEL_DATA, COSMETIC_SLOTS)
@@ -1819,6 +1880,10 @@ def streak_claim(username):
         (reward["resource_amount"], username)
     )
     db.execute("UPDATE login_streaks SET daily_reward_claimed=? WHERE username=?", (today, username))
+    db.execute(
+        "UPDATE penguins SET total_gold_collected=total_gold_collected+? WHERE username=?",
+        (reward["gold"], username)
+    )
     log_event(db, "village",
               f"{username} claimed day {row['current_streak']} streak reward: +{reward['gold']} gold + {reward['resource_amount']} {reward['resource']} {reward['resource_icon']}",
               username)
@@ -1877,6 +1942,86 @@ def leaderboard():
         d["color_palette"] = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {})
         result.append(d)
     return jsonify({"penguins": result})
+
+
+@app.route("/leaderboard/all")
+def leaderboard_all():
+    username = request.args.get("username", "")
+    db = get_db()
+    player_ranks = {}
+    for cat, cfg in _LB_CATEGORIES.items():
+        col = cfg["col"]
+        if cat == "level":
+            rows = db.execute(f"SELECT username, {col} FROM penguins ORDER BY {col} DESC, xp DESC").fetchall()
+        elif cat == "prestige":
+            rows = db.execute(f"SELECT username, {col} FROM penguins ORDER BY {col} DESC, level DESC").fetchall()
+        else:
+            rows = db.execute(f"SELECT username, {col} FROM penguins ORDER BY {col} DESC").fetchall()
+        names = [r["username"] for r in rows]
+        rank = (names.index(username) + 1) if username in names else None
+        value = next((r[col] for r in rows if r["username"] == username), 0)
+        player_ranks[cat] = {"rank": rank, "value": value}
+    db.close()
+    return jsonify({"player_ranks": player_ranks})
+
+
+@app.route("/leaderboard/<category>")
+def leaderboard_category(category):
+    if category not in _LB_CATEGORIES:
+        return jsonify({"status": "error", "message": "Unknown category"})
+    username = request.args.get("username", "")
+    cfg = _LB_CATEGORIES[category]
+    col = cfg["col"]
+    db = get_db()
+    if category == "level":
+        rows = db.execute(
+            f"SELECT username, penguin_name, {col}, level, xp, prestige FROM penguins "
+            f"ORDER BY {col} DESC, xp DESC LIMIT 20"
+        ).fetchall()
+        all_rows = db.execute(
+            f"SELECT username, {col} FROM penguins ORDER BY {col} DESC, xp DESC"
+        ).fetchall()
+    elif category == "prestige":
+        rows = db.execute(
+            f"SELECT username, penguin_name, {col}, level, xp, prestige FROM penguins "
+            f"ORDER BY {col} DESC, level DESC LIMIT 20"
+        ).fetchall()
+        all_rows = db.execute(
+            f"SELECT username, {col} FROM penguins ORDER BY {col} DESC, level DESC"
+        ).fetchall()
+    else:
+        rows = db.execute(
+            f"SELECT username, penguin_name, {col}, level, xp, prestige FROM penguins "
+            f"ORDER BY {col} DESC LIMIT 20"
+        ).fetchall()
+        all_rows = db.execute(
+            f"SELECT username, {col} FROM penguins ORDER BY {col} DESC"
+        ).fetchall()
+    total = len(all_rows)
+    all_names = [r["username"] for r in all_rows]
+    player_rank = (all_names.index(username) + 1) if username in all_names else None
+    player_value = next((r[col] for r in all_rows if r["username"] == username), 0)
+    entries = []
+    for i, r in enumerate(rows):
+        entries.append({
+            "rank":         i + 1,
+            "username":     r["username"],
+            "penguin_name": r["penguin_name"] or r["username"],
+            "value":        r[col],
+            "level":        r["level"],
+            "prestige":     r["prestige"],
+        })
+    db.close()
+    return jsonify({
+        "status":       "success",
+        "category":     category,
+        "label":        cfg["label"],
+        "icon":         cfg["icon"],
+        "entries":      entries,
+        "player_rank":  player_rank,
+        "player_value": player_value,
+        "total":        total,
+    })
 
 
 @app.route("/islive")
@@ -2213,11 +2358,21 @@ def work_collect():
             new_title = new_earned
             log_event(db, "title", f"{username} earned the title: {new_earned}!", username)
 
+    _track_res = sum(v for k, v in earned.items() if k not in ("gold", "xp") and v > 0)
+    _track_gold = earned.get("gold", 0)
+    if _track_res > 0 or _track_gold > 0:
+        db.execute(
+            "UPDATE penguins SET total_resources_collected=total_resources_collected+?, "
+            "total_gold_collected=total_gold_collected+? WHERE username=?",
+            (_track_res, _track_gold, username)
+        )
     db.execute("UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?", (username,))
     today = get_today()
     advance_mission(db, username, "collect_1", today)
     advance_mission(db, username, "collect_3", today)
     new_ach = check_achievements(db, username)
+    if _track_res > 0 or _track_gold > 0:
+        new_ach += _check_lb_achievements(db, username)
 
     earned_parts = [f"+{v} {k}" for k, v in earned.items() if v > 0]
     log_event(db, "job",
@@ -2601,6 +2756,12 @@ def combat_fight():
                 "INSERT INTO monster_kills (username, monster_id, killed_date, loot_summary) VALUES (?,?,?,?)",
                 (username, monster_id, today, str(rewards))
             )
+            db.execute(
+                "UPDATE penguins SET total_monsters_defeated=total_monsters_defeated+1, "
+                "total_gold_collected=total_gold_collected+? WHERE username=?",
+                (gold, username)
+            )
+            _check_lb_achievements(db, username)
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
             _, consolation_level_ups = award_xp(db, username, consolation_xp)
@@ -3122,7 +3283,11 @@ def igloo_visit():
     ensure_resources(db, visitor)
     db.execute(f"UPDATE resources SET gold=gold+?, {res_type}={res_type}+? WHERE username=?",
                (gold_reward, res_amount, visitor))
-    db.execute("UPDATE penguins SET total_visits_given=total_visits_given+1 WHERE username=?", (visitor,))
+    db.execute(
+        "UPDATE penguins SET total_visits_given=total_visits_given+1, "
+        "total_gold_collected=total_gold_collected+? WHERE username=?",
+        (gold_reward, visitor)
+    )
     _, igloo_level_ups = award_xp(db, visitor, xp_reward)
     db.execute("UPDATE penguins SET total_visits_received=total_visits_received+1 WHERE username=?", (host,))
 

@@ -1800,6 +1800,26 @@
     }
     #trait-popup-btn:hover { background: #4aff6b; color: #1C1C1C; }
     #trait-popup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* ── Leaderboard ── */
+    .lb-cat-btn {
+      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      padding: 5px 7px; border: 2px solid #2E2E2E; background: #1C1C1C;
+      color: #888; cursor: pointer; white-space: nowrap;
+    }
+    .lb-cat-btn:hover  { border-color: #A86EFF; color: #A86EFF; }
+    .lb-cat-btn.active { border-color: #FF8C00; color: #FF8C00; }
+    .lb-mini-card {
+      background: #1C1C1C; border: 2px solid #2E2E2E; padding: 8px 6px;
+      text-align: center; cursor: pointer; flex: 1; min-width: 52px;
+    }
+    .lb-mini-card:hover { border-color: #FF8C00; }
+    .lb-row { display: flex; align-items: center; padding: 5px 6px;
+      border-bottom: 1px solid #2E2E2E; background: #1C1C1C; gap: 4px; }
+    .lb-row:hover { background: #2E2E2E; }
+    .lb-row.me    { border-left: 3px solid #FF7FE5; background: #1a1020; }
+    .lb-row.rank1 { border-left: 3px solid #FFD700; }
+    .lb-row.rank2 { border-left: 3px solid #C0C0C0; }
+    .lb-row.rank3 { border-left: 3px solid #CD7F32; }
   </style>
 </head>
 <body>
@@ -3743,7 +3763,30 @@
       }
       html += `</div>`;
     } else if (btype === 'achievements') {
-      html += `<button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW ACHIEVEMENTS</button>`;
+      html += `<div class="bm-tab-bar" style="display:flex;gap:4px;margin-bottom:10px;">
+        <button class="bm-tab active" id="ah-tab-achievements" onclick="switchAwardHallTab('achievements')" style="flex:1;font-size:8px;padding:6px 4px;background:#1a1a1a;border:1px solid #4aff6b;color:#4aff6b;cursor:pointer;font-family:inherit;">🏆 ACHIEVEMENTS</button>
+        <button class="bm-tab" id="ah-tab-leaderboard" onclick="switchAwardHallTab('leaderboard')" style="flex:1;font-size:8px;padding:6px 4px;background:#1a1a1a;border:1px solid #444;color:#666;cursor:pointer;font-family:inherit;">📊 LEADERBOARDS</button>
+      </div>`;
+      html += `<div id="ah-pane-achievements">
+        <div style="color:#888;font-size:7px;margin-bottom:10px;line-height:1.8;">Check your completed achievements and track progress toward new ones.</div>
+        <button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW ACHIEVEMENTS</button>
+      </div>`;
+      html += `<div id="ah-pane-leaderboard" style="display:none;">
+        <div style="color:#FF8C00;font-size:10px;margin-bottom:4px;">📊 VILLAGE LEADERBOARDS</div>
+        <div style="color:#888;font-size:7px;margin-bottom:10px;">How do you stack up against the village?</div>
+        <div id="lb-overview" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
+        <div style="overflow-x:auto;margin-bottom:8px;">
+          <div style="display:flex;gap:3px;min-width:min-content;" id="lb-cat-btns">
+            <button class="lb-cat-btn active" onclick="selectLbCat('monsters')" data-cat="monsters">⚔️ MONSTER SLAYERS</button>
+            <button class="lb-cat-btn" onclick="selectLbCat('resources')" data-cat="resources">📦 TOP COLLECTORS</button>
+            <button class="lb-cat-btn" onclick="selectLbCat('gold')" data-cat="gold">🪙 GOLD HOARDERS</button>
+            <button class="lb-cat-btn" onclick="selectLbCat('prestige')" data-cat="prestige">🔄 MOST LIVES</button>
+            <button class="lb-cat-btn" onclick="selectLbCat('level')" data-cat="level">⭐ HIGHEST LEVEL</button>
+          </div>
+        </div>
+        <div id="lb-table-container" style="min-height:60px;"></div>
+        <div id="lb-player-rank" style="margin-top:8px;"></div>
+      </div>`;
     } else if (btype === 'placeholder') {
       if (data.building_id === 'horny_jail')
         html += bpComingSoon('🔒', 'YOU KNOW WHAT YOU DID.', 'Coming Soon. Maybe. Behave.');
@@ -4969,6 +5012,186 @@
       sBtn.style.color       = tab === 'shop'     ? '#ff6b6b' : '#666';
     }
     if (tab === 'shop') loadBarracksShop();
+  }
+
+  // ── AWARD HALL / LEADERBOARD ──────────────────────────────────────────────
+
+  let _lbCurrentCat = 'monsters';
+  let _lbOverviewLoaded = false;
+
+  function switchAwardHallTab(tab) {
+    ['achievements', 'leaderboard'].forEach(t => {
+      const pane = document.getElementById(`ah-pane-${t}`);
+      const btn  = document.getElementById(`ah-tab-${t}`);
+      if (pane) pane.style.display = t === tab ? '' : 'none';
+      if (btn) {
+        btn.style.borderColor = t === tab ? '#4aff6b' : '#444';
+        btn.style.color       = t === tab ? '#4aff6b' : '#666';
+      }
+    });
+    if (tab === 'leaderboard') {
+      // Subtle fanfare
+      try {
+        const ctx = Sounds.getCtx(); if (ctx) {
+          const now = ctx.currentTime + 0.05;
+          [[523.25, 0], [659.25, 0.10], [783.99, 0.20]].forEach(([f, d]) => {
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.type = 'triangle'; o.frequency.setValueAtTime(f, now + d);
+            g.gain.setValueAtTime(0, now + d);
+            g.gain.linearRampToValueAtTime(0.12, now + d + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.001, now + d + 0.09);
+            o.start(now + d); o.stop(now + d + 0.09);
+          });
+        }
+      } catch(e) {}
+      if (!_lbOverviewLoaded) { _lbOverviewLoaded = true; loadLbOverview(); }
+      loadLeaderboard(_lbCurrentCat);
+    }
+  }
+
+  async function loadLbOverview() {
+    const el = document.getElementById('lb-overview');
+    if (!el) return;
+    try {
+      const res  = await fetch(`/leaderboard/all?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await res.json();
+      const pr   = data.player_ranks || {};
+      const CATS = {
+        monsters:  { icon:'⚔️', label:'MONSTERS' },
+        resources: { icon:'📦', label:'RESOURCES' },
+        gold:      { icon:'🪙', label:'GOLD' },
+        prestige:  { icon:'🔄', label:'PRESTIGE' },
+        level:     { icon:'⭐', label:'LEVEL' },
+      };
+      let html = '';
+      for (const [cat, info] of Object.entries(CATS)) {
+        const d = pr[cat] || {};
+        const rank = d.rank || '?';
+        const val  = (d.value || 0).toLocaleString();
+        html += `<div class="lb-mini-card" onclick="selectLbCat('${cat}')">
+          <div style="font-size:9px;">${info.icon}</div>
+          <div style="font-size:6px;color:#888;margin:2px 0;">${info.label}</div>
+          <div style="font-size:10px;color:#FF8C00;font-family:'Press Start 2P',monospace;">#${rank}</div>
+          <div style="font-size:6px;color:#666;margin-top:2px;">${val}</div>
+        </div>`;
+      }
+      el.innerHTML = html;
+      // Triumphant chime if top 3 in any category
+      const best = Math.min(...Object.values(pr).map(d => d.rank || 9999));
+      if (best <= 3) {
+        try {
+          const ctx = Sounds.getCtx(); if (ctx) {
+            const now = ctx.currentTime + 0.05;
+            [[784, 0], [1047, 0.12], [1319, 0.24], [1568, 0.36]].forEach(([f, d]) => {
+              const o = ctx.createOscillator(), g = ctx.createGain();
+              o.connect(g); g.connect(ctx.destination);
+              o.type = 'triangle'; o.frequency.setValueAtTime(f, now + d);
+              g.gain.setValueAtTime(0.15, now + d);
+              g.gain.exponentialRampToValueAtTime(0.001, now + d + 0.15);
+              o.start(now + d); o.stop(now + d + 0.15);
+            });
+          }
+        } catch(e) {}
+      }
+    } catch(e) {
+      if (el) el.innerHTML = '';
+    }
+  }
+
+  async function loadLeaderboard(cat) {
+    _lbCurrentCat = cat;
+    const el      = document.getElementById('lb-table-container');
+    const rankEl  = document.getElementById('lb-player-rank');
+    if (!el) return;
+    el.innerHTML = '<div style="color:#666;font-size:7px;text-align:center;padding:16px;">LOADING...</div>';
+    if (rankEl) rankEl.innerHTML = '';
+    try {
+      const res  = await fetch(`/leaderboard/${cat}?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await res.json();
+      if (data.status !== 'success') {
+        el.innerHTML = '<div style="color:#ff6b6b;font-size:7px;text-align:center;padding:10px;">Error loading.</div>';
+        return;
+      }
+      const entries    = data.entries || [];
+      const playerRank = data.player_rank;
+      const playerVal  = data.player_value || 0;
+      const total      = data.total || 0;
+      const VALUE_LABEL = { monsters:'DEFEATED', resources:'COLLECTED', gold:'EARNED', prestige:'LIVES', level:'LEVEL' };
+      const medals = ['🥇','🥈','🥉'];
+      const rankColors = { 1:'#FFD700', 2:'#C0C0C0', 3:'#CD7F32' };
+
+      if (entries.length === 0) {
+        el.innerHTML = '<div style="color:#888;font-size:7px;padding:10px;text-align:center;line-height:2;">The leaderboards are just getting started!<br>Keep playing to climb the ranks.</div>';
+        return;
+      }
+
+      let html = `<div style="display:flex;font-size:7px;color:#A86EFF;padding:4px 6px;border-bottom:1px solid #2E2E2E;background:#111;">
+        <div style="width:36px;">RANK</div>
+        <div style="flex:1;">PENGUIN</div>
+        <div style="width:70px;text-align:right;">${VALUE_LABEL[cat]||'SCORE'}</div>
+      </div>`;
+      const playerInTop = entries.some(e => e.username === CURRENT_USER);
+      for (const e of entries) {
+        const isMe   = e.username === CURRENT_USER;
+        const medal  = e.rank <= 3 ? medals[e.rank-1] : null;
+        const rcolor = rankColors[e.rank] || '#888';
+        const rowCls = isMe ? 'lb-row me' : (e.rank <= 3 ? `lb-row rank${e.rank}` : 'lb-row');
+        const nameSize = e.rank <= 3 ? '9px' : '8px';
+        const valSize  = e.rank <= 3 ? '10px' : '9px';
+        const pname    = (e.penguin_name || e.username).substring(0, 14);
+        const stars    = e.prestige > 0 ? ' <span style="color:#FF8C00;font-size:6px;">' + '⭐'.repeat(Math.min(e.prestige,3)) + '</span>' : '';
+        html += `<div class="${rowCls}">
+          <div style="width:36px;font-size:${medal?'14px':'7px'};color:${rcolor};">${medal || '#'+e.rank}</div>
+          <div style="flex:1;">
+            <span style="font-size:${nameSize};color:${isMe?'#FF7FE5':'#fff'};">${pname}${isMe?' ◀':''}</span>${stars}
+            <span style="font-size:6px;color:#888;margin-left:4px;">LV${e.level}</span>
+          </div>
+          <div style="width:70px;text-align:right;font-size:${valSize};color:#FF8C00;">${(e.value||0).toLocaleString()}</div>
+        </div>`;
+      }
+      el.innerHTML = html;
+
+      // Player rank section
+      if (rankEl) {
+        if (playerRank && !playerInTop) {
+          const rcolor = playerRank <= 3 ? rankColors[playerRank] : playerRank <= 10 ? '#4aff6b' : '#888';
+          rankEl.innerHTML = `<div style="border-top:2px dashed #A86EFF;padding-top:8px;">
+            <div style="font-size:8px;color:#A86EFF;margin-bottom:4px;">YOUR RANK</div>
+            <div style="color:${rcolor};font-size:9px;">You are ranked <b>#${playerRank}</b> out of ${total} players</div>
+            <div style="color:#888;font-size:7px;margin-top:2px;">Score: ${playerVal.toLocaleString()}</div>
+          </div>`;
+        } else if (!playerRank) {
+          rankEl.innerHTML = `<div style="font-size:7px;color:#555;text-align:center;margin-top:6px;">No rank yet — keep playing!</div>`;
+        }
+        // Chime if top 3
+        if (playerRank && playerRank <= 3) {
+          try {
+            const ctx = Sounds.getCtx(); if (ctx) {
+              const now = ctx.currentTime + 0.05;
+              [[784, 0], [1047, 0.12], [1319, 0.24]].forEach(([f, d]) => {
+                const o = ctx.createOscillator(), g = ctx.createGain();
+                o.connect(g); g.connect(ctx.destination);
+                o.type = 'triangle'; o.frequency.setValueAtTime(f, now + d);
+                g.gain.setValueAtTime(0.13, now + d);
+                g.gain.exponentialRampToValueAtTime(0.001, now + d + 0.12);
+                o.start(now + d); o.stop(now + d + 0.12);
+              });
+            }
+          } catch(e) {}
+        }
+      }
+    } catch(e) {
+      el.innerHTML = '<div style="color:#ff6b6b;font-size:7px;text-align:center;padding:10px;">Error loading leaderboard.</div>';
+    }
+  }
+
+  function selectLbCat(cat) {
+    document.querySelectorAll('.lb-cat-btn').forEach(btn => {
+      const active = btn.dataset.cat === cat;
+      btn.classList.toggle('active', active);
+    });
+    loadLeaderboard(cat);
   }
 
   const _RESOURCE_ICONS = { gold: '🪙', bones: '🦴', blood_gems: '💎', spell_fragments: '✨', fish: '🐟', herbs: '🌿' };
