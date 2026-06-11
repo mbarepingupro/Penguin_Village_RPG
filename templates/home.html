@@ -3728,7 +3728,7 @@
       if (data.building_id === 'horny_jail')
         html += bpComingSoon('🔒', 'YOU KNOW WHAT YOU DID.', 'Coming Soon. Maybe. Behave.');
       else if (data.building_id === 'bank')
-        html += bpComingSoon('🏦', 'UNDER CONSTRUCTION', 'Resource exchange coming soon.');
+        html += `<button class="bp-btn" onclick="switchContentTab('bank', document.querySelector('[data-tab=bank]')); closeBuildingPanel();">OPEN BANK</button>`;
       else
         html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
     }
