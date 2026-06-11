@@ -1170,6 +1170,77 @@
     }
     .lvup-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
 
+    /* ── BANK PANEL ── */
+    .bank-panel { display: flex; flex-direction: column; height: 100%; }
+    .bank-tabs {
+      display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0;
+    }
+    .bank-tab {
+      flex: 1; padding: 7px 2px; font-size: 6px;
+      font-family: 'Press Start 2P', monospace;
+      background: #1C1C1C; border: none; border-right: 2px solid #A86EFF;
+      color: #555; cursor: pointer;
+    }
+    .bank-tab:last-child { border-right: none; }
+    .bank-tab.active { color: #A86EFF; background: #2E2E2E; }
+    .bank-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .bank-sub-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .bank-sub-panel.active { display: flex; }
+    .bank-filter-bar { padding: 8px; border-bottom: 1px solid #333; flex-shrink: 0; }
+    .bank-listing-list { flex: 1; overflow-y: auto; padding: 6px; }
+    .bank-select {
+      background: #1C1C1C; border: 2px solid #444; color: #ccc;
+      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      padding: 5px 6px; cursor: pointer; max-width: 100%;
+    }
+    .bank-select-wide { width: 100%; box-sizing: border-box; }
+    .bank-listing {
+      background: #2E2E2E; border: 2px solid #333;
+      padding: 8px 10px; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .bank-listing:hover { border-color: #A86EFF44; }
+    .bank-listing-info { flex: 1; min-width: 0; }
+    .bank-listing-offer { font-size: 8px; color: #ccc; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bank-listing-ask   { font-size: 7px; color: #FF8C00; }
+    .bank-listing-meta  { font-size: 6px; color: #555; margin-top: 3px; }
+    .bank-accept-btn, .bank-cancel-btn {
+      background: none; font-family: 'Press Start 2P', monospace;
+      font-size: 6px; padding: 6px 7px; cursor: pointer; flex-shrink: 0; border: 2px solid;
+    }
+    .bank-accept-btn { border-color: #4aff6b; color: #4aff6b; }
+    .bank-accept-btn:hover { background: #4aff6b; color: #1C1C1C; }
+    .bank-cancel-btn { border-color: #ff6b6b; color: #ff6b6b; }
+    .bank-cancel-btn:hover { background: #ff6b6b; color: #1C1C1C; }
+    .bank-form { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; }
+    .bank-form-label { font-family: 'Press Start 2P', monospace; font-size: 7px; color: #888; }
+    .bank-row-inline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .bank-input {
+      background: #1C1C1C; border: 2px solid #444; color: #ccc;
+      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      padding: 5px 6px; width: 80px; box-sizing: border-box;
+    }
+    .bank-input:focus { border-color: #A86EFF; outline: none; }
+    .bank-btn {
+      background: none; border: 2px solid #A86EFF; color: #A86EFF;
+      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      padding: 10px; cursor: pointer;
+    }
+    .bank-btn:hover { background: #A86EFF; color: #1C1C1C; }
+    .bank-note { font-family: 'Press Start 2P', monospace; font-size: 6px; color: #666; line-height: 2; }
+    .bank-empty { font-family: 'Press Start 2P', monospace; font-size: 7px; color: #555; text-align: center; padding: 20px; }
+    .bank-item-preview {
+      background: #1C1C1C; border: 2px solid #444; padding: 8px;
+      font-family: 'Press Start 2P', monospace; font-size: 7px; line-height: 2;
+    }
+    .bk-rarity-common    { color: #ccc; }
+    .bk-rarity-uncommon  { color: #4aff6b; }
+    .bk-rarity-rare      { color: #5599ff; }
+    .bk-rarity-epic      { color: #A86EFF; }
+    .bk-rarity-legendary { color: #FF8C00; }
+    .bank-arrow { color: #888; font-size: 10px; margin: 0 4px; }
+    .bank-completed-tag { font-size: 6px; color: #4aff6b; }
+
     /* ── LEVEL-UP CELEBRATION OVERLAY ── */
     @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
     @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
@@ -1989,6 +2060,7 @@
         {% if features.get("event_log", True) %}
         <button class="content-tab"        data-tab="eventlog" onclick="switchContentTab('eventlog', this)">EVENTS</button>
         {% endif %}
+        <button class="content-tab" data-tab="bank" onclick="switchContentTab('bank', this)">BANK</button>
       </div>
 
       <!-- MAP TAB -->
@@ -2120,6 +2192,93 @@
       <div class="content-panel" id="panel-eventlog">
         <div class="eventlog-panel" id="eventlog-list">
           <div style="color:#666;font-size:7px;text-align:center;padding:20px;">LOADING...</div>
+        </div>
+      </div>
+
+      <!-- BANK TAB -->
+      <div class="content-panel" id="panel-bank">
+        <div class="bank-panel">
+          <div class="bank-tabs">
+            <button class="bank-tab active" onclick="switchBankTab('browse', this)">BROWSE</button>
+            <button class="bank-tab" onclick="switchBankTab('sell', this)">SELL ITEM</button>
+            <button class="bank-tab" onclick="switchBankTab('trade', this)">TRADE</button>
+            <button class="bank-tab" onclick="switchBankTab('mine', this)">MY OFFERS</button>
+          </div>
+          <div class="bank-body">
+            <!-- Browse -->
+            <div class="bank-sub-panel active" id="bk-browse">
+              <div class="bank-filter-bar">
+                <select id="bk-filter" class="bank-select" onchange="bankLoadBrowse()">
+                  <option value="all">ALL LISTINGS</option>
+                  <option value="item">ITEMS ONLY</option>
+                  <option value="resource">RESOURCES ONLY</option>
+                </select>
+              </div>
+              <div id="bk-browse-list" class="bank-listing-list">
+                <div class="bank-empty">SELECT THE BANK TAB TO LOAD</div>
+              </div>
+            </div>
+            <!-- Sell Item -->
+            <div class="bank-sub-panel" id="bk-sell">
+              <div class="bank-form">
+                <div class="bank-form-label">SELECT ITEM TO LIST:</div>
+                <select id="bk-sell-gear" class="bank-select bank-select-wide" onchange="bankPreviewGear(parseInt(this.value))">
+                  <option value="">-- choose an item --</option>
+                </select>
+                <div id="bk-sell-preview" class="bank-item-preview" style="display:none"></div>
+                <div class="bank-form-label">IN EXCHANGE FOR:</div>
+                <div class="bank-row-inline">
+                  <select id="bk-sell-ask-res" class="bank-select">
+                    <option value="gold">🪙 Gold</option>
+                    <option value="fish">🐟 Fish</option>
+                    <option value="herbs">🌿 Herbs</option>
+                    <option value="blood_gems">💎 Blood Gems</option>
+                    <option value="bones">🦴 Bones</option>
+                    <option value="spell_fragments">✨ Spell Frags</option>
+                  </select>
+                  <input id="bk-sell-ask-amt" type="number" min="1" class="bank-input" placeholder="AMOUNT" />
+                </div>
+                <button class="bank-btn" onclick="bankListItem()">LIST FOR SALE</button>
+              </div>
+            </div>
+            <!-- Trade Resources -->
+            <div class="bank-sub-panel" id="bk-trade">
+              <div class="bank-form">
+                <div class="bank-form-label">I OFFER:</div>
+                <div class="bank-row-inline">
+                  <select id="bk-trade-offer-res" class="bank-select">
+                    <option value="gold">🪙 Gold</option>
+                    <option value="fish">🐟 Fish</option>
+                    <option value="herbs">🌿 Herbs</option>
+                    <option value="blood_gems">💎 Blood Gems</option>
+                    <option value="bones">🦴 Bones</option>
+                    <option value="spell_fragments">✨ Spell Frags</option>
+                  </select>
+                  <input id="bk-trade-offer-amt" type="number" min="1" class="bank-input" placeholder="AMOUNT" />
+                </div>
+                <div class="bank-form-label">I WANT:</div>
+                <div class="bank-row-inline">
+                  <select id="bk-trade-ask-res" class="bank-select">
+                    <option value="fish">🐟 Fish</option>
+                    <option value="gold">🪙 Gold</option>
+                    <option value="herbs">🌿 Herbs</option>
+                    <option value="blood_gems">💎 Blood Gems</option>
+                    <option value="bones">🦴 Bones</option>
+                    <option value="spell_fragments">✨ Spell Frags</option>
+                  </select>
+                  <input id="bk-trade-ask-amt" type="number" min="1" class="bank-input" placeholder="AMOUNT" />
+                </div>
+                <div class="bank-note">Offered resources are held in escrow until the trade is completed or you cancel.</div>
+                <button class="bank-btn" onclick="bankPostTrade()">POST TRADE OFFER</button>
+              </div>
+            </div>
+            <!-- My Listings -->
+            <div class="bank-sub-panel" id="bk-mine">
+              <div id="bk-mine-list" class="bank-listing-list">
+                <div class="bank-empty">SELECT THE BANK TAB TO LOAD</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
