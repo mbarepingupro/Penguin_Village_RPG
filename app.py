@@ -12,6 +12,7 @@ from personality_config import (
     AUTONOMOUS_ACTIONS, CATEGORY_EMOJIS,
     pick_autonomous_action, pick_other_penguin, generate_action_text,
 )
+import math
 import time
 import requests as http_requests
 try:
@@ -5540,6 +5541,15 @@ def mayor_lookup():
 
 _BANK_RESOURCES = {"gold", "fish", "herbs", "blood_gems", "bones", "spell_fragments"}
 
+# Gold the bank pays per rarity; buyback = ceil(sell_price * 1.2)
+_BANK_SELL_PRICES = {
+    "common":    30,
+    "uncommon":  100,
+    "rare":      300,
+    "epic":      800,
+    "legendary": 2500,
+}
+
 
 @app.route("/bank/listings")
 def bank_get_listings():
@@ -5754,6 +5764,94 @@ def bank_accept_listing(listing_id):
     db.commit()
     db.close()
     return jsonify({"status": "success", "message": "Trade complete!"})
+
+
+@app.route("/bank/sell-to-bank", methods=["POST"])
+def bank_sell_to_bank():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    gear_id  = data.get("gear_id")
+    db       = get_db()
+
+    g = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
+    if not g:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+    if g["equipped"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Unequip the item before selling it."})
+    if g["worn"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Remove the item before selling it."})
+    if g["listed"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Cancel your listing before selling to the bank."})
+
+    sell_price = _BANK_SELL_PRICES.get(g["rarity"] or "common", 30)
+    buy_price  = math.ceil(sell_price * 1.2)
+    now        = int(time.time())
+
+    add_gold(db, username, sell_price)
+    db.execute(
+        "UPDATE gear SET username='__bank__', bank_sell_price=?, bank_listed_at=?, "
+        "equipped=0, worn=0, listed=0 WHERE id=?",
+        (buy_price, now, gear_id)
+    )
+    log_event(db, "bank",
+        f"🏦 {username} sold {g['name']} to the Penguin Bank for {sell_price} gold!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"Sold for {sell_price} 🪙 gold!"})
+
+
+@app.route("/bank/shop")
+def bank_shop():
+    username = request.args.get("username", "")
+    now      = int(time.time())
+    db       = get_db()
+    # Expire items older than 24 h
+    db.execute(
+        "UPDATE gear SET username=NULL, bank_sell_price=0, bank_listed_at=0 "
+        "WHERE username='__bank__' AND bank_listed_at > 0 AND bank_listed_at < ?",
+        (now - 86400,)
+    )
+    db.commit()
+    rows = db.execute(
+        "SELECT * FROM gear WHERE username='__bank__' ORDER BY bank_listed_at DESC"
+    ).fetchall()
+    db.close()
+    return jsonify({"items": [dict(r) for r in rows]})
+
+
+@app.route("/bank/shop-buy/<int:gear_id>", methods=["POST"])
+def bank_shop_buy(gear_id):
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "")
+    db       = get_db()
+
+    g = db.execute(
+        "SELECT * FROM gear WHERE id=? AND username='__bank__'", (gear_id,)
+    ).fetchone()
+    if not g:
+        db.close()
+        return jsonify({"status": "error", "message": "Item no longer available."})
+
+    ensure_resources(db, username)
+    res = db.execute("SELECT gold FROM resources WHERE username=?", (username,)).fetchone()
+    if not res or res["gold"] < g["bank_sell_price"]:
+        db.close()
+        return jsonify({"status": "error", "message": f"You need {g['bank_sell_price']} 🪙 gold."})
+
+    db.execute("UPDATE resources SET gold=gold-? WHERE username=?", (g["bank_sell_price"], username))
+    db.execute(
+        "UPDATE gear SET username=?, bank_sell_price=0, bank_listed_at=0 WHERE id=?",
+        (username, gear_id)
+    )
+    log_event(db, "bank",
+        f"🏦 {username} bought {g['name']} from the Penguin Bank for {g['bank_sell_price']} gold!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"Bought {g['name']}!"})
 
 
 if __name__ == "__main__":

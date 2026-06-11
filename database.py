@@ -332,6 +332,8 @@ def init_db():
     _add_col(c, "penguins", "trait_quirk TEXT DEFAULT NULL")
     _add_col(c, "gear", "worn INTEGER DEFAULT 0")
     _add_col(c, "gear", "listed INTEGER DEFAULT 0")
+    _add_col(c, "gear", "bank_sell_price INTEGER DEFAULT 0")
+    _add_col(c, "gear", "bank_listed_at INTEGER DEFAULT 0")
 
     # Migrate: cosmetics that were equipped should also be worn (they were shown visually)
     try:

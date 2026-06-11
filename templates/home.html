@@ -2203,6 +2203,8 @@
             <button class="bank-tab" onclick="switchBankTab('sell', this)">SELL ITEM</button>
             <button class="bank-tab" onclick="switchBankTab('trade', this)">TRADE</button>
             <button class="bank-tab" onclick="switchBankTab('mine', this)">MY OFFERS</button>
+            <button class="bank-tab" onclick="switchBankTab('bank-sell', this)">SELL TO BANK</button>
+            <button class="bank-tab" onclick="switchBankTab('shop', this)">ITEMS ON SALE</button>
           </div>
           <div class="bank-body">
             <!-- Browse -->
@@ -2276,6 +2278,24 @@
             <div class="bank-sub-panel" id="bk-mine">
               <div id="bk-mine-list" class="bank-listing-list">
                 <div class="bank-empty">SELECT THE BANK TAB TO LOAD</div>
+              </div>
+            </div>
+            <!-- Sell to Bank -->
+            <div class="bank-sub-panel" id="bk-bank-sell">
+              <div class="bank-form">
+                <div class="bank-note" style="margin-bottom:8px;">The bank buys your gear for instant gold. Items go on sale for other players at +20% for 24 hours.</div>
+                <div class="bank-form-label">SELECT ITEM TO SELL:</div>
+                <select id="bk-bank-sell-gear" class="bank-select bank-select-wide" onchange="bankPreviewSellToBank(parseInt(this.value))">
+                  <option value="">-- choose an item --</option>
+                </select>
+                <div id="bk-bank-sell-preview" class="bank-item-preview" style="display:none"></div>
+                <button class="bank-btn" onclick="bankSellToBank()">SELL TO BANK</button>
+              </div>
+            </div>
+            <!-- Items on Sale (bank shop) -->
+            <div class="bank-sub-panel" id="bk-shop">
+              <div id="bk-shop-list" class="bank-listing-list">
+                <div class="bank-empty">SELECT THE TAB TO LOAD</div>
               </div>
             </div>
           </div>
@@ -6019,7 +6039,9 @@
   }
 
   // ── BANK ──
-  let _bkGearCache = [];
+  let _bkGearCache     = [];
+  let _bkBankSellCache = [];
+  const _BANK_SELL_PRICES = {common: 30, uncommon: 100, rare: 300, epic: 800, legendary: 2500};
 
   const BANK_RES_ICONS = {
     gold: '🪙', fish: '🐟', herbs: '🌿',
@@ -6038,9 +6060,11 @@
     if (btn) btn.classList.add('active');
     const panel = document.getElementById('bk-' + tab);
     if (panel) panel.classList.add('active');
-    if (tab === 'browse') bankLoadBrowse();
-    if (tab === 'sell')   bankLoadSellItems();
-    if (tab === 'mine')   bankLoadMyListings();
+    if (tab === 'browse')    bankLoadBrowse();
+    if (tab === 'sell')      bankLoadSellItems();
+    if (tab === 'mine')      bankLoadMyListings();
+    if (tab === 'bank-sell') bankLoadBankSell();
+    if (tab === 'shop')      bankLoadShop();
   }
 
   async function bankLoadBrowse() {
@@ -6216,6 +6240,105 @@
     } catch(e) {
       list.innerHTML = '<div class="bank-empty">ERROR</div>';
     }
+  }
+
+  async function bankLoadBankSell() {
+    const sel = document.getElementById('bk-bank-sell-gear');
+    if (!sel) return;
+    try {
+      const r    = await fetch(`/gear/inventory?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await r.json();
+      const gear = (data.gear || []).filter(g => !g.equipped && !g.worn && !g.listed && g.type === 'combat');
+      _bkBankSellCache = gear;
+      if (!gear.length) {
+        sel.innerHTML = '<option value="">No gear available to sell</option>';
+        document.getElementById('bk-bank-sell-preview').style.display = 'none';
+        return;
+      }
+      sel.innerHTML = '<option value="">-- choose an item --</option>' +
+        gear.map(g => {
+          const sp = _BANK_SELL_PRICES[g.rarity || 'common'] || 30;
+          return `<option value="${g.id}">${g.name} (${g.rarity || 'common'}) — ${sp} 🪙</option>`;
+        }).join('');
+    } catch(e) {}
+  }
+
+  function bankPreviewSellToBank(gearId) {
+    const preview = document.getElementById('bk-bank-sell-preview');
+    if (!preview) return;
+    const g = _bkBankSellCache.find(x => x.id === gearId);
+    if (!g) { preview.style.display = 'none'; return; }
+    const sp = _BANK_SELL_PRICES[g.rarity || 'common'] || 30;
+    const bp = Math.ceil(sp * 1.2);
+    const rc = bankRarityClass(g.rarity);
+    preview.style.display = '';
+    preview.innerHTML = `<span class="${rc}">${g.name}</span><span style="color:#888"> · CP ${g.combat_power || 0}${g.set_name ? ' · ' + g.set_name : ''}</span><br><span style="color:#4aff6b">Bank pays: ${sp} 🪙</span> <span style="color:#888">· Listed at: ${bp} 🪙</span>`;
+  }
+
+  async function bankSellToBank() {
+    const gearId = parseInt(document.getElementById('bk-bank-sell-gear')?.value || '0');
+    if (!gearId) { showToast('Select an item.', 'err'); return; }
+    try {
+      const r    = await fetch('/bank/sell-to-bank', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER, gear_id: gearId})
+      });
+      const data = await r.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'ok');
+        Sounds.purchase && Sounds.purchase();
+        document.getElementById('bk-bank-sell-preview').style.display = 'none';
+        bankLoadBankSell();
+        refreshStats();
+      } else { showToast(data.message || 'Error.', 'err'); }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function bankLoadShop() {
+    const list = document.getElementById('bk-shop-list');
+    if (!list) return;
+    list.innerHTML = '<div class="bank-empty">LOADING...</div>';
+    try {
+      const r    = await fetch(`/bank/shop?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await r.json();
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = '<div class="bank-empty">NO ITEMS FOR SALE RIGHT NOW</div>';
+        return;
+      }
+      const now = Date.now() / 1000;
+      list.innerHTML = items.map(g => {
+        const rc    = bankRarityClass(g.rarity);
+        const hLeft = Math.max(1, Math.ceil((g.bank_listed_at + 86400 - now) / 3600));
+        return `<div class="bank-listing">
+          <div class="bank-listing-info">
+            <div class="bank-listing-offer"><span class="${rc}">${g.name}</span> <span style="color:#555">(${g.slot || '?'}, ${g.rarity || 'common'})</span></div>
+            ${g.combat_power ? `<div style="color:#888;font-size:7px;">CP ${g.combat_power}${g.set_name ? ' · ' + g.set_name : ''}</div>` : ''}
+            <div class="bank-listing-meta">🏦 Bank · ${hLeft}h left</div>
+          </div>
+          <div style="text-align:right">
+            <div style="color:#4aff6b;font-size:8px;margin-bottom:4px;">${g.bank_sell_price} 🪙</div>
+            <button class="bank-accept-btn" onclick="bankBuyFromShop(${g.id})">BUY</button>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) { list.innerHTML = '<div class="bank-empty">ERROR LOADING</div>'; }
+  }
+
+  async function bankBuyFromShop(gearId) {
+    try {
+      const r    = await fetch(`/bank/shop-buy/${gearId}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER})
+      });
+      const data = await r.json();
+      if (data.status === 'success') {
+        showToast(data.message, 'ok');
+        Sounds.collect && Sounds.collect();
+        bankLoadShop();
+        refreshStats();
+      } else { showToast(data.message || 'Error.', 'err'); }
+    } catch(e) { showToast('Error.', 'err'); }
   }
 
   // ── LEVEL-UP CELEBRATION OVERLAY ──
