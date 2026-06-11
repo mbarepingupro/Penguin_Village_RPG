@@ -2555,6 +2555,7 @@
     if (name === 'awards')    loadAwards();
     if (name === 'eventlog')  loadEventLog();
     if (name === 'levels')    loadLevelsTab();
+    if (name === 'bank') { bankLoadBrowse(); bankLoadSellItems(); bankLoadMyListings(); }
     if (name === 'map' && !window._mapInitialized) {
       window._mapInitialized = true;
       if (window.VillageMap && document.getElementById('village-canvas')) {
@@ -6015,6 +6016,206 @@
       document.getElementById('igloo-room-title').textContent =
         _iglooEditMode ? '✏️ EDITING IGLOO' : iglooRoomTitle(data);
     } catch(e) {}
+  }
+
+  // ── BANK ──
+  let _bkGearCache = [];
+
+  const BANK_RES_ICONS = {
+    gold: '🪙', fish: '🐟', herbs: '🌿',
+    blood_gems: '💎', bones: '🦴', spell_fragments: '✨'
+  };
+
+  function bankResLabel(res, amt) {
+    return `${BANK_RES_ICONS[res] || '?'} ${(amt||0).toLocaleString()} ${res.replace(/_/g,' ')}`;
+  }
+
+  function bankRarityClass(r) { return 'bk-rarity-' + (r || 'common'); }
+
+  function switchBankTab(tab, btn) {
+    document.querySelectorAll('.bank-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.bank-sub-panel').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const panel = document.getElementById('bk-' + tab);
+    if (panel) panel.classList.add('active');
+    if (tab === 'browse') bankLoadBrowse();
+    if (tab === 'sell')   bankLoadSellItems();
+    if (tab === 'mine')   bankLoadMyListings();
+  }
+
+  async function bankLoadBrowse() {
+    const list = document.getElementById('bk-browse-list');
+    if (!list) return;
+    list.innerHTML = '<div class="bank-empty">LOADING...</div>';
+    const filter = document.getElementById('bk-filter')?.value || 'all';
+    try {
+      const r    = await fetch(`/bank/listings?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await r.json();
+      let rows   = data.listings || [];
+      if (filter !== 'all') rows = rows.filter(l => l.listing_type === filter);
+      if (!rows.length) {
+        list.innerHTML = '<div class="bank-empty">NO LISTINGS AVAILABLE</div>';
+        return;
+      }
+      list.innerHTML = rows.map(l => {
+        const offerText = l.listing_type === 'item'
+          ? `<span class="${bankRarityClass(l.gear_rarity)}">${l.gear_name || 'Item'}</span><span style="color:#555"> (${l.gear_slot || '?'})</span>`
+          : bankResLabel(l.offer_resource, l.offer_amount);
+        const askText = bankResLabel(l.ask_resource, l.ask_amount);
+        const ageMin  = Math.floor((Date.now()/1000 - l.created_at) / 60);
+        const ageStr  = ageMin < 60 ? ageMin + 'm ago' : Math.floor(ageMin/60) + 'h ago';
+        return `<div class="bank-listing">
+          <div class="bank-listing-info">
+            <div class="bank-listing-offer">🎁 ${offerText}</div>
+            <div class="bank-listing-ask">→ ${askText}</div>
+            <div class="bank-listing-meta">${l.seller_username} · ${ageStr}</div>
+          </div>
+          <button class="bank-accept-btn" onclick="bankAccept(${l.id})">ACCEPT</button>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="bank-empty">ERROR LOADING</div>';
+    }
+  }
+
+  async function bankLoadSellItems() {
+    const sel = document.getElementById('bk-sell-gear');
+    if (!sel) return;
+    try {
+      const r    = await fetch(`/gear/inventory?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await r.json();
+      const gear = (data.gear || []).filter(g => !g.equipped && !g.worn && !g.listed);
+      _bkGearCache = gear;
+      if (!gear.length) {
+        sel.innerHTML = '<option value="">No items available to list</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">-- choose an item --</option>' +
+        gear.map(g => {
+          const label = `${g.name} (${g.rarity || 'common'}, ${g.slot || '?'})`;
+          return `<option value="${g.id}">${label}</option>`;
+        }).join('');
+    } catch(e) {}
+  }
+
+  function bankPreviewGear(gearId) {
+    const preview = document.getElementById('bk-sell-preview');
+    if (!preview) return;
+    const g = _bkGearCache.find(x => x.id === gearId);
+    if (!g) { preview.style.display = 'none'; return; }
+    const rc = bankRarityClass(g.rarity);
+    preview.style.display = '';
+    let info = `<span class="${rc}">${g.name}</span>`;
+    if (g.combat_power) info += `<span style="color:#888"> · CP ${g.combat_power}</span>`;
+    if (g.set_name) info += `<span style="color:#555"> · ${g.set_name} set</span>`;
+    preview.innerHTML = info;
+  }
+
+  async function bankListItem() {
+    const gearId  = parseInt(document.getElementById('bk-sell-gear')?.value || '0');
+    const askRes  = document.getElementById('bk-sell-ask-res')?.value;
+    const askAmt  = parseInt(document.getElementById('bk-sell-ask-amt')?.value || '0');
+    if (!gearId)             { showToast('Select an item.', 'err'); return; }
+    if (!askAmt || askAmt < 1) { showToast('Enter a valid amount.', 'err'); return; }
+    try {
+      const r    = await fetch('/bank/list-item', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER, gear_id: gearId, ask_resource: askRes, ask_amount: askAmt})
+      });
+      const data = await r.json();
+      if (data.status === 'success') {
+        showToast('Item listed!', 'ok');
+        document.getElementById('bk-sell-ask-amt').value = '';
+        document.getElementById('bk-sell-preview').style.display = 'none';
+        bankLoadSellItems();
+        bankLoadMyListings();
+      } else { showToast(data.message || 'Error.', 'err'); }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function bankPostTrade() {
+    const offerRes = document.getElementById('bk-trade-offer-res')?.value;
+    const offerAmt = parseInt(document.getElementById('bk-trade-offer-amt')?.value || '0');
+    const askRes   = document.getElementById('bk-trade-ask-res')?.value;
+    const askAmt   = parseInt(document.getElementById('bk-trade-ask-amt')?.value || '0');
+    if (!offerAmt || offerAmt < 1 || !askAmt || askAmt < 1) { showToast('Enter valid amounts.', 'err'); return; }
+    if (offerRes === askRes) { showToast("Can't trade a resource for itself.", 'err'); return; }
+    try {
+      const r    = await fetch('/bank/list-resource', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER, offer_resource: offerRes, offer_amount: offerAmt, ask_resource: askRes, ask_amount: askAmt})
+      });
+      const data = await r.json();
+      if (data.status === 'success') {
+        showToast('Trade offer posted!', 'ok');
+        document.getElementById('bk-trade-offer-amt').value = '';
+        document.getElementById('bk-trade-ask-amt').value = '';
+        bankLoadMyListings();
+        refreshStats();
+      } else { showToast(data.message || 'Error.', 'err'); }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function bankAccept(listingId) {
+    try {
+      const r    = await fetch(`/bank/accept/${listingId}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER})
+      });
+      const data = await r.json();
+      if (data.status === 'success') {
+        showToast('Trade complete!', 'ok');
+        Sounds.collect && Sounds.collect();
+        bankLoadBrowse();
+        refreshStats();
+      } else { showToast(data.message || 'Error.', 'err'); }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function bankCancel(listingId) {
+    try {
+      const r    = await fetch(`/bank/cancel/${listingId}`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username: CURRENT_USER})
+      });
+      const data = await r.json();
+      if (data.status === 'success') {
+        showToast('Listing cancelled.', 'ok');
+        bankLoadMyListings();
+        bankLoadSellItems();
+        refreshStats();
+      } else { showToast(data.message || 'Error.', 'err'); }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  async function bankLoadMyListings() {
+    const list = document.getElementById('bk-mine-list');
+    if (!list) return;
+    list.innerHTML = '<div class="bank-empty">LOADING...</div>';
+    try {
+      const r    = await fetch(`/bank/my-listings?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await r.json();
+      const rows = data.listings || [];
+      if (!rows.length) {
+        list.innerHTML = '<div class="bank-empty">YOU HAVE NO ACTIVE LISTINGS</div>';
+        return;
+      }
+      list.innerHTML = rows.map(l => {
+        const offerText = l.listing_type === 'item'
+          ? `<span class="${bankRarityClass(l.gear_rarity)}">${l.gear_name || 'Item'}</span><span style="color:#555"> (${l.gear_slot || '?'})</span>`
+          : bankResLabel(l.offer_resource, l.offer_amount);
+        const askText = bankResLabel(l.ask_resource, l.ask_amount);
+        return `<div class="bank-listing">
+          <div class="bank-listing-info">
+            <div class="bank-listing-offer">🎁 ${offerText}</div>
+            <div class="bank-listing-ask">→ ${askText}</div>
+          </div>
+          <button class="bank-cancel-btn" onclick="bankCancel(${l.id})">CANCEL</button>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div class="bank-empty">ERROR</div>';
+    }
   }
 
   // ── LEVEL-UP CELEBRATION OVERLAY ──
