@@ -2543,6 +2543,8 @@ def combat_fight():
         rewards = {}
         consolation_xp = 0
         is_first_kill = False
+        combat_level_ups = []
+        consolation_level_ups = []
 
         if fight["victory"]:
             rdef = mtype["rewards"]
@@ -2552,7 +2554,7 @@ def combat_fight():
             resources = {k: random.randint(lo, hi) * multiplier for k, (lo, hi) in rdef["resources"].items()}
 
             add_gold(db, username, gold)
-            award_xp(db, username, xp)
+            _, combat_level_ups = award_xp(db, username, xp)
             for res, amt in resources.items():
                 db.execute(f"UPDATE resources SET {res}={res}+? WHERE username=?", (amt, username))
 
@@ -2600,7 +2602,7 @@ def combat_fight():
             )
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
-            award_xp(db, username, consolation_xp)
+            _, consolation_level_ups = award_xp(db, username, consolation_xp)
             log_event(db, "combat", f"{username} was defeated by {monster_name}...", username)
         db.commit()
 
@@ -2617,6 +2619,7 @@ def combat_fight():
             "monster_name":     monster_name,
             "monster_icon":     variant["icon"],
             "is_first_kill":    is_first_kill,
+            "level_ups":        combat_level_ups or consolation_level_ups,
         }
         if fight["victory"]:
             resp["rewards"] = rewards
@@ -3119,7 +3122,7 @@ def igloo_visit():
     db.execute(f"UPDATE resources SET gold=gold+?, {res_type}={res_type}+? WHERE username=?",
                (gold_reward, res_amount, visitor))
     db.execute("UPDATE penguins SET total_visits_given=total_visits_given+1 WHERE username=?", (visitor,))
-    award_xp(db, visitor, xp_reward)
+    _, igloo_level_ups = award_xp(db, visitor, xp_reward)
     db.execute("UPDATE penguins SET total_visits_received=total_visits_received+1 WHERE username=?", (host,))
 
     db.execute(
@@ -3189,6 +3192,7 @@ def igloo_visit():
         "new_achievements": new_ach,
         "visits_remaining": MAX_IGLOO_VISITS_PER_DAY - (visits_today + 1),
         "host_igloo": host_igloo,
+        "level_ups": igloo_level_ups,
     })
 
 

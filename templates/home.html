@@ -1170,6 +1170,133 @@
     }
     .lvup-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
 
+    /* ── LEVEL-UP CELEBRATION OVERLAY ── */
+    @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+    .level-up-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 99999;
+      animation: fadeIn 0.3s ease;
+      cursor: pointer;
+    }
+    .lu-confetti-container {
+      position: absolute; inset: 0;
+      pointer-events: none; overflow: hidden;
+    }
+    .lu-content {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 8px; z-index: 1;
+    }
+    .lu-penguin {
+      width: 128px; height: 128px;
+      image-rendering: pixelated;
+      animation: penguinBounceIn 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      transform: translateY(100vh);
+    }
+    @keyframes penguinBounceIn {
+      0%   { transform: translateY(100vh); }
+      70%  { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+    .lu-text {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 28px; color: #FF8C00;
+      text-shadow: 0 0 20px rgba(255,140,0,0.6);
+      animation: luTextPopIn 0.5s ease-out 0.5s forwards;
+      opacity: 0; transform: scale(0);
+    }
+    @keyframes luTextPopIn {
+      0%   { opacity: 0; transform: scale(0); }
+      70%  { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .lu-level-transition {
+      position: relative; height: 60px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 10px 0;
+    }
+    .lu-lv-prefix {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px; color: #888; margin-right: 8px;
+      animation: fadeIn 0.3s ease 1.2s forwards; opacity: 0;
+    }
+    .lu-old-level {
+      position: absolute;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 48px; color: #A86EFF;
+      animation: luOldLevelOut 0.8s ease-in 1.2s forwards;
+    }
+    @keyframes luOldLevelOut {
+      0%   { transform: scale(1); opacity: 1; }
+      50%  { transform: scale(1.5) translateY(-20px); opacity: 0.5; }
+      100% { transform: scale(2) translateY(-40px); opacity: 0; }
+    }
+    .lu-new-level {
+      position: absolute;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 48px; color: #FF8C00;
+      text-shadow: 0 0 30px rgba(255,140,0,0.8);
+      animation: luNewLevelIn 0.8s ease-out 1.6s forwards; opacity: 0;
+    }
+    @keyframes luNewLevelIn {
+      0%   { transform: scale(0.3) translateY(30px); opacity: 0; }
+      60%  { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .lu-bonus {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px; color: #4aff6b;
+      animation: fadeIn 0.3s ease 2.0s forwards; opacity: 0;
+    }
+    .lu-milestone-tag {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 16px; color: #FF8C00;
+      animation: luTextPopIn 0.5s ease-out 2.0s forwards; opacity: 0;
+      margin-top: 12px;
+    }
+    .lu-rewards {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 6px; margin-top: 8px;
+    }
+    .lu-reward {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px; color: #FF7FE5;
+      opacity: 0; animation: luRewardSlideIn 0.4s ease-out forwards;
+    }
+    @keyframes luRewardSlideIn {
+      0%   { opacity: 0; transform: translateX(-20px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+    .lu-continue {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px; color: #888; margin-top: 24px;
+      animation: luPulseFade 1.5s ease-in-out 3.5s infinite; opacity: 0;
+    }
+    @keyframes luPulseFade {
+      0%, 100% { opacity: 0.4; }
+      50%      { opacity: 1; }
+    }
+    .confetti-piece {
+      position: absolute; top: -10px; pointer-events: none;
+      animation: confettiFall linear infinite;
+    }
+    @keyframes confettiFall {
+      0%   { transform: translateY(-10px) rotate(0deg) translateX(0); opacity: 1; }
+      25%  { transform: translateY(25vh) rotate(90deg) translateX(15px); }
+      50%  { transform: translateY(50vh) rotate(180deg) translateX(-10px); }
+      75%  { transform: translateY(75vh) rotate(270deg) translateX(20px); }
+      100% { transform: translateY(100vh) rotate(360deg) translateX(-5px); opacity: 0.5; }
+    }
+    @media (max-width: 768px) {
+      .lu-penguin { width: 96px; height: 96px; }
+      .lu-text { font-size: 20px; }
+      .lu-old-level, .lu-new-level { font-size: 36px; }
+      .lu-reward { font-size: 8px; }
+    }
+
     /* ── LEVELS TAB ── */
     .levels-panel { display: flex; flex-direction: column; height: 100%; }
     .levels-range-bar { display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0; }
@@ -5061,6 +5188,9 @@
     evalEl.textContent = `${data.evaluation} — rolled ${data.roll} out of ${data.win_chance}%`;
     document.getElementById('fight-modal-ok').style.display = '';
     refreshStats();
+    if (data.level_ups && data.level_ups.length) {
+      setTimeout(() => showLevelUpModal(data.level_ups), 400);
+    }
   }
 
   async function closeFightModal() {
@@ -5728,15 +5858,154 @@
     } catch(e) {}
   }
 
+  // ── LEVEL-UP CELEBRATION OVERLAY ──
+  let _luCelebQueue = [];
+  let _luCelebShowing = false;
+
+  function playLevelUpFanfare() {
+    if (Sounds.muted) return;
+    try {
+      const ctx = Sounds.getCtx(); if (!ctx) return;
+      const now = ctx.currentTime;
+      const noise = ctx.createOscillator(), noiseGain = ctx.createGain();
+      noise.connect(noiseGain); noiseGain.connect(ctx.destination);
+      noise.type = 'square';
+      noise.frequency.setValueAtTime(100, now);
+      noise.frequency.linearRampToValueAtTime(200, now + 0.5);
+      noiseGain.gain.setValueAtTime(0.08, now);
+      noiseGain.gain.linearRampToValueAtTime(0.15, now + 0.4);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      noise.start(now); noise.stop(now + 0.5);
+      const fanfareNotes = [
+        {freq:523, time:0.5, dur:0.15}, {freq:659, time:0.65, dur:0.15},
+        {freq:784, time:0.8, dur:0.15}, {freq:1047, time:0.95, dur:0.3},
+        {freq:784, time:1.1, dur:0.1},  {freq:1047, time:1.2, dur:0.4},
+      ];
+      fanfareNotes.forEach(n => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(n.freq, now + n.time);
+        gain.gain.setValueAtTime(0.2, now + n.time);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + n.time + n.dur);
+        osc.start(now + n.time); osc.stop(now + n.time + n.dur);
+      });
+      for (let i = 0; i < 6; i++) {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        const sf = 1500 + Math.random() * 1500;
+        osc.frequency.setValueAtTime(sf, now + 1.4 + i * 0.1);
+        gain.gain.setValueAtTime(0.06, now + 1.4 + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4 + i * 0.1 + 0.15);
+        osc.start(now + 1.4 + i * 0.1); osc.stop(now + 1.4 + i * 0.1 + 0.15);
+      }
+    } catch(e) {}
+  }
+
+  function playMilestoneImpact() {
+    if (Sounds.muted) return;
+    try {
+      const ctx = Sounds.getCtx(); if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator(), gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc.start(now); osc.stop(now + 0.5);
+    } catch(e) {}
+  }
+
+  function startConfetti(container) {
+    const colors = ['#A86EFF','#FF7FE5','#FF8C00','#4aff6b','#4a9eff','#FFFFFF'];
+    const count  = window.innerWidth < 768 ? 30 : 60;
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      const size = 4 + Math.random() * 4;
+      piece.style.width  = size + 'px';
+      piece.style.height = size + 'px';
+      piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.left             = Math.random() * 100 + '%';
+      piece.style.animationDuration = (2 + Math.random() * 3) + 's';
+      piece.style.animationDelay    = Math.random() * 2 + 's';
+      container.appendChild(piece);
+    }
+  }
+
+  function showLevelUpOverlay(oldLevel, newLevel, rewards, onDismiss) {
+    const isBig = [10, 20, 30].includes(newLevel);
+    const totalBonus = Object.keys(LEVEL_DATA_CONFIG)
+      .filter(k => parseInt(k) <= newLevel)
+      .reduce((sum, k) => sum + (LEVEL_DATA_CONFIG[k].gathering_bonus || 0), 0);
+
+    let rewardsHTML = '';
+    if (rewards && rewards.length > 0) {
+      if (isBig) rewardsHTML += '<div class="lu-milestone-tag">🏆 MAJOR MILESTONE!</div>';
+      rewardsHTML += '<div class="lu-rewards">';
+      let delay = 0;
+      rewards.forEach(r => {
+        if (!r) return;
+        (r.cosmetics || []).forEach(c => {
+          rewardsHTML += `<div class="lu-reward" style="color:#FF7FE5;animation-delay:${2.0 + delay * 0.2}s">🎁 ${c}</div>`;
+          delay++;
+        });
+        if (r.gold)       { rewardsHTML += `<div class="lu-reward" style="color:#FF8C00;animation-delay:${2.0 + delay * 0.2}s">🪙 +${r.gold} Gold</div>`; delay++; }
+        if (r.max_energy) { rewardsHTML += `<div class="lu-reward" style="color:#4aff6b;animation-delay:${2.0 + delay * 0.2}s">⚡ +${r.max_energy} Max Energy</div>`; delay++; }
+        if (r.title)      { rewardsHTML += `<div class="lu-reward" style="color:#A86EFF;animation-delay:${2.0 + delay * 0.2}s">📛 ${r.title}</div>`; delay++; }
+      });
+      rewardsHTML += '</div>';
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'level-up-overlay';
+    overlay.innerHTML = `
+      <div class="lu-confetti-container"></div>
+      <div class="lu-content">
+        <img src="/static/penguin_static.png" class="lu-penguin" alt="Penguin" />
+        <div class="lu-text">LEVEL UP!</div>
+        <div class="lu-level-transition">
+          <span class="lu-lv-prefix">LV</span>
+          <span class="lu-old-level">${oldLevel}</span>
+          <span class="lu-new-level">${newLevel}</span>
+        </div>
+        <div class="lu-bonus">+5% Gathering Speed (total: +${totalBonus}%)</div>
+        ${rewardsHTML}
+        <div class="lu-continue">TAP TO CONTINUE</div>
+      </div>`;
+    document.body.appendChild(overlay);
+    startConfetti(overlay.querySelector('.lu-confetti-container'));
+
+    if (isBig) playMilestoneImpact();
+    playLevelUpFanfare();
+
+    const dismiss = () => {
+      if (!overlay.parentNode) return;
+      overlay.style.animation = 'fadeOut 0.3s ease forwards';
+      setTimeout(() => { overlay.remove(); if (onDismiss) onDismiss(); }, 300);
+    };
+    overlay.addEventListener('click', dismiss);
+    setTimeout(() => { if (overlay.parentNode) dismiss(); }, 8000);
+  }
+
   // ── LEVEL-UP MODAL ──
   let _lvupQueue = [];
 
   function showLevelUpModal(levelUps) {
     if (!levelUps || !levelUps.length) return;
-    _lvupQueue = _lvupQueue.concat(levelUps);
-    if (!document.getElementById('lvup-overlay').classList.contains('show')) {
-      processLvupQueue();
-    }
+    _luCelebQueue = _luCelebQueue.concat(levelUps);
+    if (!_luCelebShowing) _processLuCelebQueue();
+  }
+
+  function _processLuCelebQueue() {
+    if (!_luCelebQueue.length) { _luCelebShowing = false; return; }
+    _luCelebShowing = true;
+    const entry = _luCelebQueue.shift();
+    const { level, reward, big_milestone } = entry;
+    showLevelUpOverlay(level - 1, level, reward ? [reward] : [], _processLuCelebQueue);
   }
 
   function processLvupQueue() {
@@ -6235,6 +6504,9 @@
       }
 
       document.getElementById('igloo-result-overlay').classList.add('show');
+      if (data.level_ups && data.level_ups.length) {
+        setTimeout(() => showLevelUpModal(data.level_ups), 600);
+      }
 
       // Mark as visited in UI
       const rowEl = document.getElementById(`sbv-${hostUsername}`);
