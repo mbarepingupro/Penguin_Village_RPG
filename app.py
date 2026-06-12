@@ -5041,7 +5041,7 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 
 CARD_FONT_PATH  = os.path.join(os.path.dirname(__file__), "static", "fonts", "PressStart2P-Regular.ttf")
-CARD_SPRITE_PATH = os.path.join(os.path.dirname(__file__), "static", "penguin_static.png")
+_CARD_SPRITE_DIR = os.path.join(os.path.dirname(__file__), "static")
 CARD_W, CARD_H  = 600, 340
 LEFT_W           = 190
 
@@ -5185,7 +5185,12 @@ def _generate_card_image(data):
 
     # ── LEFT: sprite + username + title ──
     try:
-        sprite = Image.open(CARD_SPRITE_PATH).convert("RGBA").resize((80, 80), Image.NEAREST)
+        _shape = d.get("penguin_shape") or "normal"
+        _sprite_file = f"penguin_{_shape}_static.png"
+        _sprite_path = os.path.join(_CARD_SPRITE_DIR, _sprite_file)
+        if not os.path.exists(_sprite_path):
+            _sprite_path = os.path.join(_CARD_SPRITE_DIR, "penguin_normal_static.png")
+        sprite = Image.open(_sprite_path).convert("RGBA").resize((80, 80), Image.NEAREST)
         bg_patch = Image.new("RGB", (80, 80), _COLORS["bg"])
         bg_patch.paste(sprite, mask=sprite.split()[3])
         img.paste(bg_patch, (LEFT_W//2 - 40, 40))
@@ -5263,6 +5268,7 @@ def public_profile(username):
         "profile.html",
         exists=True,
         username=d["username"],
+        penguin_shape=d.get("penguin_shape") or "normal",
         level=lv,
         prestige=d.get("prestige") or 0,
         active_title=d.get("active_title"),
@@ -5295,6 +5301,7 @@ def card_page(username):
         "profile.html",
         exists=True,
         username=d["username"],
+        penguin_shape=d.get("penguin_shape") or "normal",
         level=lv,
         prestige=d.get("prestige") or 0,
         active_title=d.get("active_title"),

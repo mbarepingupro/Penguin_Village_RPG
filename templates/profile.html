@@ -233,7 +233,7 @@
     {% endif %}
 
     <div class="card-left">
-      <img src="/static/penguin_static.png" class="card-sprite" alt="{{ username }}'s penguin"
+      <img src="/static/penguin_{{ penguin_shape or 'normal' }}_static.png" class="card-sprite" alt="{{ username }}'s penguin"
            onerror="this.style.display='none'">
       <div class="card-username">{{ username | upper }}</div>
       {% if active_title %}

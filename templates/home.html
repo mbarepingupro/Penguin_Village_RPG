@@ -1847,7 +1847,7 @@
   {% if not logged_in %}
   <!-- LOGIN SCREEN -->
   <div class="login-screen">
-    <img src="/static/penguin_static.png" class="login-penguin" alt="Penguin"
+    <img src="/static/penguin_normal_static.png" class="login-penguin" alt="Penguin"
          onerror="this.style.display='none'"/>
     <div class="login-title">PENGUIN<br><span>VILLAGE</span></div>
     <div class="login-sub">
@@ -1872,7 +1872,7 @@
       <div class="sidebar-panel active" id="sidebar-penguin">
 
         <div class="penguin-display">
-          <img src="/static/penguin_static.png" class="penguin-sprite" alt="Penguin"
+          <img src="/static/penguin_{{ penguin['penguin_shape'] or 'normal' }}_static.png" class="penguin-sprite" alt="Penguin"
                onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
           {% if penguin['prestige'] and penguin['prestige'] > 0 %}
@@ -2419,7 +2419,7 @@
     <!-- LEFT: penguin preview + legend -->
     <div class="inv-col-left">
       <div class="inv-preview-penguin">
-        <img src="/static/penguin_static.png" alt="Your penguin">
+        <img src="/static/penguin_{{ penguin['penguin_shape'] or 'normal' }}_static.png" alt="Your penguin">
       </div>
       <div class="inv-preview-label">📦 INVENTORY</div>
       <hr class="inv-legend-sep">
@@ -2805,6 +2805,7 @@
 
   {% if logged_in %}
   const CURRENT_USER      = {{ penguin["username"] | tojson }};
+  const PLAYER_SHAPE      = {{ (penguin['penguin_shape'] or 'normal') | tojson }};
   const FEATURES          = {{ features | tojson }};
   const LEVEL_DATA_CONFIG = {{ level_data | tojson }};
   let _playerLevel        = {{ penguin['level'] | tojson }};
@@ -3443,7 +3444,7 @@
     prev.innerHTML = `
       <div class="bq-preview-penguin" style="border:3px solid ${tierColor};padding:10px;">
         <div class="bq-preview-slot-label">[${slotLabel}: ${item.name}]</div>
-        <img src="/static/penguin_static.png" alt="penguin" onerror="this.style.display='none'">
+        <img src="/static/penguin_${PLAYER_SHAPE}_static.png" alt="penguin" onerror="this.style.display='none'">
         <img src="/static/penguin_wearing/${item.slot}/${item.id}.png" alt=""
              style="position:absolute;top:10px;left:10px;width:80px;height:80px;image-rendering:pixelated;"
              onerror="this.style.display='none'">
@@ -4418,7 +4419,7 @@
     const prestigeStars = prestige > 0 ? '★'.repeat(prestige) : '';
     inner.innerHTML = `
       <div class="card-preview-left">
-        <img src="/static/penguin_static.png" class="card-preview-sprite" alt="penguin"
+        <img src="/static/penguin_${PLAYER_SHAPE}_static.png" class="card-preview-sprite" alt="penguin"
              onerror="this.style.display='none'">
         <div class="card-preview-username">${CURRENT_USER.toUpperCase()}</div>
         ${_activeTitle ? `<div class="card-preview-title">${_activeTitle}</div>` : ''}
@@ -6672,7 +6673,7 @@
     overlay.innerHTML = `
       <div class="lu-confetti-container"></div>
       <div class="lu-content">
-        <img src="/static/penguin_static.png" class="lu-penguin" alt="Penguin" />
+        <img src="/static/penguin_${PLAYER_SHAPE}_static.png" class="lu-penguin" alt="Penguin" />
         <div class="lu-text">LEVEL UP!</div>
         <div class="lu-level-transition">
           <span class="lu-lv-prefix">LV</span>
