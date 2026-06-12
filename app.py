@@ -1680,14 +1680,14 @@ def home():
 
     username = session.get("username")
     if not username:
-        return render_template("home.html", logged_in=False, features=FEATURES)
+        return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
     update_passive_energy(username)
     db = get_db()
     penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
     if not penguin:
         session.clear()
         db.close()
-        return render_template("home.html", logged_in=False, features=FEATURES)
+        return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
     ensure_resources(db, username)
 
     # ── Character creation gate ────────────────────────────────────────────────

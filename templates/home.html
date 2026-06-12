@@ -2419,7 +2419,7 @@
     <!-- LEFT: penguin preview + legend -->
     <div class="inv-col-left">
       <div class="inv-preview-penguin">
-        <img src="/static/penguin_{{ penguin['penguin_shape'] or 'normal' }}_static.png" alt="Your penguin">
+        <img src="/static/penguin_{% if logged_in %}{{ penguin['penguin_shape'] or 'normal' }}{% else %}normal{% endif %}_static.png" alt="Your penguin">
       </div>
       <div class="inv-preview-label">📦 INVENTORY</div>
       <hr class="inv-legend-sep">
