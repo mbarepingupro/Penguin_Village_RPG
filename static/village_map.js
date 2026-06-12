@@ -7,8 +7,11 @@ const GRID_SIZE = 20;
 
 const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5;
 
-const PENGUIN_FRAME_WIDTH  = 32;
-const PENGUIN_FRAME_HEIGHT = 32;
+const SHAPE_CONFIG = {
+    "normal": { frameWidth: 32, frameHeight: 32, stripFile: "penguin_normal.png", staticFile: "penguin_normal_static.png" },
+    "tall":   { frameWidth: 32, frameHeight: 40, stripFile: "penguin_tall.png",   staticFile: "penguin_tall_static.png"   },
+};
+
 const PENGUIN_FRAME_COUNT  = 2;
 const PENGUIN_ANIM_SPEED   = 400; // ms per frame
 
@@ -83,20 +86,29 @@ function getRecoloredSprite(spriteKey, sourceImage, color) {
     return result;
 }
 
+async function loadPenguinSprites() {
+    for (const [shape, cfg] of Object.entries(SHAPE_CONFIG)) {
+        const stripLoaded  = await SpriteLoader.load(`/static/${cfg.stripFile}`);
+        const staticLoaded = await SpriteLoader.load(`/static/${cfg.staticFile}`);
+        if (shape === 'normal') {
+            // Alias legacy filenames so old code paths still work
+            if (!stripLoaded) {
+                const legacy = await SpriteLoader.load('/static/penguin.png');
+                SpriteLoader.cache[`/static/${cfg.stripFile}`] = legacy;
+            }
+            if (!staticLoaded) {
+                const legacy = await SpriteLoader.load('/static/penguin_static.png');
+                SpriteLoader.cache[`/static/${cfg.staticFile}`] = legacy;
+            }
+        }
+    }
+}
+
 async function loadAllSprites() {
-    const tileLoads = Object.values(TILE_SPRITE_NAMES).map(
-        name => SpriteLoader.load(`/static/tiles/${name}.png`)
-    );
-    const buildingLoads = Object.keys(buildingLayout).map(
-        id => SpriteLoader.load(`/static/buildings/${id}.png`)
-    );
-    // Try shape-specific sprites; fall back to legacy penguin.png
-    const penguinLoads = [
-        SpriteLoader.load('/static/penguin_normal.png'),
-        SpriteLoader.load('/static/penguin_tall.png'),
-        SpriteLoader.load('/static/penguin.png'),
-    ];
-    await Promise.all([...tileLoads, ...buildingLoads, ...penguinLoads]);
+    const tileLoads     = Object.values(TILE_SPRITE_NAMES).map(name => SpriteLoader.load(`/static/tiles/${name}.png`));
+    const buildingLoads = Object.keys(buildingLayout).map(id => SpriteLoader.load(`/static/buildings/${id}.png`));
+    await Promise.all([...tileLoads, ...buildingLoads]);
+    await loadPenguinSprites();
 }
 
 const BUILDING_CFG = {
@@ -415,15 +427,15 @@ function drawBuilding(id, bdef, level) {
 }
 
 function _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight) {
-    const shape      = penguin.penguin_shape || 'normal';
-    const bodyColor  = penguin.penguin_color || '#1a1a1a';
-    // Try shape-specific sprite first, then legacy fallback
-    const baseSprite = SpriteLoader.get(`/static/penguin_${shape}.png`)
+    const shape     = penguin.penguin_shape || 'normal';
+    const cfg       = SHAPE_CONFIG[shape] || SHAPE_CONFIG['normal'];
+    const bodyColor = penguin.penguin_color || '#1a1a1a';
+    const baseSprite = SpriteLoader.get(`/static/${cfg.stripFile}`)
                     || SpriteLoader.get('/static/penguin.png');
     if (baseSprite) {
-        const spriteKey  = `penguin_${shape}`;
-        const recolored  = getRecoloredSprite(spriteKey, baseSprite, bodyColor);
-        const frameX     = penguin.animFrame * PENGUIN_FRAME_WIDTH;
+        const spriteKey = `penguin_${shape}`;
+        const recolored = getRecoloredSprite(spriteKey, baseSprite, bodyColor);
+        const frameX    = penguin.animFrame * cfg.frameWidth;
         ctx.save();
         ctx.imageSmoothingEnabled = false;
         if (!penguin.facingRight) {
@@ -432,7 +444,7 @@ function _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight
         }
         ctx.drawImage(
             recolored,
-            frameX, 0, PENGUIN_FRAME_WIDTH, PENGUIN_FRAME_HEIGHT,
+            frameX, 0, cfg.frameWidth, cfg.frameHeight,
             drawX, drawY, drawWidth, drawHeight
         );
         ctx.restore();
@@ -445,8 +457,10 @@ function _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight
 }
 
 function drawPenguin(sx, sy, penguin, isBehind) {
+    const shape  = penguin.penguin_shape || 'normal';
+    const cfg    = SHAPE_CONFIG[shape] || SHAPE_CONFIG['normal'];
     const drawWidth  = TILE_W * 0.6;
-    const drawHeight = (PENGUIN_FRAME_HEIGHT / PENGUIN_FRAME_WIDTH) * drawWidth;
+    const drawHeight = (cfg.frameHeight / cfg.frameWidth) * drawWidth;
     const drawX = sx - drawWidth / 2;
     const drawY = sy - drawHeight;
 
