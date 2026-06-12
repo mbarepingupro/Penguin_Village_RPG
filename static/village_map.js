@@ -44,6 +44,45 @@ const SpriteLoader = {
 
 const TILE_SPRITE_NAMES = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
 
+// ── PENGUIN RECOLORING ────────────────────────────────────────────────────────
+const _recolorCache = {};
+
+function recolorPenguin(sourceImage, targetColor) {
+    const offscreen = document.createElement('canvas');
+    offscreen.width  = sourceImage.width  || sourceImage.naturalWidth  || 64;
+    offscreen.height = sourceImage.height || sourceImage.naturalHeight || 40;
+    const ctx = offscreen.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sourceImage, 0, 0);
+    const imageData = ctx.getImageData(0, 0, offscreen.width, offscreen.height);
+    const pixels    = imageData.data;
+    const tr = parseInt(targetColor.slice(1,3), 16);
+    const tg = parseInt(targetColor.slice(3,5), 16);
+    const tb = parseInt(targetColor.slice(5,7), 16);
+    for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i], g = pixels[i+1], b = pixels[i+2], a = pixels[i+3];
+        if (a === 0) continue;
+        const brightness = (r + g + b) / 3;
+        if (brightness > 180) continue;          // belly / white areas
+        if (r > 150 && g > 80 && g < 180 && b < 80) continue; // beak / feet (orange)
+        if (brightness < 15) continue;           // hard outline — keep black
+        const scale = brightness / 100;
+        pixels[i]   = Math.min(255, Math.floor(tr * scale));
+        pixels[i+1] = Math.min(255, Math.floor(tg * scale));
+        pixels[i+2] = Math.min(255, Math.floor(tb * scale));
+    }
+    ctx.putImageData(imageData, 0, 0);
+    return offscreen;
+}
+
+function getRecoloredSprite(spriteKey, sourceImage, color) {
+    const key = `${spriteKey}_${color}`;
+    if (_recolorCache[key]) return _recolorCache[key];
+    const result = recolorPenguin(sourceImage, color);
+    _recolorCache[key] = result;
+    return result;
+}
+
 async function loadAllSprites() {
     const tileLoads = Object.values(TILE_SPRITE_NAMES).map(
         name => SpriteLoader.load(`/static/tiles/${name}.png`)
@@ -51,7 +90,13 @@ async function loadAllSprites() {
     const buildingLoads = Object.keys(buildingLayout).map(
         id => SpriteLoader.load(`/static/buildings/${id}.png`)
     );
-    await Promise.all([...tileLoads, ...buildingLoads, SpriteLoader.load('/static/penguin.png')]);
+    // Try shape-specific sprites; fall back to legacy penguin.png
+    const penguinLoads = [
+        SpriteLoader.load('/static/penguin_normal.png'),
+        SpriteLoader.load('/static/penguin_tall.png'),
+        SpriteLoader.load('/static/penguin.png'),
+    ];
+    await Promise.all([...tileLoads, ...buildingLoads, ...penguinLoads]);
 }
 
 const BUILDING_CFG = {
@@ -370,10 +415,15 @@ function drawBuilding(id, bdef, level) {
 }
 
 function _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight) {
-    const sprite = SpriteLoader.get('/static/penguin.png');
-    if (sprite) {
-        // Frame 1: sx=0  Frame 2: sx=32  (32px wide, no gap)
-        const frameX = penguin.animFrame * PENGUIN_FRAME_WIDTH;
+    const shape      = penguin.penguin_shape || 'normal';
+    const bodyColor  = penguin.penguin_color || '#1a1a1a';
+    // Try shape-specific sprite first, then legacy fallback
+    const baseSprite = SpriteLoader.get(`/static/penguin_${shape}.png`)
+                    || SpriteLoader.get('/static/penguin.png');
+    if (baseSprite) {
+        const spriteKey  = `penguin_${shape}`;
+        const recolored  = getRecoloredSprite(spriteKey, baseSprite, bodyColor);
+        const frameX     = penguin.animFrame * PENGUIN_FRAME_WIDTH;
         ctx.save();
         ctx.imageSmoothingEnabled = false;
         if (!penguin.facingRight) {
@@ -381,7 +431,7 @@ function _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight
             ctx.scale(-1, 1);
         }
         ctx.drawImage(
-            sprite,
+            recolored,
             frameX, 0, PENGUIN_FRAME_WIDTH, PENGUIN_FRAME_HEIGHT,
             drawX, drawY, drawWidth, drawHeight
         );
@@ -389,7 +439,7 @@ function _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight
     } else {
         ctx.beginPath();
         ctx.arc(sx, sy - drawHeight / 2, drawWidth / 2, 0, Math.PI * 2);
-        ctx.fillStyle = penguin.body_color || '#1a1a1a';
+        ctx.fillStyle = bodyColor;
         ctx.fill();
     }
 }
@@ -440,12 +490,18 @@ function drawPenguin(sx, sy, penguin, isBehind) {
 
     // Layer worn item sprites (body first so head renders on top)
     if (penguin.worn_items) {
+        const shape = penguin.penguin_shape || 'normal';
         const DRAW_ORDER = ['body', 'feet', 'hand', 'head'];
         for (const area of DRAW_ORDER) {
             const itemId = penguin.worn_items[area];
             if (!itemId) continue;
-            const spriteUrl = `/static/penguin_wearing/${area}/${itemId}.png`;
-            const wornSprite = SpriteLoader.get(spriteUrl);
+            // Try shape-specific path first, then legacy flat path
+            const shapedUrl = `/static/penguin_wearing/${shape}/${area}/${itemId}.png`;
+            const legacyUrl = `/static/penguin_wearing/${area}/${itemId}.png`;
+            if (!SpriteLoader.get(shapedUrl) && !SpriteLoader.get(legacyUrl)) {
+                SpriteLoader.load(shapedUrl).then(img => { if (!img) SpriteLoader.load(legacyUrl); });
+            }
+            const wornSprite = SpriteLoader.get(shapedUrl) || SpriteLoader.get(legacyUrl);
             if (!wornSprite) continue;
             ctx.save();
             ctx.imageSmoothingEnabled = false;

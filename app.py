@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import hashlib
 import os
+import re
 import datetime
 import random
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
@@ -266,6 +267,18 @@ LOCKED_COLORS = {
     "frost_crystal":  {"name": "Frost Crystal",   "unlock": "Reach Level 30",      "body": "#88c8e8", "belly": "#e8f8ff", "beak": "#4a9eff", "feet": "#4a9eff"},
     "neon_pink":      {"name": "Neon Pink",        "unlock": "Twitch Subscriber",   "body": "#cc3a7a", "belly": "#ffb8d8", "beak": "#FF7FE5", "feet": "#FF7FE5"},
 }
+
+_HEX_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+def _resolve_hex_color(pcolor):
+    """Return a hex body color whether given a hex string or legacy palette key."""
+    if pcolor and _HEX_RE.match(pcolor):
+        return pcolor
+    palette = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor)
+    if palette:
+        return palette.get("body", "#1a1a1a")
+    return "#1a1a1a"
+
 
 BOUTIQUE_ITEMS = {
     "hats": [
@@ -1679,15 +1692,15 @@ def home():
 
     # ── Character creation gate ────────────────────────────────────────────────
     if not penguin["character_created"]:
-        unlocked = _get_unlocked_colors(db, penguin)
         db.close()
         return render_template(
             "character_creation.html",
             username=username,
             mode="create",
             current_name=None,
-            current_color="classic_black",
-            player_unlocked_colors=unlocked,
+            current_color="#1a1a1a",
+            current_shape="normal",
+            preset_colors=_PRESET_COLORS,
             social_traits=SOCIAL_TRAITS,
             interest_traits=INTEREST_TRAITS,
             quirk_traits=QUIRK_TRAITS,
@@ -1785,6 +1798,33 @@ def logout():
     return redirect(url_for("home"))
 
 
+@app.route("/reshape")
+def reshape_page():
+    username = session.get("username")
+    if not username:
+        return redirect(url_for("home"))
+    db = get_db()
+    p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    db.close()
+    if not p:
+        return redirect(url_for("home"))
+    current_color = _resolve_hex_color(p["penguin_color"] or "#1a1a1a")
+    current_name  = p["penguin_name"] or ""
+    current_shape = p["penguin_shape"] or "normal"
+    return render_template(
+        "character_creation.html",
+        username=username,
+        mode="reshape",
+        current_name=current_name,
+        current_color=current_color,
+        current_shape=current_shape,
+        preset_colors=_PRESET_COLORS,
+        social_traits=SOCIAL_TRAITS,
+        interest_traits=INTEREST_TRAITS,
+        quirk_traits=QUIRK_TRAITS,
+    )
+
+
 @app.route("/profile/<username>")
 def profile(username):
     update_passive_energy(username)
@@ -1816,7 +1856,7 @@ def profile(username):
         title = p["title"]
     except (IndexError, KeyError):
         title = None
-    pcolor = p["penguin_color"] if p["penguin_color"] else "classic_black"
+    pcolor = _resolve_hex_color(p["penguin_color"] if p["penguin_color"] else "#1a1a1a")
     pname  = p["penguin_name"]  if p["penguin_name"]  else p["username"]
     return jsonify({
         "status": "success",
@@ -1824,7 +1864,8 @@ def profile(username):
             "username":        p["username"],
             "penguin_name":    pname,
             "penguin_color":   pcolor,
-            "color_palette":   STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {}),
+            "penguin_shape":   p["penguin_shape"] or "normal",
+            "color_palette":   {},
             "level":           level,
             "xp":              xp_val,
             "xp_into":         xp_into,
@@ -1938,8 +1979,7 @@ def leaderboard():
     for r in rows:
         d = dict(r)
         d["display_name"] = d["penguin_name"] or d["username"]
-        pcolor = d.get("penguin_color") or "classic_black"
-        d["color_palette"] = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {})
+        d["penguin_color"] = _resolve_hex_color(d.get("penguin_color") or "#1a1a1a")
         result.append(d)
     return jsonify({"penguins": result})
 
@@ -4799,6 +4839,37 @@ def penguin_colors():
     return jsonify({"status": "success", "starter": starters, "locked": locked, "player_unlocked": unlocked})
 
 
+_PRESET_COLORS = [
+    "#1a1a1a", "#1a1a4e", "#1a3a1a", "#4a1a1a", "#3a2a1a", "#3a3a3a",
+    "#1a4a4a", "#4a1a4a", "#4a3a1a", "#1a1a3a", "#2a4a2a", "#4a2a2a",
+    "#3a1a3a", "#2a3a4a", "#4a4a1a", "#1a3a3a", "#3a1a1a", "#2a2a4a",
+    "#4a3a3a", "#1a4a1a",
+]
+
+@app.route("/penguin/creation-data")
+def penguin_creation_data():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    db = get_db()
+    p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    db.close()
+    if not p:
+        return jsonify({"status": "error", "message": "Not found."})
+    return jsonify({
+        "status": "success",
+        "username": username,
+        "current_name": p["penguin_name"] or "",
+        "current_color": _resolve_hex_color(p["penguin_color"] or "#1a1a1a"),
+        "current_shape": p["penguin_shape"] or "normal",
+        "current_social": p["trait_social"],
+        "current_interest": p["trait_interest"],
+        "current_quirk": p["trait_quirk"],
+        "shapes": ["normal", "tall"],
+        "preset_colors": _PRESET_COLORS,
+    })
+
+
 @app.route("/penguin/create", methods=["POST"])
 def penguin_create():
     username = session.get("username")
@@ -4811,9 +4882,12 @@ def penguin_create():
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)})
 
-    pcolor = data.get("penguin_color", "classic_black")
-    if pcolor not in STARTER_COLORS:
-        return jsonify({"status": "error", "message": "Invalid color."})
+    raw_color = data.get("penguin_color", "#1a1a1a")
+    pcolor = _resolve_hex_color(raw_color)
+
+    pshape = data.get("penguin_shape", "normal")
+    if pshape not in ("normal", "tall"):
+        pshape = "normal"
 
     t_social   = data.get("trait_social")   if data.get("trait_social")   in SOCIAL_TRAITS   else None
     t_interest = data.get("trait_interest") if data.get("trait_interest") in INTEREST_TRAITS else None
@@ -4821,13 +4895,13 @@ def penguin_create():
 
     db = get_db()
     db.execute(
-        "UPDATE penguins SET penguin_name=?, penguin_color=?, character_created=1, "
+        "UPDATE penguins SET penguin_name=?, penguin_color=?, penguin_shape=?, character_created=1, "
         "trait_social=?, trait_interest=?, trait_quirk=? WHERE username=?",
-        (pname, pcolor, t_social, t_interest, t_quirk, username)
+        (pname, pcolor, pshape, t_social, t_interest, t_quirk, username)
     )
     db.commit()
     db.close()
-    log_event(get_db(), "character_created", f"{username} created their penguin as '{pname}' ({pcolor})", username)
+    log_event(get_db(), "character_created", f"{username} created their penguin as '{pname}' ({pcolor}, {pshape})", username)
     return jsonify({"status": "success"})
 
 
@@ -4843,19 +4917,18 @@ def penguin_reshape():
     except ValueError as e:
         return jsonify({"status": "error", "message": str(e)})
 
-    pcolor = data.get("penguin_color", "classic_black")
+    raw_color = data.get("penguin_color", "#1a1a1a")
+    pcolor = _resolve_hex_color(raw_color)
+
+    pshape = data.get("penguin_shape", "normal")
+    if pshape not in ("normal", "tall"):
+        pshape = "normal"
 
     db = get_db()
     penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
     if not penguin:
         db.close()
         return jsonify({"status": "error", "message": "Not found."})
-
-    # Validate color — must be starter OR unlocked locked color
-    unlocked = _get_unlocked_colors(db, penguin)
-    if pcolor not in STARTER_COLORS and pcolor not in unlocked:
-        db.close()
-        return jsonify({"status": "error", "message": "Color not available."})
 
     # Charge 2000 gold
     gold = get_gold(db, username)
@@ -4869,25 +4942,19 @@ def penguin_reshape():
     t_interest = data.get("trait_interest") if data.get("trait_interest") in INTEREST_TRAITS else None
     t_quirk    = data.get("trait_quirk")    if data.get("trait_quirk")    in QUIRK_TRAITS    else None
 
-    if t_social or t_interest or t_quirk:
-        db.execute(
-            "UPDATE penguins SET penguin_name=?, penguin_color=?, trait_social=?, trait_interest=?, trait_quirk=? "
-            "WHERE username=?",
-            (pname, pcolor,
-             t_social or penguin["trait_social"],
-             t_interest or penguin["trait_interest"],
-             t_quirk or penguin["trait_quirk"],
-             username)
-        )
-    else:
-        db.execute(
-            "UPDATE penguins SET penguin_name=?, penguin_color=? WHERE username=?",
-            (pname, pcolor, username)
-        )
+    db.execute(
+        "UPDATE penguins SET penguin_name=?, penguin_color=?, penguin_shape=?, "
+        "trait_social=?, trait_interest=?, trait_quirk=? WHERE username=?",
+        (pname, pcolor, pshape,
+         t_social or penguin["trait_social"],
+         t_interest or penguin["trait_interest"],
+         t_quirk or penguin["trait_quirk"],
+         username)
+    )
     db.commit()
-    log_event(db, "reshape", f"{username} reshaped their penguin at the Cursed Temple!", username)
+    log_event(db, "reshape", f"{username} reshaped their penguin at the Cursed Temple! ({pcolor}, {pshape})", username)
     db.close()
-    return jsonify({"status": "success", "new_name": pname, "new_color": pcolor})
+    return jsonify({"status": "success", "new_name": pname, "new_color": pcolor, "new_shape": pshape})
 
 
 @app.route("/penguin/set-traits", methods=["POST"])
@@ -5054,9 +5121,8 @@ def _get_public_penguin(username):
     equipped_bg = dict(bg_row) if bg_row else None
     db.close()
     level, _, _ = xp_progress(p["xp"] or 0)
-    pcolor   = p["penguin_color"] if p["penguin_color"] else "classic_black"
+    pcolor   = _resolve_hex_color(p["penguin_color"] if p["penguin_color"] else "#1a1a1a")
     pname    = p["penguin_name"]  if p["penguin_name"]  else p["username"]
-    palette  = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {})
     return {
         "p": dict(p), "r": dict(r) if r else {}, "gold": gold,
         "titles": titles, "level": level,
@@ -5066,7 +5132,8 @@ def _get_public_penguin(username):
         "cosmetic_ids": cosmetic_ids,
         "penguin_name": pname,
         "penguin_color": pcolor,
-        "color_palette": palette,
+        "penguin_shape": p.get("penguin_shape") or "normal",
+        "color_palette": {},
         "equipped_bg": equipped_bg,
     }
 
@@ -5310,7 +5377,7 @@ def village_penguins():
     cutoff = int(time.time()) - 1800
     db = get_db()
     rows = db.execute(
-        """SELECT p.username, p.penguin_name, p.penguin_color, p.job, p.level, p.prestige, p.active_title
+        """SELECT p.username, p.penguin_name, p.penguin_color, p.penguin_shape, p.job, p.level, p.prestige, p.active_title
            FROM penguins p
            WHERE p.last_active > ?
            ORDER BY p.last_active DESC
@@ -5338,22 +5405,21 @@ def village_penguins():
     for r in rows:
         job    = r["job"]
         home   = _BUILDING_HOME_TILES.get(job, _DEFAULT_HOME_TILE)
-        pcolor = r["penguin_color"] or "classic_black"
+        pcolor = r["penguin_color"] or "#1a1a1a"
+        body_color = _resolve_hex_color(pcolor)
         pname  = r["penguin_name"]  or r["username"]
-        palette = STARTER_COLORS.get(pcolor) or LOCKED_COLORS.get(pcolor, {"body": "#1a1a1a", "belly": "#e8e8e8"})
         penguins.append({
-            "username":     r["username"],
-            "display_name": pname,
-            "penguin_color": pcolor,
-            "body_color":   palette.get("body", "#1a1a1a"),
-            "belly_color":  palette.get("belly", "#e8e8e8"),
-            "job":          job,
-            "level":        r["level"] or 1,
-            "prestige":     r["prestige"] or 0,
-            "active_title": r["active_title"],
-            "startGridX":   home[0],
-            "startGridY":   home[1],
-            "worn_items":   worn_map.get(r["username"], {}),
+            "username":      r["username"],
+            "display_name":  pname,
+            "penguin_color": body_color,
+            "penguin_shape": r["penguin_shape"] or "normal",
+            "job":           job,
+            "level":         r["level"] or 1,
+            "prestige":      r["prestige"] or 0,
+            "active_title":  r["active_title"],
+            "startGridX":    home[0],
+            "startGridY":    home[1],
+            "worn_items":    worn_map.get(r["username"], {}),
         })
 
     return jsonify({"penguins": penguins})

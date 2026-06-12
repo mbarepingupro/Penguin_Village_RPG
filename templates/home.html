@@ -3815,8 +3815,9 @@
   }
 
   function reshapeConfirm() {
-    if (!confirm('Reshape your penguin for 2,000 gold?\nThis lets you change your name and color.')) return;
-    openReshapeOverlay();
+    if (!confirm('Reshape your penguin for 2,000 gold?\nThis lets you change your name, shape, and color.')) return;
+    closeBuildingPanel();
+    window.location.href = '/reshape';
   }
 
   async function openReshapeOverlay() {

@@ -337,6 +337,7 @@ def init_db():
     _add_col(c, "penguins", "total_monsters_defeated INTEGER DEFAULT 0")
     _add_col(c, "penguins", "total_resources_collected INTEGER DEFAULT 0")
     _add_col(c, "penguins", "total_gold_collected INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "penguin_shape TEXT DEFAULT 'normal'")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:
@@ -345,6 +346,35 @@ def init_db():
                 SELECT COUNT(*) FROM monster_kills WHERE monster_kills.username = penguins.username
             ) WHERE total_monsters_defeated = 0
         """)
+    except Exception:
+        pass
+
+    # Backfill penguin_shape for existing players
+    try:
+        c.execute("UPDATE penguins SET penguin_shape = 'normal' WHERE penguin_shape IS NULL")
+    except Exception:
+        pass
+
+    # Convert palette key colors to hex for existing players
+    _PALETTE_HEX = {
+        "classic_black":  "#1a1a1a",
+        "midnight_blue":  "#1a1a4e",
+        "forest_green":   "#1a3a1a",
+        "deep_red":       "#4a1a1a",
+        "warm_brown":     "#3a2a1a",
+        "steel_gray":     "#3a3a3a",
+        "arctic_white":   "#e8e8e8",
+        "royal_blue":     "#1a3a8a",
+        "golden_emperor": "#8a6a1a",
+        "shadow_purple":  "#3a1a4a",
+        "frost_crystal":  "#88c8e8",
+        "neon_pink":      "#cc3a7a",
+    }
+    try:
+        for key, hex_val in _PALETTE_HEX.items():
+            c.execute("UPDATE penguins SET penguin_color = ? WHERE penguin_color = ?", (hex_val, key))
+        # NULL → classic black
+        c.execute("UPDATE penguins SET penguin_color = '#1a1a1a' WHERE penguin_color IS NULL OR penguin_color = ''")
     except Exception:
         pass
 
