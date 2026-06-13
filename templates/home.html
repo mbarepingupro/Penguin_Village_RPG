@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Penguin Village</title>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -24,7 +24,7 @@
       height: 100%;
       background: var(--bg);
       color: var(--white);
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 13px;
       image-rendering: pixelated;
       overflow: hidden;
@@ -92,7 +92,7 @@
       flex: 1;
       padding: 10px 4px;
       font-size: 9px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       color: #888;
       background: var(--dark);
       border: none;
@@ -123,44 +123,44 @@
     .sb-mission-claim {
       background: #6441a5; border: 1px solid var(--purple);
       color: var(--white); font-size: 8px; align-self: center;
-      font-family: 'Press Start 2P', monospace; padding: 4px 6px; cursor: pointer; flex-shrink: 0;
+      font-family: 'Silkscreen', monospace; padding: 4px 6px; cursor: pointer; flex-shrink: 0;
     }
     .sb-mission-claim:hover:not(:disabled) { border-color: var(--pink); }
     .sb-mission-claim:disabled { opacity: 0.4; cursor: not-allowed; }
 
     /* ── MISSIONS CONTENT PANEL ── */
     .missions-panel { padding: 8px; overflow-y: auto; flex: 1; }
-    .missions-date  { color: #555; font-size: 7px; font-family: 'Press Start 2P', monospace; margin-bottom: 8px; }
+    .missions-date  { color: #555; font-size: 7px; font-family: 'Silkscreen', monospace; margin-bottom: 8px; }
     .mission-card   { background: #1C1C1C; border: 2px solid #2E2E2E; padding: 6px 8px; margin-bottom: 4px; }
     .mission-card.done   { border-color: #333; opacity: 0.6; }
     .mission-card.stream { border-color: #6441a5; }
     .weekly-card    { border-left: 3px solid #FF7FE5; }
     .mission-header { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
     .mission-icon   { font-size: 12px; flex-shrink: 0; }
-    .mission-title  { color: #FFFFFF; font-size: 8px; font-family: 'Press Start 2P', monospace; flex: 1; min-width: 0; }
-    .mission-name   { color: #FFFFFF; font-size: 8px; font-family: 'Press Start 2P', monospace; }
-    .mission-badge  { font-size: 6px; font-family: 'Press Start 2P', monospace; padding: 1px 4px; flex-shrink: 0; }
+    .mission-title  { color: #FFFFFF; font-size: 8px; font-family: 'Silkscreen', monospace; flex: 1; min-width: 0; }
+    .mission-name   { color: #FFFFFF; font-size: 8px; font-family: 'Silkscreen', monospace; }
+    .mission-badge  { font-size: 6px; font-family: 'Silkscreen', monospace; padding: 1px 4px; flex-shrink: 0; }
     .mission-badge.done   { color: #4aff6b; border: 1px solid #4aff6b; }
     .mission-badge.stream { color: #A86EFF; border: 1px solid #A86EFF; }
-    .mission-desc   { color: #555; font-size: 7px; font-family: 'Press Start 2P', monospace; margin-bottom: 4px; line-height: 1.7; }
+    .mission-desc   { color: #555; font-size: 7px; font-family: 'Silkscreen', monospace; margin-bottom: 4px; line-height: 1.7; }
     .mission-bar-wrap { background: #2E2E2E; height: 4px; margin-bottom: 4px; }
     .mission-bar-fill { background: #A86EFF; height: 4px; transition: width 0.3s; }
     .mission-bar-fill.done { background: #4aff6b; }
     .mission-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .mission-reward { color: #FF8C00; font-size: 7px; font-family: 'Press Start 2P', monospace; }
-    .mission-prog   { color: #888;    font-size: 7px; font-family: 'Press Start 2P', monospace; }
-    .mission-progress { color: #888;  font-size: 7px; font-family: 'Press Start 2P', monospace; }
-    .mission-claim  { border: 2px solid #4aff6b; color: #4aff6b; font-size: 7px; font-family: 'Press Start 2P', monospace;
+    .mission-reward { color: #FF8C00; font-size: 7px; font-family: 'Silkscreen', monospace; }
+    .mission-prog   { color: #888;    font-size: 7px; font-family: 'Silkscreen', monospace; }
+    .mission-progress { color: #888;  font-size: 7px; font-family: 'Silkscreen', monospace; }
+    .mission-claim  { border: 2px solid #4aff6b; color: #4aff6b; font-size: 7px; font-family: 'Silkscreen', monospace;
                       padding: 2px 6px; cursor: pointer; background: transparent;
                       animation: mission-pulse 1.2s ease-in-out infinite; }
-    .mission-claim-btn { border: 2px solid #4aff6b; color: #4aff6b; font-size: 7px; font-family: 'Press Start 2P', monospace;
+    .mission-claim-btn { border: 2px solid #4aff6b; color: #4aff6b; font-size: 7px; font-family: 'Silkscreen', monospace;
                       padding: 2px 6px; cursor: pointer; background: transparent;
                       animation: mission-pulse 1.2s ease-in-out infinite; }
     @keyframes mission-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(74,255,107,0.4); }
       50%       { box-shadow: 0 0 0 4px rgba(74,255,107,0); }
     }
-    .mission-weekly-hdr { color: #FF7FE5; font-size: 8px; font-family: 'Press Start 2P', monospace;
+    .mission-weekly-hdr { color: #FF7FE5; font-size: 8px; font-family: 'Silkscreen', monospace;
                           margin: 10px 0 5px; padding-bottom: 4px; border-bottom: 1px solid #FF7FE5; }
 
     .sb-streak-count { color: var(--orange); font-size: 11px; }
@@ -169,7 +169,7 @@
     .sb-award-btn {
       background: transparent; border: 1px solid var(--purple);
       color: var(--purple); font-size: 8px;
-      font-family: 'Press Start 2P', monospace; padding: 5px 8px; cursor: pointer;
+      font-family: 'Silkscreen', monospace; padding: 5px 8px; cursor: pointer;
     }
     .sb-award-btn:hover { border-color: var(--pink); color: var(--pink); }
 
@@ -225,7 +225,7 @@
       cursor: pointer;
       color: var(--dark);
       font-size: 9px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       display: block;
       margin-top: 4px;
     }
@@ -255,7 +255,7 @@
       width: 100%;
       padding: 9px 10px;
       font-size: 9px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -286,7 +286,7 @@
     /* ── SEAL SHOP MODAL ── */
     #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
     #seal-shop-modal.show { display: flex; }
-    .seal-shop-box { background: #2E2E2E; border: 3px solid #FF7FE5; padding: 16px; max-width: 360px; width: 90%; font-family: 'Press Start 2P', monospace; max-height: 80vh; overflow-y: auto; animation: popIn 0.2s ease; }
+    .seal-shop-box { background: #2E2E2E; border: 3px solid #FF7FE5; padding: 16px; max-width: 360px; width: 90%; font-family: 'Silkscreen', monospace; max-height: 80vh; overflow-y: auto; animation: popIn 0.2s ease; }
     .seal-shop-header { color: #FF7FE5; font-size: 11px; margin-bottom: 4px; }
     .seal-shop-sub    { color: #888; font-size: 7px; margin-bottom: 12px; line-height: 1.8; }
     .seal-shop-count  { color: #fff; font-size: 8px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px; }
@@ -296,26 +296,26 @@
     .seal-item-cost   { color: #FF7FE5; font-size: 7px; }
     .seal-item-desc   { color: #888; font-size: 7px; line-height: 1.7; }
     .seal-item-footer { display: flex; justify-content: flex-end; margin-top: 4px; }
-    .seal-buy-btn     { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 4px 8px; border: 2px solid #FF7FE5; background: transparent; color: #FF7FE5; cursor: pointer; }
+    .seal-buy-btn     { font-family: 'Silkscreen', monospace; font-size: 7px; padding: 4px 8px; border: 2px solid #FF7FE5; background: transparent; color: #FF7FE5; cursor: pointer; }
     .seal-buy-btn:hover:not(:disabled) { background: #FF7FE5; color: #1C1C1C; }
     .seal-buy-btn:disabled { border-color: #555; color: #555; cursor: not-allowed; }
     .seal-owned-badge { font-size: 7px; color: #4aff6b; padding: 4px 8px; border: 2px solid #4aff6b; }
-    .seal-shop-close  { font-family: 'Press Start 2P', monospace; font-size: 8px; padding: 6px 14px; border: 2px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 12px; }
+    .seal-shop-close  { font-family: 'Silkscreen', monospace; font-size: 8px; padding: 6px 14px; border: 2px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 12px; }
     .seal-shop-close:hover { border-color: #FF7FE5; color: #FF7FE5; }
 
     /* ── SIDEBAR TITLE DISPLAY ── */
     .sidebar-title-row { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 6px; flex-wrap: wrap; }
     .sidebar-active-title { color: #A86EFF; font-size: 8px; text-align: center; }
     .sidebar-no-title { color: #666; font-size: 8px; }
-    .title-change-btn { font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 3px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
+    .title-change-btn { font-family: 'Silkscreen', monospace; font-size: 6px; padding: 3px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
     .title-change-btn:hover { border-color: #A86EFF; color: #A86EFF; }
-    .view-card-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 5px 10px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
+    .view-card-btn { font-family: 'Silkscreen', monospace; font-size: 7px; padding: 5px 10px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
     .view-card-btn:hover { background: #A86EFF; color: #1C1C1C; }
 
     /* ── CARD MODAL ── */
     #card-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9999; align-items: center; justify-content: center; }
     #card-modal.show { display: flex; }
-    .card-modal-box { background: #1C1C1C; border: 3px solid #A86EFF; padding: 16px; max-width: 420px; width: 90%; font-family: 'Press Start 2P', monospace; animation: popIn 0.2s ease; }
+    .card-modal-box { background: #1C1C1C; border: 3px solid #A86EFF; padding: 16px; max-width: 420px; width: 90%; font-family: 'Silkscreen', monospace; animation: popIn 0.2s ease; }
     .card-modal-title { color: #A86EFF; font-size: 9px; margin-bottom: 12px; }
     .card-preview { width: 100%; border: 2px solid #2E2E2E; margin-bottom: 12px; }
     .card-preview-inner { display: flex; background: #1C1C1C; }
@@ -332,31 +332,31 @@
     .card-preview-stat span.purple { color:#A86EFF; }
     .card-preview-url { color:#555; font-size:5px; margin-top:auto; }
     .card-modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
-    .card-modal-action-btn { font-family:'Press Start 2P',monospace; font-size:7px; padding:6px 12px; border:2px solid #A86EFF; background:transparent; color:#A86EFF; cursor:pointer; }
+    .card-modal-action-btn { font-family:'Silkscreen',monospace; font-size:7px; padding:6px 12px; border:2px solid #A86EFF; background:transparent; color:#A86EFF; cursor:pointer; }
     .card-modal-action-btn:hover { background:#A86EFF; color:#1C1C1C; }
     .card-modal-action-btn.dl { border-color:#FF8C00; color:#FF8C00; }
     .card-modal-action-btn.dl:hover { background:#FF8C00; color:#1C1C1C; }
     .card-modal-url { color:#555; font-size:7px; margin-bottom:8px; word-break:break-all; }
-    .card-modal-close { font-family:'Press Start 2P',monospace; font-size:7px; padding:5px 12px; border:2px solid #555; background:transparent; color:#888; cursor:pointer; }
+    .card-modal-close { font-family:'Silkscreen',monospace; font-size:7px; padding:5px 12px; border:2px solid #555; background:transparent; color:#888; cursor:pointer; }
     .card-modal-close:hover { border-color:#888; }
 
     /* ── TITLE SELECTION MODAL ── */
     #title-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
     #title-modal.show { display: flex; }
-    .title-modal-box { background: #2E2E2E; border: 3px solid #A86EFF; padding: 16px; max-width: 380px; width: 90%; font-family: 'Press Start 2P', monospace; max-height: 82vh; overflow-y: auto; animation: popIn 0.2s ease; }
+    .title-modal-box { background: #2E2E2E; border: 3px solid #A86EFF; padding: 16px; max-width: 380px; width: 90%; font-family: 'Silkscreen', monospace; max-height: 82vh; overflow-y: auto; animation: popIn 0.2s ease; }
     .title-modal-header { color: #A86EFF; font-size: 11px; margin-bottom: 12px; }
     .title-section-label { color: #FF7FE5; font-size: 7px; margin: 10px 0 5px; border-bottom: 1px solid #333; padding-bottom: 4px; }
     .title-section-label.ceremonial { color: #FF7FE5; border-color: #FF7FE5; }
     .title-item-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px; border-bottom: 1px solid #1a1a1a; gap: 6px; }
     .title-item-name { color: #fff; font-size: 7px; flex: 1; }
     .title-item-source { color: #555; font-size: 6px; }
-    .title-equip-btn { font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 3px 7px; border: 1px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; white-space: nowrap; }
+    .title-equip-btn { font-family: 'Silkscreen', monospace; font-size: 6px; padding: 3px 7px; border: 1px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; white-space: nowrap; }
     .title-equip-btn:hover { background: #A86EFF; color: #1C1C1C; }
     .title-equipped-badge { font-size: 6px; color: #4aff6b; white-space: nowrap; }
     .title-none-msg { color: #666; font-size: 7px; text-align: center; padding: 12px 0; }
-    .title-unequip-btn { font-family: 'Press Start 2P', monospace; font-size: 6px; padding: 3px 7px; border: 1px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 10px; }
+    .title-unequip-btn { font-family: 'Silkscreen', monospace; font-size: 6px; padding: 3px 7px; border: 1px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 10px; }
     .title-unequip-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
-    .title-modal-close { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 6px 14px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; margin-top: 12px; display: block; }
+    .title-modal-close { font-family: 'Silkscreen', monospace; font-size: 7px; padding: 6px 14px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; margin-top: 12px; display: block; }
     .title-modal-close:hover { border-color: #A86EFF; color: #A86EFF; }
 
     /* ── TITLE PROGRESS (LEVELS TAB) ── */
@@ -389,7 +389,7 @@
     .content-tab {
       padding: 11px 12px;
       font-size: 9px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       color: #888;
       background: var(--dark);
       border: none;
@@ -420,7 +420,7 @@
     }
     .res-icon  { font-size: 14px; }
     .res-count {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 9px; color: #FFFFFF;
     }
     .res-count.updated {
@@ -477,7 +477,7 @@
       max-height: 80vh; overflow-y: auto;
       background: #2E2E2E; border: 3px solid #A86EFF;
       z-index: 9999; box-shadow: 0 0 30px rgba(0,0,0,0.8);
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
     }
     #bm-content { padding: 20px; }
     .bm-close {
@@ -502,12 +502,12 @@
     .bm-prog-pct {
       position: absolute; top: 0; left: 0; right: 0; bottom: 0;
       display: flex; align-items: center; justify-content: center;
-      font-family: 'Press Start 2P', monospace; font-size: 7px; color: #fff;
+      font-family: 'Silkscreen', monospace; font-size: 7px; color: #fff;
       pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
     }
     .bp-btn {
       width: 100%; padding: 11px; font-size: 9px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       border: 2px solid var(--purple); background: var(--dark);
       color: var(--white); cursor: pointer;
     }
@@ -524,7 +524,7 @@
 
     /* ── BOUTIQUE ── */
     .bq-tabs { display: flex; gap: 0; border-bottom: 2px solid #333; margin-bottom: 14px; flex-wrap: wrap; }
-    .bq-tab  { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 8px 10px; border: none; background: transparent; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .bq-tab  { font-family: 'Silkscreen', monospace; font-size: 7px; padding: 8px 10px; border: none; background: transparent; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
     .bq-tab.active { color: #FF7FE5; background: #2E2E2E; border-bottom-color: #FF7FE5; }
     .bq-tab:hover:not(.active) { color: #ccc; }
     .bq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -537,11 +537,11 @@
     @keyframes bq-glow { 0%,100% { box-shadow: 0 0 6px #FF8C00; } 50% { box-shadow: 0 0 18px #FF8C00, 0 0 30px rgba(255,140,0,0.4); } }
     .bq-item-name { font-size: 9px; color: #fff; }
     .bq-item-name.expensive { font-size: 10px; }
-    .bq-legendary-tag { position: absolute; top: 5px; right: 5px; font-size: 6px; color: #FF8C00; font-family: 'Press Start 2P', monospace; }
+    .bq-legendary-tag { position: absolute; top: 5px; right: 5px; font-size: 6px; color: #FF8C00; font-family: 'Silkscreen', monospace; }
     .bq-price { font-size: 8px; }
     .bq-price.expensive { font-size: 10px; }
     .bq-btn-row { display: flex; gap: 5px; margin-top: 2px; }
-    .bq-btn { font-family: 'Press Start 2P', monospace; font-size: 7px; padding: 5px 8px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; flex: 1; }
+    .bq-btn { font-family: 'Silkscreen', monospace; font-size: 7px; padding: 5px 8px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; flex: 1; }
     .bq-btn.preview { border-color: #A86EFF; color: #A86EFF; }
     .bq-btn.buy     { border-color: #4aff6b; color: #4aff6b; }
     .bq-btn.buy:disabled { border-color: #333; color: #555; cursor: not-allowed; opacity: 0.5; }
@@ -553,7 +553,7 @@
     #bq-preview.show { display:flex; }
     .bq-preview-penguin { position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center; }
     .bq-preview-penguin img { width:80px; height:80px; image-rendering:pixelated; }
-    .bq-preview-slot-label { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:7px; color:#fff; white-space:nowrap; font-family:'Press Start 2P',monospace; }
+    .bq-preview-slot-label { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:7px; color:#fff; white-space:nowrap; font-family:'Silkscreen',monospace; }
 
 
     /* ── COSMETIC EQUIP MODAL ── */
@@ -566,7 +566,7 @@
     .cosmetic-modal-box {
       background: #2E2E2E; border: 3px solid #A86EFF;
       padding: 16px; max-width: 320px; width: 90%;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       animation: popIn 0.2s ease;
     }
     .cosmetic-modal-title { color: #A86EFF; font-size: 9px; margin-bottom: 10px; }
@@ -577,7 +577,7 @@
     .cosmetic-item-name { color: #FF7FE5; flex: 1; }
     .cosmetic-item-name.none { color: #555; font-style: italic; }
     .cosmetic-action-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      font-family: 'Silkscreen', monospace; font-size: 7px;
       padding: 4px 8px; border: 1px solid; cursor: pointer; background: none;
     }
     .cosmetic-action-btn.equip   { border-color: #A86EFF; color: #A86EFF; }
@@ -586,7 +586,7 @@
     .cosmetic-action-btn.unequip:hover { background: #4aff6b; color: #1C1C1C; }
     .cosmetic-modal-close {
       display: block; width: 100%; margin-top: 10px;
-      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      font-family: 'Silkscreen', monospace; font-size: 8px;
       padding: 8px; border: 1px solid #555; color: #555; background: none; cursor: pointer;
     }
     .cosmetic-modal-close:hover { border-color: #888; color: #888; }
@@ -602,7 +602,7 @@
       background: #2E2E2E; border: 3px solid #A86EFF;
       max-width: 680px; width: 95%; max-height: 85vh;
       display: flex; flex-direction: row;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       animation: popIn 0.2s ease;
     }
     /* Left preview column */
@@ -632,12 +632,12 @@
     .inv-close-x {
       position: absolute; top: 10px; right: 12px;
       background: none; border: none; color: #FF7FE5; font-size: 14px;
-      cursor: pointer; font-family: 'Press Start 2P', monospace; line-height: 1;
+      cursor: pointer; font-family: 'Silkscreen', monospace; line-height: 1;
     }
     .inv-close-x:hover { color: #fff; }
     .inv-tabs { display: flex; border-bottom: 2px solid #444; margin-top: 4px; }
     .inv-tab {
-      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      font-family: 'Silkscreen', monospace; font-size: 7px;
       padding: 8px 10px; border: none; background: none;
       color: #555; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
     }
@@ -669,7 +669,7 @@
     /* Dual-button pair */
     .inv-btn-pair { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
     .inv-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      font-family: 'Silkscreen', monospace; font-size: 6px;
       padding: 4px 7px; border: 1px solid; cursor: pointer; background: none; white-space: nowrap;
     }
     /* Legacy single-button styles (kept for cosmetic modal) */
@@ -689,7 +689,7 @@
     /* Button that opens inventory from sidebar */
     .inv-open-btn {
       display: block; width: calc(100% - 24px); margin: 8px 12px;
-      font-family: 'Press Start 2P', monospace; font-size: 9px;
+      font-family: 'Silkscreen', monospace; font-size: 9px;
       padding: 8px; border: 2px solid #A86EFF; color: #A86EFF;
       background: #1C1C1C; cursor: pointer; text-align: center;
     }
@@ -708,7 +708,7 @@
     .igloo-hdr-btn {
       background: var(--dark); border: 2px solid var(--purple);
       color: var(--purple); font-size: 7px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       padding: 5px 8px; cursor: pointer;
     }
     .igloo-hdr-btn:hover { background: var(--purple); color: var(--dark); }
@@ -740,7 +740,7 @@
     .igloo-furn-size { color: #555; font-size: 6px; }
     .igloo-furn-btn {
       background: transparent; border: 1px solid;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 6px; padding: 3px 5px; cursor: pointer; flex-shrink: 0;
     }
     .igloo-furn-btn.place  { border-color: #4aff6b; color: #4aff6b; }
@@ -753,7 +753,7 @@
       display: block; width: calc(100% - 16px); margin: 4px 8px;
       background: var(--dark); border: 1px solid #3a3a3a;
       color: #aaa; font-size: 7px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       padding: 7px 8px; cursor: pointer; text-align: left; flex-shrink: 0;
     }
     .igloo-room-opt-btn:hover:not(:disabled) { border-color: var(--purple); color: var(--white); }
@@ -768,7 +768,7 @@
     .igloo-palette-tile.locked { opacity: 0.55; }
     .igloo-palette-tile .tile-lock { font-size: 9px; line-height: 1; pointer-events: none; }
     .igloo-paint-toggle {
-      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      font-family: 'Silkscreen', monospace; font-size: 6px;
       background: transparent; border: 1px solid #555; color: #aaa;
       padding: 2px 5px; cursor: pointer;
     }
@@ -831,7 +831,7 @@
     .monster-meta .gold-line { color:#888; }
 
     /* Fight button */
-    .fight-btn { font-family:'Press Start 2P',monospace; font-size:9px; padding:8px 10px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; }
+    .fight-btn { font-family:'Silkscreen',monospace; font-size:9px; padding:8px 10px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; }
     .fight-btn:hover:not(:disabled) { background:var(--purple); color:var(--dark); }
     .fight-btn:disabled { opacity:0.4; cursor:not-allowed; }
     .fight-btn.defeated { border-color:#4aff6b; color:#4aff6b; cursor:default; }
@@ -861,7 +861,7 @@
     .fight-rewards { display:flex; flex-direction:column; gap:4px; }
     .fight-reward-row { font-size:9px; }
     .fight-result-eval { color:#666; font-size:7px; }
-    .fight-modal-ok { font-family:'Press Start 2P',monospace; font-size:9px; padding:10px 20px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; margin-top:4px; }
+    .fight-modal-ok { font-family:'Silkscreen',monospace; font-size:9px; padding:10px 20px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; margin-top:4px; }
     .fight-modal-ok:hover { background:var(--purple); color:var(--dark); }
     .fight-gear-drop { color:#FF8C00; font-size:10px; animation:scale-pop 0.5s ease 0.1s both; }
     .confetti-container { position:absolute; pointer-events:none; }
@@ -885,7 +885,7 @@
     .gear-card-name { color: var(--white); font-size: 9px; }
     .gear-card-stats { color: var(--orange); font-size: 9px; }
     .gear-card-cost { color: #888; font-size: 9px; }
-    .gear-card-btn { margin-top: 2px; padding: 5px 7px; font-size: 9px; font-family: 'Press Start 2P', monospace; border: 1px solid; cursor: pointer; }
+    .gear-card-btn { margin-top: 2px; padding: 5px 7px; font-size: 9px; font-family: 'Silkscreen', monospace; border: 1px solid; cursor: pointer; }
     .equip-btn     { border-color: var(--purple); color: var(--purple); background: transparent; }
     .equip-btn.on  { border-color: var(--pink);   color: var(--pink);   }
     .buy-btn       { border-color: var(--orange);  color: var(--orange); background: transparent; }
@@ -931,7 +931,7 @@
     .login-sub { color: #888; font-size: 10px; text-align: center; line-height: 2.2; max-width: 360px; }
     .login-btn {
       background: #6441a5; border: 3px solid var(--purple); color: var(--white);
-      font-size: 11px; font-family: 'Press Start 2P', monospace;
+      font-size: 11px; font-family: 'Silkscreen', monospace;
       padding: 12px 24px; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 8px;
     }
     .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
@@ -964,7 +964,7 @@
     .streak-modal-box {
       background: var(--panel); border: 3px solid var(--orange);
       padding: 28px 24px; max-width: 280px; width: 90%;
-      text-align: center; font-family: 'Press Start 2P', monospace;
+      text-align: center; font-family: 'Silkscreen', monospace;
       animation: popIn 0.25s ease;
     }
     @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -980,7 +980,7 @@
     .sm-close {
       background: var(--orange); border: 2px solid #ffa500;
       color: var(--dark); font-size: 9px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       padding: 10px 20px; cursor: pointer;
     }
     .sm-close:hover { background: #ffa500; }
@@ -1000,7 +1000,7 @@
     .wb-box {
       background: #2E2E2E; border: 3px solid #A86EFF;
       padding: 20px; max-width: 400px; width: 90%;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       animation: popIn 0.25s ease;
     }
     .wb-title { color: #A86EFF; font-size: 14px; margin-bottom: 6px; text-align: center; }
@@ -1014,7 +1014,7 @@
     .wb-collect-btn {
       display: block; width: 100%; margin-top: 14px;
       background: none; border: 2px solid #A86EFF;
-      color: #A86EFF; font-family: 'Press Start 2P', monospace;
+      color: #A86EFF; font-family: 'Silkscreen', monospace;
       font-size: 10px; padding: 10px; cursor: pointer;
     }
     .wb-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
@@ -1026,7 +1026,7 @@
     .social-mode-title { color: #A86EFF; font-size: 8px; margin-bottom: 7px; }
     .social-mode-btns { display: flex; gap: 5px; }
     .social-mode-btn {
-      flex: 1; font-family: 'Press Start 2P', monospace; font-size: 6px;
+      flex: 1; font-family: 'Silkscreen', monospace; font-size: 6px;
       background: #1C1C1C; color: #888; border: 1px solid #444;
       padding: 5px 2px; cursor: pointer; line-height: 1.6; text-align: center;
     }
@@ -1038,12 +1038,12 @@
     .social-target-wrap.visible { display: block; }
     .social-target-input-row { display: flex; gap: 4px; position: relative; }
     .social-target-input {
-      flex: 1; font-family: 'Press Start 2P', monospace; font-size: 6px;
+      flex: 1; font-family: 'Silkscreen', monospace; font-size: 6px;
       background: #111; color: #fff; border: 1px solid #555; padding: 5px 6px;
     }
     .social-target-input::placeholder { color: #666; }
     .social-target-set-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      font-family: 'Silkscreen', monospace; font-size: 6px;
       background: #1C1C1C; color: #FF7FE5; border: 1px solid #FF7FE5;
       padding: 5px 7px; cursor: pointer;
     }
@@ -1069,7 +1069,7 @@
     .sb-visit-name { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .sb-visit-rel  { color: #888; font-size: 6px; flex-shrink: 0; }
     .sb-visit-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      font-family: 'Silkscreen', monospace; font-size: 6px;
       background: #1C1C1C; color: #A86EFF; border: 1px solid #A86EFF;
       padding: 3px 5px; cursor: pointer; flex-shrink: 0;
     }
@@ -1089,7 +1089,7 @@
     #rel-modal {
       background: #2E2E2E; border: 3px solid #A86EFF;
       width: 480px; max-width: 95vw; max-height: 80vh;
-      overflow-y: auto; font-family: 'Press Start 2P', monospace;
+      overflow-y: auto; font-family: 'Silkscreen', monospace;
     }
     .rel-modal-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -1106,7 +1106,7 @@
     .rel-modal-name  { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rel-modal-level { color: #888; font-size: 6px; flex-shrink: 0; }
     .rel-modal-visit-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      font-family: 'Silkscreen', monospace; font-size: 6px;
       background: #1C1C1C; color: #A86EFF; border: 1px solid #A86EFF;
       padding: 3px 5px; cursor: pointer;
     }
@@ -1122,7 +1122,7 @@
     #igloo-result-overlay.show { display: flex; align-items: center; justify-content: center; }
     #igloo-result-box {
       background: #2E2E2E; border: 3px solid #A86EFF;
-      padding: 20px 24px; font-family: 'Press Start 2P', monospace;
+      padding: 20px 24px; font-family: 'Silkscreen', monospace;
       text-align: center; min-width: 260px; max-width: 90vw;
     }
     .igloo-result-title   { color: #A86EFF; font-size: 10px; margin-bottom: 8px; }
@@ -1130,7 +1130,7 @@
     .igloo-result-rewards { color: #FF8C00; font-size: 8px;  margin-bottom: 8px; line-height: 2; }
     .igloo-result-rel     { color: #FF7FE5; font-size: 8px;  margin-bottom: 12px; }
     .igloo-result-ok {
-      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      font-family: 'Silkscreen', monospace; font-size: 8px;
       background: #1C1C1C; color: #4aff6b; border: 2px solid #4aff6b;
       padding: 8px 18px; cursor: pointer; margin-top: 4px;
     }
@@ -1146,7 +1146,7 @@
     #lvup-box {
       background: #2E2E2E; border: 3px solid #A86EFF;
       padding: 22px 20px; max-width: 380px; width: 92%;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       animation: popIn 0.25s ease;
     }
     #lvup-box.milestone-glow {
@@ -1165,7 +1165,7 @@
     .lvup-collect-btn {
       display: block; width: 100%; margin-top: 14px;
       background: none; border: 2px solid #A86EFF;
-      color: #A86EFF; font-family: 'Press Start 2P', monospace;
+      color: #A86EFF; font-family: 'Silkscreen', monospace;
       font-size: 10px; padding: 10px; cursor: pointer;
     }
     .lvup-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
@@ -1177,7 +1177,7 @@
     }
     .bank-tab {
       flex: 1; padding: 7px 2px; font-size: 6px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       background: #1C1C1C; border: none; border-right: 2px solid #A86EFF;
       color: #555; cursor: pointer;
     }
@@ -1190,7 +1190,7 @@
     .bank-listing-list { flex: 1; overflow-y: auto; padding: 6px; }
     .bank-select {
       background: #1C1C1C; border: 2px solid #444; color: #ccc;
-      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      font-family: 'Silkscreen', monospace; font-size: 7px;
       padding: 5px 6px; cursor: pointer; max-width: 100%;
     }
     .bank-select-wide { width: 100%; box-sizing: border-box; }
@@ -1205,7 +1205,7 @@
     .bank-listing-ask   { font-size: 7px; color: #FF8C00; }
     .bank-listing-meta  { font-size: 6px; color: #555; margin-top: 3px; }
     .bank-accept-btn, .bank-cancel-btn {
-      background: none; font-family: 'Press Start 2P', monospace;
+      background: none; font-family: 'Silkscreen', monospace;
       font-size: 6px; padding: 6px 7px; cursor: pointer; flex-shrink: 0; border: 2px solid;
     }
     .bank-accept-btn { border-color: #4aff6b; color: #4aff6b; }
@@ -1213,25 +1213,25 @@
     .bank-cancel-btn { border-color: #ff6b6b; color: #ff6b6b; }
     .bank-cancel-btn:hover { background: #ff6b6b; color: #1C1C1C; }
     .bank-form { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; }
-    .bank-form-label { font-family: 'Press Start 2P', monospace; font-size: 7px; color: #888; }
+    .bank-form-label { font-family: 'Silkscreen', monospace; font-size: 7px; color: #888; }
     .bank-row-inline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .bank-input {
       background: #1C1C1C; border: 2px solid #444; color: #ccc;
-      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      font-family: 'Silkscreen', monospace; font-size: 8px;
       padding: 5px 6px; width: 80px; box-sizing: border-box;
     }
     .bank-input:focus { border-color: #A86EFF; outline: none; }
     .bank-btn {
       background: none; border: 2px solid #A86EFF; color: #A86EFF;
-      font-family: 'Press Start 2P', monospace; font-size: 8px;
+      font-family: 'Silkscreen', monospace; font-size: 8px;
       padding: 10px; cursor: pointer;
     }
     .bank-btn:hover { background: #A86EFF; color: #1C1C1C; }
-    .bank-note { font-family: 'Press Start 2P', monospace; font-size: 6px; color: #666; line-height: 2; }
-    .bank-empty { font-family: 'Press Start 2P', monospace; font-size: 7px; color: #555; text-align: center; padding: 20px; }
+    .bank-note { font-family: 'Silkscreen', monospace; font-size: 6px; color: #666; line-height: 2; }
+    .bank-empty { font-family: 'Silkscreen', monospace; font-size: 7px; color: #555; text-align: center; padding: 20px; }
     .bank-item-preview {
       background: #1C1C1C; border: 2px solid #444; padding: 8px;
-      font-family: 'Press Start 2P', monospace; font-size: 7px; line-height: 2;
+      font-family: 'Silkscreen', monospace; font-size: 7px; line-height: 2;
     }
     .bk-rarity-common    { color: #ccc; }
     .bk-rarity-uncommon  { color: #4aff6b; }
@@ -1273,7 +1273,7 @@
       100% { transform: translateY(0); }
     }
     .lu-text {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 28px; color: #FF8C00;
       text-shadow: 0 0 20px rgba(255,140,0,0.6);
       animation: luTextPopIn 0.5s ease-out 0.5s forwards;
@@ -1290,13 +1290,13 @@
       margin: 10px 0;
     }
     .lu-lv-prefix {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 14px; color: #888; margin-right: 8px;
       animation: fadeIn 0.3s ease 1.2s forwards; opacity: 0;
     }
     .lu-old-level {
       position: absolute;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 48px; color: #A86EFF;
       animation: luOldLevelOut 0.8s ease-in 1.2s forwards;
     }
@@ -1307,7 +1307,7 @@
     }
     .lu-new-level {
       position: absolute;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 48px; color: #FF8C00;
       text-shadow: 0 0 30px rgba(255,140,0,0.8);
       animation: luNewLevelIn 0.8s ease-out 1.6s forwards; opacity: 0;
@@ -1318,12 +1318,12 @@
       100% { transform: scale(1); opacity: 1; }
     }
     .lu-bonus {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 10px; color: #4aff6b;
       animation: fadeIn 0.3s ease 2.0s forwards; opacity: 0;
     }
     .lu-milestone-tag {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 16px; color: #FF8C00;
       animation: luTextPopIn 0.5s ease-out 2.0s forwards; opacity: 0;
       margin-top: 12px;
@@ -1333,7 +1333,7 @@
       align-items: center; gap: 6px; margin-top: 8px;
     }
     .lu-reward {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 10px; color: #FF7FE5;
       opacity: 0; animation: luRewardSlideIn 0.4s ease-out forwards;
     }
@@ -1342,7 +1342,7 @@
       100% { opacity: 1; transform: translateX(0); }
     }
     .lu-continue {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 8px; color: #888; margin-top: 24px;
       animation: luPulseFade 1.5s ease-in-out 3.5s infinite; opacity: 0;
     }
@@ -1373,7 +1373,7 @@
     .levels-range-bar { display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0; }
     .levels-range-btn {
       flex: 1; padding: 8px 4px; font-size: 8px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       background: #1C1C1C; border: none; border-right: 2px solid #A86EFF; color: #555; cursor: pointer;
     }
     .levels-range-btn:last-child { border-right: none; }
@@ -1438,7 +1438,7 @@
       background: var(--dark); border: 2px solid var(--purple);
       color: var(--white); font-size: 9px; padding: 8px 16px;
       z-index: 9998; display: none; white-space: nowrap;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
     }
     #toast.ok  { border-color: #4aff6b; color: #4aff6b; }
     #toast.err { border-color: #ff6b6b; color: #ff6b6b; }
@@ -1602,12 +1602,12 @@
       min-width: 0;
     }
     .mayor-name {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 10px;
       color: #FF8C00;
     }
     .mayor-message {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 9px;
       color: #FFFFFF;
       line-height: 1.8;
@@ -1619,7 +1619,7 @@
       margin-top: 4px;
     }
     .mayor-continue {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 7px;
       color: #A86EFF;
       cursor: pointer;
@@ -1629,7 +1629,7 @@
     }
     .mayor-continue:hover { background: #A86EFF; color: #1C1C1C; }
     .mayor-action {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 7px;
       color: #1C1C1C;
       cursor: pointer;
@@ -1642,7 +1642,7 @@
       position: absolute;
       top: 8px;
       right: 12px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 6px;
       color: #555;
       cursor: pointer;
@@ -1651,7 +1651,7 @@
     }
     .mayor-skip:hover { color: #ff6b6b; }
     .mayor-countdown {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 11px;
       color: #FF8C00;
       text-align: center;
@@ -1676,7 +1676,7 @@
       background: var(--panel);
       border: 2px solid var(--gold);
       padding: 10px 14px;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 7px;
       color: var(--white);
       line-height: 1.9;
@@ -1703,7 +1703,7 @@
       cursor: pointer;
       background: none;
       border: 1px solid #A86EFF;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       padding: 3px 8px;
     }
     .ctx-tip-close:hover { background: rgba(168,110,255,0.15); }
@@ -1746,13 +1746,13 @@
     }
     .rs-header { font-size: 13px; color: #A86EFF; text-align: center; margin-bottom: 4px; }
     .rs-sub    { font-size: 7px; color: #888; text-align: center; margin-bottom: 18px; line-height: 2; }
-    .rs-close  { position: absolute; top: 10px; right: 12px; background: none; border: none; color: #555; font-family: 'Press Start 2P', monospace; font-size: 9px; cursor: pointer; }
+    .rs-close  { position: absolute; top: 10px; right: 12px; background: none; border: none; color: #555; font-family: 'Silkscreen', monospace; font-size: 9px; cursor: pointer; }
     .rs-close:hover { color: var(--pink); }
     .rs-section-label { font-size: 9px; color: #A86EFF; margin-bottom: 8px; }
     .rs-input {
       width: 100%; box-sizing: border-box;
       background: #1a1a1a; border: 2px solid #A86EFF; color: #fff;
-      font-family: 'Press Start 2P', monospace; font-size: 9px; padding: 10px 12px;
+      font-family: 'Silkscreen', monospace; font-size: 9px; padding: 10px 12px;
       margin-bottom: 6px;
     }
     .rs-input::placeholder { color: #555; }
@@ -1775,7 +1775,7 @@
     #rs-preview-canvas { display: block; }
     #rs-preview-name { font-size: 8px; color: #fff; text-align: center; }
     .rs-confirm-btn {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       font-size: 9px; padding: 12px 20px;
       border: 3px solid #A86EFF; color: #A86EFF; background: transparent;
       cursor: pointer; display: block; margin: 18px auto 0;
@@ -1787,7 +1787,7 @@
     #trait-popup-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.88);
       z-index: 3000; display: flex; align-items: center; justify-content: center;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
     }
     #trait-popup-box {
       background: #1C1C1C; border: 3px solid #A86EFF; padding: 22px 20px;
@@ -1809,7 +1809,7 @@
     .tp-name { font-size: 7px; color: #ccc; }
     .tp-card.selected .tp-name { color: #A86EFF; }
     #trait-popup-btn {
-      display: block; margin: 14px auto 0; font-family: 'Press Start 2P', monospace;
+      display: block; margin: 14px auto 0; font-family: 'Silkscreen', monospace;
       font-size: 10px; padding: 12px 22px; border: 3px solid #4aff6b;
       color: #4aff6b; background: transparent; cursor: pointer;
     }
@@ -1817,7 +1817,7 @@
     #trait-popup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     /* ── Leaderboard ── */
     .lb-cat-btn {
-      font-family: 'Press Start 2P', monospace; font-size: 7px;
+      font-family: 'Silkscreen', monospace; font-size: 7px;
       padding: 5px 7px; border: 2px solid #2E2E2E; background: #1C1C1C;
       color: #888; cursor: pointer; white-space: nowrap;
     }
@@ -1992,7 +1992,7 @@
         <!-- RESOURCES (compact — full display is on the map resource bar) -->
         <div class="sb-section">
           <div class="sb-section-title">RESOURCES</div>
-          <div style="font-size:7px;font-family:'Press Start 2P',monospace;color:#888;line-height:2.2;">
+          <div style="font-size:7px;font-family:'Silkscreen',monospace;color:#888;line-height:2.2;">
             🪙 <span id="sb-r-gold">{{ resources.gold if resources else 0 }}</span> &nbsp;
             🐟 <span id="sb-r-fish">0</span> &nbsp;
             🌿 <span id="sb-r-herbs">0</span><br>
@@ -2362,7 +2362,7 @@
 
 <!-- DAILY LOGIN POPUP -->
 <div id="daily-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9995;align-items:center;justify-content:center;">
-  <div style="background:var(--panel);border:3px solid var(--orange);padding:28px 24px;max-width:300px;width:90%;text-align:center;font-family:'Press Start 2P',monospace;animation:popIn 0.25s ease;">
+  <div style="background:var(--panel);border:3px solid var(--orange);padding:28px 24px;max-width:300px;width:90%;text-align:center;font-family:'Silkscreen',monospace;animation:popIn 0.25s ease;">
     <div style="font-size:40px;margin-bottom:10px;">🔥</div>
     <div style="color:var(--orange);font-size:12px;margin-bottom:6px;">DAY <span id="dp-day">1</span> STREAK!</div>
     <div style="color:#888;font-size:7px;margin-bottom:16px;">WELCOME BACK TO THE VILLAGE</div>
@@ -2372,7 +2372,7 @@
       <div style="color:var(--white);font-size:9px;" id="dp-resource"></div>
     </div>
     <div style="margin-bottom:16px;" id="dp-milestones"></div>
-    <button id="dp-collect-btn" onclick="collectDailyStreak()" style="width:100%;background:var(--orange);border:2px solid #ffa500;color:var(--dark);font-size:9px;font-family:'Press Start 2P',monospace;padding:10px;cursor:pointer;">COLLECT</button>
+    <button id="dp-collect-btn" onclick="collectDailyStreak()" style="width:100%;background:var(--orange);border:2px solid #ffa500;color:var(--dark);font-size:9px;font-family:'Silkscreen',monospace;padding:10px;cursor:pointer;">COLLECT</button>
   </div>
 </div>
 
@@ -2413,10 +2413,10 @@
 </div>
 <!-- CARD BACKGROUND SELECTION MODAL -->
 <div id="bg-selection-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10000;align-items:center;justify-content:center;">
-  <div style="background:#1C1C1C;border:3px solid #A86EFF;padding:16px;max-width:480px;width:95%;max-height:80vh;overflow-y:auto;font-family:'Press Start 2P',monospace;animation:popIn 0.2s ease;">
+  <div style="background:#1C1C1C;border:3px solid #A86EFF;padding:16px;max-width:480px;width:95%;max-height:80vh;overflow-y:auto;font-family:'Silkscreen',monospace;animation:popIn 0.2s ease;">
     <div style="color:#A86EFF;font-size:9px;margin-bottom:12px;">🖼️ CARD BACKGROUNDS</div>
     <div id="bg-selection-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;"></div>
-    <button onclick="closeBgSelection()" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:7px 14px;border:2px solid #555;background:transparent;color:#888;cursor:pointer;">CLOSE</button>
+    <button onclick="closeBgSelection()" style="font-family:'Silkscreen',monospace;font-size:7px;padding:7px 14px;border:2px solid #555;background:transparent;color:#888;cursor:pointer;">CLOSE</button>
   </div>
 </div>
 <!-- COSMETIC EQUIP MODAL -->
@@ -2908,19 +2908,19 @@
         const checkColor = done ? '#4aff6b' : stream ? '#9b72d8' : '#555';
         const desc       = (m.desc || '').replace(/'/g, "\\'");
         const progEl     = done
-          ? `<span style="color:#4aff6b;font-size:7px;font-family:'Press Start 2P',monospace;">✅</span>`
+          ? `<span style="color:#4aff6b;font-size:7px;font-family:'Silkscreen',monospace;">✅</span>`
           : stream && isLive
             ? `<button class="sb-mission-claim" onclick="claimMissionFromCard('${m.key}', this)">CLAIM</button>`
             : stream
-              ? `<span style="font-size:6px;font-family:'Press Start 2P',monospace;color:#555;">OFFLINE</span>`
-              : `<span style="color:#888;font-size:7px;font-family:'Press Start 2P',monospace;">${m.progress}/${m.target}</span>`;
+              ? `<span style="font-size:6px;font-family:'Silkscreen',monospace;color:#555;">OFFLINE</span>`
+              : `<span style="color:#888;font-size:7px;font-family:'Silkscreen',monospace;">${m.progress}/${m.target}</span>`;
         html += `<div class="sb-mission-row" onmouseenter="showSbTooltip(this,'${desc}')" onmouseleave="hideSbTooltip()">
-          <span class="sb-mission-check" style="color:${checkColor};font-size:9px;font-family:'Press Start 2P',monospace;">${check}</span>
+          <span class="sb-mission-check" style="color:${checkColor};font-size:9px;font-family:'Silkscreen',monospace;">${check}</span>
           <div class="sb-mission-info">
-            <div class="sb-mission-title" style="color:${titleColor};font-size:8px;font-family:'Press Start 2P',monospace;">${m.icon} ${m.title}</div>
+            <div class="sb-mission-title" style="color:${titleColor};font-size:8px;font-family:'Silkscreen',monospace;">${m.icon} ${m.title}</div>
             <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
               <div style="flex:1;background:#2E2E2E;height:3px;"><div style="background:${done?'#4aff6b':'#A86EFF'};height:3px;width:${pct}%;"></div></div>
-              <div class="sb-mission-reward" style="font-size:7px;font-family:'Press Start 2P',monospace;">🪙${m.gold}</div>
+              <div class="sb-mission-reward" style="font-size:7px;font-family:'Silkscreen',monospace;">🪙${m.gold}</div>
             </div>
           </div>
           <div style="margin-left:4px;flex-shrink:0;">${progEl}</div>
@@ -4096,7 +4096,7 @@
           donateResources.forEach(r => {
             const sel = r === _currentDonateResource;
             const icon = _BM_RES_ICONS[r] || '📦';
-            html += `<button onclick="bpSelectResource('${r}',${pr[r]||0})" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:5px 8px;border:2px solid ${sel?'#A86EFF':'#555'};background:transparent;color:${sel?'#A86EFF':'#888'};cursor:pointer;">${icon} ${r.replace(/_/g,' ')} (${(pr[r]||0).toLocaleString()})</button>`;
+            html += `<button onclick="bpSelectResource('${r}',${pr[r]||0})" style="font-family:'Silkscreen',monospace;font-size:7px;padding:5px 8px;border:2px solid ${sel?'#A86EFF':'#555'};background:transparent;color:${sel?'#A86EFF':'#888'};cursor:pointer;">${icon} ${r.replace(/_/g,' ')} (${(pr[r]||0).toLocaleString()})</button>`;
           });
           html += `</div>`;
         } else {
@@ -4105,17 +4105,17 @@
         }
 
         html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">`;
-        html += `<input type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" oninput="updateXpPreview()" style="font-family:'Press Start 2P',monospace;font-size:8px;background:#1C1C1C;border:1px solid #555;color:#fff;padding:5px 8px;width:70px;">`;
+        html += `<input type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" oninput="updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:8px;background:#1C1C1C;border:1px solid #555;color:#fff;padding:5px 8px;width:70px;">`;
         [10, 50, 100, 500].forEach(q => {
           if (q <= _currentDonatePlayerHave)
-            html += `<button onclick="document.getElementById('bp-donate-amount').value=${q};updateXpPreview()" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">${q}</button>`;
+            html += `<button onclick="document.getElementById('bp-donate-amount').value=${q};updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:7px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">${q}</button>`;
         });
         if (_currentDonatePlayerHave > 0)
-          html += `<button onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave};updateXpPreview()" style="font-family:'Press Start 2P',monospace;font-size:7px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">ALL</button>`;
+          html += `<button onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave};updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:7px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">ALL</button>`;
         html += `</div>`;
         html += `<div id="bp-xp-preview" style="color:#A86EFF;font-size:8px;margin-bottom:10px;min-height:14px;"></div>`;
         const hasRes = _currentDonatePlayerHave > 0;
-        html += `<button id="bm-donate-btn" onclick="bpDonate()" ${hasRes?'':'disabled'} style="width:100%;font-family:'Press Start 2P',monospace;font-size:10px;padding:12px;background:#1C1C1C;border:3px solid #4aff6b;color:#4aff6b;cursor:${hasRes?'pointer':'not-allowed'};opacity:${hasRes?1:0.4};">DONATE ${(_currentDonateResource||'').replace(/_/g,' ').toUpperCase()}</button>`;
+        html += `<button id="bm-donate-btn" onclick="bpDonate()" ${hasRes?'':'disabled'} style="width:100%;font-family:'Silkscreen',monospace;font-size:10px;padding:12px;background:#1C1C1C;border:3px solid #4aff6b;color:#4aff6b;cursor:${hasRes?'pointer':'not-allowed'};opacity:${hasRes?1:0.4};">DONATE ${(_currentDonateResource||'').replace(/_/g,' ').toUpperCase()}</button>`;
       }
     }
 
@@ -4241,13 +4241,13 @@
     Sounds.levelUp();
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
-    overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #FF8C00;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Press Start 2P',monospace;animation:popIn 0.3s ease;">
+    overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #FF8C00;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Silkscreen',monospace;animation:popIn 0.3s ease;">
       <div style="font-size:24px;margin-bottom:10px;">🎉</div>
       <div style="color:#FF8C00;font-size:12px;margin-bottom:8px;">MILESTONE UNLOCKED!</div>
       <div style="color:#FF7FE5;font-size:10px;margin-bottom:8px;">${ms.name}</div>
       <div style="color:#888;font-size:7px;margin-bottom:16px;line-height:2;">${ms.description}</div>
       <div style="color:#4aff6b;font-size:7px;margin-bottom:16px;">Card background added to your inventory!</div>
-      <button onclick="this.closest('[data-ms-overlay]').remove()" style="font-family:'Press Start 2P',monospace;font-size:8px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
+      <button onclick="this.closest('[data-ms-overlay]').remove()" style="font-family:'Silkscreen',monospace;font-size:8px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
     </div>`;
     overlay.setAttribute('data-ms-overlay', '1');
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -4258,13 +4258,13 @@
     Sounds.levelUp();
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
-    overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #A86EFF;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Press Start 2P',monospace;animation:popIn 0.3s ease;">
+    overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #A86EFF;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Silkscreen',monospace;animation:popIn 0.3s ease;">
       <div style="font-size:24px;margin-bottom:10px;">🖼️</div>
       <div style="color:#A86EFF;font-size:11px;margin-bottom:8px;">CARD BACKGROUND UNLOCKED!</div>
       <div style="color:#FF7FE5;font-size:9px;margin-bottom:8px;">${bg.name}</div>
       <div style="color:#888;font-size:7px;margin-bottom:16px;line-height:2;">${bg.description}</div>
       <div style="color:#4aff6b;font-size:7px;margin-bottom:16px;">Go to VIEW CARD to equip it!</div>
-      <button onclick="this.closest('[data-bg-overlay]').remove()" style="font-family:'Press Start 2P',monospace;font-size:8px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
+      <button onclick="this.closest('[data-bg-overlay]').remove()" style="font-family:'Silkscreen',monospace;font-size:8px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
     </div>`;
     overlay.setAttribute('data-bg-overlay', '1');
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -4492,7 +4492,7 @@
         const equippedLabel  = bg.equipped ? '<div style="color:#FF7FE5;font-size:6px;margin-top:3px;">▶ EQUIPPED</div>' : '';
         const btnHtml = bg.equipped
           ? `<div style="color:#4aff6b;font-size:6px;margin-top:5px;">EQUIPPED ✅</div>`
-          : `<button onclick="equipBg('${bg.item_id}')" style="font-family:'Press Start 2P',monospace;font-size:6px;padding:4px 8px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;margin-top:5px;">EQUIP</button>`;
+          : `<button onclick="equipBg('${bg.item_id}')" style="font-family:'Silkscreen',monospace;font-size:6px;padding:4px 8px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;margin-top:5px;">EQUIP</button>`;
         return `<div style="background:#2E2E2E;padding:8px;cursor:pointer;${equippedBorder}">
           <div style="width:100%;height:40px;background:${bg.color};margin-bottom:6px;"></div>
           <div style="color:#FFFFFF;font-size:7px;margin-bottom:3px;line-height:1.4;">${bg.name}</div>
@@ -5097,7 +5097,7 @@
         html += `<div class="lb-mini-card" onclick="selectLbCat('${cat}')">
           <div style="font-size:9px;">${info.icon}</div>
           <div style="font-size:6px;color:#888;margin:2px 0;">${info.label}</div>
-          <div style="font-size:10px;color:#FF8C00;font-family:'Press Start 2P',monospace;">#${rank}</div>
+          <div style="font-size:10px;color:#FF8C00;font-family:'Silkscreen',monospace;">#${rank}</div>
           <div style="font-size:6px;color:#666;margin-top:2px;">${val}</div>
         </div>`;
       }
@@ -8238,7 +8238,7 @@
         <div class="rs-right">
           <div class="rs-preview-label">PREVIEW</div>
           <canvas id="rs-preview-canvas" width="140" height="160"></canvas>
-          <div id="rs-preview-name" style="font-family:'Press Start 2P',monospace;font-size:8px;color:#fff;text-align:center;"></div>
+          <div id="rs-preview-name" style="font-family:'Silkscreen',monospace;font-size:8px;color:#fff;text-align:center;"></div>
         </div>
       </div>
       <button class="rs-confirm-btn" id="rs-confirm-btn" onclick="submitReshape()">CONFIRM RESHAPE 🔮</button>
@@ -8247,11 +8247,11 @@
 
 <!-- SET DISCOVERY POPUP -->
 <div id="set-discovery-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:none;align-items:center;justify-content:center;">
-  <div style="background:#1C1C1C;border:2px solid #FF7FE5;padding:20px 24px;max-width:300px;text-align:center;font-family:'Press Start 2P',monospace;">
+  <div style="background:#1C1C1C;border:2px solid #FF7FE5;padding:20px 24px;max-width:300px;text-align:center;font-family:'Silkscreen',monospace;">
     <div style="font-size:14px;color:#FF7FE5;margin-bottom:10px;">🔮 SECRET SET DISCOVERED!</div>
     <div id="set-discovery-name" style="font-size:9px;color:#FFFFFF;margin-bottom:8px;"></div>
     <div id="set-discovery-desc" style="font-size:8px;color:#888888;margin-bottom:14px;line-height:1.6;"></div>
-    <button onclick="closeSetDiscovery()" style="background:#FF7FE5;color:#1C1C1C;border:none;padding:8px 16px;font-family:'Press Start 2P',monospace;font-size:8px;cursor:pointer;">AWESOME!</button>
+    <button onclick="closeSetDiscovery()" style="background:#FF7FE5;color:#1C1C1C;border:none;padding:8px 16px;font-family:'Silkscreen',monospace;font-size:8px;cursor:pointer;">AWESOME!</button>
   </div>
 </div>
 </body>
