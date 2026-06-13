@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% if mode == 'reshape' %}Reshape Your Penguin{% elif mode == 'prestige' %}Begin New Life{% else %}Create Your Penguin{% endif %} — Penguin Village</title>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -26,7 +26,7 @@
       min-height: 100vh;
       background: var(--bg);
       color: var(--white);
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
       image-rendering: pixelated;
     }
 
@@ -66,7 +66,7 @@
     /* Name input */
     #penguin-name-input {
       background: var(--input-bg); border: 2px solid var(--purple);
-      color: var(--white); font-family: 'Press Start 2P', monospace;
+      color: var(--white); font-family: 'Silkscreen', monospace;
       font-size: 9px; padding: 10px 12px; width: 100%; outline: none; display: block;
     }
     #penguin-name-input:focus { border-color: var(--pink); }
@@ -83,7 +83,7 @@
       width: 32px; height: 32px;
       border: 2px solid var(--purple); background: transparent; color: var(--purple);
       font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Silkscreen', monospace;
     }
     .arrow-btn:hover { background: var(--purple); color: var(--bg); }
     .arrow-label { font-size: 8px; color: #888; margin-right: 6px; white-space: nowrap; }
@@ -140,7 +140,7 @@
 
     #confirm-btn {
       border: 3px solid var(--green); color: var(--green);
-      background: transparent; font-family: 'Press Start 2P', monospace;
+      background: transparent; font-family: 'Silkscreen', monospace;
       font-size: 12px; padding: 14px 24px; cursor: pointer; letter-spacing: 1px; margin-top: 6px;
     }
     #confirm-btn:hover:not(:disabled) { background: var(--green); color: var(--bg); }
@@ -283,7 +283,7 @@
         <div class="preview-label">PREVIEW</div>
         <canvas id="preview-canvas" width="160" height="200"></canvas>
         <div id="preview-name" class="placeholder">{{ username }}</div>
-        <div id="preview-traits" style="color:#888;font-size:7px;margin-top:8px;line-height:2;text-align:center;font-family:'Press Start 2P',monospace;">
+        <div id="preview-traits" style="color:#888;font-size:7px;margin-top:8px;line-height:2;text-align:center;font-family:'Silkscreen',monospace;">
           Pick your traits below
         </div>
       </div>
