@@ -150,6 +150,7 @@ let fontReady = false;
 let _lastTime = 0;
 let _time = 0;
 let _popupEl = null;
+let _highlightedBuilding = null;
 
 function hexToRgb(hex) {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -422,6 +423,40 @@ function drawBuilding(id, bdef, level) {
             ctx.shadowBlur  = 0;
         }
 
+        ctx.restore();
+    }
+
+    // Tutorial building highlight
+    if (_highlightedBuilding === id) {
+        const pulse = (Math.sin(_time / 300) + 1) / 2;
+        const glow  = Math.floor(160 + pulse * 95);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(tPt.x, tPt.y - BOX_H);
+        ctx.lineTo(rPt.x, rPt.y - BOX_H);
+        ctx.lineTo(rPt.x, rPt.y);
+        ctx.lineTo(bPt.x, bPt.y);
+        ctx.lineTo(lPt.x, lPt.y);
+        ctx.lineTo(lPt.x, lPt.y - BOX_H);
+        ctx.closePath();
+        ctx.strokeStyle = `rgb(255,${glow},0)`;
+        ctx.lineWidth   = 3 + pulse * 2;
+        ctx.shadowColor = `rgba(255,140,0,${0.4 + pulse * 0.4})`;
+        ctx.shadowBlur  = 12 + pulse * 12;
+        ctx.stroke();
+        ctx.restore();
+
+        // Bouncing arrow above building
+        const arrowX = faceCenterX;
+        const arrowY = faceCenterY - 30 - Math.abs(Math.sin(_time / 400)) * 8;
+        ctx.save();
+        ctx.font       = "16px sans-serif";
+        ctx.textAlign  = "center";
+        ctx.textBaseline = "bottom";
+        ctx.shadowColor = "rgba(0,0,0,0.8)";
+        ctx.shadowBlur  = 4;
+        ctx.fillText("▼", arrowX, arrowY);
         ctx.restore();
     }
 }
@@ -1183,6 +1218,9 @@ function setVisitedToday(usernameList) {
     _visitedTodaySet = new Set(usernameList || []);
 }
 
-window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday };
+function highlightBuilding(buildingId) { _highlightedBuilding = buildingId; }
+function clearBuildingHighlight() { _highlightedBuilding = null; }
+
+window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday, highlightBuilding, clearBuildingHighlight };
 
 })();

@@ -320,6 +320,8 @@ def init_db():
     _add_col(c, "penguins", "last_hotel_date TEXT DEFAULT NULL")
     _add_col(c, "penguins", "total_contributions INTEGER DEFAULT 0")
     _add_col(c, "penguins", "tutorial_completed INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "tutorial_step INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "tutorial_rewards_given TEXT DEFAULT '[]'")
     _add_col(c, "penguins", "character_created INTEGER DEFAULT 0")
     _add_col(c, "penguins", "penguin_color TEXT DEFAULT 'classic_black'")
     _add_col(c, "penguins", "penguin_name TEXT DEFAULT NULL")

@@ -1741,6 +1741,7 @@ def home():
         features=FEATURES,
         level_data=LEVEL_DATA,
         tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
+        tutorial_step=int(penguin["tutorial_step"] or 0),
         social_traits=SOCIAL_TRAITS,
         interest_traits=INTEREST_TRAITS,
         quirk_traits=QUIRK_TRAITS,
@@ -4999,6 +5000,203 @@ def tutorial_complete():
     db.commit()
     db.close()
     return jsonify({"status": "success"})
+
+
+@app.route("/tutorial/advance", methods=["POST"])
+def tutorial_advance():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    step     = int(data.get("step", 0))
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    db = get_db()
+    db.execute("UPDATE penguins SET tutorial_step=? WHERE username=?", (step, username))
+    if step >= 11:
+        db.execute("UPDATE penguins SET tutorial_completed=1 WHERE username=?", (username,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "step": step})
+
+
+@app.route("/tutorial/gift", methods=["POST"])
+def tutorial_gift():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    step     = int(data.get("step", 0))
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    p  = db.execute("SELECT tutorial_rewards_given FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    rewards_given = json.loads(p["tutorial_rewards_given"] or "[]")
+    if step in rewards_given:
+        db.close()
+        return jsonify({"status": "already_given", "message": "Reward already given."})
+
+    ensure_resources(db, username)
+    earned     = {}
+    level_ups  = []
+
+    STEP_GIFTS = {
+        2:  {"fish": 50,  "gold": 30,  "xp": 50},
+        3:  {"gold": 100, "herbs": 20, "bones": 10, "spell_fragments": 5},
+        4:  {"gold": 30,  "xp": 20},
+        10: {"gold": 200, "mayor_seals": 1},
+    }
+
+    for resource, amount in STEP_GIFTS.get(step, {}).items():
+        if amount <= 0:
+            continue
+        if resource == "gold":
+            add_gold(db, username, amount)
+            earned["gold"] = amount
+        elif resource == "xp":
+            _, lvl_rewards = award_xp(db, username, amount)
+            level_ups.extend(lvl_rewards)
+            earned["xp"] = amount
+        elif resource == "mayor_seals":
+            db.execute("UPDATE resources SET mayor_seals=mayor_seals+? WHERE username=?", (amount, username))
+            earned["mayor_seals"] = amount
+        else:
+            db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
+            earned[resource] = amount
+
+    rewards_given.append(step)
+    db.execute("UPDATE penguins SET tutorial_rewards_given=? WHERE username=?",
+               (json.dumps(rewards_given), username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "earned": earned, "level_ups": level_ups})
+
+
+@app.route("/tutorial/starter-fight", methods=["POST"])
+def tutorial_starter_fight():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    p  = db.execute("SELECT tutorial_rewards_given FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    rewards_given = json.loads(p["tutorial_rewards_given"] or "[]")
+    if 4 in rewards_given:
+        db.close()
+        return jsonify({"status": "already_given", "message": "Tutorial fight already completed."})
+
+    ensure_resources(db, username)
+    add_gold(db, username, 30)
+    _, level_ups = award_xp(db, username, 20)
+
+    template = random.choice(GEAR_TEMPLATES["common"])
+    now      = int(time.time())
+    db.execute(
+        "INSERT INTO gear (username, name, type, slot, rarity, set_name, combat_power, equipped, obtained_at) "
+        "VALUES (?,?,?,?,?,?,?,0,?)",
+        (username, template["name"], "combat", template["slot"], "common",
+         template["set_name"], template["combat_power"], now)
+    )
+    gear_id = db.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
+
+    rewards_given.append(4)
+    db.execute("UPDATE penguins SET tutorial_rewards_given=? WHERE username=?",
+               (json.dumps(rewards_given), username))
+    log_event(db, "combat", f"{username} defeated the Tutorial Snow Crab! 🦀 (Tutorial)", username)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status":     "success",
+        "earned":     {"gold": 30, "xp": 20},
+        "gear_drop":  {"name": template["name"], "slot": template["slot"], "rarity": "common", "id": gear_id},
+        "level_ups":  level_ups,
+    })
+
+
+@app.route("/tutorial/free-boutique", methods=["POST"])
+def tutorial_free_boutique():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    item_id  = data.get("item_id", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    p  = db.execute("SELECT tutorial_rewards_given FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    rewards_given = json.loads(p["tutorial_rewards_given"] or "[]")
+    if 6 in rewards_given:
+        db.close()
+        return jsonify({"status": "already_given", "message": "Free item already claimed."})
+
+    item = next(
+        (i for items in BOUTIQUE_ITEMS.values() for i in items if i["id"] == item_id),
+        None
+    )
+    if not item:
+        db.close()
+        return jsonify({"status": "error", "message": "Item not found."})
+
+    existing = db.execute(
+        "SELECT 1 FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+        (username, item_id)
+    ).fetchone()
+    if existing:
+        db.close()
+        return jsonify({"status": "error", "message": "Already owned!"})
+
+    now = int(time.time())
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+        "VALUES (?,?,?,'cosmetic',?,'shop',0,?)",
+        (username, item_id, item["name"], item["slot"], now)
+    )
+    rewards_given.append(6)
+    db.execute("UPDATE penguins SET tutorial_rewards_given=? WHERE username=?",
+               (json.dumps(rewards_given), username))
+    log_event(db, "shop", f"{username} received a free gift from the Mayor: {item['name']}! 🎁", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "item": item})
+
+
+@app.route("/tutorial/free-rest", methods=["POST"])
+def tutorial_free_rest():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    p  = db.execute("SELECT energy, max_energy, tutorial_rewards_given FROM penguins WHERE username=?",
+                    (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    rewards_given = json.loads(p["tutorial_rewards_given"] or "[]")
+    if 7 in rewards_given:
+        db.close()
+        return jsonify({"status": "already_given"})
+
+    max_e    = p["max_energy"] or 100
+    restored = max_e - (p["energy"] or 0)
+    db.execute("UPDATE penguins SET energy=? WHERE username=?", (max_e, username))
+    rewards_given.append(7)
+    db.execute("UPDATE penguins SET tutorial_rewards_given=? WHERE username=?",
+               (json.dumps(rewards_given), username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "new_energy": max_e, "restored": max(0, restored)})
 
 
 @app.route("/help/dismissed/<username>")

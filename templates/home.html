@@ -1556,102 +1556,117 @@
     }
 
     /* ══════════════════════════════════════════════════════════
-       TUTORIAL OVERLAY
+       TUTORIAL — MAYOR DIALOGUE SYSTEM
     ══════════════════════════════════════════════════════════ */
-    #tut-overlay {
-      display: none;
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    @keyframes slideDown {
+      from { transform: translateY(0); }
+      to   { transform: translateY(100%); }
+    }
+    @keyframes tutorialPulse {
+      0%,100% { box-shadow: 0 0 0 3px #FF8C00, 0 0 20px rgba(255,140,0,0.4); }
+      50%     { box-shadow: 0 0 0 5px #FF7FE5, 0 0 30px rgba(255,127,229,0.4); }
+    }
+    .mayor-dialogue {
       position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.82);
-      z-index: 9000;
-      align-items: center;
-      justify-content: center;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 90000;
+      background: #252535;
+      border-top: 3px solid #A86EFF;
+      padding: 12px 16px 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-height: 100px;
+      animation: slideUp 0.4s ease-out;
     }
-    #tut-overlay.active { display: flex; }
-    .tut-card {
-      background: var(--panel);
-      border: 2px solid var(--purple);
-      max-width: 480px;
-      width: 92%;
-      padding: 28px 28px 22px;
-      position: relative;
-      box-shadow: 0 0 40px rgba(168,110,255,0.35);
+    .mayor-portrait {
+      width: 80px;
+      height: 80px;
+      border: 3px solid #FF8C00;
+      flex-shrink: 0;
+      image-rendering: pixelated;
+      object-fit: contain;
+      background: #1C1C1C;
     }
-    .tut-skip-btn {
-      position: absolute;
-      top: 10px;
-      right: 12px;
-      background: none;
-      border: none;
-      color: #555;
+    .mayor-text-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .mayor-name {
       font-family: 'Press Start 2P', monospace;
-      font-size: 8px;
-      cursor: pointer;
-      padding: 4px 6px;
+      font-size: 10px;
+      color: #FF8C00;
     }
-    .tut-skip-btn:hover { color: var(--pink); }
-    .tut-step-label {
+    .mayor-message {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: #FFFFFF;
+      line-height: 1.8;
+    }
+    .mayor-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .mayor-continue {
       font-family: 'Press Start 2P', monospace;
       font-size: 7px;
-      color: #666;
-      margin-bottom: 10px;
-      letter-spacing: 1px;
+      color: #A86EFF;
+      cursor: pointer;
+      border: 2px solid #A86EFF;
+      padding: 5px 14px;
+      background: transparent;
     }
-    .tut-progress {
-      height: 4px;
-      background: #333;
-      margin-bottom: 18px;
-      position: relative;
+    .mayor-continue:hover { background: #A86EFF; color: #1C1C1C; }
+    .mayor-action {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: #1C1C1C;
+      cursor: pointer;
+      border: 2px solid #FF8C00;
+      padding: 5px 14px;
+      background: #FF8C00;
     }
-    .tut-progress-fill {
-      height: 100%;
-      background: var(--purple);
-      transition: width 0.3s ease;
+    .mayor-action:hover { background: #FF7FE5; border-color: #FF7FE5; }
+    .mayor-skip {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      color: #555;
+      cursor: pointer;
+      border: none;
+      background: none;
     }
-    .tut-icon {
-      font-size: 32px;
-      text-align: center;
-      margin-bottom: 12px;
-      display: block;
-    }
-    .tut-title {
+    .mayor-skip:hover { color: #ff6b6b; }
+    .mayor-countdown {
       font-family: 'Press Start 2P', monospace;
       font-size: 11px;
-      color: var(--pink);
+      color: #FF8C00;
       text-align: center;
-      margin-bottom: 14px;
-      line-height: 1.6;
+      padding: 4px 0;
     }
-    .tut-body {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 8px;
-      color: var(--white);
-      line-height: 2;
-      text-align: center;
-      margin-bottom: 22px;
+    .tutorial-highlight {
+      position: relative;
+      z-index: 89999 !important;
+      animation: tutorialPulse 1.5s ease-in-out infinite;
     }
-    .tut-nav {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
+    @media (max-width: 600px) {
+      .mayor-portrait { width: 60px; height: 60px; }
+      .mayor-message  { font-size: 8px; }
+      .mayor-dialogue { min-height: 80px; padding: 8px 10px; }
     }
-    .tut-btn {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 8px;
-      padding: 9px 16px;
-      cursor: pointer;
-      border: 2px solid var(--purple);
-      background: transparent;
-      color: var(--purple);
-    }
-    .tut-btn:hover { background: var(--purple); color: var(--dark); }
-    .tut-btn.primary {
-      background: var(--purple);
-      color: var(--dark);
-    }
-    .tut-btn.primary:hover { background: var(--pink); border-color: var(--pink); }
-    .tut-btn.back { border-color: #444; color: #666; }
-    .tut-btn.back:hover { border-color: #666; color: #aaa; background: transparent; }
 
     /* ══════════════════════════════════════════════════════════
        CONTEXTUAL TOOLTIP
@@ -2575,6 +2590,7 @@
     btn.classList.add('active');
     document.getElementById('sidebar-' + name).classList.add('active');
     if (name === 'stats') { loadStatsMissions(); loadStatsAchievements(); }
+    if (window.TutorialManager) window.TutorialManager._notifySidebar(name);
   }
 
   function switchContentTab(name, btn) {
@@ -2608,6 +2624,7 @@
     }
     const _ctxTabKeys = { map:'tab-map', levels:'tab-levels', missions:'tab-missions', igloo:'tab-igloo', awards:'tab-awards', eventlog:'tab-eventlog' };
     if (_ctxTabKeys[name] && btn) setTimeout(() => showCtxTip(_ctxTabKeys[name], btn), 300);
+    if (window.TutorialManager) window.TutorialManager._notifyContentTab(name);
   }
 
   let _streamIsLive = false;
@@ -2805,6 +2822,9 @@
 
   {% if logged_in %}
   const CURRENT_USER      = {{ penguin["username"] | tojson }};
+  const PENGUIN_NAME      = {{ (penguin["penguin_name"] or penguin["username"]) | tojson }};
+  const TUTORIAL_STEP     = {{ tutorial_step | tojson }};
+  const TUTORIAL_DONE     = {{ tutorial_completed | tojson }};
   const PLAYER_SHAPE      = {{ (penguin['penguin_shape'] or 'normal') | tojson }};
   const FEATURES          = {{ features | tojson }};
   const LEVEL_DATA_CONFIG = {{ level_data | tojson }};
@@ -3302,6 +3322,7 @@
   const _BM_LV_COLORS = { 1: '#666666', 2: '#4a9eff', 3: '#FF8C00' };
 
   async function openBuilding(buildingId) {
+    if (window.TutorialManager) window.TutorialManager._notifyBuilding(buildingId);
     if (buildingId === 'boutique') { openBoutique(); return; }
 
     document.getElementById('bm-overlay').style.display = 'block';
@@ -3352,6 +3373,7 @@
   }
 
   async function openBoutique() {
+    if (window.TutorialManager) window.TutorialManager._notifyBuilding('boutique');
     document.getElementById('bm-overlay').style.display = 'block';
     document.getElementById('building-modal').style.display = 'block';
     document.getElementById('bm-content').innerHTML =
@@ -4687,6 +4709,7 @@
   let _invGearData = [];
 
   async function openInventory() {
+    if (window.TutorialManager) window.TutorialManager._notifyInventory();
     try {
       const res = await fetch(`/gear/cosmetics/${CURRENT_USER}`);
       const data = await res.json();
@@ -7418,85 +7441,622 @@
   {% endif %}
 
   // ═══════════════════════════════════════════════════════════════
-  // TUTORIAL SYSTEM
+  // TUTORIAL SYSTEM — THE MAYOR'S WELCOME
   // ═══════════════════════════════════════════════════════════════
-  const _TUT_STEPS = [
-    { icon: '🐧', title: 'WELCOME TO PENGUIN VILLAGE!',
-      body: 'You are a penguin living in a cozy arctic village. Explore buildings, earn resources, level up, and customize your penguin!' },
-    { icon: '🗺️', title: 'THE VILLAGE MAP',
-      body: 'This is your home! Click on any glowing building on the MAP tab to interact with it. Each building offers unique work, services, or shops.' },
-    { icon: '📊', title: 'YOUR PENGUIN',
-      body: 'The left panel shows your stats: level, energy, gold, and resources. Energy refills over time — spend it to work at buildings!' },
-    { icon: '⛏️', title: 'GO TO WORK!',
-      body: 'Click buildings on the map to START WORK. Come back later and click COLLECT to earn resources. Higher-level buildings give better rewards!' },
-    { icon: '🏗️', title: 'UPGRADE BUILDINGS',
-      body: 'Open any upgradeable building and click CONTRIBUTE to donate resources. Donate enough to level it up and unlock bigger bonuses for everyone!' },
-    { icon: '⭐', title: 'LEVEL UP',
-      body: 'Check the LEVELS tab to see milestone rewards. Earn XP by working and completing missions. Each level unlocks new titles and cosmetic items!' },
-    { icon: '📋', title: 'DAILY MISSIONS',
-      body: 'Visit the MISSIONS tab every day for fresh challenges. Complete them for bonus gold and XP. Maintain your login streak for even bigger rewards!' },
-    { icon: '🛍️', title: 'THE BOUTIQUE',
-      body: 'Visit THE BOUTIQUE building on the map to shop for hats, outfits, footwear, and accessories. Dress up your penguin and show off your style!' },
-    { icon: '🏠', title: 'YOUR IGLOO',
-      body: 'The IGLOO tab is your personal space. Decorate it with items you\'ve collected. Your igloo is visible to other players on your profile page!' },
-    { icon: '🎉', title: 'YOU\'RE READY!',
-      body: 'That\'s everything to get started. Explore, contribute to buildings, level up, and have fun in Penguin Village! Tap ❓ anytime to re-open this guide.' },
-  ];
-  let _tutStep = 0;
 
-  function openTutorial(step) {
-    _tutStep = (step !== undefined) ? step : 0;
-    _tutRender();
-    document.getElementById('tut-overlay').classList.add('active');
+  function _tutTypewriter(element, text, speed) {
+    speed = speed || 28;
+    return new Promise(function(resolve) {
+      element.textContent = '';
+      var i = 0;
+      var interval = setInterval(function() {
+        element.textContent += text[i];
+        i++;
+        if (i >= text.length) { clearInterval(interval); resolve(); }
+      }, speed);
+      element.addEventListener('click', function() {
+        clearInterval(interval);
+        element.textContent = text;
+        resolve();
+      }, { once: true });
+    });
   }
 
-  function _tutRender() {
-    const s = _TUT_STEPS[_tutStep];
-    const total = _TUT_STEPS.length;
-    document.getElementById('tut-step-label').textContent = 'STEP ' + (_tutStep + 1) + ' OF ' + total;
-    document.getElementById('tut-progress-fill').style.width = ((_tutStep + 1) / total * 100) + '%';
-    document.getElementById('tut-icon').textContent  = s.icon;
-    document.getElementById('tut-title').textContent = s.title;
-    document.getElementById('tut-body').textContent  = s.body;
-    const backBtn = document.getElementById('tut-back-btn');
-    const nextBtn = document.getElementById('tut-next-btn');
-    backBtn.style.display = _tutStep > 0 ? '' : 'none';
-    if (_tutStep >= total - 1) {
-      nextBtn.textContent = 'FINISH ✓';
-      nextBtn.onclick = tutFinish;
+  window.TutorialManager = {
+    currentStep: 0,
+    dialogueBox: null,
+    _pendingBuildingCb: null,
+    _pendingContentTabCb: null,
+    _pendingSidebarCb: null,
+    _pendingInventoryCb: null,
+    _mapDragListening: false,
+
+    init: function(startStep) {
+      this.currentStep = startStep;
+      this._createDialogueBox();
+      this._runStep(startStep);
+    },
+
+    _createDialogueBox: function() {
+      var box = document.createElement('div');
+      box.id = 'mayor-dialogue';
+      box.className = 'mayor-dialogue';
+      box.innerHTML =
+        '<img src="/static/mayor_logo.png" class="mayor-portrait" alt="Mayor" />' +
+        '<div class="mayor-text-area">' +
+          '<div class="mayor-name">THE MAYOR</div>' +
+          '<div class="mayor-message" id="mayor-message"></div>' +
+          '<div class="mayor-buttons" id="mayor-buttons"></div>' +
+        '</div>' +
+        '<button class="mayor-skip" onclick="TutorialManager.skipTutorial()">Skip Tutorial ✕</button>';
+      document.body.appendChild(box);
+      this.dialogueBox = box;
+    },
+
+    _say: function(text, cb) {
+      var msgEl = document.getElementById('mayor-message');
+      var btnsEl = document.getElementById('mayor-buttons');
+      if (!msgEl || !btnsEl) { if (cb) cb(); return; }
+      btnsEl.innerHTML = '';
+      _tutTypewriter(msgEl, text).then(function() {
+        if (cb) cb();
+      });
+    },
+
+    _sayThen: function(text) {
+      var self = this;
+      return new Promise(function(resolve) {
+        self._say(text, resolve);
+      });
+    },
+
+    _showContinue: function(label, action) {
+      var btnsEl = document.getElementById('mayor-buttons');
+      if (!btnsEl) return;
+      var btn = document.createElement('button');
+      btn.className = 'mayor-continue';
+      btn.textContent = label || 'Next →';
+      btn.onclick = action;
+      btnsEl.appendChild(btn);
+    },
+
+    _showAction: function(label, action) {
+      var btnsEl = document.getElementById('mayor-buttons');
+      if (!btnsEl) return;
+      var btn = document.createElement('button');
+      btn.className = 'mayor-action';
+      btn.textContent = label;
+      btn.onclick = action;
+      btnsEl.appendChild(btn);
+    },
+
+    _clearButtons: function() {
+      var btnsEl = document.getElementById('mayor-buttons');
+      if (btnsEl) btnsEl.innerHTML = '';
+    },
+
+    _highlightEl: function(selector) {
+      document.querySelectorAll('.tutorial-highlight').forEach(function(el) {
+        el.classList.remove('tutorial-highlight');
+      });
+      if (selector) {
+        var el = document.querySelector(selector);
+        if (el) el.classList.add('tutorial-highlight');
+      }
+    },
+
+    _highlightBuilding: function(buildingId) {
+      if (window.VillageMap && VillageMap.highlightBuilding) {
+        VillageMap.highlightBuilding(buildingId);
+      }
+    },
+
+    _clearHighlights: function() {
+      document.querySelectorAll('.tutorial-highlight').forEach(function(el) {
+        el.classList.remove('tutorial-highlight');
+      });
+      if (window.VillageMap && VillageMap.clearBuildingHighlight) {
+        VillageMap.clearBuildingHighlight();
+      }
+    },
+
+    // ── Notification hooks (called by game functions) ──────────────────────────
+
+    _notifyBuilding: function(buildingId) {
+      if (this._pendingBuildingCb) {
+        var cb = this._pendingBuildingCb;
+        this._pendingBuildingCb = null;
+        cb(buildingId);
+      }
+    },
+
+    _notifyContentTab: function(name) {
+      if (this._pendingContentTabCb) {
+        var cb = this._pendingContentTabCb;
+        this._pendingContentTabCb = null;
+        cb(name);
+      }
+    },
+
+    _notifySidebar: function(name) {
+      if (this._pendingSidebarCb) {
+        var cb = this._pendingSidebarCb;
+        this._pendingSidebarCb = null;
+        cb(name);
+      }
+    },
+
+    _notifyInventory: function() {
+      if (this._pendingInventoryCb) {
+        var cb = this._pendingInventoryCb;
+        this._pendingInventoryCb = null;
+        cb();
+      }
+    },
+
+    // ── Wait helpers ─────────────────────────────────────────────────────────
+
+    _waitForBuilding: function(buildingId) {
+      var self = this;
+      return new Promise(function(resolve) {
+        self._pendingBuildingCb = function(id) {
+          if (!buildingId || id === buildingId) resolve(id);
+          else self._pendingBuildingCb = function(id2) {
+            if (!buildingId || id2 === buildingId) resolve(id2);
+            else self._waitForBuilding(buildingId).then(resolve);
+          };
+        };
+      });
+    },
+
+    _waitForContentTab: function(tabName) {
+      var self = this;
+      return new Promise(function(resolve) {
+        self._pendingContentTabCb = function(name) {
+          if (!tabName || name === tabName) resolve(name);
+          else self._pendingContentTabCb = arguments.callee;
+        };
+      });
+    },
+
+    _waitForSidebar: function(tabName) {
+      var self = this;
+      return new Promise(function(resolve) {
+        self._pendingSidebarCb = function(name) {
+          if (!tabName || name === tabName) resolve(name);
+          else self._pendingSidebarCb = arguments.callee;
+        };
+      });
+    },
+
+    _waitForInventory: function() {
+      var self = this;
+      return new Promise(function(resolve) {
+        self._pendingInventoryCb = resolve;
+      });
+    },
+
+    _waitForMapDrag: function() {
+      return new Promise(function(resolve) {
+        var canvas = document.getElementById('village-canvas');
+        if (!canvas) { resolve(); return; }
+        var moved = false;
+        function onMove() {
+          if (!moved) { moved = true; canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('touchmove', onMove); resolve(); }
+        }
+        canvas.addEventListener('mousemove', onMove);
+        canvas.addEventListener('touchmove', onMove);
+      });
+    },
+
+    // ── Step advance ─────────────────────────────────────────────────────────
+
+    _advanceStep: async function() {
+      this.currentStep++;
+      try {
+        await fetch('/tutorial/advance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: CURRENT_USER, step: this.currentStep })
+        });
+      } catch(e) {}
+      this._runStep(this.currentStep);
+    },
+
+    _runStep: function(step) {
+      switch(step) {
+        case 0:  this._step0();  break;
+        case 1:  this._step1();  break;
+        case 2:  this._step2();  break;
+        case 3:  this._step3();  break;
+        case 4:  this._step4();  break;
+        case 5:  this._step5();  break;
+        case 6:  this._step6();  break;
+        case 7:  this._step7();  break;
+        case 8:  this._step8();  break;
+        case 9:  this._step9();  break;
+        case 10: this._step10(); break;
+        default: this._complete(); break;
+      }
+    },
+
+    // ── Step 0 — Welcome ─────────────────────────────────────────────────────
+    _step0: async function() {
+      var self = this;
+      await self._sayThen('Welcome to Penguin Village, ' + PENGUIN_NAME + '! I\'m the Mayor around here. Let me show you how things work.');
+      self._showContinue("Let's go! →", function() { self._advanceStep(); });
+    },
+
+    // ── Step 1 — Village Map ─────────────────────────────────────────────────
+    _step1: async function() {
+      var self = this;
+      // Switch to map tab to make sure it's visible
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightEl('#village-canvas');
+      await self._sayThen('This is our village! You can see all the buildings where penguins work and play. Try dragging the map around!');
+      self._showContinue('Got it! →', function() {
+        self._clearButtons();
+        self._say('Drag the map to explore...', function() {
+          self._waitForMapDrag().then(function() {
+            self._clearHighlights();
+            if (window.Sounds && Sounds.chime) Sounds.chime();
+            self._say('Perfect! You\'re a natural explorer.', function() {
+              setTimeout(function() { self._advanceStep(); }, 1200);
+            });
+          });
+        });
+      });
+    },
+
+    // ── Step 2 — First Job ───────────────────────────────────────────────────
+    _step2: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightBuilding('sea_lion_pit');
+      await self._sayThen('Time to put those flippers to work! Click on Ash\'s Sea Lion Pit — the fishing building!');
+
+      self._waitForBuilding('sea_lion_pit').then(function() {
+        self._clearHighlights();
+        self._say('This is where you fish! Normally jobs take hours, but since it\'s your first day... I\'ll pull some strings.', function() {
+          self._showAction('🎣 CLAIM STARTER CATCH!', function() {
+            self._clearButtons();
+            self._runStarterJob();
+          });
+        });
+      });
+    },
+
+    _runStarterJob: async function() {
+      var self = this;
+      var btnsEl = document.getElementById('mayor-buttons');
+      if (btnsEl) {
+        var countdown = document.createElement('div');
+        countdown.className = 'mayor-countdown';
+        countdown.textContent = 'FISHING... 30s';
+        btnsEl.appendChild(countdown);
+        var secs = 30;
+        var timer = setInterval(function() {
+          secs--;
+          if (secs <= 0) {
+            clearInterval(timer);
+            self._collectStarterJob();
+          } else {
+            countdown.textContent = 'FISHING... ' + secs + 's';
+          }
+        }, 1000);
+        // Also allow skip after 5 seconds
+        setTimeout(function() {
+          if (document.getElementById('mayor-buttons') && !self._step2done) {
+            var skipBtn = document.createElement('button');
+            skipBtn.className = 'mayor-continue';
+            skipBtn.textContent = 'Collect Now! →';
+            skipBtn.onclick = function() { clearInterval(timer); self._collectStarterJob(); };
+            btnsEl.appendChild(skipBtn);
+          }
+        }, 5000);
+      }
+    },
+
+    _step2done: false,
+    _collectStarterJob: async function() {
+      var self = this;
+      self._step2done = true;
+      self._clearButtons();
+      try {
+        var res  = await fetch('/tutorial/gift', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: CURRENT_USER, step: 2 })
+        });
+        var data = await res.json();
+        if (data.earned) {
+          var parts = [];
+          if (data.earned.fish)  parts.push('+' + data.earned.fish + ' 🐟');
+          if (data.earned.gold)  parts.push('+' + data.earned.gold + ' 💰');
+          if (data.earned.xp)    parts.push('+' + data.earned.xp + ' XP');
+          if (parts.length) _flyEmojiCollection(parts);
+          if (data.level_ups && data.level_ups.length) {
+            setTimeout(function() { _showLevelUp(data.level_ups[0]); }, 800);
+          }
+        }
+      } catch(e) {}
+      await self._sayThen('50 fish on your first try! Not bad at all. Those will come in handy.');
+      self._showContinue('Nice! →', function() { self._advanceStep(); });
+    },
+
+    // ── Step 3 — Stats Tab ───────────────────────────────────────────────────
+    _step3: async function() {
+      var self = this;
+      self._highlightEl('.sidebar-tab[onclick*="stats"]');
+      await self._sayThen('Let\'s see how you\'re doing! Click on the STATS tab on the left panel.');
+      self._waitForSidebar('stats').then(async function() {
+        self._clearHighlights();
+        await self._sayThen('Here you can see your resources, missions, and streak. Speaking of which — here\'s a welcome gift from the village!');
+        try {
+          var res  = await fetch('/tutorial/gift', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: CURRENT_USER, step: 3 })
+          });
+          var data = await res.json();
+          if (data.earned) {
+            var parts = [];
+            if (data.earned.gold)            parts.push('+' + data.earned.gold + ' 💰');
+            if (data.earned.herbs)           parts.push('+' + data.earned.herbs + ' 🌿');
+            if (data.earned.bones)           parts.push('+' + data.earned.bones + ' 🦴');
+            if (data.earned.spell_fragments) parts.push('+' + data.earned.spell_fragments + ' ✨');
+            if (parts.length) _flyEmojiCollection(parts);
+          }
+        } catch(e) {}
+        self._showContinue('Wow, thanks! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 4 — First Fight ─────────────────────────────────────────────────
+    _step4: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightBuilding('barracks');
+      await self._sayThen('Now for the fun part! See the Barracks? That\'s where monsters are fought. Click on it!');
+      self._waitForBuilding('barracks').then(function() {
+        self._clearHighlights();
+        self._say('Monsters lurk outside the village. Let\'s take care of one — I\'ll lend you my strength for this first fight. You can\'t lose!', function() {
+          self._showAction('⚔️ FIGHT THE SNOW CRAB!', function() {
+            self._clearButtons();
+            self._runStarterFight();
+          });
+        });
+      });
+    },
+
+    _runStarterFight: async function() {
+      var self = this;
+      self._say('Rolling the dice...', null);
+      try {
+        var res  = await fetch('/tutorial/starter-fight', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: CURRENT_USER })
+        });
+        var data = await res.json();
+        if (data.status === 'success' || data.status === 'already_given') {
+          var parts = ['+30 💰', '+20 XP'];
+          _flyEmojiCollection(parts);
+          if (data.level_ups && data.level_ups.length) {
+            setTimeout(function() { _showLevelUp(data.level_ups[0]); }, 800);
+          }
+          var gearName = data.gear_drop ? data.gear_drop.name : 'some gear';
+          await self._sayThen('Victory! 🎉 And look — you found ' + gearName + '! Let\'s equip it.');
+          self._showContinue('Equip it! →', function() { self._advanceStep(); });
+        } else {
+          await self._sayThen('Hmm, something went wrong. Let\'s skip ahead.');
+          self._showContinue('OK →', function() { self._advanceStep(); });
+        }
+      } catch(e) {
+        await self._sayThen('Hmm, something went wrong. Let\'s skip ahead.');
+        self._showContinue('OK →', function() { self._advanceStep(); });
+      }
+    },
+
+    // ── Step 5 — Equip Gear ──────────────────────────────────────────────────
+    _step5: async function() {
+      var self = this;
+      self._highlightEl('.inv-open-btn');
+      await self._sayThen('Open your inventory — the 📦 INVENTORY button on the left — and equip the gear you just found!');
+      self._waitForInventory().then(async function() {
+        self._clearHighlights();
+        await self._sayThen('Click EQUIP on your new gear to boost your Combat Power. Your penguin just got stronger!');
+        self._showContinue('Done! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 6 — Boutique ────────────────────────────────────────────────────
+    _step6: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightBuilding('boutique');
+      await self._sayThen('Want to look even better? Let\'s visit the Boutique — the pink building on the map!');
+      self._waitForBuilding('boutique').then(function() {
+        self._clearHighlights();
+        self._say('Pick any one hat, outfit, footwear, or accessory — it\'s on the house! A housewarming gift from me.', function() {
+          self._showAction('🎁 CLAIM FREE HAT!', async function() {
+            self._clearButtons();
+            try {
+              var res  = await fetch('/tutorial/free-boutique', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: CURRENT_USER, item_id: 'party_hat' })
+              });
+              var data = await res.json();
+              if (data.status === 'success') {
+                _flyEmojiCollection(['🎩 PARTY HAT!']);
+                await self._sayThen('Great choice! You can buy more here anytime with gold. Now you\'re looking festive!');
+              } else {
+                await self._sayThen('Looks like you\'re already styling! Moving on...');
+              }
+            } catch(e) {
+              await self._sayThen('Moving on!');
+            }
+            self._showContinue('Thanks! →', function() { self._advanceStep(); });
+          });
+        });
+      });
+    },
+
+    // ── Step 7 — Hotel ───────────────────────────────────────────────────────
+    _step7: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightBuilding('hotel');
+      await self._sayThen('Fighting takes energy. See the Penguin Hotel? That\'s where you rest and recharge!');
+      self._waitForBuilding('hotel').then(function() {
+        self._clearHighlights();
+        self._say('Your energy recovers 10 per hour naturally. But the Hotel gives you a full refill instantly. Your first rest today is on me!', function() {
+          self._showAction('💤 REST NOW (FREE)!', async function() {
+            self._clearButtons();
+            try {
+              var res  = await fetch('/tutorial/free-rest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: CURRENT_USER })
+              });
+              var data = await res.json();
+              if (data.new_energy) {
+                _flyEmojiCollection(['+' + (data.restored || data.new_energy) + ' ⚡']);
+                showToast('Fully rested! Energy: ' + data.new_energy + '/' + data.new_energy, 'ok');
+              }
+            } catch(e) {}
+            await self._sayThen('All rested up! You\'ll need that energy for the adventures ahead.');
+            self._showContinue('Refreshed! →', function() { self._advanceStep(); });
+          });
+        });
+      });
+    },
+
+    // ── Step 8 — Village Building ────────────────────────────────────────────
+    _step8: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      await self._sayThen('One more thing — and this is the most important part. This village was built by ALL of us. Click any building and find the DONATE section!');
+      self._showContinue('Got it! →', async function() {
+        await self._sayThen('When everyone donates resources, buildings level up and EVERYONE gets better rates. That\'s the spirit of Penguin Village!');
+        self._showContinue('I\'ll contribute! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 9 — Igloo ───────────────────────────────────────────────────────
+    _step9: async function() {
+      var self = this;
+      self._highlightEl('.content-tab[data-tab="igloo"]');
+      await self._sayThen('Almost forgot — you have your own home! Click the IGLOO tab to see your personal space.');
+      self._waitForContentTab('igloo').then(async function() {
+        self._clearHighlights();
+        await self._sayThen('It\'s a bit empty right now, but you can buy furniture at the Boutique and decorate it! Other penguins can visit your igloo too.');
+        self._showContinue('Cool! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 10 — Stream + Final Gift ────────────────────────────────────────
+    _step10: async function() {
+      var self = this;
+      await self._sayThen('Last thing — Penguin Village is connected to my Twitch stream! When I\'m live, you earn bonus resources and exclusive Mayor\'s Seals for special cosmetics.');
+      self._showContinue('Awesome! →', async function() {
+        self._clearButtons();
+        try {
+          var res  = await fetch('/tutorial/gift', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: CURRENT_USER, step: 10 })
+          });
+          var data = await res.json();
+          if (data.earned) {
+            var parts = [];
+            if (data.earned.gold)        parts.push('+' + data.earned.gold + ' 💰');
+            if (data.earned.mayor_seals) parts.push('+' + data.earned.mayor_seals + ' 🦭 SEAL');
+            if (parts.length) _flyEmojiCollection(parts);
+          }
+        } catch(e) {}
+        if (window.Effects && Effects.confettiBurst) Effects.confettiBurst();
+        await self._sayThen('You\'re all set, ' + PENGUIN_NAME + '! Welcome home. Now go make this village proud! 🐧');
+        self._showContinue('Let\'s go! 🐧', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Complete ─────────────────────────────────────────────────────────────
+    _complete: function() {
+      this._clearHighlights();
+      var box = this.dialogueBox;
+      if (box) {
+        box.style.animation = 'slideDown 0.35s ease forwards';
+        setTimeout(function() { if (box.parentNode) box.parentNode.removeChild(box); }, 350);
+      }
+      fetch('/tutorial/advance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, step: 11 })
+      }).catch(function() {});
+      showToast('Tutorial complete! Welcome to Penguin Village! 🐧', 'ok');
+    },
+
+    skipTutorial: async function() {
+      if (confirm('Skip the tutorial? You\'ll miss out on some free rewards!')) {
+        this._clearHighlights();
+        var box = this.dialogueBox;
+        if (box) {
+          box.style.animation = 'slideDown 0.35s ease forwards';
+          setTimeout(function() { if (box.parentNode) box.parentNode.removeChild(box); }, 350);
+        }
+        try {
+          await fetch('/tutorial/advance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: CURRENT_USER, step: 11 })
+          });
+        } catch(e) {}
+      }
+    },
+  };
+
+  // ── Emoji collection fly animation helper ─────────────────────────────────
+  function _flyEmojiCollection(parts) {
+    parts.forEach(function(text, i) {
+      setTimeout(function() {
+        var el = document.createElement('div');
+        el.className = 'flying-emoji';
+        el.textContent = text;
+        el.style.cssText = 'position:fixed;left:' + (30 + i * 80) + 'px;bottom:120px;z-index:95000;font-family:\'Press Start 2P\',monospace;font-size:9px;pointer-events:none;color:#FF8C00;transition:all 1.2s ease;';
+        document.body.appendChild(el);
+        requestAnimationFrame(function() {
+          el.style.transform = 'translateY(-60px)';
+          el.style.opacity = '0';
+        });
+        setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 1300);
+      }, i * 200);
+    });
+  }
+
+  // ── Level-up overlay helper ───────────────────────────────────────────────
+  function _showLevelUp(lvlData) {
+    if (window.Effects && Effects.levelUpOverlay) {
+      Effects.levelUpOverlay(lvlData);
     } else {
-      nextBtn.textContent = 'NEXT ▶';
-      nextBtn.onclick = tutNext;
+      showToast('Level up! You reached level ' + lvlData.level + '! 🎉', 'ok');
     }
   }
 
-  function tutNext() {
-    if (_tutStep < _TUT_STEPS.length - 1) { _tutStep++; _tutRender(); }
-  }
-
-  function tutBack() {
-    if (_tutStep > 0) { _tutStep--; _tutRender(); }
-  }
-
-  function tutSkip() {
-    document.getElementById('tut-overlay').classList.remove('active');
-    _tutMarkComplete();
-  }
-
-  function tutFinish() {
-    document.getElementById('tut-overlay').classList.remove('active');
-    _tutMarkComplete();
-    Effects.confettiBurst && Effects.confettiBurst();
-    showToast('Tutorial complete! Happy exploring! 🐧', 'ok');
-  }
-
-  function _tutMarkComplete() {
-    fetch('/tutorial/complete', { method: 'POST' }).catch(() => {});
-  }
-
-  // Auto-open on first login (server-side flag)
+  // Auto-start tutorial for new players
   {% if logged_in and not tutorial_completed %}
-  setTimeout(() => openTutorial(0), 800);
+  setTimeout(function() {
+    if (window.TutorialManager && TUTORIAL_STEP < 11) {
+      TutorialManager.init(TUTORIAL_STEP);
+    }
+  }, 900);
   {% endif %}
 
   // ═══════════════════════════════════════════════════════════════
@@ -7638,21 +8198,7 @@
     </div>
   </div>
 
-  <!-- TUTORIAL OVERLAY -->
-  <div id="tut-overlay">
-    <div class="tut-card">
-      <button class="tut-skip-btn" onclick="tutSkip()">SKIP ✕</button>
-      <div class="tut-step-label" id="tut-step-label">STEP 1 OF 10</div>
-      <div class="tut-progress"><div class="tut-progress-fill" id="tut-progress-fill" style="width:10%"></div></div>
-      <span class="tut-icon" id="tut-icon">🐧</span>
-      <div class="tut-title" id="tut-title">WELCOME TO PENGUIN VILLAGE!</div>
-      <div class="tut-body" id="tut-body">You are a penguin living in a cozy arctic village. Explore buildings, earn resources, level up, and customize your penguin!</div>
-      <div class="tut-nav">
-        <button class="tut-btn back" id="tut-back-btn" onclick="tutBack()" style="display:none;">◀ BACK</button>
-        <button class="tut-btn primary" id="tut-next-btn" onclick="tutNext()">NEXT ▶</button>
-      </div>
-    </div>
-  </div>
+  <!-- Mayor dialogue is injected dynamically by TutorialManager -->
 
   <!-- CONTEXTUAL TOOLTIP CONTAINER -->
   <div id="ctx-tip-container"></div>
