@@ -25,7 +25,7 @@
       background: var(--bg);
       color: var(--white);
       font-family: 'Silkscreen', monospace;
-      font-size: 32px;
+      font-size: 21px;
       image-rendering: pixelated;
       overflow: hidden;
     }
@@ -59,13 +59,13 @@
       align-items: center;
       flex-shrink: 0;
     }
-    .nav-logo { color: var(--purple); font-size: 35px; letter-spacing: 1px; }
+    .nav-logo { color: var(--purple); font-size: 23px; letter-spacing: 1px; }
     .nav-logo span { color: var(--pink); }
     .nav-right { display: flex; align-items: center; gap: 12px; }
-    .nav-user { color: var(--white); font-size: 28px; }
+    .nav-user { color: var(--white); font-size: 19px; }
     .nav-logout {
       color: var(--pink);
-      font-size: 25px;
+      font-size: 17px;
       border: 2px solid var(--pink);
       padding: 6px 10px;
       text-decoration: none;
@@ -91,7 +91,7 @@
     .sidebar-tab {
       flex: 1;
       padding: 10px 4px;
-      font-size: 22px;
+      font-size: 15px;
       font-family: 'Silkscreen', monospace;
       color: #888;
       background: var(--dark);
@@ -109,20 +109,20 @@
 
     /* ── STATS SIDEBAR TAB ── */
     .sb-section { padding: 12px; border-bottom: 2px solid var(--purple); flex-shrink: 0; }
-    .sb-section-title { color: var(--purple); font-size: 25px; margin-bottom: 8px; }
+    .sb-section-title { color: var(--purple); font-size: 17px; margin-bottom: 8px; }
     .sb-res-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-    .sb-res-lbl { color: #888; font-size: 20px; }
-    .sb-res-val { color: var(--white); font-size: 22px; }
+    .sb-res-lbl { color: #888; font-size: 13px; }
+    .sb-res-val { color: var(--white); font-size: 15px; }
     .sb-mission-row { display: flex; align-items: flex-start; gap: 5px; padding: 5px 0; border-bottom: 1px solid #2a2a2a; position: relative; }
-    #sb-tooltip { display: none; position: fixed; z-index: 9999; background: #1C1C1C; border: 2px solid #A86EFF; padding: 6px 8px; font-size: 20px; color: #FFFFFF; max-width: 280px; word-break: break-word; pointer-events: none; }
+    #sb-tooltip { display: none; position: fixed; z-index: 9999; background: #1C1C1C; border: 2px solid #A86EFF; padding: 6px 8px; font-size: 13px; color: #FFFFFF; max-width: 280px; word-break: break-word; pointer-events: none; }
     #sb-tooltip::before { content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%); border: 4px solid transparent; border-right-color: #A86EFF; }
-    .sb-mission-check { font-size: 22px; flex-shrink: 0; line-height: 1.6; }
+    .sb-mission-check { font-size: 15px; flex-shrink: 0; line-height: 1.6; }
     .sb-mission-info { flex: 1; min-width: 0; }
-    .sb-mission-title { font-size: 20px; line-height: 1.6; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sb-mission-reward { color: var(--orange); font-size: 20px; }
+    .sb-mission-title { font-size: 13px; line-height: 1.6; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sb-mission-reward { color: var(--orange); font-size: 13px; }
     .sb-mission-claim {
       background: #6441a5; border: 1px solid var(--purple);
-      color: var(--white); font-size: 20px; align-self: center;
+      color: var(--white); font-size: 13px; align-self: center;
       font-family: 'Silkscreen', monospace; padding: 4px 6px; cursor: pointer; flex-shrink: 0;
     }
     .sb-mission-claim:hover:not(:disabled) { border-color: var(--pink); }
@@ -130,45 +130,45 @@
 
     /* ── MISSIONS CONTENT PANEL ── */
     .missions-panel { padding: 8px; overflow-y: auto; flex: 1; }
-    .missions-date  { color: #555; font-size: 18px; font-family: 'Silkscreen', monospace; margin-bottom: 8px; }
+    .missions-date  { color: #555; font-size: 12px; font-family: 'Silkscreen', monospace; margin-bottom: 8px; }
     .mission-card   { background: #1C1C1C; border: 2px solid #2E2E2E; padding: 6px 8px; margin-bottom: 4px; }
     .mission-card.done   { border-color: #333; opacity: 0.6; }
     .mission-card.stream { border-color: #6441a5; }
     .weekly-card    { border-left: 3px solid #FF7FE5; }
     .mission-header { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
-    .mission-icon   { font-size: 30px; flex-shrink: 0; }
-    .mission-title  { color: #FFFFFF; font-size: 20px; font-family: 'Silkscreen', monospace; flex: 1; min-width: 0; }
-    .mission-name   { color: #FFFFFF; font-size: 20px; font-family: 'Silkscreen', monospace; }
-    .mission-badge  { font-size: 15px; font-family: 'Silkscreen', monospace; padding: 1px 4px; flex-shrink: 0; }
+    .mission-icon   { font-size: 20px; flex-shrink: 0; }
+    .mission-title  { color: #FFFFFF; font-size: 13px; font-family: 'Silkscreen', monospace; flex: 1; min-width: 0; }
+    .mission-name   { color: #FFFFFF; font-size: 13px; font-family: 'Silkscreen', monospace; }
+    .mission-badge  { font-size: 10px; font-family: 'Silkscreen', monospace; padding: 1px 4px; flex-shrink: 0; }
     .mission-badge.done   { color: #4aff6b; border: 1px solid #4aff6b; }
     .mission-badge.stream { color: #A86EFF; border: 1px solid #A86EFF; }
-    .mission-desc   { color: #555; font-size: 18px; font-family: 'Silkscreen', monospace; margin-bottom: 4px; line-height: 1.7; }
+    .mission-desc   { color: #555; font-size: 12px; font-family: 'Silkscreen', monospace; margin-bottom: 4px; line-height: 1.7; }
     .mission-bar-wrap { background: #2E2E2E; height: 4px; margin-bottom: 4px; }
     .mission-bar-fill { background: #A86EFF; height: 4px; transition: width 0.3s; }
     .mission-bar-fill.done { background: #4aff6b; }
     .mission-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .mission-reward { color: #FF8C00; font-size: 18px; font-family: 'Silkscreen', monospace; }
-    .mission-prog   { color: #888;    font-size: 18px; font-family: 'Silkscreen', monospace; }
-    .mission-progress { color: #888;  font-size: 18px; font-family: 'Silkscreen', monospace; }
-    .mission-claim  { border: 2px solid #4aff6b; color: #4aff6b; font-size: 18px; font-family: 'Silkscreen', monospace;
+    .mission-reward { color: #FF8C00; font-size: 12px; font-family: 'Silkscreen', monospace; }
+    .mission-prog   { color: #888;    font-size: 12px; font-family: 'Silkscreen', monospace; }
+    .mission-progress { color: #888;  font-size: 12px; font-family: 'Silkscreen', monospace; }
+    .mission-claim  { border: 2px solid #4aff6b; color: #4aff6b; font-size: 12px; font-family: 'Silkscreen', monospace;
                       padding: 2px 6px; cursor: pointer; background: transparent;
                       animation: mission-pulse 1.2s ease-in-out infinite; }
-    .mission-claim-btn { border: 2px solid #4aff6b; color: #4aff6b; font-size: 18px; font-family: 'Silkscreen', monospace;
+    .mission-claim-btn { border: 2px solid #4aff6b; color: #4aff6b; font-size: 12px; font-family: 'Silkscreen', monospace;
                       padding: 2px 6px; cursor: pointer; background: transparent;
                       animation: mission-pulse 1.2s ease-in-out infinite; }
     @keyframes mission-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(74,255,107,0.4); }
       50%       { box-shadow: 0 0 0 4px rgba(74,255,107,0); }
     }
-    .mission-weekly-hdr { color: #FF7FE5; font-size: 20px; font-family: 'Silkscreen', monospace;
+    .mission-weekly-hdr { color: #FF7FE5; font-size: 13px; font-family: 'Silkscreen', monospace;
                           margin: 10px 0 5px; padding-bottom: 4px; border-bottom: 1px solid #FF7FE5; }
 
-    .sb-streak-count { color: var(--orange); font-size: 28px; }
+    .sb-streak-count { color: var(--orange); font-size: 19px; }
     .sb-award-row { display: flex; align-items: center; justify-content: space-between; }
-    .sb-award-count { color: var(--white); font-size: 20px; }
+    .sb-award-count { color: var(--white); font-size: 13px; }
     .sb-award-btn {
       background: transparent; border: 1px solid var(--purple);
-      color: var(--purple); font-size: 20px;
+      color: var(--purple); font-size: 13px;
       font-family: 'Silkscreen', monospace; padding: 5px 8px; cursor: pointer;
     }
     .sb-award-btn:hover { border-color: var(--pink); color: var(--pink); }
@@ -196,20 +196,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+      font-size: 15px;
       color: #666;
       text-align: center;
       line-height: 1.6;
     }
-    .penguin-name { color: var(--white); font-size: 25px; text-align: center; margin-top: 2px; }
-    .penguin-level { color: var(--orange); font-size: 22px; }
+    .penguin-name { color: var(--white); font-size: 17px; text-align: center; margin-top: 2px; }
+    .penguin-level { color: var(--orange); font-size: 15px; }
 
     /* ── STATS ── */
     .stats-section { padding: 12px; border-bottom: var(--border-thin); }
-    .section-title { color: var(--purple); font-size: 25px; margin-bottom: 8px; border-bottom: 1px solid var(--purple); padding-bottom: 4px; }
+    .section-title { color: var(--purple); font-size: 17px; margin-bottom: 8px; border-bottom: 1px solid var(--purple); padding-bottom: 4px; }
     .stat-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-    .stat-lbl { color: #888; font-size: 22px; }
-    .stat-val { color: var(--white); font-size: 22px; }
+    .stat-lbl { color: #888; font-size: 15px; }
+    .stat-val { color: var(--white); font-size: 15px; }
     .bar-wrap { height: 6px; background: var(--dark); border: 1px solid #444; margin-bottom: 6px; }
     .bar-fill { height: 100%; }
     .status-resting { color: #4aff6b; }
@@ -224,7 +224,7 @@
       text-align: center;
       cursor: pointer;
       color: var(--dark);
-      font-size: 22px;
+      font-size: 15px;
       font-family: 'Silkscreen', monospace;
       display: block;
       margin-top: 4px;
@@ -233,7 +233,7 @@
     .collect-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .work-msg {
-      font-size: 20px;
+      font-size: 13px;
       padding: 5px 4px;
       margin-bottom: 6px;
       text-align: center;
@@ -254,7 +254,7 @@
     .social-btn {
       width: 100%;
       padding: 9px 10px;
-      font-size: 22px;
+      font-size: 15px;
       font-family: 'Silkscreen', monospace;
       cursor: pointer;
       display: flex;
@@ -274,12 +274,12 @@
     @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.1; } }
 
     /* ── STREAM LIVE BANNER ── */
-    #stream-live-banner { display: none; background: #2E2E2E; border-bottom: 2px solid #FF7FE5; padding: 6px 16px; text-align: center; font-size: 20px; color: #FF7FE5; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; }
+    #stream-live-banner { display: none; background: #2E2E2E; border-bottom: 2px solid #FF7FE5; padding: 6px 16px; text-align: center; font-size: 13px; color: #FF7FE5; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; }
     #stream-live-banner.show { display: flex; }
     #stream-live-banner .live-dot-banner { width: 7px; height: 7px; background: #ff0000; border-radius: 50%; flex-shrink: 0; animation: blink 1.2s infinite; }
 
     /* ── BUFF BANNER ── */
-    #buff-banner { display: none; background: #1a0a1a; border-bottom: 2px solid #FF7FE5; padding: 5px 16px; font-size: 20px; color: #FF7FE5; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; animation: buffpulse 2s infinite; }
+    #buff-banner { display: none; background: #1a0a1a; border-bottom: 2px solid #FF7FE5; padding: 5px 16px; font-size: 13px; color: #FF7FE5; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap; animation: buffpulse 2s infinite; }
     #buff-banner.show { display: flex; }
     @keyframes buffpulse { 0%,100%{border-color:#FF7FE5} 50%{border-color:#A86EFF} }
 
@@ -287,99 +287,99 @@
     #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
     #seal-shop-modal.show { display: flex; }
     .seal-shop-box { background: #2E2E2E; border: 3px solid #FF7FE5; padding: 16px; max-width: 360px; width: 90%; font-family: 'Silkscreen', monospace; max-height: 80vh; overflow-y: auto; animation: popIn 0.2s ease; }
-    .seal-shop-header { color: #FF7FE5; font-size: 28px; margin-bottom: 4px; }
-    .seal-shop-sub    { color: #888; font-size: 18px; margin-bottom: 12px; line-height: 1.8; }
-    .seal-shop-count  { color: #fff; font-size: 20px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+    .seal-shop-header { color: #FF7FE5; font-size: 19px; margin-bottom: 4px; }
+    .seal-shop-sub    { color: #888; font-size: 12px; margin-bottom: 12px; line-height: 1.8; }
+    .seal-shop-count  { color: #fff; font-size: 13px; margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px; }
     .seal-shop-count span { color: #FF7FE5; }
     .seal-item        { padding: 8px 4px; border-bottom: 1px solid #222; display: flex; flex-direction: column; gap: 4px; }
-    .seal-item-name   { color: #fff; font-size: 20px; }
-    .seal-item-cost   { color: #FF7FE5; font-size: 18px; }
-    .seal-item-desc   { color: #888; font-size: 18px; line-height: 1.7; }
+    .seal-item-name   { color: #fff; font-size: 13px; }
+    .seal-item-cost   { color: #FF7FE5; font-size: 12px; }
+    .seal-item-desc   { color: #888; font-size: 12px; line-height: 1.7; }
     .seal-item-footer { display: flex; justify-content: flex-end; margin-top: 4px; }
-    .seal-buy-btn     { font-family: 'Silkscreen', monospace; font-size: 18px; padding: 4px 8px; border: 2px solid #FF7FE5; background: transparent; color: #FF7FE5; cursor: pointer; }
+    .seal-buy-btn     { font-family: 'Silkscreen', monospace; font-size: 12px; padding: 4px 8px; border: 2px solid #FF7FE5; background: transparent; color: #FF7FE5; cursor: pointer; }
     .seal-buy-btn:hover:not(:disabled) { background: #FF7FE5; color: #1C1C1C; }
     .seal-buy-btn:disabled { border-color: #555; color: #555; cursor: not-allowed; }
-    .seal-owned-badge { font-size: 18px; color: #4aff6b; padding: 4px 8px; border: 2px solid #4aff6b; }
-    .seal-shop-close  { font-family: 'Silkscreen', monospace; font-size: 20px; padding: 6px 14px; border: 2px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 12px; }
+    .seal-owned-badge { font-size: 12px; color: #4aff6b; padding: 4px 8px; border: 2px solid #4aff6b; }
+    .seal-shop-close  { font-family: 'Silkscreen', monospace; font-size: 13px; padding: 6px 14px; border: 2px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 12px; }
     .seal-shop-close:hover { border-color: #FF7FE5; color: #FF7FE5; }
 
     /* ── SIDEBAR TITLE DISPLAY ── */
     .sidebar-title-row { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 6px; flex-wrap: wrap; }
-    .sidebar-active-title { color: #A86EFF; font-size: 20px; text-align: center; }
-    .sidebar-no-title { color: #666; font-size: 20px; }
-    .title-change-btn { font-family: 'Silkscreen', monospace; font-size: 15px; padding: 3px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
+    .sidebar-active-title { color: #A86EFF; font-size: 13px; text-align: center; }
+    .sidebar-no-title { color: #666; font-size: 13px; }
+    .title-change-btn { font-family: 'Silkscreen', monospace; font-size: 10px; padding: 3px 6px; border: 1px solid #555; background: transparent; color: #888; cursor: pointer; }
     .title-change-btn:hover { border-color: #A86EFF; color: #A86EFF; }
-    .view-card-btn { font-family: 'Silkscreen', monospace; font-size: 18px; padding: 5px 10px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
+    .view-card-btn { font-family: 'Silkscreen', monospace; font-size: 12px; padding: 5px 10px; border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; }
     .view-card-btn:hover { background: #A86EFF; color: #1C1C1C; }
 
     /* ── CARD MODAL ── */
     #card-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9999; align-items: center; justify-content: center; }
     #card-modal.show { display: flex; }
     .card-modal-box { background: #1C1C1C; border: 3px solid #A86EFF; padding: 16px; max-width: 420px; width: 90%; font-family: 'Silkscreen', monospace; animation: popIn 0.2s ease; }
-    .card-modal-title { color: #A86EFF; font-size: 22px; margin-bottom: 12px; }
+    .card-modal-title { color: #A86EFF; font-size: 15px; margin-bottom: 12px; }
     .card-preview { width: 100%; border: 2px solid #2E2E2E; margin-bottom: 12px; }
     .card-preview-inner { display: flex; background: #1C1C1C; }
     .card-preview-left { width: 120px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:14px 8px; border-right:1px solid #2E2E2E; gap:6px; }
     .card-preview-sprite { width:56px; height:56px; image-rendering:pixelated; }
-    .card-preview-username { color:#fff; font-size:18px; text-align:center; }
-    .card-preview-title   { color:#A86EFF; font-size:15px; text-align:center; line-height:1.6; }
-    .card-preview-prestige { color:#FF7FE5; font-size:22px; }
+    .card-preview-username { color:#fff; font-size:12px; text-align:center; }
+    .card-preview-title   { color:#A86EFF; font-size:10px; text-align:center; line-height:1.6; }
+    .card-preview-prestige { color:#FF7FE5; font-size:15px; }
     .card-preview-right { flex:1; padding:12px 10px; display:flex; flex-direction:column; gap:7px; }
-    .card-preview-header { color:#A86EFF; font-size:20px; }
-    .card-preview-stat { font-size:18px; color:#888; line-height:1.8; }
+    .card-preview-header { color:#A86EFF; font-size:13px; }
+    .card-preview-stat { font-size:12px; color:#888; line-height:1.8; }
     .card-preview-stat span { color:#fff; }
     .card-preview-stat span.orange { color:#FF8C00; }
     .card-preview-stat span.purple { color:#A86EFF; }
-    .card-preview-url { color:#555; font-size:15px; margin-top:auto; }
+    .card-preview-url { color:#555; font-size:10px; margin-top:auto; }
     .card-modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
-    .card-modal-action-btn { font-family:'Silkscreen',monospace; font-size:18px; padding:6px 12px; border:2px solid #A86EFF; background:transparent; color:#A86EFF; cursor:pointer; }
+    .card-modal-action-btn { font-family:'Silkscreen',monospace; font-size:12px; padding:6px 12px; border:2px solid #A86EFF; background:transparent; color:#A86EFF; cursor:pointer; }
     .card-modal-action-btn:hover { background:#A86EFF; color:#1C1C1C; }
     .card-modal-action-btn.dl { border-color:#FF8C00; color:#FF8C00; }
     .card-modal-action-btn.dl:hover { background:#FF8C00; color:#1C1C1C; }
-    .card-modal-url { color:#555; font-size:18px; margin-bottom:8px; word-break:break-all; }
-    .card-modal-close { font-family:'Silkscreen',monospace; font-size:18px; padding:5px 12px; border:2px solid #555; background:transparent; color:#888; cursor:pointer; }
+    .card-modal-url { color:#555; font-size:12px; margin-bottom:8px; word-break:break-all; }
+    .card-modal-close { font-family:'Silkscreen',monospace; font-size:12px; padding:5px 12px; border:2px solid #555; background:transparent; color:#888; cursor:pointer; }
     .card-modal-close:hover { border-color:#888; }
 
     /* ── TITLE SELECTION MODAL ── */
     #title-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
     #title-modal.show { display: flex; }
     .title-modal-box { background: #2E2E2E; border: 3px solid #A86EFF; padding: 16px; max-width: 380px; width: 90%; font-family: 'Silkscreen', monospace; max-height: 82vh; overflow-y: auto; animation: popIn 0.2s ease; }
-    .title-modal-header { color: #A86EFF; font-size: 28px; margin-bottom: 12px; }
-    .title-section-label { color: #FF7FE5; font-size: 18px; margin: 10px 0 5px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+    .title-modal-header { color: #A86EFF; font-size: 19px; margin-bottom: 12px; }
+    .title-section-label { color: #FF7FE5; font-size: 12px; margin: 10px 0 5px; border-bottom: 1px solid #333; padding-bottom: 4px; }
     .title-section-label.ceremonial { color: #FF7FE5; border-color: #FF7FE5; }
     .title-item-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px; border-bottom: 1px solid #1a1a1a; gap: 6px; }
-    .title-item-name { color: #fff; font-size: 18px; flex: 1; }
-    .title-item-source { color: #555; font-size: 15px; }
-    .title-equip-btn { font-family: 'Silkscreen', monospace; font-size: 15px; padding: 3px 7px; border: 1px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; white-space: nowrap; }
+    .title-item-name { color: #fff; font-size: 12px; flex: 1; }
+    .title-item-source { color: #555; font-size: 10px; }
+    .title-equip-btn { font-family: 'Silkscreen', monospace; font-size: 10px; padding: 3px 7px; border: 1px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer; white-space: nowrap; }
     .title-equip-btn:hover { background: #A86EFF; color: #1C1C1C; }
-    .title-equipped-badge { font-size: 15px; color: #4aff6b; white-space: nowrap; }
-    .title-none-msg { color: #666; font-size: 18px; text-align: center; padding: 12px 0; }
-    .title-unequip-btn { font-family: 'Silkscreen', monospace; font-size: 15px; padding: 3px 7px; border: 1px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 10px; }
+    .title-equipped-badge { font-size: 10px; color: #4aff6b; white-space: nowrap; }
+    .title-none-msg { color: #666; font-size: 12px; text-align: center; padding: 12px 0; }
+    .title-unequip-btn { font-family: 'Silkscreen', monospace; font-size: 10px; padding: 3px 7px; border: 1px solid #888; background: transparent; color: #888; cursor: pointer; margin-top: 10px; }
     .title-unequip-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
-    .title-modal-close { font-family: 'Silkscreen', monospace; font-size: 18px; padding: 6px 14px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; margin-top: 12px; display: block; }
+    .title-modal-close { font-family: 'Silkscreen', monospace; font-size: 12px; padding: 6px 14px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; margin-top: 12px; display: block; }
     .title-modal-close:hover { border-color: #A86EFF; color: #A86EFF; }
 
     /* ── TITLE PROGRESS (LEVELS TAB) ── */
     .title-progress-section { padding: 10px 12px; border-top: var(--border-thin); }
-    .title-progress-header { color: #FF7FE5; font-size: 20px; margin-bottom: 8px; }
+    .title-progress-header { color: #FF7FE5; font-size: 13px; margin-bottom: 8px; }
     .title-prog-row { margin-bottom: 10px; }
-    .title-prog-label { color: #888; font-size: 18px; margin-bottom: 3px; display: flex; justify-content: space-between; }
-    .title-prog-name { color: #A86EFF; font-size: 18px; }
+    .title-prog-label { color: #888; font-size: 12px; margin-bottom: 3px; display: flex; justify-content: space-between; }
+    .title-prog-name { color: #A86EFF; font-size: 12px; }
     .title-prog-bar-wrap { height: 4px; background: #1C1C1C; margin-bottom: 2px; }
     .title-prog-bar-fill { height: 100%; background: #A86EFF; }
-    .title-prog-next { color: #555; font-size: 15px; }
-    .title-prog-done { color: #4aff6b; font-size: 18px; }
+    .title-prog-next { color: #555; font-size: 10px; }
+    .title-prog-done { color: #4aff6b; font-size: 12px; }
 
     /* ── MAYOR'S SEALS RESOURCE ROW ── */
     .seals-row { position: relative; cursor: pointer; }
     .seals-row:hover .sb-res-val { color: #FF7FE5; }
-    .seals-shop-link { font-size: 15px; color: #A86EFF; margin-left: 4px; }
+    .seals-shop-link { font-size: 10px; color: #A86EFF; margin-left: 4px; }
 
     /* ── RESOURCES GRID ── */
     .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 8px 10px; }
     .res-item { display: flex; align-items: center; gap: 4px; }
-    .res-icon { font-size: 25px; }
-    .res-val  { color: var(--white); font-size: 22px; }
+    .res-icon { font-size: 17px; }
+    .res-val  { color: var(--white); font-size: 15px; }
 
     /* ── GEAR SLOTS IN SIDEBAR ── */
 
@@ -388,7 +388,7 @@
     .content-tabs { display: flex; border-bottom: var(--border); flex-shrink: 0; overflow-x: auto; }
     .content-tab {
       padding: 11px 12px;
-      font-size: 22px;
+      font-size: 15px;
       font-family: 'Silkscreen', monospace;
       color: #888;
       background: var(--dark);
@@ -418,10 +418,10 @@
       padding: 3px 8px; background: #2E2E2E;
       border: 1px solid #444; min-width: 70px;
     }
-    .res-icon  { font-size: 35px; }
+    .res-icon  { font-size: 23px; }
     .res-count {
       font-family: 'Silkscreen', monospace;
-      font-size: 22px; color: #FFFFFF;
+      font-size: 15px; color: #FFFFFF;
     }
     .res-count.updated {
       animation: res-pulse 0.5s ease-out forwards;
@@ -443,7 +443,7 @@
     #res-spell_fragments { border-color: #A86EFF; }
     #res-spell_fragments .res-count { color: #A86EFF; }
     .flying-emoji {
-      position: fixed; font-size: 45px;
+      position: fixed; font-size: 30px;
       pointer-events: none; z-index: 10000;
       text-shadow: 0 0 4px rgba(0,0,0,0.5);
     }
@@ -481,7 +481,7 @@
     }
     #bm-content { padding: 20px; }
     .bm-close {
-      float: right; font-size: 40px;
+      float: right; font-size: 27px;
       color: #FF7FE5; cursor: pointer; padding: 0 0 8px 12px;
     }
     .bm-close:hover { color: #fff; }
@@ -502,11 +502,11 @@
     .bm-prog-pct {
       position: absolute; top: 0; left: 0; right: 0; bottom: 0;
       display: flex; align-items: center; justify-content: center;
-      font-family: 'Silkscreen', monospace; font-size: 18px; color: #fff;
+      font-family: 'Silkscreen', monospace; font-size: 12px; color: #fff;
       pointer-events: none; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
     }
     .bp-btn {
-      width: 100%; padding: 11px; font-size: 22px;
+      width: 100%; padding: 11px; font-size: 15px;
       font-family: 'Silkscreen', monospace;
       border: 2px solid var(--purple); background: var(--dark);
       color: var(--white); cursor: pointer;
@@ -519,12 +519,12 @@
     .bp-btn.rest:hover:not(:disabled) { background: #4aff6b; color: #1C1C1C; }
     .bp-coming-soon { text-align: center; padding: 20px 0; }
     .bp-coming-soon-box { border: 2px dashed #A86EFF; padding: 16px; }
-    .bp-coming-soon-title { color: #FF7FE5; font-size: 25px; margin-bottom: 8px; }
-    .bp-coming-soon-desc  { color: #888; font-size: 20px; line-height: 1.8; }
+    .bp-coming-soon-title { color: #FF7FE5; font-size: 17px; margin-bottom: 8px; }
+    .bp-coming-soon-desc  { color: #888; font-size: 13px; line-height: 1.8; }
 
     /* ── BOUTIQUE ── */
     .bq-tabs { display: flex; gap: 0; border-bottom: 2px solid #333; margin-bottom: 14px; flex-wrap: wrap; }
-    .bq-tab  { font-family: 'Silkscreen', monospace; font-size: 18px; padding: 8px 10px; border: none; background: transparent; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .bq-tab  { font-family: 'Silkscreen', monospace; font-size: 12px; padding: 8px 10px; border: none; background: transparent; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
     .bq-tab.active { color: #FF7FE5; background: #2E2E2E; border-bottom-color: #FF7FE5; }
     .bq-tab:hover:not(.active) { color: #ccc; }
     .bq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -535,25 +535,25 @@
     .bq-card.dragon { border-color: #FF8C00; animation: bq-glow 1.5s ease-in-out infinite; }
     @keyframes bq-shimmer { 0%,100% { opacity:0; } 50% { opacity:1; } }
     @keyframes bq-glow { 0%,100% { box-shadow: 0 0 6px #FF8C00; } 50% { box-shadow: 0 0 18px #FF8C00, 0 0 30px rgba(255,140,0,0.4); } }
-    .bq-item-name { font-size: 22px; color: #fff; }
-    .bq-item-name.expensive { font-size: 25px; }
-    .bq-legendary-tag { position: absolute; top: 5px; right: 5px; font-size: 15px; color: #FF8C00; font-family: 'Silkscreen', monospace; }
-    .bq-price { font-size: 20px; }
-    .bq-price.expensive { font-size: 25px; }
+    .bq-item-name { font-size: 15px; color: #fff; }
+    .bq-item-name.expensive { font-size: 17px; }
+    .bq-legendary-tag { position: absolute; top: 5px; right: 5px; font-size: 10px; color: #FF8C00; font-family: 'Silkscreen', monospace; }
+    .bq-price { font-size: 13px; }
+    .bq-price.expensive { font-size: 17px; }
     .bq-btn-row { display: flex; gap: 5px; margin-top: 2px; }
-    .bq-btn { font-family: 'Silkscreen', monospace; font-size: 18px; padding: 5px 8px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; flex: 1; }
+    .bq-btn { font-family: 'Silkscreen', monospace; font-size: 12px; padding: 5px 8px; border: 2px solid #555; background: transparent; color: #888; cursor: pointer; flex: 1; }
     .bq-btn.preview { border-color: #A86EFF; color: #A86EFF; }
     .bq-btn.buy     { border-color: #4aff6b; color: #4aff6b; }
     .bq-btn.buy:disabled { border-color: #333; color: #555; cursor: not-allowed; opacity: 0.5; }
     .bq-btn.equip   { border-color: #4a9eff; color: #4a9eff; }
     .bq-btn.equipped-mark { border-color: #4aff6b; color: #4aff6b; cursor: default; }
-    .bq-owned { font-size: 18px; color: #4aff6b; }
+    .bq-owned { font-size: 12px; color: #4aff6b; }
     /* Preview overlay */
     #bq-preview { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.85); z-index:10; align-items:center; justify-content:center; flex-direction:column; gap:12px; padding:20px; }
     #bq-preview.show { display:flex; }
     .bq-preview-penguin { position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center; }
     .bq-preview-penguin img { width:80px; height:80px; image-rendering:pixelated; }
-    .bq-preview-slot-label { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:18px; color:#fff; white-space:nowrap; font-family:'Silkscreen',monospace; }
+    .bq-preview-slot-label { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:12px; color:#fff; white-space:nowrap; font-family:'Silkscreen',monospace; }
 
 
     /* ── COSMETIC EQUIP MODAL ── */
@@ -569,15 +569,15 @@
       font-family: 'Silkscreen', monospace;
       animation: popIn 0.2s ease;
     }
-    .cosmetic-modal-title { color: #A86EFF; font-size: 22px; margin-bottom: 10px; }
+    .cosmetic-modal-title { color: #A86EFF; font-size: 15px; margin-bottom: 10px; }
     .cosmetic-item-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 6px 4px; border-bottom: 1px solid #222; font-size: 20px;
+      padding: 6px 4px; border-bottom: 1px solid #222; font-size: 13px;
     }
     .cosmetic-item-name { color: #FF7FE5; flex: 1; }
     .cosmetic-item-name.none { color: #555; font-style: italic; }
     .cosmetic-action-btn {
-      font-family: 'Silkscreen', monospace; font-size: 18px;
+      font-family: 'Silkscreen', monospace; font-size: 12px;
       padding: 4px 8px; border: 1px solid; cursor: pointer; background: none;
     }
     .cosmetic-action-btn.equip   { border-color: #A86EFF; color: #A86EFF; }
@@ -586,7 +586,7 @@
     .cosmetic-action-btn.unequip:hover { background: #4aff6b; color: #1C1C1C; }
     .cosmetic-modal-close {
       display: block; width: 100%; margin-top: 10px;
-      font-family: 'Silkscreen', monospace; font-size: 20px;
+      font-family: 'Silkscreen', monospace; font-size: 13px;
       padding: 8px; border: 1px solid #555; color: #555; background: none; cursor: pointer;
     }
     .cosmetic-modal-close:hover { border-color: #888; color: #888; }
@@ -615,29 +615,29 @@
     }
     .inv-preview-penguin { margin-bottom: 10px; }
     .inv-preview-penguin img { width: 64px; height: 64px; image-rendering: pixelated; }
-    .inv-preview-label { color: #A86EFF; font-size: 20px; margin-bottom: 14px; text-align: center; }
+    .inv-preview-label { color: #A86EFF; font-size: 13px; margin-bottom: 14px; text-align: center; }
     .inv-preview-legend { width: 100%; margin-top: auto; }
     .inv-legend-row {
       display: flex; align-items: center; gap: 6px;
-      font-size: 15px; color: #666; margin-bottom: 6px; line-height: 1.6;
+      font-size: 10px; color: #666; margin-bottom: 6px; line-height: 1.6;
     }
-    .inv-legend-icon { font-size: 22px; flex-shrink: 0; }
+    .inv-legend-icon { font-size: 15px; flex-shrink: 0; }
     .inv-legend-sep { width: 100%; border: none; border-top: 1px solid #333; margin: 6px 0; }
     /* Right content column */
     .inv-col-right {
       flex: 1; display: flex; flex-direction: column; min-width: 0;
     }
     .inv-header { padding: 14px 16px 0; flex-shrink: 0; position: relative; }
-    .inv-title { color: #A86EFF; font-size: 25px; margin-bottom: 10px; padding-right: 24px; }
+    .inv-title { color: #A86EFF; font-size: 17px; margin-bottom: 10px; padding-right: 24px; }
     .inv-close-x {
       position: absolute; top: 10px; right: 12px;
-      background: none; border: none; color: #FF7FE5; font-size: 35px;
+      background: none; border: none; color: #FF7FE5; font-size: 23px;
       cursor: pointer; font-family: 'Silkscreen', monospace; line-height: 1;
     }
     .inv-close-x:hover { color: #fff; }
     .inv-tabs { display: flex; border-bottom: 2px solid #444; margin-top: 4px; }
     .inv-tab {
-      font-family: 'Silkscreen', monospace; font-size: 18px;
+      font-family: 'Silkscreen', monospace; font-size: 12px;
       padding: 8px 10px; border: none; background: none;
       color: #555; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
     }
@@ -646,7 +646,7 @@
     .inv-body { flex: 1; overflow-y: auto; padding: 12px 14px 16px; }
     .inv-slot-group { margin-bottom: 14px; }
     .inv-slot-title {
-      color: #888; font-size: 18px; margin-bottom: 8px;
+      color: #888; font-size: 12px; margin-bottom: 8px;
       padding-bottom: 4px; border-bottom: 1px solid #333;
     }
     .inv-item {
@@ -661,15 +661,15 @@
     .inv-item.rarity-epic      { border-color: #A86EFF; }
     .inv-item.rarity-uncommon  { border-color: #4aff6b; }
     .inv-item-info { flex: 1; min-width: 0; }
-    .inv-item-name { color: #fff; font-size: 20px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .inv-item-source { color: #666; font-size: 15px; margin-bottom: 2px; }
-    .inv-item-status { font-size: 15px; margin-top: 2px; }
-    .inv-item-stats { color: #888; font-size: 15px; margin-top: 2px; }
-    .inv-set-line { color: #FF8C00; font-size: 15px; margin-top: 2px; }
+    .inv-item-name { color: #fff; font-size: 13px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inv-item-source { color: #666; font-size: 10px; margin-bottom: 2px; }
+    .inv-item-status { font-size: 10px; margin-top: 2px; }
+    .inv-item-stats { color: #888; font-size: 10px; margin-top: 2px; }
+    .inv-set-line { color: #FF8C00; font-size: 10px; margin-top: 2px; }
     /* Dual-button pair */
     .inv-btn-pair { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
     .inv-btn {
-      font-family: 'Silkscreen', monospace; font-size: 15px;
+      font-family: 'Silkscreen', monospace; font-size: 10px;
       padding: 4px 7px; border: 1px solid; cursor: pointer; background: none; white-space: nowrap;
     }
     /* Legacy single-button styles (kept for cosmetic modal) */
@@ -685,29 +685,29 @@
     .inv-btn.wear-action            { border-color: #A86EFF; color: #A86EFF; }
     .inv-btn.wear-action:hover      { background: #A86EFF; color: #1C1C1C; }
     .inv-btn.wear-action.active     { background: #A86EFF; color: #1C1C1C; }
-    .inv-empty { color: #555; font-size: 20px; padding: 8px 0; text-align: center; line-height: 2.2; }
+    .inv-empty { color: #555; font-size: 13px; padding: 8px 0; text-align: center; line-height: 2.2; }
     /* Button that opens inventory from sidebar */
     .inv-open-btn {
       display: block; width: calc(100% - 24px); margin: 8px 12px;
-      font-family: 'Silkscreen', monospace; font-size: 22px;
+      font-family: 'Silkscreen', monospace; font-size: 15px;
       padding: 8px; border: 2px solid #A86EFF; color: #A86EFF;
       background: #1C1C1C; cursor: pointer; text-align: center;
     }
     .inv-open-btn:hover { background: #A86EFF; color: #1C1C1C; }
 
-    .bp-info { font-size: 20px; color: #888; line-height: 2; }
+    .bp-info { font-size: 13px; color: #888; line-height: 2; }
 
     /* ── IGLOO ── */
     .igloo-header-bar {
       background: var(--dark); border-bottom: 2px solid var(--purple);
       padding: 8px 12px; display: flex; align-items: center; justify-content: space-between;
-      flex-shrink: 0; font-size: 22px;
+      flex-shrink: 0; font-size: 15px;
     }
-    #igloo-room-title { color: var(--purple); font-size: 20px; }
+    #igloo-room-title { color: var(--purple); font-size: 13px; }
     .igloo-header-btns { display: flex; gap: 6px; }
     .igloo-hdr-btn {
       background: var(--dark); border: 2px solid var(--purple);
-      color: var(--purple); font-size: 18px;
+      color: var(--purple); font-size: 12px;
       font-family: 'Silkscreen', monospace;
       padding: 5px 8px; cursor: pointer;
     }
@@ -725,10 +725,10 @@
     }
     .igloo-edit-panel.visible { display: flex; }
     .igloo-edit-section-title {
-      color: var(--purple); font-size: 22px; padding: 8px 10px;
+      color: var(--purple); font-size: 15px; padding: 8px 10px;
       border-bottom: 1px solid var(--purple); flex-shrink: 0;
     }
-    .igloo-subsection-label { color: #555; font-size: 18px; padding: 5px 10px 2px; flex-shrink: 0; }
+    .igloo-subsection-label { color: #555; font-size: 12px; padding: 5px 10px 2px; flex-shrink: 0; }
     .igloo-items-list { display: flex; flex-direction: column; }
     .igloo-furn-card {
       display: flex; align-items: center; gap: 5px;
@@ -736,12 +736,12 @@
       background: var(--dark); flex-shrink: 0;
     }
     .igloo-furn-card.selected { background: #2a1a2a; border-color: var(--pink); }
-    .igloo-furn-name { flex: 1; color: var(--white); font-size: 18px; line-height: 1.6; min-width: 0; }
-    .igloo-furn-size { color: #555; font-size: 15px; }
+    .igloo-furn-name { flex: 1; color: var(--white); font-size: 12px; line-height: 1.6; min-width: 0; }
+    .igloo-furn-size { color: #555; font-size: 10px; }
     .igloo-furn-btn {
       background: transparent; border: 1px solid;
       font-family: 'Silkscreen', monospace;
-      font-size: 15px; padding: 3px 5px; cursor: pointer; flex-shrink: 0;
+      font-size: 10px; padding: 3px 5px; cursor: pointer; flex-shrink: 0;
     }
     .igloo-furn-btn.place  { border-color: #4aff6b; color: #4aff6b; }
     .igloo-furn-btn.place:hover  { background: #4aff6b; color: var(--dark); }
@@ -752,7 +752,7 @@
     .igloo-room-opt-btn {
       display: block; width: calc(100% - 16px); margin: 4px 8px;
       background: var(--dark); border: 1px solid #3a3a3a;
-      color: #aaa; font-size: 18px;
+      color: #aaa; font-size: 12px;
       font-family: 'Silkscreen', monospace;
       padding: 7px 8px; cursor: pointer; text-align: left; flex-shrink: 0;
     }
@@ -766,9 +766,9 @@
     .igloo-palette-tile:hover { border-color: #888; }
     .igloo-palette-tile.active { border-color: var(--purple); }
     .igloo-palette-tile.locked { opacity: 0.55; }
-    .igloo-palette-tile .tile-lock { font-size: 22px; line-height: 1; pointer-events: none; }
+    .igloo-palette-tile .tile-lock { font-size: 15px; line-height: 1; pointer-events: none; }
     .igloo-paint-toggle {
-      font-family: 'Silkscreen', monospace; font-size: 15px;
+      font-family: 'Silkscreen', monospace; font-size: 10px;
       background: transparent; border: 1px solid #555; color: #aaa;
       padding: 2px 5px; cursor: pointer;
     }
@@ -777,7 +777,7 @@
     .igloo-status-bar {
       background: #0d1a0d; border-top: 2px solid #4aff6b;
       padding: 6px 12px; display: none; align-items: center; gap: 10px;
-      flex-shrink: 0; font-size: 20px; color: #4aff6b;
+      flex-shrink: 0; font-size: 13px; color: #4aff6b;
     }
     .igloo-status-bar.visible { display: flex; }
 
@@ -789,11 +789,11 @@
     .boss-banner { border:2px solid #FF8C00; background:#1a1100; padding:12px; display:flex; flex-direction:column; gap:8px; }
     .boss-hp-bar { height:12px; background:#333; position:relative; }
     .boss-hp-fill { height:100%; background:#FF8C00; transition:width 0.5s; }
-    .boss-hp-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; }
+    .boss-hp-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; }
 
     /* Tier groups */
     .tier-group  { display:flex; flex-direction:column; gap:8px; }
-    .tier-header { font-size:20px; padding:4px 0; border-bottom:1px solid #2E2E2E; }
+    .tier-header { font-size:13px; padding:4px 0; border-bottom:1px solid #2E2E2E; }
     .tier-header.t1 { color:#4aff6b; } .tier-header.t2 { color:#4a9eff; }
     .tier-header.t3 { color:#A86EFF; } .tier-header.t4 { color:#FF7FE5; }
     .tier-header.t5 { color:#FF8C00; }
@@ -809,9 +809,9 @@
     .monster-card.killed { opacity:0.5; }
     .monster-card.fighting { animation:pulse-border 0.6s infinite; }
     .monster-header { display:flex; align-items:center; gap:8px; }
-    .monster-icon  { font-size:55px; }
-    .monster-name  { color:var(--white); font-size:22px; flex:1; line-height:1.4; }
-    .monster-tier  { font-size:18px; padding:2px 5px; border:1px solid; }
+    .monster-icon  { font-size:37px; }
+    .monster-name  { color:var(--white); font-size:15px; flex:1; line-height:1.4; }
+    .monster-tier  { font-size:12px; padding:2px 5px; border:1px solid; }
     .tier-badge-1  { color:#4aff6b; border-color:#4aff6b; }
     .tier-badge-2  { color:#4a9eff; border-color:#4a9eff; }
     .tier-badge-3  { color:#A86EFF; border-color:#A86EFF; }
@@ -823,15 +823,15 @@
     .win-bar      { height:24px; position:relative; overflow:hidden; }
     .win-bar-green{ position:absolute; left:0; top:0; bottom:0; background:#4aff6b; transition:width 0.4s; }
     .win-bar-red  { position:absolute; right:0; top:0; bottom:0; background:#ff6b6b; }
-    .win-bar-pct  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:30px; font-weight:bold; }
-    .win-eval     { color:#888; font-size:18px; text-align:center; }
+    .win-bar-pct  { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px; font-weight:bold; }
+    .win-eval     { color:#888; font-size:12px; text-align:center; }
 
     /* Monster meta */
-    .monster-meta { color:#666; font-size:18px; display:flex; flex-direction:column; gap:2px; }
+    .monster-meta { color:#666; font-size:12px; display:flex; flex-direction:column; gap:2px; }
     .monster-meta .gold-line { color:#888; }
 
     /* Fight button */
-    .fight-btn { font-family:'Silkscreen',monospace; font-size:22px; padding:8px 10px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; }
+    .fight-btn { font-family:'Silkscreen',monospace; font-size:15px; padding:8px 10px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; }
     .fight-btn:hover:not(:disabled) { background:var(--purple); color:var(--dark); }
     .fight-btn:disabled { opacity:0.4; cursor:not-allowed; }
     .fight-btn.defeated { border-color:#4aff6b; color:#4aff6b; cursor:default; }
@@ -841,29 +841,29 @@
     /* Fight modal */
     .fight-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9000; display:flex; align-items:center; justify-content:center; }
     .fight-modal { background:#1C1C1C; border:3px solid var(--purple); padding:24px 20px; width:min(500px,95vw); display:flex; flex-direction:column; gap:16px; }
-    .fight-modal-header { color:var(--purple); font-size:25px; text-align:center; }
+    .fight-modal-header { color:var(--purple); font-size:17px; text-align:center; }
     .fight-combatants { display:flex; align-items:center; justify-content:space-between; gap:8px; }
     .fight-combatant   { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; }
-    .fight-combatant .emo { font-size:90px; }
-    .fight-combatant .name { color:#fff; font-size:20px; text-align:center; }
-    .fight-combatant .cp   { color:var(--orange); font-size:18px; }
-    .fight-vs { color:var(--pink); font-size:35px; flex-shrink:0; }
+    .fight-combatant .emo { font-size:60px; }
+    .fight-combatant .name { color:#fff; font-size:13px; text-align:center; }
+    .fight-combatant .cp   { color:var(--orange); font-size:12px; }
+    .fight-vs { color:var(--pink); font-size:23px; flex-shrink:0; }
     .roll-bar-wrap { display:flex; flex-direction:column; gap:6px; }
     .roll-bar  { height:32px; background:#333; position:relative; overflow:hidden; }
     .roll-bar-green { position:absolute; left:0; top:0; bottom:0; background:#4aff6b; transition:width 0.1s; }
     .roll-bar-red   { position:absolute; right:0; top:0; bottom:0; background:#ff6b6b; }
-    .roll-bar-num   { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:35px; font-weight:bold; }
-    .roll-bar-label { text-align:center; color:#888; font-size:18px; }
+    .roll-bar-num   { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:23px; font-weight:bold; }
+    .roll-bar-label { text-align:center; color:#888; font-size:12px; }
     .fight-result   { text-align:center; display:flex; flex-direction:column; gap:8px; }
-    .fight-result-title { font-size:40px; }
+    .fight-result-title { font-size:27px; }
     .fight-result-title.win  { color:#4aff6b; animation:scale-pop 0.4s ease; }
     .fight-result-title.loss { color:#ff6b6b; animation:shake 0.3s ease; }
     .fight-rewards { display:flex; flex-direction:column; gap:4px; }
-    .fight-reward-row { font-size:22px; }
-    .fight-result-eval { color:#666; font-size:18px; }
-    .fight-modal-ok { font-family:'Silkscreen',monospace; font-size:22px; padding:10px 20px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; margin-top:4px; }
+    .fight-reward-row { font-size:15px; }
+    .fight-result-eval { color:#666; font-size:12px; }
+    .fight-modal-ok { font-family:'Silkscreen',monospace; font-size:15px; padding:10px 20px; border:2px solid var(--purple); background:transparent; color:var(--purple); cursor:pointer; width:100%; margin-top:4px; }
     .fight-modal-ok:hover { background:var(--purple); color:var(--dark); }
-    .fight-gear-drop { color:#FF8C00; font-size:25px; animation:scale-pop 0.5s ease 0.1s both; }
+    .fight-gear-drop { color:#FF8C00; font-size:17px; animation:scale-pop 0.5s ease 0.1s both; }
     .confetti-container { position:absolute; pointer-events:none; }
     .confetti-piece { position:absolute; width:6px; height:6px; animation:confetti 1s ease forwards; }
 
@@ -875,17 +875,17 @@
 
     /* ── GEAR TAB ── */
     .gear-panel { padding: 12px; overflow-y: auto; flex: 1; }
-    .gear-section-title { color: var(--purple); font-size: 25px; margin: 8px 0 6px; border-bottom: 1px solid var(--purple); padding-bottom: 3px; }
+    .gear-section-title { color: var(--purple); font-size: 17px; margin: 8px 0 6px; border-bottom: 1px solid var(--purple); padding-bottom: 3px; }
     .gear-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
     .gear-card { border: 2px solid #2a2a2a; background: var(--dark); padding: 11px; text-align: center; display: flex; flex-direction: column; gap: 3px; }
     .gear-card.combat   { border-color: #3a2a00; }
     .gear-card.cosmetic { border-color: #2a002a; }
     .gear-card.equipped { border-color: var(--purple); }
-    .gear-card-icon { font-size: 45px; }
-    .gear-card-name { color: var(--white); font-size: 22px; }
-    .gear-card-stats { color: var(--orange); font-size: 22px; }
-    .gear-card-cost { color: #888; font-size: 22px; }
-    .gear-card-btn { margin-top: 2px; padding: 5px 7px; font-size: 22px; font-family: 'Silkscreen', monospace; border: 1px solid; cursor: pointer; }
+    .gear-card-icon { font-size: 30px; }
+    .gear-card-name { color: var(--white); font-size: 15px; }
+    .gear-card-stats { color: var(--orange); font-size: 15px; }
+    .gear-card-cost { color: #888; font-size: 15px; }
+    .gear-card-btn { margin-top: 2px; padding: 5px 7px; font-size: 15px; font-family: 'Silkscreen', monospace; border: 1px solid; cursor: pointer; }
     .equip-btn     { border-color: var(--purple); color: var(--purple); background: transparent; }
     .equip-btn.on  { border-color: var(--pink);   color: var(--pink);   }
     .buy-btn       { border-color: var(--orange);  color: var(--orange); background: transparent; }
@@ -897,11 +897,11 @@
     .award-card { border: 2px solid #333; background: var(--dark); padding: 11px; display: flex; align-items: center; gap: 10px; }
     .award-card.unlocked { border-color: #2a6b3a; }
     .award-card.locked   { opacity: 0.5; }
-    .award-icon  { font-size: 50px; }
+    .award-icon  { font-size: 33px; }
     .award-info  { flex: 1; }
-    .award-title { color: var(--white); font-size: 22px; margin-bottom: 3px; }
-    .award-desc  { color: #666; font-size: 20px; }
-    .award-badge { font-size: 20px; padding: 3px 6px; border: 1px solid #2a6b3a; color: #4aff6b; }
+    .award-title { color: var(--white); font-size: 15px; margin-bottom: 3px; }
+    .award-desc  { color: #666; font-size: 13px; }
+    .award-badge { font-size: 13px; padding: 3px 6px; border: 1px solid #2a6b3a; color: #4aff6b; }
 
     /* ── NEWS TICKER ── */
     .news-bar {
@@ -909,13 +909,13 @@
       padding: 6px 12px; display: flex; gap: 12px; align-items: center;
       flex-shrink: 0; overflow: hidden;
     }
-    .news-label { color: var(--purple); font-size: 22px; white-space: nowrap; flex-shrink: 0; }
+    .news-label { color: var(--purple); font-size: 15px; white-space: nowrap; flex-shrink: 0; }
     .news-ticker-wrap { flex: 1; overflow: hidden; position: relative; height: 14px; }
     .news-ticker {
       display: flex; gap: 48px; position: absolute;
       white-space: nowrap; animation: ticker 30s linear infinite;
     }
-    .news-ticker-item { color: #888; font-size: 22px; }
+    .news-ticker-item { color: #888; font-size: 15px; }
     .news-ticker-item .hi   { color: var(--purple); }
     .news-ticker-item .gold { color: var(--orange); }
     @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
@@ -926,32 +926,32 @@
       justify-content: center; gap: 24px; padding: 40px; background: var(--bg);
     }
     .login-penguin { width: 96px; height: 96px; image-rendering: pixelated; object-fit: contain; }
-    .login-title { color: var(--purple); font-size: 55px; text-align: center; line-height: 1.6; }
+    .login-title { color: var(--purple); font-size: 37px; text-align: center; line-height: 1.6; }
     .login-title span { color: var(--pink); }
-    .login-sub { color: #888; font-size: 25px; text-align: center; line-height: 2.2; max-width: 360px; }
+    .login-sub { color: #888; font-size: 17px; text-align: center; line-height: 2.2; max-width: 360px; }
     .login-btn {
       background: #6441a5; border: 3px solid var(--purple); color: var(--white);
-      font-size: 28px; font-family: 'Silkscreen', monospace;
+      font-size: 19px; font-family: 'Silkscreen', monospace;
       padding: 12px 24px; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 8px;
     }
     .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
 
     /* ── STREAK DISPLAY ── */
     .streak-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-    .streak-flame { font-size: 32px; line-height: 1; }
-    .streak-count { color: var(--orange); font-size: 20px; }
+    .streak-flame { font-size: 21px; line-height: 1; }
+    .streak-count { color: var(--orange); font-size: 13px; }
     .streak-week { display: flex; gap: 3px; margin-bottom: 5px; }
     .streak-day {
       width: 22px; height: 22px; border: 2px solid #333;
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px; color: #444; flex-shrink: 0;
+      font-size: 13px; color: #444; flex-shrink: 0;
     }
     .streak-day.done   { border-color: var(--orange); background: rgba(255,140,0,0.15); color: var(--orange); }
     .streak-day.today  { border-color: #4aff6b;       background: rgba(74,255,107,0.12); color: #4aff6b; }
     .streak-day.reward { border-color: var(--pink);   }
     .streak-day.reward.done  { background: rgba(255,127,229,0.2); color: var(--pink); }
     .streak-day.reward.today { border-color: var(--pink); background: rgba(255,127,229,0.2); color: var(--pink); }
-    .streak-next { color: #666; font-size: 20px; line-height: 2; }
+    .streak-next { color: #666; font-size: 13px; line-height: 2; }
     .streak-next.ready { color: #4aff6b; }
 
     /* ── STREAK REWARD MODAL ── */
@@ -968,18 +968,18 @@
       animation: popIn 0.25s ease;
     }
     @keyframes popIn { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    .sm-fire { font-size: 90px; margin-bottom: 10px; }
-    .sm-title { color: var(--orange); font-size: 35px; margin-bottom: 6px; }
-    .sm-streak { color: #888; font-size: 20px; margin-bottom: 8px; }
-    .sm-item { color: #FFD700; font-size: 28px; margin-bottom: 6px; }
-    #sm-resources { color: var(--white); font-size: 22px; line-height: 2; margin-bottom: 10px; }
-    .sm-rarity { font-size: 20px; padding: 4px 10px; border: 1px solid; display: inline-block; margin-bottom: 16px; }
+    .sm-fire { font-size: 60px; margin-bottom: 10px; }
+    .sm-title { color: var(--orange); font-size: 23px; margin-bottom: 6px; }
+    .sm-streak { color: #888; font-size: 13px; margin-bottom: 8px; }
+    .sm-item { color: #FFD700; font-size: 19px; margin-bottom: 6px; }
+    #sm-resources { color: var(--white); font-size: 15px; line-height: 2; margin-bottom: 10px; }
+    .sm-rarity { font-size: 13px; padding: 4px 10px; border: 1px solid; display: inline-block; margin-bottom: 16px; }
     .sm-rarity.uncommon { color: #2aaa4a; border-color: #2aaa4a; }
     .sm-rarity.rare     { color: #4060d0; border-color: #4060d0; }
     .sm-rarity.epic     { color: var(--purple); border-color: var(--purple); }
     .sm-close {
       background: var(--orange); border: 2px solid #ffa500;
-      color: var(--dark); font-size: 22px;
+      color: var(--dark); font-size: 15px;
       font-family: 'Silkscreen', monospace;
       padding: 10px 20px; cursor: pointer;
     }
@@ -987,8 +987,8 @@
 
     @keyframes collectpulse { 0%,100% { border-color: #4aff6b; color: #4aff6b; } 50% { border-color: #2acc4a; color: #2acc4a; } }
     .bp-btn.pulsing { animation: collectpulse 1s infinite; border-color: #4aff6b; color: #4aff6b; }
-    .job-timer { color: #A86EFF; font-size: 22px; }
-    .job-timer-complete { color: #4aff6b; font-size: 22px; animation: collectpulse 1.2s infinite; }
+    .job-timer { color: #A86EFF; font-size: 15px; }
+    .job-timer-complete { color: #4aff6b; font-size: 15px; animation: collectpulse 1.2s infinite; }
 
     /* ── WELCOME BACK MODAL ── */
     #wb-overlay {
@@ -1003,19 +1003,19 @@
       font-family: 'Silkscreen', monospace;
       animation: popIn 0.25s ease;
     }
-    .wb-title { color: #A86EFF; font-size: 35px; margin-bottom: 6px; text-align: center; }
-    .wb-subtitle { color: #888; font-size: 22px; margin-bottom: 10px; text-align: center; }
+    .wb-title { color: #A86EFF; font-size: 23px; margin-bottom: 6px; text-align: center; }
+    .wb-subtitle { color: #888; font-size: 15px; margin-bottom: 10px; text-align: center; }
     .wb-divider { border: none; border-top: 2px solid #A86EFF; margin: 10px 0; }
-    .wb-section { color: #A86EFF; font-size: 20px; margin-bottom: 5px; }
-    .wb-row { font-size: 22px; line-height: 2.2; color: #fff; }
-    .wb-total { color: #FF8C00; font-size: 22px; margin-top: 10px; }
-    .wb-job-complete { color: #FF7FE5; font-size: 22px; font-weight: bold; animation: pulse 1s infinite; }
-    .wb-news-row { color: #888; font-size: 20px; line-height: 2; }
+    .wb-section { color: #A86EFF; font-size: 13px; margin-bottom: 5px; }
+    .wb-row { font-size: 15px; line-height: 2.2; color: #fff; }
+    .wb-total { color: #FF8C00; font-size: 15px; margin-top: 10px; }
+    .wb-job-complete { color: #FF7FE5; font-size: 15px; font-weight: bold; animation: pulse 1s infinite; }
+    .wb-news-row { color: #888; font-size: 13px; line-height: 2; }
     .wb-collect-btn {
       display: block; width: 100%; margin-top: 14px;
       background: none; border: 2px solid #A86EFF;
       color: #A86EFF; font-family: 'Silkscreen', monospace;
-      font-size: 25px; padding: 10px; cursor: pointer;
+      font-size: 17px; padding: 10px; cursor: pointer;
     }
     .wb-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
     .wb-collect-btn.green { border-color: #4aff6b; color: #4aff6b; }
@@ -1023,10 +1023,10 @@
 
     /* ── SOCIAL MODE SELECTOR ── */
     .social-mode-section { padding: 8px 12px; border-bottom: 2px solid #A86EFF; }
-    .social-mode-title { color: #A86EFF; font-size: 20px; margin-bottom: 7px; }
+    .social-mode-title { color: #A86EFF; font-size: 13px; margin-bottom: 7px; }
     .social-mode-btns { display: flex; gap: 5px; }
     .social-mode-btn {
-      flex: 1; font-family: 'Silkscreen', monospace; font-size: 15px;
+      flex: 1; font-family: 'Silkscreen', monospace; font-size: 10px;
       background: #1C1C1C; color: #888; border: 1px solid #444;
       padding: 5px 2px; cursor: pointer; line-height: 1.6; text-align: center;
     }
@@ -1038,24 +1038,24 @@
     .social-target-wrap.visible { display: block; }
     .social-target-input-row { display: flex; gap: 4px; position: relative; }
     .social-target-input {
-      flex: 1; font-family: 'Silkscreen', monospace; font-size: 15px;
+      flex: 1; font-family: 'Silkscreen', monospace; font-size: 10px;
       background: #111; color: #fff; border: 1px solid #555; padding: 5px 6px;
     }
     .social-target-input::placeholder { color: #666; }
     .social-target-set-btn {
-      font-family: 'Silkscreen', monospace; font-size: 15px;
+      font-family: 'Silkscreen', monospace; font-size: 10px;
       background: #1C1C1C; color: #FF7FE5; border: 1px solid #FF7FE5;
       padding: 5px 7px; cursor: pointer;
     }
     .social-target-set-btn:hover { background: #FF7FE5; color: #1C1C1C; }
-    .social-target-current { color: #FF7FE5; font-size: 18px; margin-top: 5px; }
-    .social-target-none    { color: #666;    font-size: 18px; margin-top: 5px; }
+    .social-target-current { color: #FF7FE5; font-size: 12px; margin-top: 5px; }
+    .social-target-none    { color: #666;    font-size: 12px; margin-top: 5px; }
     .social-autocomplete {
       position: absolute; top: 100%; left: 0; right: 32px;
       background: #1C1C1C; border: 1px solid #A86EFF; z-index: 500;
     }
     .social-autocomplete-item {
-      padding: 5px 7px; font-size: 15px; color: #fff; cursor: pointer;
+      padding: 5px 7px; font-size: 10px; color: #fff; cursor: pointer;
       border-bottom: 1px solid #2a2a2a;
     }
     .social-autocomplete-item:hover { background: #A86EFF; color: #1C1C1C; }
@@ -1063,13 +1063,13 @@
     /* ── IGLOO VISIT SECTION ── */
     .sb-igloo-visit-row {
       display: flex; align-items: center; gap: 6px;
-      padding: 5px 0; border-bottom: 1px solid #2a2a2a; font-size: 18px;
+      padding: 5px 0; border-bottom: 1px solid #2a2a2a; font-size: 12px;
     }
     .sb-igloo-visit-row:last-child { border-bottom: none; }
     .sb-visit-name { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sb-visit-rel  { color: #888; font-size: 15px; flex-shrink: 0; }
+    .sb-visit-rel  { color: #888; font-size: 10px; flex-shrink: 0; }
     .sb-visit-btn {
-      font-family: 'Silkscreen', monospace; font-size: 15px;
+      font-family: 'Silkscreen', monospace; font-size: 10px;
       background: #1C1C1C; color: #A86EFF; border: 1px solid #A86EFF;
       padding: 3px 5px; cursor: pointer; flex-shrink: 0;
     }
@@ -1095,24 +1095,24 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 14px 16px; border-bottom: 2px solid #A86EFF; position: sticky; top: 0; background: #2E2E2E;
     }
-    .rel-modal-title { color: #A86EFF; font-size: 28px; }
-    .rel-modal-close { color: #FF7FE5; font-size: 35px; cursor: pointer; padding: 0 0 0 10px; }
+    .rel-modal-title { color: #A86EFF; font-size: 19px; }
+    .rel-modal-close { color: #FF7FE5; font-size: 23px; cursor: pointer; padding: 0 0 0 10px; }
     .rel-modal-row {
       display: flex; align-items: center; gap: 8px;
-      padding: 8px 14px; border-bottom: 1px solid #2a2a2a; font-size: 18px;
+      padding: 8px 14px; border-bottom: 1px solid #2a2a2a; font-size: 12px;
     }
     .rel-modal-row:last-child { border-bottom: none; }
-    .rel-modal-emoji { font-size: 35px; flex-shrink: 0; }
+    .rel-modal-emoji { font-size: 23px; flex-shrink: 0; }
     .rel-modal-name  { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .rel-modal-level { color: #888; font-size: 15px; flex-shrink: 0; }
+    .rel-modal-level { color: #888; font-size: 10px; flex-shrink: 0; }
     .rel-modal-visit-btn {
-      font-family: 'Silkscreen', monospace; font-size: 15px;
+      font-family: 'Silkscreen', monospace; font-size: 10px;
       background: #1C1C1C; color: #A86EFF; border: 1px solid #A86EFF;
       padding: 3px 5px; cursor: pointer;
     }
     .rel-modal-visit-btn:hover { background: #A86EFF; color: #1C1C1C; }
     .rel-modal-visit-btn.visited { color: #4aff6b; border-color: #4aff6b; cursor: default; pointer-events: none; }
-    .rel-empty { color: #555; font-size: 20px; padding: 20px; text-align: center; }
+    .rel-empty { color: #555; font-size: 13px; padding: 20px; text-align: center; }
 
     /* ── IGLOO VISIT RESULT POPUP ── */
     #igloo-result-overlay {
@@ -1125,12 +1125,12 @@
       padding: 20px 24px; font-family: 'Silkscreen', monospace;
       text-align: center; min-width: 260px; max-width: 90vw;
     }
-    .igloo-result-title   { color: #A86EFF; font-size: 25px; margin-bottom: 8px; }
-    .igloo-result-sub     { color: #fff;    font-size: 22px;  margin-bottom: 10px; }
-    .igloo-result-rewards { color: #FF8C00; font-size: 20px;  margin-bottom: 8px; line-height: 2; }
-    .igloo-result-rel     { color: #FF7FE5; font-size: 20px;  margin-bottom: 12px; }
+    .igloo-result-title   { color: #A86EFF; font-size: 17px; margin-bottom: 8px; }
+    .igloo-result-sub     { color: #fff;    font-size: 15px;  margin-bottom: 10px; }
+    .igloo-result-rewards { color: #FF8C00; font-size: 13px;  margin-bottom: 8px; line-height: 2; }
+    .igloo-result-rel     { color: #FF7FE5; font-size: 13px;  margin-bottom: 12px; }
     .igloo-result-ok {
-      font-family: 'Silkscreen', monospace; font-size: 20px;
+      font-family: 'Silkscreen', monospace; font-size: 13px;
       background: #1C1C1C; color: #4aff6b; border: 2px solid #4aff6b;
       padding: 8px 18px; cursor: pointer; margin-top: 4px;
     }
@@ -1156,17 +1156,17 @@
       0%,100% { border-color: #A86EFF; box-shadow: 0 0 10px #A86EFF44; }
       50%     { border-color: #FF7FE5; box-shadow: 0 0 20px #FF7FE577; }
     }
-    .lvup-title     { font-size: 35px; margin-bottom: 6px; text-align: center; }
-    .lvup-level     { color: #fff; font-size: 25px; margin-bottom: 4px; text-align: center; }
-    .lvup-bonus     { color: #4aff6b; font-size: 22px; margin-bottom: 6px; text-align: center; }
+    .lvup-title     { font-size: 23px; margin-bottom: 6px; text-align: center; }
+    .lvup-level     { color: #fff; font-size: 17px; margin-bottom: 4px; text-align: center; }
+    .lvup-bonus     { color: #4aff6b; font-size: 15px; margin-bottom: 6px; text-align: center; }
     .lvup-divider   { border: none; border-top: 2px solid #A86EFF; margin: 10px 0; }
-    .lvup-reward-hdr { color: #888; font-size: 20px; margin-bottom: 6px; }
-    .lvup-reward-row { font-size: 22px; line-height: 2.2; }
+    .lvup-reward-hdr { color: #888; font-size: 13px; margin-bottom: 6px; }
+    .lvup-reward-row { font-size: 15px; line-height: 2.2; }
     .lvup-collect-btn {
       display: block; width: 100%; margin-top: 14px;
       background: none; border: 2px solid #A86EFF;
       color: #A86EFF; font-family: 'Silkscreen', monospace;
-      font-size: 25px; padding: 10px; cursor: pointer;
+      font-size: 17px; padding: 10px; cursor: pointer;
     }
     .lvup-collect-btn:hover { background: #A86EFF; color: #1C1C1C; }
 
@@ -1176,7 +1176,7 @@
       display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0;
     }
     .bank-tab {
-      flex: 1; padding: 7px 2px; font-size: 15px;
+      flex: 1; padding: 7px 2px; font-size: 10px;
       font-family: 'Silkscreen', monospace;
       background: #1C1C1C; border: none; border-right: 2px solid #A86EFF;
       color: #555; cursor: pointer;
@@ -1190,7 +1190,7 @@
     .bank-listing-list { flex: 1; overflow-y: auto; padding: 6px; }
     .bank-select {
       background: #1C1C1C; border: 2px solid #444; color: #ccc;
-      font-family: 'Silkscreen', monospace; font-size: 18px;
+      font-family: 'Silkscreen', monospace; font-size: 12px;
       padding: 5px 6px; cursor: pointer; max-width: 100%;
     }
     .bank-select-wide { width: 100%; box-sizing: border-box; }
@@ -1201,45 +1201,45 @@
     }
     .bank-listing:hover { border-color: #A86EFF44; }
     .bank-listing-info { flex: 1; min-width: 0; }
-    .bank-listing-offer { font-size: 20px; color: #ccc; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .bank-listing-ask   { font-size: 18px; color: #FF8C00; }
-    .bank-listing-meta  { font-size: 15px; color: #555; margin-top: 3px; }
+    .bank-listing-offer { font-size: 13px; color: #ccc; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bank-listing-ask   { font-size: 12px; color: #FF8C00; }
+    .bank-listing-meta  { font-size: 10px; color: #555; margin-top: 3px; }
     .bank-accept-btn, .bank-cancel-btn {
       background: none; font-family: 'Silkscreen', monospace;
-      font-size: 15px; padding: 6px 7px; cursor: pointer; flex-shrink: 0; border: 2px solid;
+      font-size: 10px; padding: 6px 7px; cursor: pointer; flex-shrink: 0; border: 2px solid;
     }
     .bank-accept-btn { border-color: #4aff6b; color: #4aff6b; }
     .bank-accept-btn:hover { background: #4aff6b; color: #1C1C1C; }
     .bank-cancel-btn { border-color: #ff6b6b; color: #ff6b6b; }
     .bank-cancel-btn:hover { background: #ff6b6b; color: #1C1C1C; }
     .bank-form { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; }
-    .bank-form-label { font-family: 'Silkscreen', monospace; font-size: 18px; color: #888; }
+    .bank-form-label { font-family: 'Silkscreen', monospace; font-size: 12px; color: #888; }
     .bank-row-inline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .bank-input {
       background: #1C1C1C; border: 2px solid #444; color: #ccc;
-      font-family: 'Silkscreen', monospace; font-size: 20px;
+      font-family: 'Silkscreen', monospace; font-size: 13px;
       padding: 5px 6px; width: 80px; box-sizing: border-box;
     }
     .bank-input:focus { border-color: #A86EFF; outline: none; }
     .bank-btn {
       background: none; border: 2px solid #A86EFF; color: #A86EFF;
-      font-family: 'Silkscreen', monospace; font-size: 20px;
+      font-family: 'Silkscreen', monospace; font-size: 13px;
       padding: 10px; cursor: pointer;
     }
     .bank-btn:hover { background: #A86EFF; color: #1C1C1C; }
-    .bank-note { font-family: 'Silkscreen', monospace; font-size: 15px; color: #666; line-height: 2; }
-    .bank-empty { font-family: 'Silkscreen', monospace; font-size: 18px; color: #555; text-align: center; padding: 20px; }
+    .bank-note { font-family: 'Silkscreen', monospace; font-size: 10px; color: #666; line-height: 2; }
+    .bank-empty { font-family: 'Silkscreen', monospace; font-size: 12px; color: #555; text-align: center; padding: 20px; }
     .bank-item-preview {
       background: #1C1C1C; border: 2px solid #444; padding: 8px;
-      font-family: 'Silkscreen', monospace; font-size: 18px; line-height: 2;
+      font-family: 'Silkscreen', monospace; font-size: 12px; line-height: 2;
     }
     .bk-rarity-common    { color: #ccc; }
     .bk-rarity-uncommon  { color: #4aff6b; }
     .bk-rarity-rare      { color: #5599ff; }
     .bk-rarity-epic      { color: #A86EFF; }
     .bk-rarity-legendary { color: #FF8C00; }
-    .bank-arrow { color: #888; font-size: 25px; margin: 0 4px; }
-    .bank-completed-tag { font-size: 15px; color: #4aff6b; }
+    .bank-arrow { color: #888; font-size: 17px; margin: 0 4px; }
+    .bank-completed-tag { font-size: 10px; color: #4aff6b; }
 
     /* ── LEVEL-UP CELEBRATION OVERLAY ── */
     @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
@@ -1274,7 +1274,7 @@
     }
     .lu-text {
       font-family: 'Silkscreen', monospace;
-      font-size: 70px; color: #FF8C00;
+      font-size: 47px; color: #FF8C00;
       text-shadow: 0 0 20px rgba(255,140,0,0.6);
       animation: luTextPopIn 0.5s ease-out 0.5s forwards;
       opacity: 0; transform: scale(0);
@@ -1291,13 +1291,13 @@
     }
     .lu-lv-prefix {
       font-family: 'Silkscreen', monospace;
-      font-size: 35px; color: #888; margin-right: 8px;
+      font-size: 23px; color: #888; margin-right: 8px;
       animation: fadeIn 0.3s ease 1.2s forwards; opacity: 0;
     }
     .lu-old-level {
       position: absolute;
       font-family: 'Silkscreen', monospace;
-      font-size: 120px; color: #A86EFF;
+      font-size: 80px; color: #A86EFF;
       animation: luOldLevelOut 0.8s ease-in 1.2s forwards;
     }
     @keyframes luOldLevelOut {
@@ -1308,7 +1308,7 @@
     .lu-new-level {
       position: absolute;
       font-family: 'Silkscreen', monospace;
-      font-size: 120px; color: #FF8C00;
+      font-size: 80px; color: #FF8C00;
       text-shadow: 0 0 30px rgba(255,140,0,0.8);
       animation: luNewLevelIn 0.8s ease-out 1.6s forwards; opacity: 0;
     }
@@ -1319,12 +1319,12 @@
     }
     .lu-bonus {
       font-family: 'Silkscreen', monospace;
-      font-size: 25px; color: #4aff6b;
+      font-size: 17px; color: #4aff6b;
       animation: fadeIn 0.3s ease 2.0s forwards; opacity: 0;
     }
     .lu-milestone-tag {
       font-family: 'Silkscreen', monospace;
-      font-size: 40px; color: #FF8C00;
+      font-size: 27px; color: #FF8C00;
       animation: luTextPopIn 0.5s ease-out 2.0s forwards; opacity: 0;
       margin-top: 12px;
     }
@@ -1334,7 +1334,7 @@
     }
     .lu-reward {
       font-family: 'Silkscreen', monospace;
-      font-size: 25px; color: #FF7FE5;
+      font-size: 17px; color: #FF7FE5;
       opacity: 0; animation: luRewardSlideIn 0.4s ease-out forwards;
     }
     @keyframes luRewardSlideIn {
@@ -1343,7 +1343,7 @@
     }
     .lu-continue {
       font-family: 'Silkscreen', monospace;
-      font-size: 20px; color: #888; margin-top: 24px;
+      font-size: 13px; color: #888; margin-top: 24px;
       animation: luPulseFade 1.5s ease-in-out 3.5s infinite; opacity: 0;
     }
     @keyframes luPulseFade {
@@ -1363,16 +1363,16 @@
     }
     @media (max-width: 768px) {
       .lu-penguin { width: 96px; height: 96px; }
-      .lu-text { font-size: 50px; }
-      .lu-old-level, .lu-new-level { font-size: 90px; }
-      .lu-reward { font-size: 20px; }
+      .lu-text { font-size: 33px; }
+      .lu-old-level, .lu-new-level { font-size: 60px; }
+      .lu-reward { font-size: 13px; }
     }
 
     /* ── LEVELS TAB ── */
     .levels-panel { display: flex; flex-direction: column; height: 100%; }
     .levels-range-bar { display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0; }
     .levels-range-btn {
-      flex: 1; padding: 8px 4px; font-size: 20px;
+      flex: 1; padding: 8px 4px; font-size: 13px;
       font-family: 'Silkscreen', monospace;
       background: #1C1C1C; border: none; border-right: 2px solid #A86EFF; color: #555; cursor: pointer;
     }
@@ -1381,20 +1381,20 @@
     .levels-range-btn.unlocked { color: #888; }
     .levels-range-btn.locked { color: #444; cursor: not-allowed; }
     .levels-list { flex: 1; overflow-y: auto; padding: 8px; }
-    .levels-footer { flex-shrink: 0; padding: 8px 12px; border-top: 2px solid #A86EFF; font-size: 20px; background: #1C1C1C; }
+    .levels-footer { flex-shrink: 0; padding: 8px 12px; border-top: 2px solid #A86EFF; font-size: 13px; background: #1C1C1C; }
     .lv-row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 4px; border-bottom: 1px solid #222; }
     .lv-num {
       width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0; border: 2px solid #444;
+      font-size: 15px; flex-shrink: 0; border: 2px solid #444;
     }
     .lv-num.done    { background: #A86EFF; color: #fff; border-color: #A86EFF; }
     .lv-num.current { background: none; color: #FF7FE5; animation: lvpulse 1.2s infinite; }
     .lv-num.locked  { background: #2E2E2E; color: #444; }
     @keyframes lvpulse { 0%,100% { border-color: #FF7FE5; } 50% { border-color: #A86EFF; } }
     .lv-info    { flex: 1; }
-    .lv-title   { font-size: 20px; color: #888; margin-bottom: 3px; }
-    .lv-rewards { font-size: 18px; line-height: 1.8; }
-    .lv-status  { flex-shrink: 0; font-size: 22px; display: flex; align-items: center; }
+    .lv-title   { font-size: 13px; color: #888; margin-bottom: 3px; }
+    .lv-rewards { font-size: 12px; line-height: 1.8; }
+    .lv-status  { flex-shrink: 0; font-size: 15px; display: flex; align-items: center; }
     .lv-xpbar-wrap { height: 5px; background: #1C1C1C; margin-top: 3px; }
     .lv-xpbar-fill { height: 100%; background: #A86EFF; transition: width 0.3s; }
 
@@ -1404,12 +1404,12 @@
       cursor: pointer; margin-top: 4px;
     }
     .sb-next-unlock:hover { background: #252525; }
-    .sb-next-lv   { color: #A86EFF; font-size: 20px; margin-bottom: 2px; }
-    .sb-next-prev { color: #888; font-size: 18px; }
+    .sb-next-lv   { color: #A86EFF; font-size: 13px; margin-bottom: 2px; }
+    .sb-next-prev { color: #888; font-size: 12px; }
 
     /* ── EVENT LOG ── */
     .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-    .event-row { display: flex; gap: 8px; padding: 6px 10px; border-left: 3px solid; font-size: 22px; line-height: 1.8; }
+    .event-row { display: flex; gap: 8px; padding: 6px 10px; border-left: 3px solid; font-size: 15px; line-height: 1.8; }
     .event-row.job         { border-color: var(--orange); }
     .event-row.combat      { border-color: var(--pink); }
     .event-row.village     { border-color: var(--purple); }
@@ -1436,7 +1436,7 @@
     #toast {
       position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
       background: var(--dark); border: 2px solid var(--purple);
-      color: var(--white); font-size: 22px; padding: 8px 16px;
+      color: var(--white); font-size: 15px; padding: 8px 16px;
       z-index: 9998; display: none; white-space: nowrap;
       font-family: 'Silkscreen', monospace;
     }
@@ -1448,7 +1448,7 @@
     ══════════════════════════════════════════════════════════ */
     @media (max-width: 1024px) {
       .sidebar { width: 200px; }
-      .content-tab { padding: 10px 10px; font-size: 20px; }
+      .content-tab { padding: 10px 10px; font-size: 13px; }
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -1460,8 +1460,8 @@
 
       /* ── Nav ── */
       nav { padding: 8px 12px; }
-      .nav-logo { font-size: 25px; }
-      .nav-user { font-size: 22px; }
+      .nav-logo { font-size: 17px; }
+      .nav-user { font-size: 15px; }
       .nav-logout { min-height: 44px; display: flex; align-items: center; padding: 0 10px; }
 
       /* ── Sidebar becomes a scrollable top strip ── */
@@ -1515,10 +1515,10 @@
 
       /* ── Modal close buttons ── */
       .inv-close-x {
-        min-height: 44px; min-width: 44px; font-size: 45px;
+        min-height: 44px; min-width: 44px; font-size: 30px;
         display: flex; align-items: center; justify-content: center;
       }
-      .bm-close { font-size: 50px; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
+      .bm-close { font-size: 33px; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
 
       /* ── Touch targets — all interactive elements ≥ 44px ── */
       .bp-btn { min-height: 44px; }
@@ -1537,22 +1537,22 @@
       .social-btn { min-height: 44px; padding: 12px 10px; }
 
       /* ── Font sizes for readability ── */
-      .stat-lbl, .stat-val { font-size: 25px; }
-      .section-title { font-size: 28px; }
-      .news-label { font-size: 20px; }
-      .news-ticker-item { font-size: 20px; }
+      .stat-lbl, .stat-val { font-size: 17px; }
+      .section-title { font-size: 19px; }
+      .news-label { font-size: 13px; }
+      .news-ticker-item { font-size: 13px; }
 
       /* ── Login screen ── */
-      .login-title { font-size: 40px; }
-      .login-sub { font-size: 22px; }
+      .login-title { font-size: 27px; }
+      .login-sub { font-size: 15px; }
       .login-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; }
 
       /* ── Resource bar ── */
       .resource-bar { gap: 6px; padding: 4px 6px; }
       .resource-item { min-width: 55px; padding: 2px 5px; }
-      .res-icon  { font-size: 28px; }
-      .res-count { font-size: 18px; }
-      .flying-emoji { font-size: 30px; }
+      .res-icon  { font-size: 19px; }
+      .res-count { font-size: 12px; }
+      .flying-emoji { font-size: 20px; }
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -1603,12 +1603,12 @@
     }
     .mayor-name {
       font-family: 'Silkscreen', monospace;
-      font-size: 25px;
+      font-size: 17px;
       color: #FF8C00;
     }
     .mayor-message {
       font-family: 'Silkscreen', monospace;
-      font-size: 22px;
+      font-size: 15px;
       color: #FFFFFF;
       line-height: 1.8;
     }
@@ -1620,7 +1620,7 @@
     }
     .mayor-continue {
       font-family: 'Silkscreen', monospace;
-      font-size: 18px;
+      font-size: 12px;
       color: #A86EFF;
       cursor: pointer;
       border: 2px solid #A86EFF;
@@ -1630,7 +1630,7 @@
     .mayor-continue:hover { background: #A86EFF; color: #1C1C1C; }
     .mayor-action {
       font-family: 'Silkscreen', monospace;
-      font-size: 18px;
+      font-size: 12px;
       color: #1C1C1C;
       cursor: pointer;
       border: 2px solid #FF8C00;
@@ -1643,7 +1643,7 @@
       top: 8px;
       right: 12px;
       font-family: 'Silkscreen', monospace;
-      font-size: 15px;
+      font-size: 10px;
       color: #555;
       cursor: pointer;
       border: none;
@@ -1652,7 +1652,7 @@
     .mayor-skip:hover { color: #ff6b6b; }
     .mayor-countdown {
       font-family: 'Silkscreen', monospace;
-      font-size: 28px;
+      font-size: 19px;
       color: #FF8C00;
       text-align: center;
       padding: 4px 0;
@@ -1664,7 +1664,7 @@
     }
     @media (max-width: 600px) {
       .mayor-portrait { width: 60px; height: 60px; }
-      .mayor-message  { font-size: 20px; }
+      .mayor-message  { font-size: 13px; }
       .mayor-dialogue { min-height: 80px; padding: 8px 10px; }
     }
 
@@ -1677,7 +1677,7 @@
       border: 2px solid var(--gold);
       padding: 10px 14px;
       font-family: 'Silkscreen', monospace;
-      font-size: 18px;
+      font-size: 12px;
       color: var(--white);
       line-height: 1.9;
       z-index: 500;
@@ -1698,7 +1698,7 @@
     .ctx-tip-close {
       display: block;
       margin-top: 8px;
-      font-size: 18px;
+      font-size: 12px;
       color: #A86EFF;
       cursor: pointer;
       background: none;
@@ -1712,7 +1712,7 @@
     #help-btn {
       background: none;
       border: none;
-      font-size: 38px;
+      font-size: 25px;
       cursor: pointer;
       padding: 4px 6px;
       color: #fff;
@@ -1744,20 +1744,20 @@
       position: relative;
       box-shadow: 0 0 40px rgba(168,110,255,0.4);
     }
-    .rs-header { font-size: 32px; color: #A86EFF; text-align: center; margin-bottom: 4px; }
-    .rs-sub    { font-size: 18px; color: #888; text-align: center; margin-bottom: 18px; line-height: 2; }
-    .rs-close  { position: absolute; top: 10px; right: 12px; background: none; border: none; color: #555; font-family: 'Silkscreen', monospace; font-size: 22px; cursor: pointer; }
+    .rs-header { font-size: 21px; color: #A86EFF; text-align: center; margin-bottom: 4px; }
+    .rs-sub    { font-size: 12px; color: #888; text-align: center; margin-bottom: 18px; line-height: 2; }
+    .rs-close  { position: absolute; top: 10px; right: 12px; background: none; border: none; color: #555; font-family: 'Silkscreen', monospace; font-size: 15px; cursor: pointer; }
     .rs-close:hover { color: var(--pink); }
-    .rs-section-label { font-size: 22px; color: #A86EFF; margin-bottom: 8px; }
+    .rs-section-label { font-size: 15px; color: #A86EFF; margin-bottom: 8px; }
     .rs-input {
       width: 100%; box-sizing: border-box;
       background: #1a1a1a; border: 2px solid #A86EFF; color: #fff;
-      font-family: 'Silkscreen', monospace; font-size: 22px; padding: 10px 12px;
+      font-family: 'Silkscreen', monospace; font-size: 15px; padding: 10px 12px;
       margin-bottom: 6px;
     }
     .rs-input::placeholder { color: #555; }
-    .rs-name-hint { font-size: 15px; color: #666; margin-bottom: 16px; line-height: 2; }
-    .rs-name-err  { font-size: 18px; color: #ff6b6b; margin-bottom: 8px; }
+    .rs-name-hint { font-size: 10px; color: #666; margin-bottom: 16px; line-height: 2; }
+    .rs-name-err  { font-size: 12px; color: #ff6b6b; margin-bottom: 8px; }
     .rs-body { display: flex; gap: 18px; flex-wrap: wrap; }
     .rs-left  { flex: 1; min-width: 200px; }
     .rs-right { display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -1769,14 +1769,14 @@
     .rs-color-card.selected { border: 3px solid #FF7FE5; }
     .rs-color-card.locked   { cursor: not-allowed; border-color: #222; }
     .rs-color-canvas { display: block; margin: 0 auto; }
-    .rs-color-name { font-size: 15px; color: #ccc; margin-top: 3px; line-height: 1.5; }
+    .rs-color-name { font-size: 10px; color: #ccc; margin-top: 3px; line-height: 1.5; }
     .rs-color-card.selected .rs-color-name { color: #FF7FE5; }
-    .rs-preview-label { font-size: 18px; color: #A86EFF; }
+    .rs-preview-label { font-size: 12px; color: #A86EFF; }
     #rs-preview-canvas { display: block; }
-    #rs-preview-name { font-size: 20px; color: #fff; text-align: center; }
+    #rs-preview-name { font-size: 13px; color: #fff; text-align: center; }
     .rs-confirm-btn {
       font-family: 'Silkscreen', monospace;
-      font-size: 22px; padding: 12px 20px;
+      font-size: 15px; padding: 12px 20px;
       border: 3px solid #A86EFF; color: #A86EFF; background: transparent;
       cursor: pointer; display: block; margin: 18px auto 0;
     }
@@ -1793,9 +1793,9 @@
       background: #1C1C1C; border: 3px solid #A86EFF; padding: 22px 20px;
       max-width: 540px; width: 94vw; max-height: 88vh; overflow-y: auto;
     }
-    #trait-popup-title { color: #A86EFF; font-size: 32px; text-align: center; margin-bottom: 8px; }
-    #trait-popup-sub { color: #888; font-size: 18px; line-height: 2; text-align: center; margin-bottom: 14px; }
-    .tp-section-title { color: #A86EFF; font-size: 20px; margin: 10px 0 6px; letter-spacing: 1px; }
+    #trait-popup-title { color: #A86EFF; font-size: 21px; text-align: center; margin-bottom: 8px; }
+    #trait-popup-sub { color: #888; font-size: 12px; line-height: 2; text-align: center; margin-bottom: 14px; }
+    .tp-section-title { color: #A86EFF; font-size: 13px; margin: 10px 0 6px; letter-spacing: 1px; }
     .tp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 4px; }
     .tp-grid-wide { grid-template-columns: repeat(3, 1fr); }
     .tp-card {
@@ -1805,19 +1805,19 @@
     }
     .tp-card:hover { border-color: #666; }
     .tp-card.selected { border-color: #A86EFF; background: #2a1a4a; }
-    .tp-emoji { font-size: 40px; flex-shrink: 0; }
-    .tp-name { font-size: 18px; color: #ccc; }
+    .tp-emoji { font-size: 27px; flex-shrink: 0; }
+    .tp-name { font-size: 12px; color: #ccc; }
     .tp-card.selected .tp-name { color: #A86EFF; }
     #trait-popup-btn {
       display: block; margin: 14px auto 0; font-family: 'Silkscreen', monospace;
-      font-size: 25px; padding: 12px 22px; border: 3px solid #4aff6b;
+      font-size: 17px; padding: 12px 22px; border: 3px solid #4aff6b;
       color: #4aff6b; background: transparent; cursor: pointer;
     }
     #trait-popup-btn:hover { background: #4aff6b; color: #1C1C1C; }
     #trait-popup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     /* ── Leaderboard ── */
     .lb-cat-btn {
-      font-family: 'Silkscreen', monospace; font-size: 18px;
+      font-family: 'Silkscreen', monospace; font-size: 12px;
       padding: 5px 7px; border: 2px solid #2E2E2E; background: #1C1C1C;
       color: #888; cursor: pointer; white-space: nowrap;
     }
@@ -1845,7 +1845,7 @@
     <div class="nav-logo">PENGUIN <span>VILLAGE</span></div>
     <div class="nav-right">
       {% if logged_in %}
-        <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:40px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
+        <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
         <button id="help-btn" onclick="resetHelpTooltips();replayTutorial()" title="Help &amp; Tutorial">❓</button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
@@ -1891,14 +1891,14 @@
                onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
           {% if penguin['prestige'] and penguin['prestige'] > 0 %}
-          <div style="color:var(--pink);font-size:20px;">{{ '★' * penguin['prestige'] }} PRESTIGE</div>
+          <div style="color:var(--pink);font-size:13px;">{{ '★' * penguin['prestige'] }} PRESTIGE</div>
           {% endif %}
           {% set _ts = penguin['trait_social'] %}
           {% set _ti = penguin['trait_interest'] %}
           {% set _tq = penguin['trait_quirk'] %}
           {% if _ts or _ti or _tq %}
           {% set _tm = {'friendly':'🤝','shy':'🤫','dramatic':'🎭','flirty':'💘','curious':'🔍','religious':'🙏','greedy':'💰','fancy':'🎨','clumsy':'🤕','lucky':'🍀','sleepy':'😴','hungry':'🐟','musical':'🎵','paranoid':'👀'} %}
-          <div style="font-size:35px;letter-spacing:2px;margin:4px 0;" title="{{ [_ts,_ti,_tq]|select|join(' · ') }}">{{ _tm.get(_ts,'') }}{{ _tm.get(_ti,'') }}{{ _tm.get(_tq,'') }}</div>
+          <div style="font-size:23px;letter-spacing:2px;margin:4px 0;" title="{{ [_ts,_ti,_tq]|select|join(' · ') }}">{{ _tm.get(_ts,'') }}{{ _tm.get(_ti,'') }}{{ _tm.get(_tq,'') }}</div>
           {% endif %}
           <div class="sidebar-title-row">
             <span id="sidebar-active-title" class="sidebar-no-title">No title equipped</span>
@@ -1943,7 +1943,7 @@
 
         <!-- COLLECT SECTION (shown when working) -->
         <div id="sidebar-collect-section" style="display:none; padding:0 10px 8px;">
-          <div id="sidebar-job-info" style="color:#888; font-size:18px; margin-bottom:5px; line-height:2;"></div>
+          <div id="sidebar-job-info" style="color:#888; font-size:12px; margin-bottom:5px; line-height:2;"></div>
           <button class="collect-btn" id="sidebar-collect-btn" onclick="sidebarCollect()">COLLECT</button>
         </div>
 
@@ -1951,13 +1951,13 @@
 
         <!-- STREAM BONUS INDICATOR -->
         <div id="stream-bonus-section" style="display:none; margin:0 10px 8px; border:1px solid #FF7FE5; padding:7px 8px;">
-          <div style="color:#FF7FE5; font-size:18px; margin-bottom:4px;">🔴 STREAM BONUS ACTIVE</div>
-          <div id="stream-bonus-tier-label" style="font-size:18px; line-height:1.8;"></div>
+          <div style="color:#FF7FE5; font-size:12px; margin-bottom:4px;">🔴 STREAM BONUS ACTIVE</div>
+          <div id="stream-bonus-tier-label" style="font-size:12px; line-height:1.8;"></div>
         </div>
 
         <!-- INVENTORY button (+ CP when combat enabled) -->
         {% if features.get("combat", False) %}
-        <div style="padding:4px 12px 0;font-size:22px;color:#FF8C00;" id="sidebar-cp-line">⚔️ CP: <span id="sidebar-cp-val">—</span></div>
+        <div style="padding:4px 12px 0;font-size:15px;color:#FF8C00;" id="sidebar-cp-line">⚔️ CP: <span id="sidebar-cp-val">—</span></div>
         {% endif %}
         <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
 
@@ -1992,7 +1992,7 @@
         <!-- RESOURCES (compact — full display is on the map resource bar) -->
         <div class="sb-section">
           <div class="sb-section-title">RESOURCES</div>
-          <div style="font-size:18px;font-family:'Silkscreen',monospace;color:#888;line-height:2.2;">
+          <div style="font-size:12px;font-family:'Silkscreen',monospace;color:#888;line-height:2.2;">
             🪙 <span id="sb-r-gold">{{ resources.gold if resources else 0 }}</span> &nbsp;
             🐟 <span id="sb-r-fish">0</span> &nbsp;
             🌿 <span id="sb-r-herbs">0</span><br>
@@ -2010,20 +2010,20 @@
         <!-- DAILY MISSIONS -->
         <div class="sb-section">
           <div class="sb-section-title">MISSIONS</div>
-          <div id="sb-missions-list" style="color:#888;font-size:20px;">LOADING...</div>
-          <div style="color:#555;font-size:18px;margin-top:7px;">RESETS: <span id="sb-missions-countdown"></span></div>
+          <div id="sb-missions-list" style="color:#888;font-size:13px;">LOADING...</div>
+          <div style="color:#555;font-size:12px;margin-top:7px;">RESETS: <span id="sb-missions-countdown"></span></div>
         </div>
 
         <!-- STREAK -->
         <div class="sb-section">
           <div class="sb-section-title">STREAK</div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
-            <span style="font-size:40px;">🔥</span>
+            <span style="font-size:27px;">🔥</span>
             <span class="sb-streak-count" id="streak-count">{{ streak }} DAY{% if streak != 1 %}S{% endif %}</span>
           </div>
           <div class="streak-week" id="streak-week"></div>
           <div class="streak-next" id="streak-next" style="margin-top:4px;">LOADING...</div>
-          <div style="color:#555;font-size:18px;margin-top:4px;">RESETS: <span id="streak-reset-countdown"></span></div>
+          <div style="color:#555;font-size:12px;margin-top:4px;">RESETS: <span id="streak-reset-countdown"></span></div>
         </div>
 
         <!-- ACHIEVEMENTS -->
@@ -2038,15 +2038,15 @@
         <!-- SECRET BONUSES -->
         <div class="sb-section" id="sb-secret-bonuses-section" style="display:none;">
           <div class="sb-section-title" style="color:#FF7FE5;">🔮 SECRET BONUSES</div>
-          <div id="sb-secret-bonuses-list" style="color:#888;font-size:18px;line-height:1.8;"></div>
+          <div id="sb-secret-bonuses-list" style="color:#888;font-size:12px;line-height:1.8;"></div>
         </div>
 
         <!-- IGLOO VISITS -->
         <div class="sb-section">
           <div class="sb-section-title">IGLOO VISITS</div>
-          <div id="sb-visits-count" style="color:#888;font-size:18px;margin-bottom:8px;">LOADING...</div>
+          <div id="sb-visits-count" style="color:#888;font-size:12px;margin-bottom:8px;">LOADING...</div>
           <div id="sb-visits-list">
-            <div style="color:#555;font-size:18px;">LOADING...</div>
+            <div style="color:#555;font-size:12px;">LOADING...</div>
           </div>
         </div>
 
@@ -2057,7 +2057,7 @@
             <button class="sb-award-btn" onclick="openRelationshipModal()">VIEW ALL →</button>
           </div>
           <div id="sb-rel-list">
-            <div style="color:#555;font-size:18px;">LOADING...</div>
+            <div style="color:#555;font-size:12px;">LOADING...</div>
           </div>
         </div>
 
@@ -2139,17 +2139,17 @@
       <div class="content-panel" id="panel-combat">
         <div class="combat-header">
           <div>
-            <div style="color:var(--purple);font-size:30px;">⚔️ PENGUIN BARRACKS</div>
-            <div id="combat-cp-display" style="color:var(--orange);font-size:22px;margin-top:4px;">Your Combat Power: — CP</div>
+            <div style="color:var(--purple);font-size:20px;">⚔️ PENGUIN BARRACKS</div>
+            <div id="combat-cp-display" style="color:var(--orange);font-size:15px;margin-top:4px;">Your Combat Power: — CP</div>
           </div>
           <div style="text-align:right;">
-            <div style="color:#888;font-size:18px;">Resets: <span id="combat-reset-countdown"></span></div>
-            <div id="combat-energy-bar-label" style="color:var(--orange);font-size:18px;margin-top:2px;">⚡ — / —</div>
+            <div style="color:#888;font-size:12px;">Resets: <span id="combat-reset-countdown"></span></div>
+            <div id="combat-energy-bar-label" style="color:var(--orange);font-size:12px;margin-top:2px;">⚡ — / —</div>
           </div>
         </div>
         <div id="boss-banner" style="display:none;padding:12px;"></div>
         <div class="combat-panel" id="combat-list">
-          <div style="color:#666;font-size:22px;text-align:center;padding:20px;">LOADING...</div>
+          <div style="color:#666;font-size:15px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
       {% endif %}
@@ -2157,11 +2157,11 @@
       <!-- MISSIONS TAB -->
       <div class="content-panel" id="panel-missions">
         <div style="background:var(--dark);border-bottom:2px solid var(--purple);padding:6px 12px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-          <span style="color:var(--purple);font-size:22px;">DAILY MISSIONS</span>
-          <span style="color:#555;font-size:18px;">RESETS: <span id="missions-reset-countdown"></span></span>
+          <span style="color:var(--purple);font-size:15px;">DAILY MISSIONS</span>
+          <span style="color:#555;font-size:12px;">RESETS: <span id="missions-reset-countdown"></span></span>
         </div>
         <div class="missions-panel" id="missions-list">
-          <div style="color:#666;font-size:22px;text-align:center;padding:20px;">LOADING...</div>
+          <div style="color:#666;font-size:15px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
@@ -2197,7 +2197,7 @@
       <!-- AWARDS TAB -->
       <div class="content-panel" id="panel-awards">
         <div class="awards-panel" id="awards-list">
-          <div style="color:#666;font-size:18px;text-align:center;padding:20px;">LOADING...</div>
+          <div style="color:#666;font-size:12px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
@@ -2210,7 +2210,7 @@
             <button class="levels-range-btn locked"  id="lvrange-2" onclick="switchLevelRange(2)">🔒 21 – 30</button>
           </div>
           <div class="levels-list" id="levels-list">
-            <div style="color:#666;font-size:18px;text-align:center;padding:20px;">LOADING...</div>
+            <div style="color:#666;font-size:12px;text-align:center;padding:20px;">LOADING...</div>
           </div>
           <div class="levels-footer">
             <div style="color:#4aff6b;" id="lv-bonus-line">GATHERING BONUS: +0%</div>
@@ -2218,7 +2218,7 @@
           </div>
           <div class="title-progress-section">
             <div class="title-progress-header">🏅 TITLE PROGRESS</div>
-            <div id="title-progress-list"><div style="color:#666;font-size:18px;">LOADING...</div></div>
+            <div id="title-progress-list"><div style="color:#666;font-size:12px;">LOADING...</div></div>
           </div>
         </div>
       </div>
@@ -2226,7 +2226,7 @@
       <!-- EVENT LOG TAB -->
       <div class="content-panel" id="panel-eventlog">
         <div class="eventlog-panel" id="eventlog-list">
-          <div style="color:#666;font-size:18px;text-align:center;padding:20px;">LOADING...</div>
+          <div style="color:#666;font-size:12px;text-align:center;padding:20px;">LOADING...</div>
         </div>
       </div>
 
@@ -2363,16 +2363,16 @@
 <!-- DAILY LOGIN POPUP -->
 <div id="daily-popup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9995;align-items:center;justify-content:center;">
   <div style="background:var(--panel);border:3px solid var(--orange);padding:28px 24px;max-width:300px;width:90%;text-align:center;font-family:'Silkscreen',monospace;animation:popIn 0.25s ease;">
-    <div style="font-size:100px;margin-bottom:10px;">🔥</div>
-    <div style="color:var(--orange);font-size:30px;margin-bottom:6px;">DAY <span id="dp-day">1</span> STREAK!</div>
-    <div style="color:#888;font-size:18px;margin-bottom:16px;">WELCOME BACK TO THE VILLAGE</div>
+    <div style="font-size:67px;margin-bottom:10px;">🔥</div>
+    <div style="color:var(--orange);font-size:20px;margin-bottom:6px;">DAY <span id="dp-day">1</span> STREAK!</div>
+    <div style="color:#888;font-size:12px;margin-bottom:16px;">WELCOME BACK TO THE VILLAGE</div>
     <div style="background:var(--dark);border:2px solid var(--purple);padding:12px;margin-bottom:16px;">
-      <div style="color:#888;font-size:18px;margin-bottom:6px;">TODAY'S REWARD</div>
-      <div style="color:var(--orange);font-size:28px;margin-bottom:4px;">+50 💰 GOLD</div>
-      <div style="color:var(--white);font-size:22px;" id="dp-resource"></div>
+      <div style="color:#888;font-size:12px;margin-bottom:6px;">TODAY'S REWARD</div>
+      <div style="color:var(--orange);font-size:19px;margin-bottom:4px;">+50 💰 GOLD</div>
+      <div style="color:var(--white);font-size:15px;" id="dp-resource"></div>
     </div>
     <div style="margin-bottom:16px;" id="dp-milestones"></div>
-    <button id="dp-collect-btn" onclick="collectDailyStreak()" style="width:100%;background:var(--orange);border:2px solid #ffa500;color:var(--dark);font-size:22px;font-family:'Silkscreen',monospace;padding:10px;cursor:pointer;">COLLECT</button>
+    <button id="dp-collect-btn" onclick="collectDailyStreak()" style="width:100%;background:var(--orange);border:2px solid #ffa500;color:var(--dark);font-size:15px;font-family:'Silkscreen',monospace;padding:10px;cursor:pointer;">COLLECT</button>
   </div>
 </div>
 
@@ -2391,7 +2391,7 @@
     <div class="seal-shop-header">👑 MAYOR'S SEAL SHOP</div>
     <div class="seal-shop-sub">Exclusive items for dedicated stream viewers</div>
     <div class="seal-shop-count">Your Seals: <span id="seal-shop-player-count">0</span> 👑</div>
-    <div id="seal-shop-list"><div style="color:#888;font-size:20px;text-align:center;padding:20px;">LOADING...</div></div>
+    <div id="seal-shop-list"><div style="color:#888;font-size:13px;text-align:center;padding:20px;">LOADING...</div></div>
     <button class="seal-shop-close" onclick="closeSealShop()">CLOSE</button>
   </div>
 </div>
@@ -2414,9 +2414,9 @@
 <!-- CARD BACKGROUND SELECTION MODAL -->
 <div id="bg-selection-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10000;align-items:center;justify-content:center;">
   <div style="background:#1C1C1C;border:3px solid #A86EFF;padding:16px;max-width:480px;width:95%;max-height:80vh;overflow-y:auto;font-family:'Silkscreen',monospace;animation:popIn 0.2s ease;">
-    <div style="color:#A86EFF;font-size:22px;margin-bottom:12px;">🖼️ CARD BACKGROUNDS</div>
+    <div style="color:#A86EFF;font-size:15px;margin-bottom:12px;">🖼️ CARD BACKGROUNDS</div>
     <div id="bg-selection-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;"></div>
-    <button onclick="closeBgSelection()" style="font-family:'Silkscreen',monospace;font-size:18px;padding:7px 14px;border:2px solid #555;background:transparent;color:#888;cursor:pointer;">CLOSE</button>
+    <button onclick="closeBgSelection()" style="font-family:'Silkscreen',monospace;font-size:12px;padding:7px 14px;border:2px solid #555;background:transparent;color:#888;cursor:pointer;">CLOSE</button>
   </div>
 </div>
 <!-- COSMETIC EQUIP MODAL -->
@@ -2550,7 +2550,7 @@
       </div>
       {% endfor %}
     </div>
-    <div id="trait-popup-error" style="color:#ff6b6b;font-size:18px;min-height:14px;margin-bottom:4px;text-align:center;"></div>
+    <div id="trait-popup-error" style="color:#ff6b6b;font-size:12px;min-height:14px;margin-bottom:4px;text-align:center;"></div>
     <button id="trait-popup-btn" onclick="tpConfirm()">CONFIRM TRAITS</button>
   </div>
 </div>
@@ -2726,7 +2726,7 @@
       const list = document.getElementById('leaderboard-list');
       if (!list) return;
       if (!data.penguins || data.penguins.length === 0) {
-        list.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:20px;">NO VILLAGERS YET</div>';
+        list.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">NO VILLAGERS YET</div>';
         return;
       }
       let html = '<div class="section-title" style="margin-bottom:12px;">TOP VILLAGERS</div>';
@@ -2765,7 +2765,7 @@
         : stream ? '<span class="mission-badge stream">STREAM</span>' : '';
       let rightEl;
       if (done) {
-        rightEl = `<span style="color:#4aff6b;font-size:22px;">✅</span>`;
+        rightEl = `<span style="color:#4aff6b;font-size:15px;">✅</span>`;
       } else if (stream) {
         rightEl = isLive
           ? `<button class="mission-claim" onclick="claimMissionFromCard('${m.key}', this)">CLAIM</button>`
@@ -2805,7 +2805,7 @@
           const footer = card.querySelector('.mission-footer');
           if (footer) {
             const right = footer.querySelector('.mission-claim, .mission-prog');
-            if (right) right.outerHTML = `<span style="color:#4aff6b;font-size:22px;">✅</span>`;
+            if (right) right.outerHTML = `<span style="color:#4aff6b;font-size:15px;">✅</span>`;
           }
           card.classList.add('done');
         }
@@ -2862,7 +2862,7 @@
       const data = await res.json();
       renderMissions(data.missions, data.date, container, data.is_live);
     } catch(e) {
-      container.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:20px;">ERROR LOADING MISSIONS</div>';
+      container.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">ERROR LOADING MISSIONS</div>';
     }
   }
 
@@ -2908,27 +2908,27 @@
         const checkColor = done ? '#4aff6b' : stream ? '#9b72d8' : '#555';
         const desc       = (m.desc || '').replace(/'/g, "\\'");
         const progEl     = done
-          ? `<span style="color:#4aff6b;font-size:18px;font-family:'Silkscreen',monospace;">✅</span>`
+          ? `<span style="color:#4aff6b;font-size:12px;font-family:'Silkscreen',monospace;">✅</span>`
           : stream && isLive
             ? `<button class="sb-mission-claim" onclick="claimMissionFromCard('${m.key}', this)">CLAIM</button>`
             : stream
-              ? `<span style="font-size:15px;font-family:'Silkscreen',monospace;color:#555;">OFFLINE</span>`
-              : `<span style="color:#888;font-size:18px;font-family:'Silkscreen',monospace;">${m.progress}/${m.target}</span>`;
+              ? `<span style="font-size:10px;font-family:'Silkscreen',monospace;color:#555;">OFFLINE</span>`
+              : `<span style="color:#888;font-size:12px;font-family:'Silkscreen',monospace;">${m.progress}/${m.target}</span>`;
         html += `<div class="sb-mission-row" onmouseenter="showSbTooltip(this,'${desc}')" onmouseleave="hideSbTooltip()">
-          <span class="sb-mission-check" style="color:${checkColor};font-size:22px;font-family:'Silkscreen',monospace;">${check}</span>
+          <span class="sb-mission-check" style="color:${checkColor};font-size:15px;font-family:'Silkscreen',monospace;">${check}</span>
           <div class="sb-mission-info">
-            <div class="sb-mission-title" style="color:${titleColor};font-size:20px;font-family:'Silkscreen',monospace;">${m.icon} ${m.title}</div>
+            <div class="sb-mission-title" style="color:${titleColor};font-size:13px;font-family:'Silkscreen',monospace;">${m.icon} ${m.title}</div>
             <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
               <div style="flex:1;background:#2E2E2E;height:3px;"><div style="background:${done?'#4aff6b':'#A86EFF'};height:3px;width:${pct}%;"></div></div>
-              <div class="sb-mission-reward" style="font-size:18px;font-family:'Silkscreen',monospace;">🪙${m.gold}</div>
+              <div class="sb-mission-reward" style="font-size:12px;font-family:'Silkscreen',monospace;">🪙${m.gold}</div>
             </div>
           </div>
           <div style="margin-left:4px;flex-shrink:0;">${progEl}</div>
         </div>`;
       });
-      el.innerHTML = html || '<span style="color:#555;font-size:18px;font-family:\'Press Start 2P\',monospace;">NO MISSIONS</span>';
+      el.innerHTML = html || '<span style="color:#555;font-size:12px;font-family:\'Press Start 2P\',monospace;">NO MISSIONS</span>';
     } catch(e) {
-      el.innerHTML = '<span style="color:#555;font-size:18px;font-family:\'Press Start 2P\',monospace;">ERROR</span>';
+      el.innerHTML = '<span style="color:#555;font-size:12px;font-family:\'Press Start 2P\',monospace;">ERROR</span>';
     }
   }
 
@@ -2985,7 +2985,7 @@
         const energyEl = document.getElementById('stat-energy');
         if (energyEl) energyEl.innerHTML = isFull
           ? `<span style="color:#4aff6b">⚡ FULL</span>`
-          : `${p.energy}/${maxE} <span style="color:#888;font-size:18px">+10/hr</span>`;
+          : `${p.energy}/${maxE} <span style="color:#888;font-size:12px">+10/hr</span>`;
         document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
         document.getElementById('stat-level').textContent = '★ LEVEL ' + p.level;
         const xpNeeded = p.xp_needed || 100;
@@ -3329,7 +3329,7 @@
     const modal = document.getElementById('building-modal');
     modal.style.display = 'block';
     document.getElementById('bm-content').innerHTML =
-      `<div style="text-align:center;color:#666;padding:40px 0;font-size:20px;">LOADING...</div>`;
+      `<div style="text-align:center;color:#666;padding:40px 0;font-size:13px;">LOADING...</div>`;
     _currentDonateBuilding = buildingId;
     try {
       const bRes = await fetch(`/building/${buildingId}?username=${CURRENT_USER}`);
@@ -3377,7 +3377,7 @@
     document.getElementById('bm-overlay').style.display = 'block';
     document.getElementById('building-modal').style.display = 'block';
     document.getElementById('bm-content').innerHTML =
-      `<div style="text-align:center;color:#666;padding:40px 0;font-size:20px;">LOADING BOUTIQUE...</div>`;
+      `<div style="text-align:center;color:#666;padding:40px 0;font-size:13px;">LOADING BOUTIQUE...</div>`;
     try {
       const res  = await fetch(`/boutique/items?username=${CURRENT_USER}`);
       const data = await res.json();
@@ -3392,10 +3392,10 @@
     if (!_bqData) return;
     const gold = _bqData.player_gold || 0;
     let html = `<span class="bm-close" onclick="closeBuildingPanel()">✕</span>`;
-    html += `<div style="text-align:center;font-size:70px;margin-bottom:6px;">🛍️</div>`;
-    html += `<div style="color:#FF7FE5;font-size:35px;text-align:center;margin-bottom:6px;">THE PENGUIN BOUTIQUE</div>`;
-    html += `<div style="color:#888;font-size:20px;text-align:center;line-height:1.8;margin-bottom:10px;">The finest penguin fashion this side of the ice shelf.</div>`;
-    html += `<div id="bq-gold-display" style="text-align:center;color:#FF8C00;font-size:25px;margin-bottom:12px;">🪙 Your Gold: ${gold.toLocaleString()}</div>`;
+    html += `<div style="text-align:center;font-size:47px;margin-bottom:6px;">🛍️</div>`;
+    html += `<div style="color:#FF7FE5;font-size:23px;text-align:center;margin-bottom:6px;">THE PENGUIN BOUTIQUE</div>`;
+    html += `<div style="color:#888;font-size:13px;text-align:center;line-height:1.8;margin-bottom:10px;">The finest penguin fashion this side of the ice shelf.</div>`;
+    html += `<div id="bq-gold-display" style="text-align:center;color:#FF8C00;font-size:17px;margin-bottom:12px;">🪙 Your Gold: ${gold.toLocaleString()}</div>`;
     html += `<hr class="bm-divider" style="border-color:#FF7FE5;">`;
 
     html += `<div class="bq-tabs">`;
@@ -3412,7 +3412,7 @@
   }
 
   function _renderBoutiqueItems(items, gold) {
-    if (!items || !items.length) return `<div style="color:#555;font-size:20px;padding:20px;text-align:center;">No items.</div>`;
+    if (!items || !items.length) return `<div style="color:#555;font-size:13px;padding:20px;text-align:center;">No items.</div>`;
     let html = '';
     for (const item of items) {
       const isDragon  = item.id === 'dragon_wings';
@@ -3471,9 +3471,9 @@
              style="position:absolute;top:10px;left:10px;width:80px;height:80px;image-rendering:pixelated;"
              onerror="this.style.display='none'">
       </div>
-      <div style="color:#fff;font-size:22px;text-align:center;">${item.name}</div>
-      <div style="color:#888;font-size:18px;text-align:center;">Slot: ${slotLabel}</div>
-      <div style="color:${tierColor};font-size:22px;text-align:center;">🪙 ${item.price.toLocaleString()}</div>
+      <div style="color:#fff;font-size:15px;text-align:center;">${item.name}</div>
+      <div style="color:#888;font-size:12px;text-align:center;">Slot: ${slotLabel}</div>
+      <div style="color:${tierColor};font-size:15px;text-align:center;">🪙 ${item.price.toLocaleString()}</div>
       <div class="bq-btn-row" style="gap:10px;justify-content:center;width:220px;">
         ${item.owned
           ? `<button class="bq-btn equip" style="flex:none;width:140px;" onclick="bqEquip('${item.id}');bqClosePreview()">EQUIP</button>`
@@ -3494,9 +3494,9 @@
     const prev = document.getElementById('bq-preview');
     prev.innerHTML = `
       <div style="background:#1C1C1C;border:2px solid #FF7FE5;padding:20px;max-width:280px;text-align:center;">
-        <div style="color:#FF7FE5;font-size:25px;margin-bottom:12px;">CONFIRM PURCHASE</div>
-        <div style="color:#fff;font-size:20px;margin-bottom:6px;">${itemName}</div>
-        <div style="color:#FF8C00;font-size:22px;margin-bottom:16px;">🪙 ${price.toLocaleString()} gold</div>
+        <div style="color:#FF7FE5;font-size:17px;margin-bottom:12px;">CONFIRM PURCHASE</div>
+        <div style="color:#fff;font-size:13px;margin-bottom:6px;">${itemName}</div>
+        <div style="color:#FF8C00;font-size:15px;margin-bottom:16px;">🪙 ${price.toLocaleString()} gold</div>
         <div class="bq-btn-row" style="justify-content:center;gap:10px;">
           <button class="bq-btn buy" style="flex:none;width:80px;" onclick="bqBuy('${itemId}')">YES</button>
           <button class="bq-btn preview" style="flex:none;width:80px;" onclick="bqClosePreview()">NO</button>
@@ -3564,14 +3564,14 @@
 
   async function _loadFurnitureShop() {
     const grid = document.getElementById('bq-items-grid');
-    if (grid) grid.innerHTML = '<div style="color:#888;font-size:20px;padding:20px;text-align:center;">Loading…</div>';
+    if (grid) grid.innerHTML = '<div style="color:#888;font-size:13px;padding:20px;text-align:center;">Loading…</div>';
     try {
       const res  = await fetch(`/igloo/shop?username=${CURRENT_USER}`);
       const data = await res.json();
       _bqFurnData = data;
       if (grid) grid.innerHTML = _renderFurnitureShop(data);
     } catch(e) {
-      if (grid) grid.innerHTML = '<div style="color:#ff6b6b;font-size:20px;padding:20px;text-align:center;">Error loading furniture.</div>';
+      if (grid) grid.innerHTML = '<div style="color:#ff6b6b;font-size:13px;padding:20px;text-align:center;">Error loading furniture.</div>';
     }
   }
 
@@ -3582,7 +3582,7 @@
     for (const [catId, catLabel] of Object.entries(cats)) {
       const items = Object.entries(data.furniture).filter(([, d]) => d.category === catId);
       if (!items.length) continue;
-      html += `<div style="color:#A86EFF;font-size:20px;padding:6px 10px 4px;border-bottom:1px solid #333;">${catLabel}</div>`;
+      html += `<div style="color:#A86EFF;font-size:13px;padding:6px 10px 4px;border-bottom:1px solid #333;">${catLabel}</div>`;
       for (const [itemId, defn] of items) {
         const owned = defn.owned;
         const costStr = defn.cost
@@ -3590,18 +3590,18 @@
           : 'Special';
         html += `<div class="bq-card" style="${owned ? 'opacity:0.6;' : ''}">
           <div class="bq-item-name">${defn.name}</div>
-          <div style="color:#888;font-size:18px;">${defn.width||1}×${defn.height||1} tile${(defn.width||1)*(defn.height||1)>1?'s':''}</div>
-          <div style="color:#FF8C00;font-size:18px;">🪙 ${costStr}</div>
+          <div style="color:#888;font-size:12px;">${defn.width||1}×${defn.height||1} tile${(defn.width||1)*(defn.height||1)>1?'s':''}</div>
+          <div style="color:#FF8C00;font-size:12px;">🪙 ${costStr}</div>
           ${owned
-            ? `<div style="color:#4aff6b;font-size:18px;margin-top:4px;">✅ OWNED</div>`
+            ? `<div style="color:#4aff6b;font-size:12px;margin-top:4px;">✅ OWNED</div>`
             : defn.cost
               ? `<button class="bq-btn buy" onclick="iglooBuyFurniture('${itemId}')">BUY</button>`
-              : `<div style="color:#888;font-size:18px;margin-top:4px;">N/A</div>`
+              : `<div style="color:#888;font-size:12px;margin-top:4px;">N/A</div>`
           }
         </div>`;
       }
     }
-    return html || '<div style="color:#888;font-size:20px;padding:20px;text-align:center;">No items available.</div>';
+    return html || '<div style="color:#888;font-size:13px;padding:20px;text-align:center;">No items available.</div>';
   }
 
   async function iglooBuyFurniture(itemId) {
@@ -3628,22 +3628,22 @@
     const lvColor = _BM_LV_COLORS[lvl] || '#A86EFF';
 
     let html = `<span class="bm-close" onclick="closeBuildingPanel()">✕</span>`;
-    html += `<div style="text-align:center;font-size:90px;margin-bottom:8px;">${bData.icon||''}</div>`;
-    html += `<div style="color:#A86EFF;font-size:35px;text-align:center;margin-bottom:8px;">${(bData.name||'').toUpperCase()}</div>`;
+    html += `<div style="text-align:center;font-size:60px;margin-bottom:8px;">${bData.icon||''}</div>`;
+    html += `<div style="color:#A86EFF;font-size:23px;text-align:center;margin-bottom:8px;">${(bData.name||'').toUpperCase()}</div>`;
     if (upgData) {
       html += `<div style="text-align:center;margin-bottom:8px;">`;
-      html += `<span style="border:2px solid ${lvColor};color:${lvColor};padding:2px 8px;font-size:20px;">LEVEL ${lvl} / ${maxLvl}</span>`;
+      html += `<span style="border:2px solid ${lvColor};color:${lvColor};padding:2px 8px;font-size:13px;">LEVEL ${lvl} / ${maxLvl}</span>`;
       html += `</div>`;
     }
-    html += `<div style="color:#888;font-size:20px;text-align:center;line-height:2;margin-bottom:12px;">${bData.desc||''}</div>`;
+    html += `<div style="color:#888;font-size:13px;text-align:center;line-height:2;margin-bottom:12px;">${bData.desc||''}</div>`;
     html += `<hr class="bm-divider">`;
 
     if (upgData) {
-      html += `<div style="color:#4aff6b;font-size:22px;margin-bottom:4px;">CURRENT BONUS</div>`;
+      html += `<div style="color:#4aff6b;font-size:15px;margin-bottom:4px;">CURRENT BONUS</div>`;
       if (lvl >= maxLvl) {
-        html += `<div style="color:#FF8C00;font-size:22px;margin-bottom:10px;">★ MAX LEVEL — ALL BONUSES ACTIVE</div>`;
+        html += `<div style="color:#FF8C00;font-size:15px;margin-bottom:10px;">★ MAX LEVEL — ALL BONUSES ACTIVE</div>`;
       } else {
-        html += `<div style="color:#fff;font-size:22px;margin-bottom:10px;">${upgData.current_benefit||'Base level — no bonus yet'}</div>`;
+        html += `<div style="color:#fff;font-size:15px;margin-bottom:10px;">${upgData.current_benefit||'Base level — no bonus yet'}</div>`;
       }
       html += `<hr class="bm-divider-thin">`;
     }
@@ -3741,12 +3741,12 @@
       const remain   = (data.hotel_remaining_today != null) ? data.hotel_remaining_today : 2;
       const cost     = remain === 2 ? 100 : 500;
       const canAff   = gold >= cost;
-      html += `<div style="font-size:18px;color:#888;margin-bottom:6px;line-height:2.2;">
+      html += `<div style="font-size:12px;color:#888;margin-bottom:6px;line-height:2.2;">
         <span style="color:#FF8C00;">1st rest: 100 gold</span> &nbsp;|&nbsp;
         <span style="color:#ff6b6b;">2nd rest: 500 gold</span>
       </div>`;
-      html += `<div style="font-size:18px;color:#555;margin-bottom:8px;">Uses remaining today: <span style="color:${remain>0?'#ccc':'#ff6b6b'}">${remain} / 2</span></div>`;
-      html += `<div style="font-size:20px;color:#888;margin-bottom:4px;">ENERGY: ${energy} / ${maxE}</div>`;
+      html += `<div style="font-size:12px;color:#555;margin-bottom:8px;">Uses remaining today: <span style="color:${remain>0?'#ccc':'#ff6b6b'}">${remain} / 2</span></div>`;
+      html += `<div style="font-size:13px;color:#888;margin-bottom:4px;">ENERGY: ${energy} / ${maxE}</div>`;
       html += `<div style="height:6px;background:#1C1C1C;margin-bottom:10px;"><div style="height:100%;width:${ePct}%;background:#4aff6b;"></div></div>`;
       if (isFull) {
         html += `<div class="bp-info" style="color:#4aff6b;text-align:center;">You're fully rested! 😴</div>`;
@@ -3757,18 +3757,18 @@
         const diff = midnight - new Date();
         const rh = Math.floor(diff/3600000), rm = Math.floor((diff%3600000)/60000);
         html += `<div class="bp-info" style="color:#ff6b6b;text-align:center;">Hotel exhausted. Back tomorrow! 💤</div>`;
-        html += `<div style="color:#888;font-size:18px;text-align:center;margin-top:6px;">Resets in: ${rh}h ${rm}m</div>`;
+        html += `<div style="color:#888;font-size:12px;text-align:center;margin-top:6px;">Resets in: ${rh}h ${rm}m</div>`;
       } else {
-        html += `<div style="font-size:22px;color:#fff;margin-bottom:3px;">Restore ${toRes} energy</div>`;
-        html += `<div style="font-size:22px;color:${remain===2?'#FF8C00':'#ff6b6b'};margin-bottom:10px;">Cost: ${cost.toLocaleString()} gold 🪙</div>`;
+        html += `<div style="font-size:15px;color:#fff;margin-bottom:3px;">Restore ${toRes} energy</div>`;
+        html += `<div style="font-size:15px;color:${remain===2?'#FF8C00':'#ff6b6b'};margin-bottom:10px;">Cost: ${cost.toLocaleString()} gold 🪙</div>`;
         html += `<button class="bp-btn rest" ${canAff?'':'disabled'} onclick="bpRest()">REST NOW</button>`;
-        if (!canAff) html += `<div style="color:#ff6b6b;font-size:18px;margin-top:5px;text-align:center;">Need ${cost} gold (have ${gold})</div>`;
+        if (!canAff) html += `<div style="color:#ff6b6b;font-size:12px;margin-top:5px;text-align:center;">Need ${cost} gold (have ${gold})</div>`;
       }
     } else if (btype === 'combat') {
       const hasGearShop = FEATURES.gear_equip;
       html += `<div class="bm-tab-bar" style="display:flex;gap:4px;margin-bottom:10px;">
-        <button class="bm-tab active" id="barracks-tab-monsters" onclick="switchBarracksTab('monsters')" style="flex:1;font-size:20px;padding:6px 4px;background:#1a1a1a;border:1px solid #ff6b6b;color:#ff6b6b;cursor:pointer;font-family:inherit;">⚔️ MONSTERS</button>
-        <button class="bm-tab" id="barracks-tab-shop" onclick="switchBarracksTab('shop')" style="flex:1;font-size:20px;padding:6px 4px;background:#1a1a1a;border:1px solid #666;color:#666;cursor:pointer;font-family:inherit;">🛡️ GEAR SHOP</button>
+        <button class="bm-tab active" id="barracks-tab-monsters" onclick="switchBarracksTab('monsters')" style="flex:1;font-size:13px;padding:6px 4px;background:#1a1a1a;border:1px solid #ff6b6b;color:#ff6b6b;cursor:pointer;font-family:inherit;">⚔️ MONSTERS</button>
+        <button class="bm-tab" id="barracks-tab-shop" onclick="switchBarracksTab('shop')" style="flex:1;font-size:13px;padding:6px 4px;background:#1a1a1a;border:1px solid #666;color:#666;cursor:pointer;font-family:inherit;">🛡️ GEAR SHOP</button>
       </div>`;
       html += `<div id="barracks-pane-monsters">`;
       if (FEATURES.combat) {
@@ -3780,23 +3780,23 @@
       html += `</div>`;
       html += `<div id="barracks-pane-shop" style="display:none;">`;
       if (hasGearShop) {
-        html += `<div id="barracks-shop-content" style="min-height:60px;"><div style="color:#666;font-size:18px;text-align:center;padding:10px;">LOADING...</div></div>`;
+        html += `<div id="barracks-shop-content" style="min-height:60px;"><div style="color:#666;font-size:12px;text-align:center;padding:10px;">LOADING...</div></div>`;
       } else {
         html += bpComingSoon('🛡️', 'GEAR SHOP COMING SOON', 'Forge powerful combat equipment here.');
       }
       html += `</div>`;
     } else if (btype === 'achievements') {
       html += `<div class="bm-tab-bar" style="display:flex;gap:4px;margin-bottom:10px;">
-        <button class="bm-tab active" id="ah-tab-achievements" onclick="switchAwardHallTab('achievements')" style="flex:1;font-size:20px;padding:6px 4px;background:#1a1a1a;border:1px solid #4aff6b;color:#4aff6b;cursor:pointer;font-family:inherit;">🏆 ACHIEVEMENTS</button>
-        <button class="bm-tab" id="ah-tab-leaderboard" onclick="switchAwardHallTab('leaderboard')" style="flex:1;font-size:20px;padding:6px 4px;background:#1a1a1a;border:1px solid #444;color:#666;cursor:pointer;font-family:inherit;">📊 LEADERBOARDS</button>
+        <button class="bm-tab active" id="ah-tab-achievements" onclick="switchAwardHallTab('achievements')" style="flex:1;font-size:13px;padding:6px 4px;background:#1a1a1a;border:1px solid #4aff6b;color:#4aff6b;cursor:pointer;font-family:inherit;">🏆 ACHIEVEMENTS</button>
+        <button class="bm-tab" id="ah-tab-leaderboard" onclick="switchAwardHallTab('leaderboard')" style="flex:1;font-size:13px;padding:6px 4px;background:#1a1a1a;border:1px solid #444;color:#666;cursor:pointer;font-family:inherit;">📊 LEADERBOARDS</button>
       </div>`;
       html += `<div id="ah-pane-achievements">
-        <div style="color:#888;font-size:18px;margin-bottom:10px;line-height:1.8;">Check your completed achievements and track progress toward new ones.</div>
+        <div style="color:#888;font-size:12px;margin-bottom:10px;line-height:1.8;">Check your completed achievements and track progress toward new ones.</div>
         <button class="bp-btn" onclick="switchContentTab('awards', null); closeBuildingPanel();">VIEW ACHIEVEMENTS</button>
       </div>`;
       html += `<div id="ah-pane-leaderboard" style="display:none;">
-        <div style="color:#FF8C00;font-size:25px;margin-bottom:4px;">📊 VILLAGE LEADERBOARDS</div>
-        <div style="color:#888;font-size:18px;margin-bottom:10px;">How do you stack up against the village?</div>
+        <div style="color:#FF8C00;font-size:17px;margin-bottom:4px;">📊 VILLAGE LEADERBOARDS</div>
+        <div style="color:#888;font-size:12px;margin-bottom:10px;">How do you stack up against the village?</div>
         <div id="lb-overview" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;"></div>
         <div style="overflow-x:auto;margin-bottom:8px;">
           <div style="display:flex;gap:3px;min-width:min-content;" id="lb-cat-btns">
@@ -3825,14 +3825,14 @@
     const gold = bData.player_gold || 0;
     const canAff = gold >= 2000;
     let html = `<hr class="bm-divider">`;
-    html += `<div style="color:#A86EFF;font-size:25px;margin-bottom:6px;">🔮 RESHAPE YOUR PENGUIN</div>`;
-    html += `<div style="color:#888;font-size:18px;line-height:2;margin-bottom:8px;">The cursed monks can reshape your very being... for a price.</div>`;
-    html += `<div style="color:#FF8C00;font-size:22px;margin-bottom:10px;">Cost: 🪙 2,000 gold</div>`;
+    html += `<div style="color:#A86EFF;font-size:17px;margin-bottom:6px;">🔮 RESHAPE YOUR PENGUIN</div>`;
+    html += `<div style="color:#888;font-size:12px;line-height:2;margin-bottom:8px;">The cursed monks can reshape your very being... for a price.</div>`;
+    html += `<div style="color:#FF8C00;font-size:15px;margin-bottom:10px;">Cost: 🪙 2,000 gold</div>`;
     if (canAff) {
       html += `<button class="bp-btn" style="border-color:#A86EFF;color:#A86EFF;" onclick="reshapeConfirm()">RESHAPE</button>`;
     } else {
       html += `<button class="bp-btn" disabled style="opacity:0.4;cursor:not-allowed;">RESHAPE</button>`;
-      html += `<div style="color:#ff6b6b;font-size:18px;margin-top:6px;">Need 2,000 gold (you have ${gold.toLocaleString()})</div>`;
+      html += `<div style="color:#ff6b6b;font-size:12px;margin-top:6px;">Need 2,000 gold (you have ${gold.toLocaleString()})</div>`;
     }
     return html;
   }
@@ -3913,7 +3913,7 @@
       } else {
         gridHtml += `<div class="rs-color-card locked">
           <canvas class="rs-color-canvas" data-body="${p.body}" data-belly="${p.belly}" width="70" height="70" style="opacity:0.3;"></canvas>
-          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:45px;">🔒</div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:30px;">🔒</div>
           <div class="rs-color-name" style="opacity:0.4;">${p.unlock}</div>
         </div>`;
       }
@@ -4049,11 +4049,11 @@
     let html = '';
 
     if (isMax) {
-      html += `<div style="color:#FF7FE5;font-size:28px;margin-bottom:8px;">FULLY UPGRADED ★</div>`;
-      html += `<div style="color:#FF8C00;font-size:20px;text-align:center;padding:8px 0;">This building stands as a monument to the village.</div>`;
+      html += `<div style="color:#FF7FE5;font-size:19px;margin-bottom:8px;">FULLY UPGRADED ★</div>`;
+      html += `<div style="color:#FF8C00;font-size:13px;text-align:center;padding:8px 0;">This building stands as a monument to the village.</div>`;
     } else {
-      html += `<div style="color:#FF7FE5;font-size:28px;margin-bottom:8px;">UPGRADE TO LEVEL ${upgData.next_level}</div>`;
-      html += `<div style="color:#4aff6b;font-size:18px;margin-bottom:14px;">${upgData.next_benefit||''}</div>`;
+      html += `<div style="color:#FF7FE5;font-size:19px;margin-bottom:8px;">UPGRADE TO LEVEL ${upgData.next_level}</div>`;
+      html += `<div style="color:#4aff6b;font-size:12px;margin-bottom:14px;">${upgData.next_benefit||''}</div>`;
 
       let totalPct = 0;
       const progressEntries = Object.entries(upgData.progress || {});
@@ -4064,8 +4064,8 @@
         totalPct += pct;
         html += `<div class="bm-prog-wrap">
           <div class="bm-prog-header">
-            <span style="color:#fff;font-size:22px;">${icon} ${res.replace(/_/g,' ')}</span>
-            <span style="color:#fff;font-size:22px;">${p.donated.toLocaleString()} / ${p.needed.toLocaleString()}</span>
+            <span style="color:#fff;font-size:15px;">${icon} ${res.replace(/_/g,' ')}</span>
+            <span style="color:#fff;font-size:15px;">${p.donated.toLocaleString()} / ${p.needed.toLocaleString()}</span>
           </div>
           <div class="bm-prog-track" style="border:2px solid ${color}55;">
             <div class="bm-prog-fill" id="bm-bar-${res}" style="width:${pct}%;background:${color};">
@@ -4076,7 +4076,7 @@
       });
 
       const overallPct = progressEntries.length ? Math.round(totalPct / progressEntries.length) : 0;
-      html += `<div style="color:#A86EFF;font-size:25px;margin-bottom:6px;">OVERALL: ${overallPct}%</div>`;
+      html += `<div style="color:#A86EFF;font-size:17px;margin-bottom:6px;">OVERALL: ${overallPct}%</div>`;
       html += `<div class="bm-prog-track" style="margin-bottom:14px;border:2px solid #A86EFF55;">
         <div class="bm-prog-fill" style="width:${overallPct}%;background:#A86EFF;">
           <div class="bm-prog-pct">${overallPct}%</div>
@@ -4096,26 +4096,26 @@
           donateResources.forEach(r => {
             const sel = r === _currentDonateResource;
             const icon = _BM_RES_ICONS[r] || '📦';
-            html += `<button onclick="bpSelectResource('${r}',${pr[r]||0})" style="font-family:'Silkscreen',monospace;font-size:18px;padding:5px 8px;border:2px solid ${sel?'#A86EFF':'#555'};background:transparent;color:${sel?'#A86EFF':'#888'};cursor:pointer;">${icon} ${r.replace(/_/g,' ')} (${(pr[r]||0).toLocaleString()})</button>`;
+            html += `<button onclick="bpSelectResource('${r}',${pr[r]||0})" style="font-family:'Silkscreen',monospace;font-size:12px;padding:5px 8px;border:2px solid ${sel?'#A86EFF':'#555'};background:transparent;color:${sel?'#A86EFF':'#888'};cursor:pointer;">${icon} ${r.replace(/_/g,' ')} (${(pr[r]||0).toLocaleString()})</button>`;
           });
           html += `</div>`;
         } else {
           const r = donateResources[0];
-          html += `<div style="font-size:18px;color:#888;margin-bottom:8px;">${_BM_RES_ICONS[r]||'📦'} ${r.replace(/_/g,' ')}: <span style="color:#fff;">${(_currentDonatePlayerHave).toLocaleString()}</span> available</div>`;
+          html += `<div style="font-size:12px;color:#888;margin-bottom:8px;">${_BM_RES_ICONS[r]||'📦'} ${r.replace(/_/g,' ')}: <span style="color:#fff;">${(_currentDonatePlayerHave).toLocaleString()}</span> available</div>`;
         }
 
         html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">`;
-        html += `<input type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" oninput="updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:20px;background:#1C1C1C;border:1px solid #555;color:#fff;padding:5px 8px;width:70px;">`;
+        html += `<input type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" oninput="updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:13px;background:#1C1C1C;border:1px solid #555;color:#fff;padding:5px 8px;width:70px;">`;
         [10, 50, 100, 500].forEach(q => {
           if (q <= _currentDonatePlayerHave)
-            html += `<button onclick="document.getElementById('bp-donate-amount').value=${q};updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:18px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">${q}</button>`;
+            html += `<button onclick="document.getElementById('bp-donate-amount').value=${q};updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:12px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">${q}</button>`;
         });
         if (_currentDonatePlayerHave > 0)
-          html += `<button onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave};updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:18px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">ALL</button>`;
+          html += `<button onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave};updateXpPreview()" style="font-family:'Silkscreen',monospace;font-size:12px;padding:4px 6px;border:1px solid #555;background:transparent;color:#888;cursor:pointer;">ALL</button>`;
         html += `</div>`;
-        html += `<div id="bp-xp-preview" style="color:#A86EFF;font-size:20px;margin-bottom:10px;min-height:14px;"></div>`;
+        html += `<div id="bp-xp-preview" style="color:#A86EFF;font-size:13px;margin-bottom:10px;min-height:14px;"></div>`;
         const hasRes = _currentDonatePlayerHave > 0;
-        html += `<button id="bm-donate-btn" onclick="bpDonate()" ${hasRes?'':'disabled'} style="width:100%;font-family:'Silkscreen',monospace;font-size:25px;padding:12px;background:#1C1C1C;border:3px solid #4aff6b;color:#4aff6b;cursor:${hasRes?'pointer':'not-allowed'};opacity:${hasRes?1:0.4};">DONATE ${(_currentDonateResource||'').replace(/_/g,' ').toUpperCase()}</button>`;
+        html += `<button id="bm-donate-btn" onclick="bpDonate()" ${hasRes?'':'disabled'} style="width:100%;font-family:'Silkscreen',monospace;font-size:17px;padding:12px;background:#1C1C1C;border:3px solid #4aff6b;color:#4aff6b;cursor:${hasRes?'pointer':'not-allowed'};opacity:${hasRes?1:0.4};">DONATE ${(_currentDonateResource||'').replace(/_/g,' ').toUpperCase()}</button>`;
       }
     }
 
@@ -4123,33 +4123,33 @@
     const contribs = upgData.contributors || [];
     if (contribs.length) {
       html += `<hr class="bm-divider-thin">`;
-      html += `<div style="color:#FF8C00;font-size:25px;margin-bottom:10px;">🏆 TOP CONTRIBUTORS</div>`;
+      html += `<div style="color:#FF8C00;font-size:17px;margin-bottom:10px;">🏆 TOP CONTRIBUTORS</div>`;
       const medals = ['🥇','🥈','🥉','#4','#5'];
       contribs.forEach((c, i) => {
-        html += `<div style="display:flex;gap:8px;font-size:18px;padding:5px 0;border-bottom:1px solid #1a1a1a;">
+        html += `<div style="display:flex;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid #1a1a1a;">
           <span style="color:#888;width:20px;flex-shrink:0;">${medals[i]||'#'+(i+1)}</span>
           <span style="color:#fff;flex:1;">${c.username.toUpperCase()}</span>
           <span style="color:#888;">${(c.total||0).toLocaleString()} resources</span>
         </div>`;
       });
-      html += `<div style="color:#555;font-size:15px;margin-top:8px;text-align:center;font-style:italic;">This building remembers its builders.</div>`;
+      html += `<div style="color:#555;font-size:10px;margin-top:8px;text-align:center;font-style:italic;">This building remembers its builders.</div>`;
     }
 
     // Personal stats
     if (upgData.player_building_total !== undefined) {
       html += `<hr class="bm-divider-thin">`;
-      html += `<div style="color:#A86EFF;font-size:22px;margin-bottom:8px;">YOUR CONTRIBUTIONS</div>`;
-      html += `<div style="font-size:18px;color:#888;margin-bottom:4px;">To this building: <span style="color:#fff;">${(upgData.player_building_total||0).toLocaleString()}</span></div>`;
-      html += `<div style="font-size:18px;color:#888;margin-bottom:8px;">All buildings total: <span style="color:#fff;">${(upgData.player_total_contributions||0).toLocaleString()}</span></div>`;
+      html += `<div style="color:#A86EFF;font-size:15px;margin-bottom:8px;">YOUR CONTRIBUTIONS</div>`;
+      html += `<div style="font-size:12px;color:#888;margin-bottom:4px;">To this building: <span style="color:#fff;">${(upgData.player_building_total||0).toLocaleString()}</span></div>`;
+      html += `<div style="font-size:12px;color:#888;margin-bottom:8px;">All buildings total: <span style="color:#fff;">${(upgData.player_total_contributions||0).toLocaleString()}</span></div>`;
       if (upgData.next_milestone) {
         const nm = upgData.next_milestone;
         const cur = upgData.player_total_contributions || 0;
         const pct = Math.min(100, Math.round(cur / nm.threshold * 100));
-        html += `<div style="font-size:18px;color:#888;margin-bottom:4px;">Next unlock at <span style="color:#FF8C00;">${nm.threshold.toLocaleString()}</span>: <span style="color:#FF7FE5;">${nm.name}</span></div>`;
+        html += `<div style="font-size:12px;color:#888;margin-bottom:4px;">Next unlock at <span style="color:#FF8C00;">${nm.threshold.toLocaleString()}</span>: <span style="color:#FF7FE5;">${nm.name}</span></div>`;
         html += `<div class="bm-prog-track" style="border:1px solid #333;margin-bottom:4px;"><div class="bm-prog-fill" style="width:${pct}%;background:#FF7FE5;"></div></div>`;
-        html += `<div style="font-size:15px;color:#666;">${pct}% there</div>`;
+        html += `<div style="font-size:10px;color:#666;">${pct}% there</div>`;
       } else {
-        html += `<div style="color:#FF8C00;font-size:18px;">★ All milestones unlocked!</div>`;
+        html += `<div style="color:#FF8C00;font-size:12px;">★ All milestones unlocked!</div>`;
       }
     }
 
@@ -4157,14 +4157,14 @@
     if (typeof upgData.player_bg_progress !== 'undefined') {
       html += `<hr class="bm-divider-thin">`;
       if (upgData.player_bg_unlocked) {
-        html += `<div style="color:#4aff6b;font-size:20px;margin-bottom:4px;">🖼️ BACKGROUND UNLOCKED ✅</div>`;
-        html += `<div style="color:#888;font-size:18px;">Go to your Penguin Card to equip it!</div>`;
+        html += `<div style="color:#4aff6b;font-size:13px;margin-bottom:4px;">🖼️ BACKGROUND UNLOCKED ✅</div>`;
+        html += `<div style="color:#888;font-size:12px;">Go to your Penguin Card to equip it!</div>`;
       } else {
         const bgPct = Math.min(100, Math.round((upgData.player_bg_progress||0) / 100 * 100));
-        html += `<div style="color:#A86EFF;font-size:20px;margin-bottom:6px;">🖼️ CARD BACKGROUND</div>`;
-        html += `<div style="font-size:18px;color:#888;margin-bottom:4px;">${(upgData.player_bg_progress||0).toLocaleString()} / 100 resources donated</div>`;
+        html += `<div style="color:#A86EFF;font-size:13px;margin-bottom:6px;">🖼️ CARD BACKGROUND</div>`;
+        html += `<div style="font-size:12px;color:#888;margin-bottom:4px;">${(upgData.player_bg_progress||0).toLocaleString()} / 100 resources donated</div>`;
         html += `<div class="bm-prog-track" style="border:1px solid #333;margin-bottom:4px;"><div class="bm-prog-fill" style="width:${bgPct}%;background:#A86EFF;"></div></div>`;
-        html += `<div style="font-size:15px;color:#666;margin-bottom:4px;">Donate 100 total resources to unlock this building's card background!</div>`;
+        html += `<div style="font-size:10px;color:#666;margin-bottom:4px;">Donate 100 total resources to unlock this building's card background!</div>`;
       }
     }
 
@@ -4242,12 +4242,12 @@
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
     overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #FF8C00;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Silkscreen',monospace;animation:popIn 0.3s ease;">
-      <div style="font-size:60px;margin-bottom:10px;">🎉</div>
-      <div style="color:#FF8C00;font-size:30px;margin-bottom:8px;">MILESTONE UNLOCKED!</div>
-      <div style="color:#FF7FE5;font-size:25px;margin-bottom:8px;">${ms.name}</div>
-      <div style="color:#888;font-size:18px;margin-bottom:16px;line-height:2;">${ms.description}</div>
-      <div style="color:#4aff6b;font-size:18px;margin-bottom:16px;">Card background added to your inventory!</div>
-      <button onclick="this.closest('[data-ms-overlay]').remove()" style="font-family:'Silkscreen',monospace;font-size:20px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
+      <div style="font-size:40px;margin-bottom:10px;">🎉</div>
+      <div style="color:#FF8C00;font-size:20px;margin-bottom:8px;">MILESTONE UNLOCKED!</div>
+      <div style="color:#FF7FE5;font-size:17px;margin-bottom:8px;">${ms.name}</div>
+      <div style="color:#888;font-size:12px;margin-bottom:16px;line-height:2;">${ms.description}</div>
+      <div style="color:#4aff6b;font-size:12px;margin-bottom:16px;">Card background added to your inventory!</div>
+      <button onclick="this.closest('[data-ms-overlay]').remove()" style="font-family:'Silkscreen',monospace;font-size:13px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
     </div>`;
     overlay.setAttribute('data-ms-overlay', '1');
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -4259,12 +4259,12 @@
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
     overlay.innerHTML = `<div style="background:#2E2E2E;border:3px solid #A86EFF;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Silkscreen',monospace;animation:popIn 0.3s ease;">
-      <div style="font-size:60px;margin-bottom:10px;">🖼️</div>
-      <div style="color:#A86EFF;font-size:28px;margin-bottom:8px;">CARD BACKGROUND UNLOCKED!</div>
-      <div style="color:#FF7FE5;font-size:22px;margin-bottom:8px;">${bg.name}</div>
-      <div style="color:#888;font-size:18px;margin-bottom:16px;line-height:2;">${bg.description}</div>
-      <div style="color:#4aff6b;font-size:18px;margin-bottom:16px;">Go to VIEW CARD to equip it!</div>
-      <button onclick="this.closest('[data-bg-overlay]').remove()" style="font-family:'Silkscreen',monospace;font-size:20px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
+      <div style="font-size:40px;margin-bottom:10px;">🖼️</div>
+      <div style="color:#A86EFF;font-size:19px;margin-bottom:8px;">CARD BACKGROUND UNLOCKED!</div>
+      <div style="color:#FF7FE5;font-size:15px;margin-bottom:8px;">${bg.name}</div>
+      <div style="color:#888;font-size:12px;margin-bottom:16px;line-height:2;">${bg.description}</div>
+      <div style="color:#4aff6b;font-size:12px;margin-bottom:16px;">Go to VIEW CARD to equip it!</div>
+      <button onclick="this.closest('[data-bg-overlay]').remove()" style="font-family:'Silkscreen',monospace;font-size:13px;padding:10px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;width:100%;">AWESOME!</button>
     </div>`;
     overlay.setAttribute('data-bg-overlay', '1');
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -4352,7 +4352,7 @@
       }
       list.innerHTML = html;
     } catch(e) {
-      list.innerHTML = '<div style="color:#ff6b6b;font-size:18px;text-align:center;padding:12px;">FAILED TO LOAD</div>';
+      list.innerHTML = '<div style="color:#ff6b6b;font-size:12px;text-align:center;padding:12px;">FAILED TO LOAD</div>';
     }
   }
 
@@ -4406,7 +4406,7 @@
           </div>`;
         }
       }
-      container.innerHTML = html || '<div style="color:#666;font-size:18px;">Start working to earn titles!</div>';
+      container.innerHTML = html || '<div style="color:#666;font-size:12px;">Start working to earn titles!</div>';
     } catch(e) {}
   }
 
@@ -4446,7 +4446,7 @@
         <div class="card-preview-username">${CURRENT_USER.toUpperCase()}</div>
         ${_activeTitle ? `<div class="card-preview-title">${_activeTitle}</div>` : ''}
         ${prestigeStars ? `<div class="card-preview-prestige">${prestigeStars}</div>` : ''}
-        ${gatherPct > 0 ? `<div style="color:#4aff6b;font-size:15px;margin-top:auto;">+${gatherPct}% gather</div>` : ''}
+        ${gatherPct > 0 ? `<div style="color:#4aff6b;font-size:10px;margin-top:auto;">+${gatherPct}% gather</div>` : ''}
       </div>
       <div class="card-preview-right">
         <div class="card-preview-header">PENGUIN VILLAGE</div>
@@ -4478,30 +4478,30 @@
 
   async function loadBgList() {
     const list = document.getElementById('bg-selection-list');
-    list.innerHTML = '<div style="color:#666;font-size:18px;grid-column:span 2;text-align:center;padding:10px;">LOADING...</div>';
+    list.innerHTML = '<div style="color:#666;font-size:12px;grid-column:span 2;text-align:center;padding:10px;">LOADING...</div>';
     try {
       const res  = await fetch(`/card/backgrounds/${CURRENT_USER}`);
       const data = await res.json();
       const bgs  = data.backgrounds || [];
       if (bgs.length === 0) {
-        list.innerHTML = '<div style="color:#555;font-size:18px;grid-column:span 2;text-align:center;padding:12px;line-height:1.8;">No backgrounds yet.<br>Donate 100 resources to a building<br>to unlock its background!</div>';
+        list.innerHTML = '<div style="color:#555;font-size:12px;grid-column:span 2;text-align:center;padding:12px;line-height:1.8;">No backgrounds yet.<br>Donate 100 resources to a building<br>to unlock its background!</div>';
         return;
       }
       list.innerHTML = bgs.map(bg => {
         const equippedBorder = bg.equipped ? 'border:2px solid #FF7FE5;' : 'border:2px solid #333;';
-        const equippedLabel  = bg.equipped ? '<div style="color:#FF7FE5;font-size:15px;margin-top:3px;">▶ EQUIPPED</div>' : '';
+        const equippedLabel  = bg.equipped ? '<div style="color:#FF7FE5;font-size:10px;margin-top:3px;">▶ EQUIPPED</div>' : '';
         const btnHtml = bg.equipped
-          ? `<div style="color:#4aff6b;font-size:15px;margin-top:5px;">EQUIPPED ✅</div>`
-          : `<button onclick="equipBg('${bg.item_id}')" style="font-family:'Silkscreen',monospace;font-size:15px;padding:4px 8px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;margin-top:5px;">EQUIP</button>`;
+          ? `<div style="color:#4aff6b;font-size:10px;margin-top:5px;">EQUIPPED ✅</div>`
+          : `<button onclick="equipBg('${bg.item_id}')" style="font-family:'Silkscreen',monospace;font-size:10px;padding:4px 8px;border:2px solid #A86EFF;background:transparent;color:#A86EFF;cursor:pointer;margin-top:5px;">EQUIP</button>`;
         return `<div style="background:#2E2E2E;padding:8px;cursor:pointer;${equippedBorder}">
           <div style="width:100%;height:40px;background:${bg.color};margin-bottom:6px;"></div>
-          <div style="color:#FFFFFF;font-size:18px;margin-bottom:3px;line-height:1.4;">${bg.name}</div>
-          <div style="color:#888;font-size:15px;">${bg.source}</div>
+          <div style="color:#FFFFFF;font-size:12px;margin-bottom:3px;line-height:1.4;">${bg.name}</div>
+          <div style="color:#888;font-size:10px;">${bg.source}</div>
           ${equippedLabel}${btnHtml}
         </div>`;
       }).join('');
     } catch(e) {
-      list.innerHTML = '<div style="color:#ff6b6b;font-size:18px;grid-column:span 2;text-align:center;padding:10px;">ERROR LOADING</div>';
+      list.innerHTML = '<div style="color:#ff6b6b;font-size:12px;grid-column:span 2;text-align:center;padding:10px;">ERROR LOADING</div>';
     }
   }
 
@@ -4547,7 +4547,7 @@
       _ownedSealIds  = new Set((cosData.cosmetics || []).filter(c => c.rarity === 'exclusive').map(c => c.item_id));
       document.getElementById('seal-shop-player-count').textContent = _playerSeals;
       if (_sealShopItems.length === 0) {
-        list.innerHTML = '<div style="color:#888;font-size:20px;text-align:center;padding:20px;">NO ITEMS AVAILABLE</div>';
+        list.innerHTML = '<div style="color:#888;font-size:13px;text-align:center;padding:20px;">NO ITEMS AVAILABLE</div>';
         return;
       }
       list.innerHTML = _sealShopItems.map(item => {
@@ -4564,7 +4564,7 @@
         </div>`;
       }).join('');
     } catch(e) {
-      list.innerHTML = '<div style="color:#ff6666;font-size:20px;text-align:center;padding:20px;">FAILED TO LOAD</div>';
+      list.innerHTML = '<div style="color:#ff6666;font-size:13px;text-align:center;padding:20px;">FAILED TO LOAD</div>';
     }
   }
 
@@ -5095,10 +5095,10 @@
         const rank = d.rank || '?';
         const val  = (d.value || 0).toLocaleString();
         html += `<div class="lb-mini-card" onclick="selectLbCat('${cat}')">
-          <div style="font-size:22px;">${info.icon}</div>
-          <div style="font-size:15px;color:#888;margin:2px 0;">${info.label}</div>
-          <div style="font-size:25px;color:#FF8C00;font-family:'Silkscreen',monospace;">#${rank}</div>
-          <div style="font-size:15px;color:#666;margin-top:2px;">${val}</div>
+          <div style="font-size:15px;">${info.icon}</div>
+          <div style="font-size:10px;color:#888;margin:2px 0;">${info.label}</div>
+          <div style="font-size:17px;color:#FF8C00;font-family:'Silkscreen',monospace;">#${rank}</div>
+          <div style="font-size:10px;color:#666;margin-top:2px;">${val}</div>
         </div>`;
       }
       el.innerHTML = html;
@@ -5129,13 +5129,13 @@
     const el      = document.getElementById('lb-table-container');
     const rankEl  = document.getElementById('lb-player-rank');
     if (!el) return;
-    el.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:16px;">LOADING...</div>';
+    el.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:16px;">LOADING...</div>';
     if (rankEl) rankEl.innerHTML = '';
     try {
       const res  = await fetch(`/leaderboard/${cat}?username=${encodeURIComponent(CURRENT_USER)}`);
       const data = await res.json();
       if (data.status !== 'success') {
-        el.innerHTML = '<div style="color:#ff6b6b;font-size:18px;text-align:center;padding:10px;">Error loading.</div>';
+        el.innerHTML = '<div style="color:#ff6b6b;font-size:12px;text-align:center;padding:10px;">Error loading.</div>';
         return;
       }
       const entries    = data.entries || [];
@@ -5147,11 +5147,11 @@
       const rankColors = { 1:'#FFD700', 2:'#C0C0C0', 3:'#CD7F32' };
 
       if (entries.length === 0) {
-        el.innerHTML = '<div style="color:#888;font-size:18px;padding:10px;text-align:center;line-height:2;">The leaderboards are just getting started!<br>Keep playing to climb the ranks.</div>';
+        el.innerHTML = '<div style="color:#888;font-size:12px;padding:10px;text-align:center;line-height:2;">The leaderboards are just getting started!<br>Keep playing to climb the ranks.</div>';
         return;
       }
 
-      let html = `<div style="display:flex;font-size:18px;color:#A86EFF;padding:4px 6px;border-bottom:1px solid #2E2E2E;background:#111;">
+      let html = `<div style="display:flex;font-size:12px;color:#A86EFF;padding:4px 6px;border-bottom:1px solid #2E2E2E;background:#111;">
         <div style="width:36px;">RANK</div>
         <div style="flex:1;">PENGUIN</div>
         <div style="width:70px;text-align:right;">${VALUE_LABEL[cat]||'SCORE'}</div>
@@ -5165,12 +5165,12 @@
         const nameSize = e.rank <= 3 ? '9px' : '8px';
         const valSize  = e.rank <= 3 ? '10px' : '9px';
         const pname    = (e.penguin_name || e.username).substring(0, 14);
-        const stars    = e.prestige > 0 ? ' <span style="color:#FF8C00;font-size:15px;">' + '⭐'.repeat(Math.min(e.prestige,3)) + '</span>' : '';
+        const stars    = e.prestige > 0 ? ' <span style="color:#FF8C00;font-size:10px;">' + '⭐'.repeat(Math.min(e.prestige,3)) + '</span>' : '';
         html += `<div class="${rowCls}">
           <div style="width:36px;font-size:${medal?'14px':'7px'};color:${rcolor};">${medal || '#'+e.rank}</div>
           <div style="flex:1;">
             <span style="font-size:${nameSize};color:${isMe?'#FF7FE5':'#fff'};">${pname}${isMe?' ◀':''}</span>${stars}
-            <span style="font-size:15px;color:#888;margin-left:4px;">LV${e.level}</span>
+            <span style="font-size:10px;color:#888;margin-left:4px;">LV${e.level}</span>
           </div>
           <div style="width:70px;text-align:right;font-size:${valSize};color:#FF8C00;">${(e.value||0).toLocaleString()}</div>
         </div>`;
@@ -5182,12 +5182,12 @@
         if (playerRank && !playerInTop) {
           const rcolor = playerRank <= 3 ? rankColors[playerRank] : playerRank <= 10 ? '#4aff6b' : '#888';
           rankEl.innerHTML = `<div style="border-top:2px dashed #A86EFF;padding-top:8px;">
-            <div style="font-size:20px;color:#A86EFF;margin-bottom:4px;">YOUR RANK</div>
-            <div style="color:${rcolor};font-size:22px;">You are ranked <b>#${playerRank}</b> out of ${total} players</div>
-            <div style="color:#888;font-size:18px;margin-top:2px;">Score: ${playerVal.toLocaleString()}</div>
+            <div style="font-size:13px;color:#A86EFF;margin-bottom:4px;">YOUR RANK</div>
+            <div style="color:${rcolor};font-size:15px;">You are ranked <b>#${playerRank}</b> out of ${total} players</div>
+            <div style="color:#888;font-size:12px;margin-top:2px;">Score: ${playerVal.toLocaleString()}</div>
           </div>`;
         } else if (!playerRank) {
-          rankEl.innerHTML = `<div style="font-size:18px;color:#555;text-align:center;margin-top:6px;">No rank yet — keep playing!</div>`;
+          rankEl.innerHTML = `<div style="font-size:12px;color:#555;text-align:center;margin-top:6px;">No rank yet — keep playing!</div>`;
         }
         // Chime if top 3
         if (playerRank && playerRank <= 3) {
@@ -5207,7 +5207,7 @@
         }
       }
     } catch(e) {
-      el.innerHTML = '<div style="color:#ff6b6b;font-size:18px;text-align:center;padding:10px;">Error loading leaderboard.</div>';
+      el.innerHTML = '<div style="color:#ff6b6b;font-size:12px;text-align:center;padding:10px;">Error loading leaderboard.</div>';
     }
   }
 
@@ -5224,7 +5224,7 @@
   async function loadBarracksShop() {
     const container = document.getElementById('barracks-shop-content');
     if (!container) return;
-    container.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:10px;">LOADING...</div>';
+    container.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:10px;">LOADING...</div>';
     try {
       const res  = await fetch(`/barracks/shop/${CURRENT_USER}`);
       const data = await res.json();
@@ -5235,16 +5235,16 @@
       const shop = data.shop || {};
 
       const resLine = `🪙 ${gold.toLocaleString()} &nbsp; 🦴 ${res_.bones||0} &nbsp; 💎 ${res_.blood_gems||0} &nbsp; ✨ ${res_.spell_fragments||0}`;
-      let html = `<div style="color:#ff6b6b;font-size:30px;margin-bottom:4px;">🛡️ GEAR SHOP</div>`;
-      html += `<div style="color:#888;font-size:20px;margin-bottom:8px;">Forge your own gear with resources</div>`;
-      html += `<div style="color:#FF8C00;font-size:18px;margin-bottom:10px;line-height:2;">${resLine}</div>`;
+      let html = `<div style="color:#ff6b6b;font-size:20px;margin-bottom:4px;">🛡️ GEAR SHOP</div>`;
+      html += `<div style="color:#888;font-size:13px;margin-bottom:8px;">Forge your own gear with resources</div>`;
+      html += `<div style="color:#FF8C00;font-size:12px;margin-bottom:10px;line-height:2;">${resLine}</div>`;
 
       const rarityHeaders = { common: { label: 'COMMON GEAR', color: '#888' }, uncommon: { label: 'UNCOMMON GEAR', color: '#4aff6b' }, rare: { label: 'RARE GEAR', color: '#6b9fff' } };
       const slotIcons = { weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'🥾' };
 
       for (const [rarity, items] of Object.entries(shop)) {
         const rh = rarityHeaders[rarity] || { label: rarity.toUpperCase(), color: '#888' };
-        html += `<div style="color:${rh.color};font-size:20px;border-bottom:1px solid ${rh.color};padding-bottom:3px;margin:10px 0 6px;">— ${rh.label} —</div>`;
+        html += `<div style="color:${rh.color};font-size:13px;border-bottom:1px solid ${rh.color};padding-bottom:3px;margin:10px 0 6px;">— ${rh.label} —</div>`;
         items.forEach(item => {
           const owned = ownedIds.includes(item.id);
           let canAfford = true;
@@ -5259,17 +5259,17 @@
           html += `<div style="background:#111;border:1px solid #333;padding:8px;margin-bottom:6px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
               <div>
-                <div style="color:#fff;font-size:22px;">${item.name}</div>
-                <div style="color:#FF8C00;font-size:22px;margin-top:2px;">CP: +${item.combat_power}</div>
-                <div style="color:#888;font-size:18px;margin-top:2px;">${slotIcon} ${item.slot.toUpperCase()}</div>
-                <div style="color:#aaa;font-size:18px;margin-top:4px;">${costStr}</div>
-                ${!canAfford && !owned ? `<div style="color:#ff6b6b;font-size:18px;margin-top:2px;">Need: ${shortList.join(', ')}</div>` : ''}
+                <div style="color:#fff;font-size:15px;">${item.name}</div>
+                <div style="color:#FF8C00;font-size:15px;margin-top:2px;">CP: +${item.combat_power}</div>
+                <div style="color:#888;font-size:12px;margin-top:2px;">${slotIcon} ${item.slot.toUpperCase()}</div>
+                <div style="color:#aaa;font-size:12px;margin-top:4px;">${costStr}</div>
+                ${!canAfford && !owned ? `<div style="color:#ff6b6b;font-size:12px;margin-top:2px;">Need: ${shortList.join(', ')}</div>` : ''}
               </div>
               <div style="flex-shrink:0;margin-left:8px;">
                 ${owned
-                  ? `<div style="color:#4aff6b;font-size:20px;margin-top:8px;">OWNED ✅</div>`
+                  ? `<div style="color:#4aff6b;font-size:13px;margin-top:8px;">OWNED ✅</div>`
                   : `<button onclick="barracksForge('${item.id}')"
-                       style="font-family:inherit;font-size:18px;padding:5px 8px;background:#1a1a1a;
+                       style="font-family:inherit;font-size:12px;padding:5px 8px;background:#1a1a1a;
                               border:1px solid ${canAfford ? '#4aff6b' : '#666'};
                               color:${canAfford ? '#4aff6b' : '#666'};cursor:${canAfford ? 'pointer' : 'not-allowed'};"
                        ${canAfford ? '' : 'disabled'}>FORGE</button>`
@@ -5282,7 +5282,7 @@
 
       container.innerHTML = html;
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:20px;text-align:center;padding:10px;">ERROR LOADING SHOP</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:13px;text-align:center;padding:10px;">ERROR LOADING SHOP</div>';
     }
   }
 
@@ -5310,12 +5310,12 @@
 
   async function loadCombat() {
     const container = document.getElementById('combat-list');
-    container.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:20px;">LOADING...</div>';
+    container.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">LOADING...</div>';
     try {
       const res  = await fetch(`/combat/monsters/${CURRENT_USER}`);
       const data = await res.json();
       if (data.status === 'error' || !data.monsters) {
-        container.innerHTML = `<div style="color:#ff6b6b;font-size:22px;text-align:center;padding:20px;">${data.message||'ERROR'}</div>`;
+        container.innerHTML = `<div style="color:#ff6b6b;font-size:15px;text-align:center;padding:20px;">${data.message||'ERROR'}</div>`;
         return;
       }
 
@@ -5349,7 +5349,7 @@
       const fkCount = data.first_kills_count || 0;
       const fkMax   = data.max_first_kills   || 93;
 
-      let html = `<div style="color:#FF8C00;font-size:20px;text-align:right;margin-bottom:6px;">First Kills: ${fkCount} / ${fkMax} ⭐</div>`;
+      let html = `<div style="color:#FF8C00;font-size:13px;text-align:right;margin-bottom:6px;">First Kills: ${fkCount} / ${fkMax} ⭐</div>`;
 
       [1,2,3,4,5].forEach(tier => {
         const isLocked  = tier > currentTier;
@@ -5361,7 +5361,7 @@
         if (isLocked) {
           html += `<div class="tier-group">
             <div class="tier-header ${tcls}" style="opacity:0.4;display:flex;justify-content:space-between;align-items:center;">
-              <span>🔒 ${label}</span><span style="font-size:18px;color:#444;">LV ${minLv}</span>
+              <span>🔒 ${label}</span><span style="font-size:12px;color:#444;">LV ${minLv}</span>
             </div>
           </div>`;
         } else if (tiers[tier]) {
@@ -5370,7 +5370,7 @@
           if (isLower) {
             html += `<div class="tier-group">
               <div class="tier-header ${tcls}" style="opacity:0.7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleTierGroup(${tier})">
-                <span>${label}</span><span id="${toggleId}" style="font-size:18px;">▼ SHOW</span>
+                <span>${label}</span><span id="${toggleId}" style="font-size:12px;">▼ SHOW</span>
               </div>
               <div id="${gridId}" class="monster-grid" style="display:none;opacity:0.8;">`;
           } else {
@@ -5385,10 +5385,10 @@
         }
       });
 
-      container.innerHTML = html || '<div style="color:#666;font-size:22px;text-align:center;padding:20px;">NO MONSTERS</div>';
+      container.innerHTML = html || '<div style="color:#666;font-size:15px;text-align:center;padding:20px;">NO MONSTERS</div>';
       loadBossBanner();
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:22px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:15px;text-align:center;padding:20px;">ERROR LOADING COMBAT</div>';
     }
   }
 
@@ -5420,7 +5420,7 @@
     const resText = rp.resources ? `<span>${rp.resources}</span>` : '';
     const dropPct = Math.round(rp.gear_drop_chance * 100);
     const newBadge = isNew
-      ? `<span style="color:#FF8C00;font-size:15px;background:#1a1000;border:1px solid #FF8C00;padding:1px 3px;margin-left:3px;white-space:nowrap;">⭐ NEW</span>`
+      ? `<span style="color:#FF8C00;font-size:10px;background:#1a1000;border:1px solid #FF8C00;padding:1px 3px;margin-left:3px;white-space:nowrap;">⭐ NEW</span>`
       : '';
     const goldLine = isNew
       ? `🪙 <span style="color:#FF8C00">2× FIRST KILL!</span> ${rp.gold} gold &nbsp; ⭐ ${rp.xp} XP`
@@ -5582,7 +5582,7 @@
       spawnConfetti();
       let rhtml = '';
       if (data.is_first_kill) {
-        rhtml += `<div style="color:#FF8C00;font-size:25px;text-align:center;background:#1a1000;border:1px solid #FF8C00;padding:5px;animation:scale-pop 0.4s ease;">⭐ FIRST KILL! 2× REWARDS</div>`;
+        rhtml += `<div style="color:#FF8C00;font-size:17px;text-align:center;background:#1a1000;border:1px solid #FF8C00;padding:5px;animation:scale-pop 0.4s ease;">⭐ FIRST KILL! 2× REWARDS</div>`;
       }
       if (data.rewards) {
         if (data.rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.rewards.gold} gold</div>`;
@@ -5692,16 +5692,16 @@
         <div class="boss-banner">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
-              <span style="color:#FF8C00;font-size:25px;">${b.icon||'👑'} ${b.name}</span>
-              <div style="color:#888;font-size:18px;margin-top:3px;">COMMUNITY BOSS • ${data.participants?data.participants.length:0} fighters</div>
+              <span style="color:#FF8C00;font-size:17px;">${b.icon||'👑'} ${b.name}</span>
+              <div style="color:#888;font-size:12px;margin-top:3px;">COMMUNITY BOSS • ${data.participants?data.participants.length:0} fighters</div>
             </div>
-            <div style="text-align:right;color:#888;font-size:18px;">${b.current_hp.toLocaleString()} / ${b.max_hp.toLocaleString()} HP</div>
+            <div style="text-align:right;color:#888;font-size:12px;">${b.current_hp.toLocaleString()} / ${b.max_hp.toLocaleString()} HP</div>
           </div>
           <div class="boss-hp-bar">
             <div class="boss-hp-fill" style="width:${hpPct}%"></div>
             <div class="boss-hp-text">${hpPct}% HP</div>
           </div>
-          ${topDmg ? `<div style="color:#888;font-size:18px;">Top: ${topDmg.username} — ${topDmg.damage_dealt} dmg</div>` : ''}
+          ${topDmg ? `<div style="color:#888;font-size:12px;">Top: ${topDmg.username} — ${topDmg.damage_dealt} dmg</div>` : ''}
           <button class="fight-btn" style="margin-top:4px;" onclick="fightBoss()">⚔️ JOIN FIGHT (30 energy)</button>
         </div>`;
     } catch(e) { if (banner) banner.style.display = 'none'; }
@@ -5741,7 +5741,7 @@
         if (data.hit_rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.hit_rewards.gold} gold</div>`;
       }
       if (data.defeated && data.kill_rewards) {
-        rhtml += `<div style="color:#FF8C00;font-size:25px;margin-top:6px;">🏆 THE VILLAGE HAS TRIUMPHED!</div>`;
+        rhtml += `<div style="color:#FF8C00;font-size:17px;margin-top:6px;">🏆 THE VILLAGE HAS TRIUMPHED!</div>`;
         if (data.kill_rewards.xp)   rhtml += `<div class="fight-reward-row" style="color:#A86EFF">⭐ +${data.kill_rewards.xp} BONUS XP</div>`;
         if (data.kill_rewards.gold) rhtml += `<div class="fight-reward-row" style="color:#FF8C00">🪙 +${data.kill_rewards.gold} BONUS GOLD</div>`;
         playVictorySound();
@@ -5762,7 +5762,7 @@
   // ── GEAR ──
   async function loadGear() {
     const container = document.getElementById('gear-content');
-    container.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:20px;">LOADING...</div>';
+    container.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">LOADING...</div>';
     try {
       const [rRes, gRes] = await Promise.all([
         fetch(`/resources/${CURRENT_USER}`),
@@ -5783,20 +5783,20 @@
             <div class="gear-card-icon">${gIcon}</div>
             <div class="gear-card-name">${g.name}</div>
             ${statsStr ? `<div class="gear-card-stats">${statsStr}</div>` : ''}
-            <div class="gear-card-name" style="color:#666;font-size:20px;">${g.slot.toUpperCase()}</div>
+            <div class="gear-card-name" style="color:#666;font-size:13px;">${g.slot.toUpperCase()}</div>
             <button class="gear-card-btn equip-btn${g.equipped ? ' on' : ''}" onclick="equipGear(${g.id})">
               ${g.equipped ? 'UNEQUIP' : 'EQUIP'}
             </button>
           </div>`;
         });
       } else {
-        html += '<div style="color:#666;font-size:18px;grid-column:span 2;text-align:center;padding:10px;">No gear owned yet</div>';
+        html += '<div style="color:#666;font-size:12px;grid-column:span 2;text-align:center;padding:10px;">No gear owned yet</div>';
       }
       html += '</div>';
 
       container.innerHTML = html;
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:22px;text-align:center;padding:20px;">ERROR LOADING GEAR</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:15px;text-align:center;padding:20px;">ERROR LOADING GEAR</div>';
     }
   }
 
@@ -5823,7 +5823,7 @@
   // ── AWARDS ──
   async function loadAwards() {
     const container = document.getElementById('awards-list');
-    container.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:20px;">LOADING...</div>';
+    container.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">LOADING...</div>';
     try {
       const res  = await fetch(`/achievements/${CURRENT_USER}`);
       const data = await res.json();
@@ -5839,9 +5839,9 @@
           ${a.unlocked ? '<span class="award-badge">&#x2713; UNLOCKED</span>' : ''}
         </div>`;
       });
-      container.innerHTML = html || '<div style="color:#666;font-size:22px;text-align:center;padding:20px;">No achievements yet</div>';
+      container.innerHTML = html || '<div style="color:#666;font-size:15px;text-align:center;padding:20px;">No achievements yet</div>';
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:22px;text-align:center;padding:20px;">ERROR LOADING AWARDS</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:15px;text-align:center;padding:20px;">ERROR LOADING AWARDS</div>';
     }
   }
 
@@ -5881,12 +5881,12 @@
   async function loadEventLog() {
     const container = document.getElementById('eventlog-list');
     if (!container) return;
-    container.innerHTML = '<div style="color:#666;font-size:18px;text-align:center;padding:20px;">LOADING...</div>';
+    container.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">LOADING...</div>';
     try {
       const res  = await fetch('/events');
       const data = await res.json();
       if (!data.events || data.events.length === 0) {
-        container.innerHTML = '<div style="color:#666;font-size:22px;text-align:center;padding:20px;">NO EVENTS YET</div>';
+        container.innerHTML = '<div style="color:#666;font-size:15px;text-align:center;padding:20px;">NO EVENTS YET</div>';
         return;
       }
       const now = Math.floor(Date.now() / 1000);
@@ -5903,7 +5903,7 @@
       });
       container.innerHTML = html;
     } catch(e) {
-      container.innerHTML = '<div style="color:#ff6b6b;font-size:22px;text-align:center;padding:20px;">ERROR LOADING EVENTS</div>';
+      container.innerHTML = '<div style="color:#ff6b6b;font-size:15px;text-align:center;padding:20px;">ERROR LOADING EVENTS</div>';
     }
   }
 
@@ -5993,7 +5993,7 @@
     const placed = (_iglooData.furniture || []);
     const placedEl = document.getElementById('igloo-placed-list');
     if (!placed.length) {
-      placedEl.innerHTML = '<div style="color:#444;font-size:18px;padding:6px 10px;">No items placed yet.</div>';
+      placedEl.innerHTML = '<div style="color:#444;font-size:12px;padding:6px 10px;">No items placed yet.</div>';
     } else {
       placedEl.innerHTML = placed.map(f => {
         const defn = IGLOO_FURNITURE_DEFS[f.item_id] || {};
@@ -6010,7 +6010,7 @@
     const owned = (_iglooData.owned_items || []).filter(i => !i.placed);
     const availEl = document.getElementById('igloo-avail-list');
     if (!owned.length) {
-      availEl.innerHTML = '<div style="color:#444;font-size:18px;padding:6px 10px;">No items in inventory.<br><span style="color:#555;">Visit the Boutique!</span></div>';
+      availEl.innerHTML = '<div style="color:#444;font-size:12px;padding:6px 10px;">No items in inventory.<br><span style="color:#555;">Visit the Boutique!</span></div>';
     } else {
       availEl.innerHTML = owned.map(i => {
         const defn = IGLOO_FURNITURE_DEFS[i.item_id] || {};
@@ -6047,8 +6047,8 @@
         : 'FREE';
       html += `<button class="igloo-room-opt-btn" onclick="iglooDoUpgrade()">
         🏠 UPGRADE → ${nextLvl.name.toUpperCase()}<br>
-        <span style="color:#aaa;font-size:15px;">${LEVELS[rl].size}×${LEVELS[rl].size} → ${nextLvl.size}×${nextLvl.size} GRID</span><br>
-        <span style="color:#FF8C00;font-size:15px;">${costStr}</span>
+        <span style="color:#aaa;font-size:10px;">${LEVELS[rl].size}×${LEVELS[rl].size} → ${nextLvl.size}×${nextLvl.size} GRID</span><br>
+        <span style="color:#FF8C00;font-size:10px;">${costStr}</span>
       </button>`;
     } else {
       html += `<button class="igloo-room-opt-btn" disabled>🏠 MAX LEVEL — ${LEVELS[rl].size}×${LEVELS[rl].size} (${LEVELS[rl].name.toUpperCase()})</button>`;
@@ -6082,7 +6082,7 @@
     }
     html += `</div>`;
     if (floorPainting) {
-      html += `<div style="color:#4aff6b;font-size:18px;padding:2px 8px 6px;">
+      html += `<div style="color:#4aff6b;font-size:12px;padding:2px 8px 6px;">
         Click tiles above to select brush, then click the floor to paint cells
       </div>`;
     }
@@ -6112,7 +6112,7 @@
     }
     html += `</div>`;
     if (wallPainting) {
-      html += `<div style="color:#4aff6b;font-size:18px;padding:2px 8px 6px;">
+      html += `<div style="color:#4aff6b;font-size:12px;padding:2px 8px 6px;">
         Click tiles above to select brush, then click wall segments to paint
       </div>`;
     }
@@ -6121,7 +6121,7 @@
     html += `<button class="igloo-room-opt-btn" onclick="openBoutiqueFurniture()"
       style="background:rgba(168,110,255,0.15);border-color:#A86EFF;">
       🛋️ OPEN FURNITURE SHOP →<br>
-      <span style="color:#A86EFF;font-size:15px;">Buy items to place in your igloo</span>
+      <span style="color:#A86EFF;font-size:10px;">Buy items to place in your igloo</span>
     </button>`;
 
     el.innerHTML = html;
@@ -6561,11 +6561,11 @@
         return `<div class="bank-listing">
           <div class="bank-listing-info">
             <div class="bank-listing-offer"><span class="${rc}">${g.name}</span> <span style="color:#555">(${g.slot || '?'}, ${g.rarity || 'common'})</span></div>
-            ${g.combat_power ? `<div style="color:#888;font-size:18px;">CP ${g.combat_power}${g.set_name ? ' · ' + g.set_name : ''}</div>` : ''}
+            ${g.combat_power ? `<div style="color:#888;font-size:12px;">CP ${g.combat_power}${g.set_name ? ' · ' + g.set_name : ''}</div>` : ''}
             <div class="bank-listing-meta">🏦 Bank · ${hLeft}h left</div>
           </div>
           <div style="text-align:right">
-            <div style="color:#4aff6b;font-size:20px;margin-bottom:4px;">${g.bank_sell_price} 🪙</div>
+            <div style="color:#4aff6b;font-size:13px;margin-bottom:4px;">${g.bank_sell_price} 🪙</div>
             <button class="bank-accept-btn" onclick="bankBuyFromShop(${g.id})">BUY</button>
           </div>
         </div>`;
@@ -6893,7 +6893,7 @@
         statusHtml = '<span style="color:#4aff6b;">✅</span>';
       } else if (curr) {
         // XP progress bar - needs actual XP data from pData but we approximate from _playerLevel
-        statusHtml = '<span style="color:#A86EFF;font-size:18px;">IN PROGRESS</span>';
+        statusHtml = '<span style="color:#A86EFF;font-size:12px;">IN PROGRESS</span>';
       } else {
         statusHtml = '<span style="color:#444;">🔒</span>';
       }
@@ -7173,7 +7173,7 @@
       if (VillageMap && VillageMap.setVisitedToday) VillageMap.setVisitedToday([...visited]);
 
       if (!data.suggestions || data.suggestions.length === 0) {
-        listEl.innerHTML = '<div style="color:#555;font-size:18px;">No one to visit yet!</div>';
+        listEl.innerHTML = '<div style="color:#555;font-size:12px;">No one to visit yet!</div>';
         return;
       }
 
@@ -7286,16 +7286,16 @@
 
       const top5 = rels.slice(0, 5);
       if (top5.length === 0) {
-        listEl.innerHTML = '<div style="color:#555;font-size:18px;">Visit igloos to build relationships!</div>';
+        listEl.innerHTML = '<div style="color:#555;font-size:12px;">Visit igloos to build relationships!</div>';
         return;
       }
 
       listEl.innerHTML = top5.map(r => `
         <div style="padding:4px 0;border-bottom:1px solid #2a2a2a;">
-          <div style="display:flex;align-items:center;gap:5px;font-size:18px;">
+          <div style="display:flex;align-items:center;gap:5px;font-size:12px;">
             <span>${r.emoji}</span>
             <span style="flex:1;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.penguin_name || r.username}</span>
-            <span style="color:#888;font-size:15px;">${r.level_name}</span>
+            <span style="color:#888;font-size:10px;">${r.level_name}</span>
           </div>
           ${r.next_level ? `<div class="rel-progress-wrap"><div class="rel-progress-fill" style="width:${r.progress_pct}%;"></div></div>` : ''}
         </div>`).join('');
@@ -7328,7 +7328,7 @@
           <span class="rel-modal-emoji">${r.emoji}</span>
           <div style="flex:1;min-width:0;">
             <div class="rel-modal-name">${r.penguin_name || r.username}</div>
-            <div style="color:#555;font-size:15px;">${r.interaction_count} interactions</div>
+            <div style="color:#555;font-size:10px;">${r.interaction_count} interactions</div>
             ${r.next_level ? `<div class="rel-progress-wrap" style="margin-top:3px;"><div class="rel-progress-fill" style="width:${r.progress_pct}%;"></div></div>` : ''}
           </div>
           <span class="rel-modal-level">${r.level_name}</span>
@@ -7383,7 +7383,7 @@
       const done = streak >= d;
       const next = !done && d > streak;
       const color = done ? '#4aff6b' : next ? 'var(--orange)' : '#555';
-      mHtml += `<div style="font-size:20px;color:${color};margin-bottom:3px;">${done ? '✓' : '○'} ${label}</div>`;
+      mHtml += `<div style="font-size:13px;color:${color};margin-bottom:3px;">${done ? '✓' : '○'} ${label}</div>`;
     }
     document.getElementById('dp-milestones').innerHTML = mHtml;
     const popup = document.getElementById('daily-popup');
@@ -8030,7 +8030,7 @@
         var el = document.createElement('div');
         el.className = 'flying-emoji';
         el.textContent = text;
-        el.style.cssText = 'position:fixed;left:' + (30 + i * 80) + 'px;bottom:120px;z-index:95000;font-family:\'Press Start 2P\',monospace;font-size:22px;pointer-events:none;color:#FF8C00;transition:all 1.2s ease;';
+        el.style.cssText = 'position:fixed;left:' + (30 + i * 80) + 'px;bottom:120px;z-index:95000;font-family:\'Press Start 2P\',monospace;font-size:15px;pointer-events:none;color:#FF8C00;transition:all 1.2s ease;';
         document.body.appendChild(el);
         requestAnimationFrame(function() {
           el.style.transform = 'translateY(-60px)';
@@ -8238,7 +8238,7 @@
         <div class="rs-right">
           <div class="rs-preview-label">PREVIEW</div>
           <canvas id="rs-preview-canvas" width="140" height="160"></canvas>
-          <div id="rs-preview-name" style="font-family:'Silkscreen',monospace;font-size:20px;color:#fff;text-align:center;"></div>
+          <div id="rs-preview-name" style="font-family:'Silkscreen',monospace;font-size:13px;color:#fff;text-align:center;"></div>
         </div>
       </div>
       <button class="rs-confirm-btn" id="rs-confirm-btn" onclick="submitReshape()">CONFIRM RESHAPE 🔮</button>
@@ -8248,10 +8248,10 @@
 <!-- SET DISCOVERY POPUP -->
 <div id="set-discovery-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:none;align-items:center;justify-content:center;">
   <div style="background:#1C1C1C;border:2px solid #FF7FE5;padding:20px 24px;max-width:300px;text-align:center;font-family:'Silkscreen',monospace;">
-    <div style="font-size:35px;color:#FF7FE5;margin-bottom:10px;">🔮 SECRET SET DISCOVERED!</div>
-    <div id="set-discovery-name" style="font-size:22px;color:#FFFFFF;margin-bottom:8px;"></div>
-    <div id="set-discovery-desc" style="font-size:20px;color:#888888;margin-bottom:14px;line-height:1.6;"></div>
-    <button onclick="closeSetDiscovery()" style="background:#FF7FE5;color:#1C1C1C;border:none;padding:8px 16px;font-family:'Silkscreen',monospace;font-size:20px;cursor:pointer;">AWESOME!</button>
+    <div style="font-size:23px;color:#FF7FE5;margin-bottom:10px;">🔮 SECRET SET DISCOVERED!</div>
+    <div id="set-discovery-name" style="font-size:15px;color:#FFFFFF;margin-bottom:8px;"></div>
+    <div id="set-discovery-desc" style="font-size:13px;color:#888888;margin-bottom:14px;line-height:1.6;"></div>
+    <button onclick="closeSetDiscovery()" style="background:#FF7FE5;color:#1C1C1C;border:none;padding:8px 16px;font-family:'Silkscreen',monospace;font-size:13px;cursor:pointer;">AWESOME!</button>
   </div>
 </div>
 </body>
