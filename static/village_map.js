@@ -198,7 +198,7 @@ function worldToScreen(wx, wy) {
 function drawZoomIndicator() {
     const pct = Math.round(zoomLevel * 100) + '%';
     ctx.save();
-    ctx.font = "20px 'Silkscreen', monospace";
+    ctx.font = "13px 'Silkscreen', monospace";
     const tw = ctx.measureText(pct).width;
     const pad = 6, bw = tw + pad * 2, bh = 20;
     const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
@@ -373,7 +373,7 @@ function drawBuilding(id, bdef, level) {
         ctx.fillStyle = "#FFFFFF";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = "18px 'Silkscreen', monospace";
+        ctx.font = "12px 'Silkscreen', monospace";
 
         const name = cfg.name;
         if (name.length > 10) {
@@ -391,7 +391,7 @@ function drawBuilding(id, bdef, level) {
         const lv = buildingLevels[id] !== undefined ? buildingLevels[id] : (level !== undefined ? level : 1);
 
         if (!cfg.noLevelBadge) {
-            ctx.font = "25px 'Silkscreen', monospace";
+            ctx.font = "17px 'Silkscreen', monospace";
             const lvBorderColors = { 1: '#666666', 2: '#4a9eff', 3: '#FF8C00' };
             const badgeText   = lv >= 3 ? '★ MAX' : ('LV.' + lv);
             const badgeBorder = lvBorderColors[lv] || '#666666';
@@ -451,7 +451,7 @@ function drawBuilding(id, bdef, level) {
         const arrowX = faceCenterX;
         const arrowY = faceCenterY - 30 - Math.abs(Math.sin(_time / 400)) * 8;
         ctx.save();
-        ctx.font       = "40px sans-serif";
+        ctx.font       = "27px sans-serif";
         ctx.textAlign  = "center";
         ctx.textBaseline = "bottom";
         ctx.shadowColor = "rgba(0,0,0,0.8)";
@@ -512,7 +512,7 @@ function drawPenguin(sx, sy, penguin, isBehind) {
         // 📍 indicator above the occluding building for the current player only
         if (penguin.isCurrentUser && fontReady) {
             ctx.save();
-            ctx.font = '30px serif';
+            ctx.font = '20px serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
             ctx.fillText('📍', sx, drawY - 6);
@@ -573,12 +573,12 @@ function drawPenguin(sx, sy, penguin, isBehind) {
         ctx.textBaseline = "middle";
 
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "15px 'Silkscreen', monospace";
+        ctx.font = "10px 'Silkscreen', monospace";
         ctx.fillText(displayName, sx, drawY - 5);
 
         if (penguin.active_title) {
             ctx.fillStyle = "#A86EFF";
-            ctx.font = "15px 'Silkscreen', monospace";
+            ctx.font = "10px 'Silkscreen', monospace";
             ctx.fillText(penguin.active_title, sx, drawY + 5);
         }
 
@@ -587,7 +587,7 @@ function drawPenguin(sx, sy, penguin, isBehind) {
 
     // Job icon beside the sprite
     if (penguin.job && JOB_ICONS[penguin.job]) {
-        ctx.font = "25px monospace";
+        ctx.font = "17px monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(JOB_ICONS[penguin.job], sx + drawWidth / 2 + 6, sy - drawHeight / 2);
@@ -789,7 +789,7 @@ function showPenguinPopup(penguin, sx, sy) {
         'border:2px solid #A86EFF',
         'padding:8px 10px',
         "font-family:'Silkscreen',monospace",
-        'font-size:18px',
+        'font-size:12px',
         'color:#FFFFFF',
         'pointer-events:auto',
         'z-index:200',
@@ -806,10 +806,10 @@ function showPenguinPopup(penguin, sx, sy) {
     let visitBtnHtml = '';
     if (!isSelf) {
         if (visited) {
-            visitBtnHtml = '<div style="margin-top:6px;color:#4aff6b;font-size:15px;">VISITED TODAY ✅</div>';
+            visitBtnHtml = '<div style="margin-top:6px;color:#4aff6b;font-size:10px;">VISITED TODAY ✅</div>';
         } else {
             visitBtnHtml = '<button id="map-visit-btn" style="margin-top:6px;display:block;width:100%;'
-                + "font-family:'Silkscreen',monospace;font-size:15px;padding:4px 6px;"
+                + "font-family:'Silkscreen',monospace;font-size:10px;padding:4px 6px;"
                 + 'background:#1C1C1C;color:#A86EFF;border:1px solid #A86EFF;cursor:pointer;" '
                 + 'onmouseenter="this.style.background=\'#A86EFF\';this.style.color=\'#1C1C1C\'" '
                 + 'onmouseleave="this.style.background=\'#1C1C1C\';this.style.color=\'#A86EFF\'" '
