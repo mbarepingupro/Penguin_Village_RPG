@@ -467,7 +467,7 @@
     /* ── BUILDING MODAL ── */
     #bm-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7); z-index: 9998; cursor: pointer;
+      background: rgba(0,0,0,0.7); z-index: 90000; cursor: pointer;
     }
     #building-modal {
       display: none; position: fixed;
@@ -476,7 +476,7 @@
       width: 500px; max-width: 95vw;
       max-height: 80vh; overflow-y: auto;
       background: #2E2E2E; border: 3px solid #A86EFF;
-      z-index: 9999; box-shadow: 0 0 30px rgba(0,0,0,0.8);
+      z-index: 90001; box-shadow: 0 0 30px rgba(0,0,0,0.8);
       font-family: 'Silkscreen', monospace;
     }
     #bm-content { padding: 20px; }
@@ -1575,24 +1575,28 @@
       bottom: 0;
       left: 0;
       right: 0;
-      z-index: 90000;
+      z-index: 89000;
       background: #252535;
       border-top: 3px solid #A86EFF;
-      padding: 12px 16px 12px 16px;
+      padding: 12px 16px 12px 148px;
       display: flex;
       align-items: flex-start;
       gap: 12px;
-      min-height: 100px;
+      min-height: 90px;
       animation: slideUp 0.4s ease-out;
     }
     .mayor-portrait {
-      width: 80px;
-      height: 80px;
+      position: absolute;
+      left: 10px;
+      bottom: 5px;
+      width: 120px;
+      height: 120px;
       border: 3px solid #FF8C00;
-      flex-shrink: 0;
       image-rendering: pixelated;
       object-fit: contain;
       background: #1C1C1C;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.7), 0 0 0 1px #FF8C00;
+      z-index: 89001;
     }
     .mayor-text-area {
       flex: 1;
@@ -1603,12 +1607,17 @@
     }
     .mayor-name {
       font-family: 'Silkscreen', monospace;
-      font-size: 17px;
+      font-size: 12px;
       color: #FF8C00;
+      margin-bottom: 2px;
+    }
+    .mayor-title {
+      color: #FF7FE5;
+      font-size: 12px;
     }
     .mayor-message {
       font-family: 'Silkscreen', monospace;
-      font-size: 15px;
+      font-size: 12px;
       color: #FFFFFF;
       line-height: 1.8;
     }
@@ -1620,7 +1629,7 @@
     }
     .mayor-continue {
       font-family: 'Silkscreen', monospace;
-      font-size: 12px;
+      font-size: 11px;
       color: #A86EFF;
       cursor: pointer;
       border: 2px solid #A86EFF;
@@ -1628,16 +1637,6 @@
       background: transparent;
     }
     .mayor-continue:hover { background: #A86EFF; color: #1C1C1C; }
-    .mayor-action {
-      font-family: 'Silkscreen', monospace;
-      font-size: 12px;
-      color: #1C1C1C;
-      cursor: pointer;
-      border: 2px solid #FF8C00;
-      padding: 5px 14px;
-      background: #FF8C00;
-    }
-    .mayor-action:hover { background: #FF7FE5; border-color: #FF7FE5; }
     .mayor-skip {
       position: absolute;
       top: 8px;
@@ -1650,22 +1649,15 @@
       background: none;
     }
     .mayor-skip:hover { color: #ff6b6b; }
-    .mayor-countdown {
-      font-family: 'Silkscreen', monospace;
-      font-size: 19px;
-      color: #FF8C00;
-      text-align: center;
-      padding: 4px 0;
-    }
     .tutorial-highlight {
       position: relative;
-      z-index: 89999 !important;
+      z-index: 89500 !important;
       animation: tutorialPulse 1.5s ease-in-out infinite;
     }
     @media (max-width: 600px) {
-      .mayor-portrait { width: 60px; height: 60px; }
-      .mayor-message  { font-size: 13px; }
-      .mayor-dialogue { min-height: 80px; padding: 8px 10px; }
+      .mayor-portrait { width: 80px; height: 80px; left: 6px; bottom: 4px; }
+      .mayor-dialogue { min-height: 80px; padding: 10px 10px 10px 100px; }
+      .mayor-message  { font-size: 11px; }
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -7484,7 +7476,7 @@
       box.innerHTML =
         '<img src="/static/mayor_logo.png" class="mayor-portrait" alt="Mayor" />' +
         '<div class="mayor-text-area">' +
-          '<div class="mayor-name">THE MAYOR</div>' +
+          '<div class="mayor-name">MBAREPINGU, <span class="mayor-title">THE MAYOR</span></div>' +
           '<div class="mayor-message" id="mayor-message"></div>' +
           '<div class="mayor-buttons" id="mayor-buttons"></div>' +
         '</div>' +
@@ -7715,48 +7707,29 @@
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
       self._highlightBuilding('sea_lion_pit');
-      await self._sayThen('Time to put those flippers to work! Click on Ash\'s Sea Lion Pit — the fishing building!');
-
+      await self._sayThen('Time to put those flippers to work! Click on Ash\'s Sea Lion Pit — the fishing building on the map!');
       self._waitForBuilding('sea_lion_pit').then(function() {
         self._clearHighlights();
-        self._say('This is where you fish! Normally jobs take hours, but since it\'s your first day... I\'ll pull some strings.', function() {
-          self._showAction('🎣 CLAIM STARTER CATCH!', function() {
-            self._clearButtons();
-            self._runStarterJob();
-          });
-        });
+        self._injectTutorialJobButton();
+        self._say('This is where you fish! I\'ve arranged a special starter catch for you — click the tutorial button in the fishing panel!', null);
       });
     },
 
-    _runStarterJob: async function() {
+    _injectTutorialJobButton: function() {
       var self = this;
-      var btnsEl = document.getElementById('mayor-buttons');
-      if (btnsEl) {
-        var countdown = document.createElement('div');
-        countdown.className = 'mayor-countdown';
-        countdown.textContent = 'FISHING... 30s';
-        btnsEl.appendChild(countdown);
-        var secs = 30;
-        var timer = setInterval(function() {
-          secs--;
-          if (secs <= 0) {
-            clearInterval(timer);
-            self._collectStarterJob();
-          } else {
-            countdown.textContent = 'FISHING... ' + secs + 's';
-          }
-        }, 1000);
-        // Also allow skip after 5 seconds
-        setTimeout(function() {
-          if (document.getElementById('mayor-buttons') && !self._step2done) {
-            var skipBtn = document.createElement('button');
-            skipBtn.className = 'mayor-continue';
-            skipBtn.textContent = 'Collect Now! →';
-            skipBtn.onclick = function() { clearInterval(timer); self._collectStarterJob(); };
-            btnsEl.appendChild(skipBtn);
-          }
-        }, 5000);
-      }
+      var content = document.getElementById('bm-content');
+      if (!content || document.getElementById('tutorial-job-inject')) return;
+      var div = document.createElement('div');
+      div.id = 'tutorial-job-inject';
+      div.style.cssText = 'background:#0d1f0d;border:2px solid #4aff6b;border-radius:6px;padding:12px;margin-bottom:12px;text-align:center;';
+      div.innerHTML = '<div style="color:#4aff6b;font-size:11px;margin-bottom:8px;">🎓 TUTORIAL STARTER CATCH</div>' +
+        '<button id="tutorial-job-btn" style="background:#4aff6b;color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:11px;cursor:pointer;border-radius:4px;font-weight:bold;">🎣 CLAIM STARTER CATCH!</button>';
+      content.insertBefore(div, content.firstChild);
+      document.getElementById('tutorial-job-btn').onclick = function() {
+        this.disabled = true;
+        this.textContent = 'Collecting...';
+        self._collectStarterJob();
+      };
     },
 
     _step2done: false,
@@ -7823,13 +7796,28 @@
       await self._sayThen('Now for the fun part! See the Barracks? That\'s where monsters are fought. Click on it!');
       self._waitForBuilding('barracks').then(function() {
         self._clearHighlights();
-        self._say('Monsters lurk outside the village. Let\'s take care of one — I\'ll lend you my strength for this first fight. You can\'t lose!', function() {
-          self._showAction('⚔️ FIGHT THE SNOW CRAB!', function() {
-            self._clearButtons();
-            self._runStarterFight();
-          });
-        });
+        self._injectTutorialFightButton();
+        self._say('I\'ve summoned a Tutorial Snow Crab! It\'s weak and I\'ve lent you my strength — you can\'t lose. Fight it in the Barracks panel!', null);
       });
+    },
+
+    _injectTutorialFightButton: function() {
+      var self = this;
+      var pane = document.getElementById('barracks-pane-monsters');
+      if (!pane || document.getElementById('tutorial-fight-inject')) return;
+      var div = document.createElement('div');
+      div.id = 'tutorial-fight-inject';
+      div.style.cssText = 'background:#1f0d0d;border:2px solid #ff6b6b;border-radius:6px;padding:12px;margin-bottom:12px;text-align:center;';
+      div.innerHTML = '<div style="color:#ff6b6b;font-size:11px;margin-bottom:4px;">🎓 TUTORIAL MONSTER</div>' +
+        '<div style="color:#fff;font-size:13px;margin-bottom:4px;">❄️ Tutorial Snow Crab</div>' +
+        '<div style="color:#888;font-size:11px;margin-bottom:8px;">Guaranteed win • No energy cost</div>' +
+        '<button id="tutorial-fight-btn" style="background:#ff6b6b;color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:11px;cursor:pointer;border-radius:4px;font-weight:bold;">⚔️ FIGHT THE SNOW CRAB!</button>';
+      pane.insertBefore(div, pane.firstChild);
+      document.getElementById('tutorial-fight-btn').onclick = function() {
+        this.disabled = true;
+        this.textContent = 'Fighting...';
+        self._runStarterFight();
+      };
     },
 
     _runStarterFight: async function() {
@@ -7879,32 +7867,49 @@
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
       self._highlightBuilding('boutique');
-      await self._sayThen('Want to look even better? Let\'s visit the Boutique — the pink building on the map!');
+      await self._sayThen('Want to look even better? I have a free housewarming gift waiting for you at the Boutique — the pink building on the map!');
       self._waitForBuilding('boutique').then(function() {
         self._clearHighlights();
-        self._say('Pick any one hat, outfit, footwear, or accessory — it\'s on the house! A housewarming gift from me.', function() {
-          self._showAction('🎁 CLAIM FREE HAT!', async function() {
-            self._clearButtons();
-            try {
-              var res  = await fetch('/tutorial/free-boutique', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: CURRENT_USER, item_id: 'party_hat' })
-              });
-              var data = await res.json();
-              if (data.status === 'success') {
-                _flyEmojiCollection(['🎩 PARTY HAT!']);
-                await self._sayThen('Great choice! You can buy more here anytime with gold. Now you\'re looking festive!');
-              } else {
-                await self._sayThen('Looks like you\'re already styling! Moving on...');
-              }
-            } catch(e) {
-              await self._sayThen('Moving on!');
-            }
-            self._showContinue('Thanks! →', function() { self._advanceStep(); });
-          });
-        });
+        self._injectFreeHatButton();
+        self._say('A housewarming gift! Claim your free Party Hat using the tutorial button in the Boutique panel!', null);
       });
+    },
+
+    _injectFreeHatButton: function() {
+      var self = this;
+      var grid = document.getElementById('bq-items-grid');
+      if (!grid || document.getElementById('tutorial-boutique-inject')) return;
+      var div = document.createElement('div');
+      div.id = 'tutorial-boutique-inject';
+      div.className = 'bq-card';
+      div.style.cssText = 'border:2px solid #FF7FE5;background:#1a0d18;position:relative;';
+      div.innerHTML = '<span style="position:absolute;top:4px;right:4px;font-size:9px;color:#FF7FE5;background:#2a1a2a;padding:2px 4px;border-radius:3px;">🎓 GIFT</span>' +
+        '<img src="/static/items/hat/party_hat.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display=\'none\'">' +
+        '<div class="bq-item-name">Party Hat</div>' +
+        '<div class="bq-price" style="color:#FF7FE5;">🎁 FREE!</div>' +
+        '<div class="bq-btn-row"><button id="tutorial-boutique-btn" class="bq-btn buy" style="background:#FF7FE5;color:#000;border-color:#FF7FE5;">CLAIM FREE!</button></div>';
+      grid.insertBefore(div, grid.firstChild);
+      document.getElementById('tutorial-boutique-btn').onclick = async function() {
+        this.disabled = true;
+        this.textContent = 'Claiming...';
+        try {
+          var res = await fetch('/tutorial/free-boutique', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: CURRENT_USER, item_id: 'party_hat' })
+          });
+          var data = await res.json();
+          if (data.status === 'success') {
+            _flyEmojiCollection(['🎩 PARTY HAT!']);
+            await self._sayThen('Great choice! You can buy more here anytime with gold. Now you\'re looking festive!');
+          } else {
+            await self._sayThen('Looks like you\'re already styling! Moving on...');
+          }
+        } catch(e) {
+          await self._sayThen('Moving on!');
+        }
+        self._showContinue('Thanks! →', function() { self._advanceStep(); });
+      };
     },
 
     // ── Step 7 — Hotel ───────────────────────────────────────────────────────
@@ -7913,29 +7918,42 @@
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
       self._highlightBuilding('hotel');
-      await self._sayThen('Fighting takes energy. See the Penguin Hotel? That\'s where you rest and recharge!');
+      await self._sayThen('Fighting takes energy. See the Penguin Hotel? That\'s where you rest and recharge! Click on it.');
       self._waitForBuilding('hotel').then(function() {
         self._clearHighlights();
-        self._say('Your energy recovers 10 per hour naturally. But the Hotel gives you a full refill instantly. Your first rest today is on me!', function() {
-          self._showAction('💤 REST NOW (FREE)!', async function() {
-            self._clearButtons();
-            try {
-              var res  = await fetch('/tutorial/free-rest', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: CURRENT_USER })
-              });
-              var data = await res.json();
-              if (data.new_energy) {
-                _flyEmojiCollection(['+' + (data.restored || data.new_energy) + ' ⚡']);
-                showToast('Fully rested! Energy: ' + data.new_energy + '/' + data.new_energy, 'ok');
-              }
-            } catch(e) {}
-            await self._sayThen('All rested up! You\'ll need that energy for the adventures ahead.');
-            self._showContinue('Refreshed! →', function() { self._advanceStep(); });
-          });
-        });
+        self._injectFreeRestButton();
+        self._say('Your first rest today is on me! Click the free rest button in the Hotel panel to fully recharge!', null);
       });
+    },
+
+    _injectFreeRestButton: function() {
+      var self = this;
+      var content = document.getElementById('bm-content');
+      if (!content || document.getElementById('tutorial-rest-inject')) return;
+      var div = document.createElement('div');
+      div.id = 'tutorial-rest-inject';
+      div.style.cssText = 'background:#0d0d1f;border:2px solid #4aafff;border-radius:6px;padding:12px;margin-bottom:12px;text-align:center;';
+      div.innerHTML = '<div style="color:#4aafff;font-size:11px;margin-bottom:8px;">🎓 TUTORIAL FREE REST</div>' +
+        '<button id="tutorial-rest-btn" style="background:#4aafff;color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:11px;cursor:pointer;border-radius:4px;font-weight:bold;">💤 REST NOW (FREE)!</button>';
+      content.insertBefore(div, content.firstChild);
+      document.getElementById('tutorial-rest-btn').onclick = async function() {
+        this.disabled = true;
+        this.textContent = 'Resting...';
+        try {
+          var res = await fetch('/tutorial/free-rest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: CURRENT_USER })
+          });
+          var data = await res.json();
+          if (data.new_energy) {
+            _flyEmojiCollection(['+' + (data.restored || data.new_energy) + ' ⚡']);
+            showToast('Fully rested! Energy: ' + data.new_energy + '/' + data.new_energy, 'ok');
+          }
+        } catch(e) {}
+        await self._sayThen('All rested up! You\'ll need that energy for the adventures ahead.');
+        self._showContinue('Refreshed! →', function() { self._advanceStep(); });
+      };
     },
 
     // ── Step 8 — Village Building ────────────────────────────────────────────
