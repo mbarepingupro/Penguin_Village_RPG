@@ -43,14 +43,14 @@
       padding: 10px 20px;
       display: flex; align-items: center;
     }
-    .nav-logo { font-size: 14px; letter-spacing: 2px; color: var(--purple); text-decoration: none; }
+    .nav-logo { font-size: 35px; letter-spacing: 2px; color: var(--purple); text-decoration: none; }
     .nav-logo span { color: var(--pink); }
 
     .page-main { max-width: 900px; margin: 0 auto; padding: 28px 20px 40px; }
 
     .page-header { text-align: center; margin-bottom: 28px; }
-    .page-header h1 { font-size: 16px; color: var(--purple); margin-bottom: 10px; letter-spacing: 1px; }
-    .page-header p  { font-size: 9px; color: #888; line-height: 2; }
+    .page-header h1 { font-size: 40px; color: var(--purple); margin-bottom: 10px; letter-spacing: 1px; }
+    .page-header p  { font-size: 22px; color: #888; line-height: 2; }
 
     .creation-wrap {
       display: flex; gap: 24px; align-items: flex-start;
@@ -59,7 +59,7 @@
     .creation-right { flex: 0 0 200px; display: flex; flex-direction: column; align-items: center; gap: 10px;
       background: var(--panel); border: 2px solid #333; padding: 16px 12px; }
 
-    .section-title { font-size: 10px; color: var(--purple); margin-bottom: 10px; letter-spacing: 1px; }
+    .section-title { font-size: 25px; color: var(--purple); margin-bottom: 10px; letter-spacing: 1px; }
 
     .form-section { background: var(--panel); border: 2px solid #333; padding: 16px; margin-bottom: 16px; }
 
@@ -67,12 +67,12 @@
     #penguin-name-input {
       background: var(--input-bg); border: 2px solid var(--purple);
       color: var(--white); font-family: 'Silkscreen', monospace;
-      font-size: 9px; padding: 10px 12px; width: 100%; outline: none; display: block;
+      font-size: 22px; padding: 10px 12px; width: 100%; outline: none; display: block;
     }
     #penguin-name-input:focus { border-color: var(--pink); }
     #penguin-name-input::placeholder { color: #555; }
-    .name-help  { font-size: 7px; color: #888; line-height: 2; margin-top: 8px; }
-    .name-error { font-size: 7px; color: var(--red); margin-top: 6px; display: none; line-height: 2; }
+    .name-help  { font-size: 18px; color: #888; line-height: 2; margin-top: 8px; }
+    .name-error { font-size: 18px; color: var(--red); margin-top: 6px; display: none; line-height: 2; }
 
     /* Arrow selector */
     .arrow-row {
@@ -82,12 +82,12 @@
     .arrow-btn {
       width: 32px; height: 32px;
       border: 2px solid var(--purple); background: transparent; color: var(--purple);
-      font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 35px; cursor: pointer; display: flex; align-items: center; justify-content: center;
       font-family: 'Silkscreen', monospace;
     }
     .arrow-btn:hover { background: var(--purple); color: var(--bg); }
-    .arrow-label { font-size: 8px; color: #888; margin-right: 6px; white-space: nowrap; }
-    .arrow-value { font-size: 9px; color: var(--white); flex: 1; text-align: center; }
+    .arrow-label { font-size: 20px; color: #888; margin-right: 6px; white-space: nowrap; }
+    .arrow-value { font-size: 22px; color: var(--white); flex: 1; text-align: center; }
 
     /* Color picker */
     .color-picker-row {
@@ -102,16 +102,16 @@
       position: absolute; opacity: 0; width: 40px; height: 40px;
       cursor: pointer; top: 0; left: 0;
     }
-    .color-hex-label { font-size: 9px; color: #888; white-space: nowrap; }
+    .color-hex-label { font-size: 22px; color: #888; white-space: nowrap; }
 
     /* Preview (right column) */
-    .preview-label { font-size: 9px; color: var(--purple); letter-spacing: 1px; align-self: flex-start; }
+    .preview-label { font-size: 22px; color: var(--purple); letter-spacing: 1px; align-self: flex-start; }
     #preview-canvas {
       display: block; image-rendering: pixelated;
       border: 2px solid #333; background: #111;
     }
     #preview-name {
-      font-size: 9px; color: var(--white); text-align: center;
+      font-size: 22px; color: var(--white); text-align: center;
       word-break: break-all; max-width: 160px; line-height: 1.8;
     }
     #preview-name.placeholder { color: #888; }
@@ -127,10 +127,10 @@
     }
     .trait-card:hover { border-color: #666; }
     .trait-card.selected { border: 3px solid var(--purple); background: #2a1a4a; }
-    .trait-emoji { font-size: 20px; line-height: 1; }
-    .trait-name  { font-size: 8px; color: var(--white); letter-spacing: 0.5px; }
+    .trait-emoji { font-size: 50px; line-height: 1; }
+    .trait-name  { font-size: 20px; color: var(--white); letter-spacing: 0.5px; }
     .trait-card.selected .trait-name { color: var(--purple); }
-    .trait-desc  { font-size: 6px; color: #888; line-height: 1.8; }
+    .trait-desc  { font-size: 15px; color: #888; line-height: 1.8; }
     @media (max-width: 767px) {
       .trait-grid-wide { grid-template-columns: repeat(2, 1fr); }
     }
@@ -141,7 +141,7 @@
     #confirm-btn {
       border: 3px solid var(--green); color: var(--green);
       background: transparent; font-family: 'Silkscreen', monospace;
-      font-size: 12px; padding: 14px 24px; cursor: pointer; letter-spacing: 1px; margin-top: 6px;
+      font-size: 30px; padding: 14px 24px; cursor: pointer; letter-spacing: 1px; margin-top: 6px;
     }
     #confirm-btn:hover:not(:disabled) { background: var(--green); color: var(--bg); }
     #confirm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -157,14 +157,14 @@
     #error-toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
       background: #2a0000; border: 2px solid var(--red); color: var(--red);
-      font-size: 8px; padding: 12px 20px; z-index: 1000; display: none;
+      font-size: 20px; padding: 12px 20px; z-index: 1000; display: none;
       white-space: nowrap; pointer-events: none;
     }
 
     @media (max-width: 767px) {
       .creation-wrap { flex-direction: column; }
       .creation-right { flex: 0 0 auto; width: 100%; align-self: center; }
-      .page-header h1 { font-size: 12px; }
+      .page-header h1 { font-size: 30px; }
       .arrow-row { flex-wrap: wrap; }
     }
   </style>
@@ -214,7 +214,7 @@
             <span class="arrow-value" id="shape-label">Normal</span>
             <button class="arrow-btn" onclick="cycleShape(1)" title="Next shape">►</button>
           </div>
-          <div style="font-size:7px;color:#888;line-height:2;" id="shape-desc">A classic proportioned penguin.</div>
+          <div style="font-size:18px;color:#888;line-height:2;" id="shape-desc">A classic proportioned penguin.</div>
         </div>
 
         <!-- Color picker -->
@@ -222,7 +222,7 @@
           <div class="section-title">PENGUIN COLOR</div>
           <div class="arrow-row" style="margin-bottom:14px;">
             <button class="arrow-btn" onclick="cyclePreset(-1)" title="Previous preset">◄</button>
-            <span style="font-size:7px;color:#888;">PRESETS</span>
+            <span style="font-size:18px;color:#888;">PRESETS</span>
             <button class="arrow-btn" onclick="cyclePreset(1)" title="Next preset">►</button>
           </div>
           <div class="color-picker-row">
@@ -230,7 +230,7 @@
               <input type="color" id="color-input" class="color-input-hidden" value="{{ current_color }}" />
             </div>
             <span class="color-hex-label" id="color-hex-label">{{ current_color | upper }}</span>
-            <span style="font-size:7px;color:#555;">← click to pick any color</span>
+            <span style="font-size:18px;color:#555;">← click to pick any color</span>
           </div>
         </div>
 
@@ -283,7 +283,7 @@
         <div class="preview-label">PREVIEW</div>
         <canvas id="preview-canvas" width="160" height="200"></canvas>
         <div id="preview-name" class="placeholder">{{ username }}</div>
-        <div id="preview-traits" style="color:#888;font-size:7px;margin-top:8px;line-height:2;text-align:center;font-family:'Silkscreen',monospace;">
+        <div id="preview-traits" style="color:#888;font-size:18px;margin-top:8px;line-height:2;text-align:center;font-family:'Silkscreen',monospace;">
           Pick your traits below
         </div>
       </div>
@@ -292,7 +292,7 @@
 
     <div class="creation-footer">
       {% if mode == 'reshape' %}
-        <div style="font-size:8px;color:#A86EFF;">Cost: 🪙 2,000 gold</div>
+        <div style="font-size:20px;color:#A86EFF;">Cost: 🪙 2,000 gold</div>
       {% endif %}
       <button id="confirm-btn">
         {% if mode == 'reshape' %}CONFIRM RESHAPE 🔮
