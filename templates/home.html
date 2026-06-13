@@ -1846,7 +1846,7 @@
     <div class="nav-right">
       {% if logged_in %}
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
-        <button id="help-btn" onclick="resetHelpTooltips();openTutorial()" title="Help &amp; Tutorial">❓</button>
+        <button id="help-btn" onclick="resetHelpTooltips();replayTutorial()" title="Help &amp; Tutorial">❓</button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -8047,6 +8047,23 @@
       Effects.levelUpOverlay(lvlData);
     } else {
       showToast('Level up! You reached level ' + lvlData.level + '! 🎉', 'ok');
+    }
+  }
+
+  function replayTutorial() {
+    var existing = document.getElementById('mayor-dialogue');
+    if (existing) existing.parentNode.removeChild(existing);
+    if (window.TutorialManager) {
+      TutorialManager.currentStep = 0;
+      TutorialManager.dialogueBox = null;
+      TutorialManager._pendingBuildingCb    = null;
+      TutorialManager._pendingContentTabCb  = null;
+      TutorialManager._pendingSidebarCb     = null;
+      TutorialManager._pendingInventoryCb   = null;
+      TutorialManager._step2done            = false;
+      TutorialManager._clearHighlights();
+      TutorialManager._createDialogueBox();
+      TutorialManager._runStep(0);
     }
   }
 
