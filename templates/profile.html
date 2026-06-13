@@ -37,14 +37,14 @@
     /* ── LOGO ── */
     .logo {
       color: #A86EFF;
-      font-size: 13px;
+      font-size: 32px;
       letter-spacing: 2px;
       margin-bottom: 6px;
     }
     .logo span { color: #FF7FE5; }
     .logo-sub {
       color: #555;
-      font-size: 7px;
+      font-size: 18px;
       margin-bottom: 24px;
     }
 
@@ -78,32 +78,32 @@
     }
     .card-username {
       color: #fff;
-      font-size: 9px;
+      font-size: 22px;
       text-align: center;
       margin-bottom: 6px;
       word-break: break-all;
     }
     .card-active-title {
       color: #A86EFF;
-      font-size: 7px;
+      font-size: 18px;
       text-align: center;
       line-height: 1.6;
       margin-bottom: 6px;
     }
     .card-prestige {
       color: #FF7FE5;
-      font-size: 10px;
+      font-size: 25px;
       margin-bottom: 4px;
     }
     .card-gather-bonus {
       color: #4aff6b;
-      font-size: 6px;
+      font-size: 15px;
       margin-top: auto;
     }
 
     .card-sparkle {
       position: absolute;
-      font-size: 10px;
+      font-size: 25px;
       color: #FF7FE5;
       pointer-events: none;
     }
@@ -119,14 +119,14 @@
       flex-direction: column;
       gap: 10px;
     }
-    .card-header { color: #A86EFF; font-size: 10px; }
-    .card-stat { font-size: 8px; line-height: 1.8; }
+    .card-header { color: #A86EFF; font-size: 25px; }
+    .card-stat { font-size: 20px; line-height: 1.8; }
     .card-stat .lbl { color: #555; }
     .card-stat .val { color: #fff; }
     .card-stat .val.orange { color: #FF8C00; }
     .card-stat .val.purple { color: #A86EFF; }
     .card-stat .val.green  { color: #4aff6b; }
-    .card-url { color: #444; font-size: 6px; margin-top: auto; }
+    .card-url { color: #444; font-size: 15px; margin-top: auto; }
 
     /* ── STATS SECTION (below card) ── */
     .profile-section {
@@ -139,7 +139,7 @@
     }
     .section-title {
       color: #FF7FE5;
-      font-size: 8px;
+      font-size: 20px;
       margin-bottom: 12px;
       border-bottom: 1px solid #2E2E2E;
       padding-bottom: 6px;
@@ -147,7 +147,7 @@
     .stat-row {
       display: flex;
       justify-content: space-between;
-      font-size: 7px;
+      font-size: 18px;
       padding: 4px 0;
       border-bottom: 1px solid #1a1a1a;
     }
@@ -166,11 +166,11 @@
       border: 2px solid #2E2E2E;
       background: #1C1C1C;
     }
-    .cta-headline { color: #FF7FE5; font-size: 10px; margin-bottom: 16px; line-height: 1.8; }
+    .cta-headline { color: #FF7FE5; font-size: 25px; margin-bottom: 16px; line-height: 1.8; }
     .cta-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .cta-btn {
       font-family: 'Silkscreen', monospace;
-      font-size: 8px;
+      font-size: 20px;
       padding: 10px 16px;
       border: 2px solid #A86EFF;
       background: transparent;
@@ -188,8 +188,8 @@
       text-align: center;
       padding: 40px 20px;
     }
-    .not-found h1 { color: #A86EFF; font-size: 12px; margin-bottom: 16px; line-height: 2; }
-    .not-found p  { color: #888; font-size: 8px; margin-bottom: 24px; line-height: 2; }
+    .not-found h1 { color: #A86EFF; font-size: 30px; margin-bottom: 16px; line-height: 2; }
+    .not-found p  { color: #888; font-size: 20px; margin-bottom: 24px; line-height: 2; }
 
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
@@ -202,7 +202,7 @@
       .card { flex-direction: column; }
       .card-left { width: 100%; border-right: none; border-bottom: 1px solid #2E2E2E; padding-bottom: 14px; }
       .card-gather-bonus { margin-top: 8px; }
-      .logo { font-size: 10px; }
+      .logo { font-size: 25px; }
     }
   </style>
 </head>
@@ -311,7 +311,7 @@
     {% for t in titles %}
     <div class="stat-row">
       <span class="k">{{ t.title }}</span>
-      <span class="v" style="color:#555;font-size:6px;">{{ t.source }}</span>
+      <span class="v" style="color:#555;font-size:15px;">{{ t.source }}</span>
     </div>
     {% endfor %}
   </div>
