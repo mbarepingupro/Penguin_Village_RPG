@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>👑 MAYOR'S DASHBOARD — Penguin Village</title>
-  <link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -17,13 +17,13 @@
       --orange: #FF8C00;
       --red:    #ff4444;
       --white:  #FFFFFF;
-      --dim:    #555566;
+      --dim:    #8888A8566;
     }
     html, body {
       min-height: 100vh;
       background: var(--bg);
       color: var(--white);
-      font-family: 'Silkscreen', monospace;
+      font-family: 'Pixelify Sans', monospace;
       font-size: 17px;
       overflow-x: hidden;
     }
@@ -40,16 +40,16 @@
     }
     .mh-title { color: var(--pink); font-size: 23px; flex: 1; }
     .mh-live {
-      font-size: 13px; padding: 5px 10px;
+      font-size: 15px; padding: 5px 10px;
       border: 2px solid var(--red); color: var(--red);
       display: flex; align-items: center; gap: 5px;
     }
     .mh-live.offline { border-color: var(--dim); color: var(--dim); }
     .live-dot { width: 7px; height: 7px; background: var(--red); animation: blink 1s infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
-    .mh-time { color: var(--dim); font-size: 13px; }
+    .mh-time { color: var(--dim); font-size: 15px; }
     .mh-back {
-      color: var(--purple); font-size: 13px; padding: 6px 12px;
+      color: var(--purple); font-size: 15px; padding: 6px 12px;
       border: 2px solid var(--purple); text-decoration: none;
     }
     .mh-back:hover { background: var(--purple); color: #0f0f14; }
@@ -67,11 +67,11 @@
     }
     .mh-stat-icon { font-size: 30px; margin-bottom: 6px; }
     .mh-stat-val  { color: var(--pink); font-size: 23px; margin-bottom: 4px; }
-    .mh-stat-lbl  { color: var(--dim); font-size: 12px; line-height: 1.6; }
+    .mh-stat-lbl  { color: var(--dim); font-size: 13px; line-height: 1.6; }
 
     /* ── SECTION TITLES ── */
     .mh-section-title {
-      color: var(--pink); font-size: 15px; margin-bottom: 10px;
+      color: var(--pink); font-size: 17px; margin-bottom: 10px;
       padding-bottom: 5px; border-bottom: 2px solid var(--pink);
     }
 
@@ -82,23 +82,23 @@
       padding: 14px;
     }
     .mh-action-card:hover { border-color: var(--pink); }
-    .mh-action-title { color: var(--pink); font-size: 15px; margin-bottom: 10px; }
+    .mh-action-title { color: var(--pink); font-size: 17px; margin-bottom: 10px; }
     .mh-field { margin-bottom: 8px; }
-    .mh-label { color: var(--dim); font-size: 12px; margin-bottom: 4px; display: block; }
+    .mh-label { color: var(--dim); font-size: 13px; margin-bottom: 4px; display: block; }
     .mh-input, .mh-select, .mh-textarea {
       width: 100%;
-      background: var(--bg); border: 1px solid #333345;
-      color: var(--white); font-family: 'Silkscreen', monospace;
-      font-size: 13px; padding: 6px 8px;
+      background: var(--bg); border: 1px solid #303045345;
+      color: var(--white); font-family: 'Pixelify Sans', monospace;
+      font-size: 15px; padding: 6px 8px;
     }
     .mh-input:focus, .mh-select:focus, .mh-textarea:focus {
       outline: none; border-color: var(--pink);
     }
     .mh-textarea { resize: vertical; min-height: 60px; }
-    .mh-charcount { color: var(--dim); font-size: 12px; text-align: right; margin-top: 3px; }
+    .mh-charcount { color: var(--dim); font-size: 13px; text-align: right; margin-top: 3px; }
     .mh-btn {
       width: 100%; padding: 9px;
-      font-family: 'Silkscreen', monospace; font-size: 13px;
+      font-family: 'Pixelify Sans', monospace; font-size: 15px;
       border: 2px solid var(--pink); color: var(--pink);
       background: transparent; cursor: pointer; margin-top: 6px;
     }
@@ -109,30 +109,30 @@
     .mh-btn.green  { border-color: var(--green); color: var(--green); }
     .mh-btn.green:hover:not(:disabled) { background: var(--green); color: #0f0f14; }
 
-    .mh-warn { color: var(--red); font-size: 12px; margin-top: 4px; line-height: 1.8; }
+    .mh-warn { color: var(--red); font-size: 13px; margin-top: 4px; line-height: 1.8; }
 
     /* ── ACTIVE BUFFS ── */
     .mh-buff-list { margin-top: 8px; }
     .mh-buff-item {
       background: var(--bg); border: 1px solid var(--purple);
-      padding: 6px 8px; margin-bottom: 4px; font-size: 12px;
+      padding: 6px 8px; margin-bottom: 4px; font-size: 13px;
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
     .mh-buff-name { color: var(--purple); }
     .mh-buff-timer { color: var(--dim); }
-    .mh-no-buffs { color: var(--dim); font-size: 12px; padding: 6px 0; }
+    .mh-no-buffs { color: var(--dim); font-size: 13px; padding: 6px 0; }
 
     /* ── LIVE FEED ── */
     .mh-feed-title {
-      padding: 12px 14px; color: var(--pink); font-size: 15px;
+      padding: 12px 14px; color: var(--pink); font-size: 17px;
       border-bottom: 2px solid #2a2a3a; flex-shrink: 0;
       display: flex; align-items: center; justify-content: space-between;
     }
-    .mh-feed-refresh { color: var(--dim); font-size: 12px; }
+    .mh-feed-refresh { color: var(--dim); font-size: 13px; }
     .mh-feed-list { flex: 1; overflow-y: auto; padding: 8px 10px; }
     .mh-event {
-      padding: 6px 8px; border-left: 3px solid #333;
-      margin-bottom: 5px; font-size: 12px; line-height: 1.8;
+      padding: 6px 8px; border-left: 3px solid #303045;
+      margin-bottom: 5px; font-size: 13px; line-height: 1.8;
     }
     .mh-event.village     { border-color: var(--purple); }
     .mh-event.job         { border-color: var(--orange); }
@@ -140,14 +140,14 @@
     .mh-event.title       { border-color: var(--pink); }
     .mh-event.mayor       { border-color: var(--pink); background: rgba(255,127,229,0.06); }
     .mh-event-msg  { color: #ccc; }
-    .mh-event-time { color: var(--dim); font-size: 10px; margin-top: 2px; }
+    .mh-event-time { color: var(--dim); font-size: 13px; margin-top: 2px; }
 
     /* ── PLAYER LOOKUP ── */
     .mh-lookup { background: var(--card); border: 2px solid #2a2a3a; padding: 14px; margin-bottom: 16px; }
     .mh-lookup-row { display: flex; gap: 8px; align-items: flex-end; }
     .mh-lookup-row .mh-field { flex: 1; margin: 0; }
     .mh-lookup-btn {
-      padding: 8px 14px; font-family: 'Silkscreen', monospace; font-size: 13px;
+      padding: 8px 14px; font-family: 'Pixelify Sans', monospace; font-size: 15px;
       border: 2px solid var(--purple); color: var(--purple); background: transparent; cursor: pointer;
       flex-shrink: 0;
     }
@@ -158,12 +158,12 @@
     }
     .mh-player-name { color: var(--pink); font-size: 17px; margin-bottom: 8px; }
     .mh-player-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
-    .mh-player-stat { font-size: 12px; line-height: 1.8; }
+    .mh-player-stat { font-size: 13px; line-height: 1.8; }
     .mh-player-stat .k { color: var(--dim); }
     .mh-player-stat .v { color: var(--white); }
     .mh-player-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .mh-player-action {
-      font-family: 'Silkscreen', monospace; font-size: 12px;
+      font-family: 'Pixelify Sans', monospace; font-size: 13px;
       padding: 5px 10px; border: 1px solid var(--purple); color: var(--purple);
       background: transparent; cursor: pointer;
     }
@@ -173,9 +173,9 @@
     #mh-toast {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
       background: var(--bg); border: 2px solid var(--green);
-      color: var(--green); font-size: 13px; padding: 8px 16px;
+      color: var(--green); font-size: 15px; padding: 8px 16px;
       z-index: 9999; display: none; white-space: nowrap;
-      font-family: 'Silkscreen', monospace;
+      font-family: 'Pixelify Sans', monospace;
     }
     #mh-toast.err { border-color: var(--red); color: var(--red); }
 
@@ -217,7 +217,7 @@
       </div>
       <div class="mh-stat-card">
         <div class="mh-stat-icon">{% if is_live %}🔴{% else %}⚫{% endif %}</div>
-        <div class="mh-stat-val" style="color:{% if is_live %}#ff4444{% else %}#555566{% endif %}">
+        <div class="mh-stat-val" style="color:{% if is_live %}#ff4444{% else %}#8888A8566{% endif %}">
           {% if is_live %}LIVE{% else %}OFFLINE{% endif %}
         </div>
         <div class="mh-stat-lbl">STREAM STATUS</div>
@@ -626,7 +626,7 @@
     const data   = await res.json();
     const result = document.getElementById('lookup-result');
     if (data.status !== 'ok') {
-      result.innerHTML = `<div style="color:var(--red);font-size:13px;margin-top:8px;">${data.message}</div>`;
+      result.innerHTML = `<div style="color:var(--red);font-size:15px;margin-top:8px;">${data.message}</div>`;
       return;
     }
     const p = data.player;

@@ -18,13 +18,13 @@
   <title>Penguin Not Found — Penguin Village</title>
   {% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       background: #111;
       color: #fff;
-      font-family: 'Silkscreen', monospace;
+      font-family: 'Pixelify Sans', monospace;
       min-height: 100vh;
     }
     body {
@@ -43,8 +43,8 @@
     }
     .logo span { color: #FF7FE5; }
     .logo-sub {
-      color: #555;
-      font-size: 12px;
+      color: #8888A8;
+      font-size: 13px;
       margin-bottom: 24px;
     }
 
@@ -52,7 +52,7 @@
     .card {
       width: 100%;
       max-width: 560px;
-      background: #1C1C1C;
+      background: #181820;
       border: 3px solid #A86EFF;
       display: flex;
       gap: 0;
@@ -68,7 +68,7 @@
       flex-direction: column;
       align-items: center;
       padding: 24px 12px 18px;
-      border-right: 1px solid #2E2E2E;
+      border-right: 1px solid #252535;
     }
     .card-sprite {
       width: 80px;
@@ -78,14 +78,14 @@
     }
     .card-username {
       color: #fff;
-      font-size: 15px;
+      font-size: 17px;
       text-align: center;
       margin-bottom: 6px;
       word-break: break-all;
     }
     .card-active-title {
       color: #A86EFF;
-      font-size: 12px;
+      font-size: 13px;
       text-align: center;
       line-height: 1.6;
       margin-bottom: 6px;
@@ -97,7 +97,7 @@
     }
     .card-gather-bonus {
       color: #4aff6b;
-      font-size: 10px;
+      font-size: 13px;
       margin-top: auto;
     }
 
@@ -120,38 +120,38 @@
       gap: 10px;
     }
     .card-header { color: #A86EFF; font-size: 17px; }
-    .card-stat { font-size: 13px; line-height: 1.8; }
-    .card-stat .lbl { color: #555; }
+    .card-stat { font-size: 15px; line-height: 1.8; }
+    .card-stat .lbl { color: #8888A8; }
     .card-stat .val { color: #fff; }
     .card-stat .val.orange { color: #FF8C00; }
     .card-stat .val.purple { color: #A86EFF; }
     .card-stat .val.green  { color: #4aff6b; }
-    .card-url { color: #444; font-size: 10px; margin-top: auto; }
+    .card-url { color: #3A3A50; font-size: 13px; margin-top: auto; }
 
     /* ── STATS SECTION (below card) ── */
     .profile-section {
       width: 100%;
       max-width: 560px;
-      background: #1C1C1C;
-      border: 2px solid #2E2E2E;
+      background: #181820;
+      border: 2px solid #252535;
       padding: 16px;
       margin-bottom: 16px;
     }
     .section-title {
       color: #FF7FE5;
-      font-size: 13px;
+      font-size: 15px;
       margin-bottom: 12px;
-      border-bottom: 1px solid #2E2E2E;
+      border-bottom: 1px solid #252535;
       padding-bottom: 6px;
     }
     .stat-row {
       display: flex;
       justify-content: space-between;
-      font-size: 12px;
+      font-size: 13px;
       padding: 4px 0;
       border-bottom: 1px solid #1a1a1a;
     }
-    .stat-row .k { color: #666; }
+    .stat-row .k { color: #8888A8; }
     .stat-row .v { color: #ccc; }
     .stat-row .v.purple { color: #A86EFF; }
     .stat-row .v.orange { color: #FF8C00; }
@@ -163,14 +163,14 @@
       max-width: 560px;
       text-align: center;
       padding: 24px 16px;
-      border: 2px solid #2E2E2E;
-      background: #1C1C1C;
+      border: 2px solid #252535;
+      background: #181820;
     }
     .cta-headline { color: #FF7FE5; font-size: 17px; margin-bottom: 16px; line-height: 1.8; }
     .cta-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
     .cta-btn {
-      font-family: 'Silkscreen', monospace;
-      font-size: 13px;
+      font-family: 'Pixelify Sans', monospace;
+      font-size: 15px;
       padding: 10px 16px;
       border: 2px solid #A86EFF;
       background: transparent;
@@ -179,7 +179,7 @@
       text-decoration: none;
       display: inline-block;
     }
-    .cta-btn:hover { background: #A86EFF; color: #1C1C1C; }
+    .cta-btn:hover { background: #A86EFF; color: #181820; }
     .cta-btn.twitch { border-color: #9147ff; color: #9147ff; }
     .cta-btn.twitch:hover { background: #9147ff; color: #fff; }
 
@@ -189,7 +189,7 @@
       padding: 40px 20px;
     }
     .not-found h1 { color: #A86EFF; font-size: 20px; margin-bottom: 16px; line-height: 2; }
-    .not-found p  { color: #888; font-size: 13px; margin-bottom: 24px; line-height: 2; }
+    .not-found p  { color: #B8B8D0; font-size: 15px; margin-bottom: 24px; line-height: 2; }
 
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
@@ -200,7 +200,7 @@
     }
     @media (max-width: 480px) {
       .card { flex-direction: column; }
-      .card-left { width: 100%; border-right: none; border-bottom: 1px solid #2E2E2E; padding-bottom: 14px; }
+      .card-left { width: 100%; border-right: none; border-bottom: 1px solid #252535; padding-bottom: 14px; }
       .card-gather-bonus { margin-top: 8px; }
       .logo { font-size: 17px; }
     }
@@ -311,7 +311,7 @@
     {% for t in titles %}
     <div class="stat-row">
       <span class="k">{{ t.title }}</span>
-      <span class="v" style="color:#555;font-size:10px;">{{ t.source }}</span>
+      <span class="v" style="color:#8888A8;font-size:13px;">{{ t.source }}</span>
     </div>
     {% endfor %}
   </div>
