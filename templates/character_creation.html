@@ -4,13 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% if mode == 'reshape' %}Reshape Your Penguin{% elif mode == 'prestige' %}Begin New Life{% else %}Create Your Penguin{% endif %} — Penguin Village</title>
-  <link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #1C1C1C;
-      --panel:    #2E2E2E;
+      --bg:       #181820;
+      --panel:    #252535;
       --input-bg: #1a1a1a;
       --purple:   #A86EFF;
       --pink:     #FF7FE5;
@@ -19,14 +19,14 @@
       --red:      #ff6b6b;
       --blue:     #4a9eff;
       --white:    #FFFFFF;
-      --dark:     #141414;
+      --dark:     #141418;
     }
 
     html, body {
       min-height: 100vh;
       background: var(--bg);
       color: var(--white);
-      font-family: 'Silkscreen', monospace;
+      font-family: 'Pixelify Sans', monospace;
       image-rendering: pixelated;
     }
 
@@ -50,29 +50,29 @@
 
     .page-header { text-align: center; margin-bottom: 28px; }
     .page-header h1 { font-size: 27px; color: var(--purple); margin-bottom: 10px; letter-spacing: 1px; }
-    .page-header p  { font-size: 15px; color: #888; line-height: 2; }
+    .page-header p  { font-size: 17px; color: #B8B8D0; line-height: 2; }
 
     .creation-wrap {
       display: flex; gap: 24px; align-items: flex-start;
     }
     .creation-left  { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 0; }
     .creation-right { flex: 0 0 200px; display: flex; flex-direction: column; align-items: center; gap: 10px;
-      background: var(--panel); border: 2px solid #333; padding: 16px 12px; }
+      background: var(--panel); border: 2px solid #303045; padding: 16px 12px; }
 
     .section-title { font-size: 17px; color: var(--purple); margin-bottom: 10px; letter-spacing: 1px; }
 
-    .form-section { background: var(--panel); border: 2px solid #333; padding: 16px; margin-bottom: 16px; }
+    .form-section { background: var(--panel); border: 2px solid #303045; padding: 16px; margin-bottom: 16px; }
 
     /* Name input */
     #penguin-name-input {
       background: var(--input-bg); border: 2px solid var(--purple);
-      color: var(--white); font-family: 'Silkscreen', monospace;
-      font-size: 15px; padding: 10px 12px; width: 100%; outline: none; display: block;
+      color: var(--white); font-family: 'Pixelify Sans', monospace;
+      font-size: 17px; padding: 10px 12px; width: 100%; outline: none; display: block;
     }
     #penguin-name-input:focus { border-color: var(--pink); }
-    #penguin-name-input::placeholder { color: #555; }
-    .name-help  { font-size: 12px; color: #888; line-height: 2; margin-top: 8px; }
-    .name-error { font-size: 12px; color: var(--red); margin-top: 6px; display: none; line-height: 2; }
+    #penguin-name-input::placeholder { color: #8888A8; }
+    .name-help  { font-size: 13px; color: #B8B8D0; line-height: 2; margin-top: 8px; }
+    .name-error { font-size: 13px; color: var(--red); margin-top: 6px; display: none; line-height: 2; }
 
     /* Arrow selector */
     .arrow-row {
@@ -83,11 +83,11 @@
       width: 32px; height: 32px;
       border: 2px solid var(--purple); background: transparent; color: var(--purple);
       font-size: 23px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      font-family: 'Silkscreen', monospace;
+      font-family: 'Pixelify Sans', monospace;
     }
     .arrow-btn:hover { background: var(--purple); color: var(--bg); }
-    .arrow-label { font-size: 13px; color: #888; margin-right: 6px; white-space: nowrap; }
-    .arrow-value { font-size: 15px; color: var(--white); flex: 1; text-align: center; }
+    .arrow-label { font-size: 15px; color: #B8B8D0; margin-right: 6px; white-space: nowrap; }
+    .arrow-value { font-size: 17px; color: var(--white); flex: 1; text-align: center; }
 
     /* Color picker */
     .color-picker-row {
@@ -102,35 +102,35 @@
       position: absolute; opacity: 0; width: 40px; height: 40px;
       cursor: pointer; top: 0; left: 0;
     }
-    .color-hex-label { font-size: 15px; color: #888; white-space: nowrap; }
+    .color-hex-label { font-size: 17px; color: #B8B8D0; white-space: nowrap; }
 
     /* Preview (right column) */
-    .preview-label { font-size: 15px; color: var(--purple); letter-spacing: 1px; align-self: flex-start; }
+    .preview-label { font-size: 17px; color: var(--purple); letter-spacing: 1px; align-self: flex-start; }
     #preview-canvas {
       display: block; image-rendering: pixelated;
-      border: 2px solid #333; background: #111;
+      border: 2px solid #303045; background: #111;
     }
     #preview-name {
-      font-size: 15px; color: var(--white); text-align: center;
+      font-size: 17px; color: var(--white); text-align: center;
       word-break: break-all; max-width: 160px; line-height: 1.8;
     }
-    #preview-name.placeholder { color: #888; }
+    #preview-name.placeholder { color: #B8B8D0; }
 
     /* Trait sections */
-    .trait-section { background: var(--panel); border: 2px solid #333; padding: 16px; margin-top: 16px; }
+    .trait-section { background: var(--panel); border: 2px solid #303045; padding: 16px; margin-top: 16px; }
     .trait-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .trait-grid-wide { grid-template-columns: repeat(3, 1fr); }
     .trait-card {
       display: flex; flex-direction: column; align-items: center; gap: 4px;
-      cursor: pointer; border: 2px solid #333; padding: 8px 6px;
+      cursor: pointer; border: 2px solid #303045; padding: 8px 6px;
       background: var(--input-bg); text-align: center;
     }
-    .trait-card:hover { border-color: #666; }
+    .trait-card:hover { border-color: #8888A8; }
     .trait-card.selected { border: 3px solid var(--purple); background: #2a1a4a; }
     .trait-emoji { font-size: 33px; line-height: 1; }
-    .trait-name  { font-size: 13px; color: var(--white); letter-spacing: 0.5px; }
+    .trait-name  { font-size: 15px; color: var(--white); letter-spacing: 0.5px; }
     .trait-card.selected .trait-name { color: var(--purple); }
-    .trait-desc  { font-size: 10px; color: #888; line-height: 1.8; }
+    .trait-desc  { font-size: 13px; color: #B8B8D0; line-height: 1.8; }
     @media (max-width: 767px) {
       .trait-grid-wide { grid-template-columns: repeat(2, 1fr); }
     }
@@ -140,7 +140,7 @@
 
     #confirm-btn {
       border: 3px solid var(--green); color: var(--green);
-      background: transparent; font-family: 'Silkscreen', monospace;
+      background: transparent; font-family: 'Pixelify Sans', monospace;
       font-size: 20px; padding: 14px 24px; cursor: pointer; letter-spacing: 1px; margin-top: 6px;
     }
     #confirm-btn:hover:not(:disabled) { background: var(--green); color: var(--bg); }
@@ -157,7 +157,7 @@
     #error-toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
       background: #2a0000; border: 2px solid var(--red); color: var(--red);
-      font-size: 13px; padding: 12px 20px; z-index: 1000; display: none;
+      font-size: 15px; padding: 12px 20px; z-index: 1000; display: none;
       white-space: nowrap; pointer-events: none;
     }
 
@@ -214,7 +214,7 @@
             <span class="arrow-value" id="shape-label">Normal</span>
             <button class="arrow-btn" onclick="cycleShape(1)" title="Next shape">►</button>
           </div>
-          <div style="font-size:12px;color:#888;line-height:2;" id="shape-desc">A classic proportioned penguin.</div>
+          <div style="font-size:13px;color:#B8B8D0;line-height:2;" id="shape-desc">A classic proportioned penguin.</div>
         </div>
 
         <!-- Color picker -->
@@ -222,7 +222,7 @@
           <div class="section-title">PENGUIN COLOR</div>
           <div class="arrow-row" style="margin-bottom:14px;">
             <button class="arrow-btn" onclick="cyclePreset(-1)" title="Previous preset">◄</button>
-            <span style="font-size:12px;color:#888;">PRESETS</span>
+            <span style="font-size:13px;color:#B8B8D0;">PRESETS</span>
             <button class="arrow-btn" onclick="cyclePreset(1)" title="Next preset">►</button>
           </div>
           <div class="color-picker-row">
@@ -230,7 +230,7 @@
               <input type="color" id="color-input" class="color-input-hidden" value="{{ current_color }}" />
             </div>
             <span class="color-hex-label" id="color-hex-label">{{ current_color | upper }}</span>
-            <span style="font-size:12px;color:#555;">← click to pick any color</span>
+            <span style="font-size:13px;color:#8888A8;">← click to pick any color</span>
           </div>
         </div>
 
@@ -283,7 +283,7 @@
         <div class="preview-label">PREVIEW</div>
         <canvas id="preview-canvas" width="160" height="200"></canvas>
         <div id="preview-name" class="placeholder">{{ username }}</div>
-        <div id="preview-traits" style="color:#888;font-size:12px;margin-top:8px;line-height:2;text-align:center;font-family:'Silkscreen',monospace;">
+        <div id="preview-traits" style="color:#B8B8D0;font-size:13px;margin-top:8px;line-height:2;text-align:center;font-family:'Pixelify Sans',monospace;">
           Pick your traits below
         </div>
       </div>
@@ -292,7 +292,7 @@
 
     <div class="creation-footer">
       {% if mode == 'reshape' %}
-        <div style="font-size:13px;color:#A86EFF;">Cost: 🪙 2,000 gold</div>
+        <div style="font-size:15px;color:#A86EFF;">Cost: 🪙 2,000 gold</div>
       {% endif %}
       <button id="confirm-btn">
         {% if mode == 'reshape' %}CONFIRM RESHAPE 🔮
@@ -359,7 +359,7 @@
       const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#141414';
+      ctx.fillStyle = '#141418';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const sprite = _creationSprites[currentShape] || _creationSprites.normal;
