@@ -3321,8 +3321,11 @@
   const _BM_LV_COLORS = { 1: '#8888A8', 2: '#4a9eff', 3: '#FF8C00' };
 
   async function openBuilding(buildingId) {
-    if (window.TutorialManager) window.TutorialManager._notifyBuilding(buildingId);
-    if (buildingId === 'boutique') { openBoutique(); return; }
+    if (buildingId === 'boutique') {
+      if (window.TutorialManager) window.TutorialManager._notifyBuilding('boutique');
+      openBoutique();
+      return;
+    }
 
     document.getElementById('bm-overlay').style.display = 'block';
     const modal = document.getElementById('building-modal');
@@ -3345,6 +3348,8 @@
         }
       }
       _renderModalContent(bData, upgData);
+      // Notify tutorial AFTER content is fully rendered so injection finds the right DOM
+      if (window.TutorialManager) window.TutorialManager._notifyBuilding(buildingId);
       setTimeout(() => showCtxTip('bldg-' + buildingId, document.getElementById('building-modal')), 400);
     } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
   }
@@ -3372,7 +3377,6 @@
   }
 
   async function openBoutique() {
-    if (window.TutorialManager) window.TutorialManager._notifyBuilding('boutique');
     document.getElementById('bm-overlay').style.display = 'block';
     document.getElementById('building-modal').style.display = 'block';
     document.getElementById('bm-content').innerHTML =
@@ -3383,6 +3387,8 @@
       if (data.status !== 'success') { showToast('Could not load boutique.', 'err'); closeBuildingPanel(); return; }
       _bqData = data;
       _renderBoutique();
+      // Notify tutorial AFTER boutique content is rendered
+      if (window.TutorialManager) window.TutorialManager._notifyBuilding('boutique');
       setTimeout(() => showCtxTip('bldg-boutique', document.getElementById('building-modal')), 400);
     } catch(e) { showToast('Error loading boutique.', 'err'); closeBuildingPanel(); }
   }
@@ -7473,6 +7479,9 @@
     init: function(startStep) {
       this.currentStep = startStep;
       this._createDialogueBox();
+      // Add padding so dialogue doesn't cover bottom game content
+      var main = document.querySelector('.main');
+      if (main) main.style.paddingBottom = '130px';
       this._runStep(startStep);
     },
 
@@ -7692,7 +7701,8 @@
       // Switch to map tab to make sure it's visible
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
-      self._highlightEl('#village-canvas');
+      // Do NOT highlight the canvas element — it would create a stacking context above the dialogue.
+      // The map itself is visible enough; the Mayor's text draws attention to it.
       await self._sayThen('This is our village! You can see all the buildings where penguins work and play. Try dragging the map around!');
       self._showContinue('Got it! →', function() {
         self._clearButtons();
@@ -8016,6 +8026,8 @@
     // ── Complete ─────────────────────────────────────────────────────────────
     _complete: function() {
       this._clearHighlights();
+      var main = document.querySelector('.main');
+      if (main) main.style.paddingBottom = '';
       var box = this.dialogueBox;
       if (box) {
         box.style.animation = 'slideDown 0.35s ease forwards';
@@ -8032,6 +8044,8 @@
     skipTutorial: async function() {
       if (confirm('Skip the tutorial? You\'ll miss out on some free rewards!')) {
         this._clearHighlights();
+        var main = document.querySelector('.main');
+        if (main) main.style.paddingBottom = '';
         var box = this.dialogueBox;
         if (box) {
           box.style.animation = 'slideDown 0.35s ease forwards';
