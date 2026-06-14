@@ -7453,11 +7453,12 @@
     speed = speed || 28;
     return new Promise(function(resolve) {
       element.textContent = '';
+      var chars = Array.from(text); // iterate code points so emoji don't split
       var i = 0;
       var interval = setInterval(function() {
-        element.textContent += text[i];
+        element.textContent += chars[i];
         i++;
-        if (i >= text.length) { clearInterval(interval); resolve(); }
+        if (i >= chars.length) { clearInterval(interval); resolve(); }
       }, speed);
       element.addEventListener('click', function() {
         clearInterval(interval);
@@ -7475,6 +7476,7 @@
     _pendingSidebarCb: null,
     _pendingInventoryCb: null,
     _mapDragListening: false,
+    _skipTimer: null,
 
     init: function(startStep) {
       this.currentStep = startStep;
@@ -7541,6 +7543,26 @@
     _clearButtons: function() {
       var btnsEl = document.getElementById('mayor-buttons');
       if (btnsEl) btnsEl.innerHTML = '';
+    },
+
+    _armSkipTimer: function() {
+      var self = this;
+      self._clearSkipTimer();
+      self._skipTimer = setTimeout(function() {
+        var btnsEl = document.getElementById('mayor-buttons');
+        if (!btnsEl || document.getElementById('mayor-skip-step-btn')) return;
+        var btn = document.createElement('button');
+        btn.id = 'mayor-skip-step-btn';
+        btn.className = 'mayor-continue';
+        btn.style.cssText = 'background:#303045;color:#B8B8D0;border-color:#8888A8;font-size:11px;margin-left:8px;';
+        btn.textContent = 'Stuck? Skip this step';
+        btn.onclick = function() { self._clearSkipTimer(); self._advanceStep(); };
+        btnsEl.appendChild(btn);
+      }, 30000);
+    },
+
+    _clearSkipTimer: function() {
+      if (this._skipTimer) { clearTimeout(this._skipTimer); this._skipTimer = null; }
     },
 
     _highlightEl: function(selector) {
@@ -7660,6 +7682,7 @@
     // ── Step advance ─────────────────────────────────────────────────────────
 
     _advanceStep: async function() {
+      this._clearSkipTimer();
       this.currentStep++;
       try {
         await fetch('/tutorial/advance', {
@@ -7672,6 +7695,7 @@
     },
 
     _runStep: function(step) {
+      this._armSkipTimer();
       switch(step) {
         case 0:  this._step0();  break;
         case 1:  this._step1();  break;
@@ -7684,7 +7708,7 @@
         case 8:  this._step8();  break;
         case 9:  this._step9();  break;
         case 10: this._step10(); break;
-        default: this._complete(); break;
+        default: this._clearSkipTimer(); this._complete(); break;
       }
     },
 
@@ -7745,6 +7769,7 @@
       document.getElementById('tutorial-job-btn').onclick = function() {
         this.disabled = true;
         this.textContent = 'Collecting...';
+        closeBuildingPanel();
         self._collectStarterJob();
       };
     },
@@ -7833,6 +7858,7 @@
       document.getElementById('tutorial-fight-btn').onclick = function() {
         this.disabled = true;
         this.textContent = 'Fighting...';
+        closeBuildingPanel();
         self._runStarterFight();
       };
     },
@@ -7909,6 +7935,7 @@
       document.getElementById('tutorial-boutique-btn').onclick = async function() {
         this.disabled = true;
         this.textContent = 'Claiming...';
+        closeBuildingPanel();
         try {
           var res = await fetch('/tutorial/free-boutique', {
             method: 'POST',
@@ -7956,6 +7983,7 @@
       document.getElementById('tutorial-rest-btn').onclick = async function() {
         this.disabled = true;
         this.textContent = 'Resting...';
+        closeBuildingPanel();
         try {
           var res = await fetch('/tutorial/free-rest', {
             method: 'POST',
@@ -8025,6 +8053,7 @@
 
     // ── Complete ─────────────────────────────────────────────────────────────
     _complete: function() {
+      this._clearSkipTimer();
       this._clearHighlights();
       var main = document.querySelector('.main');
       if (main) main.style.paddingBottom = '';
@@ -8043,6 +8072,7 @@
 
     skipTutorial: async function() {
       if (confirm('Skip the tutorial? You\'ll miss out on some free rewards!')) {
+        this._clearSkipTimer();
         this._clearHighlights();
         var main = document.querySelector('.main');
         if (main) main.style.paddingBottom = '';
