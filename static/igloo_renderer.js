@@ -3,7 +3,7 @@ const IglooRenderer = (function () {
     const TW = 48, TH = 24, WALL_H = 60, BOX_H = 16;
 
     const FLOOR_COLORS = {
-        ice: '#b8d8e8', wood: '#8B7355', stone: '#888888',
+        ice: '#b8d8e8', wood: '#8B7355', stone: '#B8B8D0',
         carpet: '#8B2252', marble: '#e8e8e8', dark: '#3a2a1a',
     };
     const WALL_COLORS = {

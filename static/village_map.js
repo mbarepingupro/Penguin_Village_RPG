@@ -20,8 +20,8 @@ const TILE_COLORS = {
     1: "#8B7355",
     2: "#4A8FAA",
     3: "#1E4520",
-    4: "#2E2E2E",
-    5: "#555555",
+    4: "#252535",
+    5: "#8888A8",
 };
 
 // ── SPRITE LOADER ─────────────────────────────────────────────────────────────
@@ -161,13 +161,13 @@ function worldToScreen(wx, wy) {
 function drawZoomIndicator() {
     const pct = Math.round(zoomLevel * 100) + '%';
     ctx.save();
-    ctx.font = "13px 'Silkscreen', monospace";
+    ctx.font = "17px 'Pixelify Sans', monospace";
     const tw = ctx.measureText(pct).width;
     const pad = 6, bw = tw + pad * 2, bh = 20;
     const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = '#888888';
+    ctx.fillStyle = '#B8B8D0';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(pct, bx + pad, by + bh / 2);
@@ -336,7 +336,7 @@ function drawBuilding(id, bdef, level) {
         ctx.fillStyle = "#FFFFFF";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = "12px 'Silkscreen', monospace";
+        ctx.font = "14px 'Pixelify Sans', monospace";
 
         const name = cfg.name;
         if (name.length > 10) {
@@ -354,10 +354,10 @@ function drawBuilding(id, bdef, level) {
         const lv = buildingLevels[id] !== undefined ? buildingLevels[id] : (level !== undefined ? level : 1);
 
         if (!cfg.noLevelBadge) {
-            ctx.font = "17px 'Silkscreen', monospace";
-            const lvBorderColors = { 1: '#666666', 2: '#4a9eff', 3: '#FF8C00' };
+            ctx.font = "14px 'Pixelify Sans', monospace";
+            const lvBorderColors = { 1: '#8888A8', 2: '#4a9eff', 3: '#FF8C00' };
             const badgeText   = lv >= 3 ? '★ MAX' : ('LV.' + lv);
-            const badgeBorder = lvBorderColors[lv] || '#666666';
+            const badgeBorder = lvBorderColors[lv] || '#8888A8';
             const tw   = ctx.measureText(badgeText).width;
             const padX = 3, padY = 2;
             const bw   = tw + padX * 2;
@@ -368,7 +368,7 @@ function drawBuilding(id, bdef, level) {
 
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur  = 0;
-            ctx.fillStyle   = '#1C1C1C';
+            ctx.fillStyle   = '#181820';
             ctx.fillRect(bx, by, bw, bh);
 
             ctx.strokeStyle = badgeBorder;
@@ -535,13 +535,13 @@ function drawPenguin(sx, sy, penguin, isBehind) {
         ctx.textAlign   = "center";
         ctx.textBaseline = "middle";
 
+        ctx.font = "14px 'Pixelify Sans', monospace";
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = "10px 'Silkscreen', monospace";
         ctx.fillText(displayName, sx, drawY - 5);
 
         if (penguin.active_title) {
+            ctx.font = "14px 'Pixelify Sans', monospace";
             ctx.fillStyle = "#A86EFF";
-            ctx.font = "10px 'Silkscreen', monospace";
             ctx.fillText(penguin.active_title, sx, drawY + 5);
         }
 
@@ -748,10 +748,10 @@ function showPenguinPopup(penguin, sx, sy) {
     const el = document.createElement('div');
     el.style.cssText = [
         'position:absolute',
-        'background:#1C1C1C',
+        'background:#181820',
         'border:2px solid #A86EFF',
         'padding:8px 10px',
-        "font-family:'Silkscreen',monospace",
+        "font-family:"Pixelify Sans",monospace",
         'font-size:12px',
         'color:#FFFFFF',
         'pointer-events:auto',
@@ -772,10 +772,10 @@ function showPenguinPopup(penguin, sx, sy) {
             visitBtnHtml = '<div style="margin-top:6px;color:#4aff6b;font-size:10px;">VISITED TODAY ✅</div>';
         } else {
             visitBtnHtml = '<button id="map-visit-btn" style="margin-top:6px;display:block;width:100%;'
-                + "font-family:'Silkscreen',monospace;font-size:10px;padding:4px 6px;"
-                + 'background:#1C1C1C;color:#A86EFF;border:1px solid #A86EFF;cursor:pointer;" '
-                + 'onmouseenter="this.style.background=\'#A86EFF\';this.style.color=\'#1C1C1C\'" '
-                + 'onmouseleave="this.style.background=\'#1C1C1C\';this.style.color=\'#A86EFF\'" '
+                + "font-family:"Pixelify Sans",monospace;font-size:10px;padding:4px 6px;"
+                + 'background:#181820;color:#A86EFF;border:1px solid #A86EFF;cursor:pointer;" '
+                + 'onmouseenter="this.style.background=\'#A86EFF\';this.style.color=\'#181820\'" '
+                + 'onmouseleave="this.style.background=\'#181820\';this.style.color=\'#A86EFF\'" '
                 + 'onclick="window._mapVisitIgloo && window._mapVisitIgloo(\'' + penguin.username + '\')">'
                 + '🏠 VISIT IGLOO</button>';
         }
@@ -784,7 +784,7 @@ function showPenguinPopup(penguin, sx, sy) {
     el.innerHTML = [
         '<div style="color:#FFFFFF">' + (penguin.display_name || penguin.username) + '</div>',
         penguin.active_title ? '<div style="color:#A86EFF">' + penguin.active_title + '</div>' : '',
-        '<div style="color:#888">LV' + (penguin.level || 1) + ' · ' + jobIcon + ' ' + jobName + '</div>',
+        '<div style="color:#B8B8D0">LV' + (penguin.level || 1) + ' · ' + jobIcon + ' ' + jobName + '</div>',
         visitBtnHtml,
     ].join('');
 
