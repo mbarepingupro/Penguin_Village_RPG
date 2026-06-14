@@ -1584,24 +1584,25 @@
       z-index: 89000;
       background: #252535;
       border-top: 3px solid #A86EFF;
-      padding: 12px 16px 12px 148px;
+      padding: 16px 260px 16px 24px;
       display: flex;
       align-items: flex-start;
       gap: 12px;
-      min-height: 90px;
+      min-height: 150px;
       animation: slideUp 0.4s ease-out;
     }
     .mayor-portrait {
       position: absolute;
-      left: 10px;
-      bottom: 5px;
-      width: 120px;
-      height: 120px;
+      right: 10px;
+      bottom: 0;
+      width: 230px;
+      height: 230px;
       border: 3px solid #FF8C00;
+      border-bottom: none;
       image-rendering: pixelated;
       object-fit: contain;
       background: #181820;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.7), 0 0 0 1px #FF8C00;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.6), 0 0 0 1px #FF8C00;
       z-index: 89001;
     }
     .mayor-text-area {
@@ -1623,30 +1624,30 @@
     }
     .mayor-message {
       font-family: 'Pixelify Sans', monospace;
-      font-size: 14px;
+      font-size: 18px;
       color: #FFFFFF;
-      line-height: 1.8;
+      line-height: 1.7;
     }
     .mayor-buttons {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-top: 4px;
+      margin-top: 6px;
     }
     .mayor-continue {
       font-family: 'Pixelify Sans', monospace;
-      font-size: 13px;
+      font-size: 15px;
       color: #A86EFF;
       cursor: pointer;
       border: 2px solid #A86EFF;
-      padding: 5px 14px;
+      padding: 6px 16px;
       background: transparent;
     }
     .mayor-continue:hover { background: #A86EFF; color: #181820; }
     .mayor-skip {
       position: absolute;
       top: 8px;
-      right: 12px;
+      right: 258px;
       font-family: 'Pixelify Sans', monospace;
       font-size: 13px;
       color: #8888A8;
@@ -1661,9 +1662,10 @@
       animation: tutorialPulse 1.5s ease-in-out infinite;
     }
     @media (max-width: 600px) {
-      .mayor-portrait { width: 80px; height: 80px; left: 6px; bottom: 4px; }
-      .mayor-dialogue { min-height: 80px; padding: 10px 10px 10px 100px; }
-      .mayor-message  { font-size: 14px; }
+      .mayor-portrait { width: 100px; height: 100px; right: 6px; }
+      .mayor-dialogue { min-height: 110px; padding: 12px 116px 12px 16px; }
+      .mayor-message  { font-size: 15px; }
+      .mayor-skip     { right: 112px; }
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -7449,21 +7451,48 @@
   // TUTORIAL SYSTEM — THE MAYOR'S WELCOME
   // ═══════════════════════════════════════════════════════════════
 
+  // Typewriter — cancels any previous run so two calls never interleave
+  var _twInterval = null;
+  var _twGen      = 0;
+  var _twAudioCtx = null;
+
+  function _tutBeep() {
+    try {
+      if (!_twAudioCtx) _twAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc  = _twAudioCtx.createOscillator();
+      var gain = _twAudioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(_twAudioCtx.destination);
+      osc.type = 'square';
+      osc.frequency.value = 520;
+      gain.gain.setValueAtTime(0.055, _twAudioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, _twAudioCtx.currentTime + 0.038);
+      osc.start(_twAudioCtx.currentTime);
+      osc.stop(_twAudioCtx.currentTime + 0.04);
+    } catch(e) {}
+  }
+
   function _tutTypewriter(element, text, speed) {
-    speed = speed || 28;
+    // Cancel any running typewriter
+    if (_twInterval) { clearInterval(_twInterval); _twInterval = null; }
+    _twGen++;
+    var gen = _twGen;
+    speed   = speed || 28;
     return new Promise(function(resolve) {
       element.textContent = '';
       var chars = Array.from(text); // iterate code points so emoji don't split
       var i = 0;
-      var interval = setInterval(function() {
+      _twInterval = setInterval(function() {
+        if (_twGen !== gen) { clearInterval(_twInterval); return; } // cancelled
         element.textContent += chars[i];
+        if (i % 2 === 0 && chars[i] !== ' ') _tutBeep();
         i++;
-        if (i >= chars.length) { clearInterval(interval); resolve(); }
+        if (i >= chars.length) { clearInterval(_twInterval); _twInterval = null; resolve(); }
       }, speed);
       element.addEventListener('click', function() {
-        clearInterval(interval);
-        element.textContent = text;
-        resolve();
+        if (_twGen !== gen) return; // stale listener, ignore
+        clearInterval(_twInterval); _twInterval = null;
+        element.textContent = text; resolve();
       }, { once: true });
     });
   }
@@ -7483,7 +7512,7 @@
       this._createDialogueBox();
       // Add padding so dialogue doesn't cover bottom game content
       var main = document.querySelector('.main');
-      if (main) main.style.paddingBottom = '130px';
+      if (main) main.style.paddingBottom = '165px';
       this._runStep(startStep);
     },
 
