@@ -751,7 +751,7 @@ function showPenguinPopup(penguin, sx, sy) {
         'background:#181820',
         'border:2px solid #A86EFF',
         'padding:8px 10px',
-        "font-family:"Pixelify Sans",monospace",
+        "font-family:'Pixelify Sans',monospace",
         'font-size:12px',
         'color:#FFFFFF',
         'pointer-events:auto',
@@ -772,7 +772,7 @@ function showPenguinPopup(penguin, sx, sy) {
             visitBtnHtml = '<div style="margin-top:6px;color:#4aff6b;font-size:10px;">VISITED TODAY ✅</div>';
         } else {
             visitBtnHtml = '<button id="map-visit-btn" style="margin-top:6px;display:block;width:100%;'
-                + "font-family:"Pixelify Sans",monospace;font-size:10px;padding:4px 6px;"
+                + "font-family:'Pixelify Sans',monospace;font-size:10px;padding:4px 6px;"
                 + 'background:#181820;color:#A86EFF;border:1px solid #A86EFF;cursor:pointer;" '
                 + 'onmouseenter="this.style.background=\'#A86EFF\';this.style.color=\'#181820\'" '
                 + 'onmouseleave="this.style.background=\'#181820\';this.style.color=\'#A86EFF\'" '
