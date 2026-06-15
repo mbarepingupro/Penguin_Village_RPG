@@ -42,6 +42,99 @@ BUFF_NAMES = {
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
+# ── WORLD AREAS ───────────────────────────────────────────────────────────────
+WORLD_AREAS = {
+    "penguin_village": {
+        "name": "Penguin Village",
+        "grid_position": {"row": 1, "col": 1},
+        "status": "active",
+        "description": "Home sweet home. The heart of the penguin community.",
+        "color": "#4aff6b",
+        "icon": "🏘️",
+        "era": "Era 1"
+    },
+    "frozen_peaks": {
+        "name": "Frozen Peaks",
+        "grid_position": {"row": 0, "col": 1},
+        "status": "locked",
+        "description": "Treacherous mountains hide ancient secrets beneath the ice.",
+        "color": "#4a9eff",
+        "icon": "🏔️",
+        "era": "Era 2",
+        "unlock_hint": "Complete Era 1 village goals to unlock"
+    },
+    "frozen_frontier": {
+        "name": "Frozen Frontier",
+        "grid_position": {"row": 0, "col": 0},
+        "status": "locked",
+        "description": "The unexplored north. What lies beyond the blizzard?",
+        "color": "#88c8e8",
+        "icon": "❄️",
+        "era": "Era 3",
+        "unlock_hint": "Complete Era 2 to unlock"
+    },
+    "frozen_wastes": {
+        "name": "Frozen Wastes",
+        "grid_position": {"row": 0, "col": 2},
+        "status": "locked",
+        "description": "A barren expanse of eternal winter. Only the brave dare enter.",
+        "color": "#B8B8D0",
+        "icon": "🌨️",
+        "era": "Era 3",
+        "unlock_hint": "Complete Era 2 to unlock"
+    },
+    "western_shores": {
+        "name": "Western Shores",
+        "grid_position": {"row": 1, "col": 0},
+        "status": "locked",
+        "description": "Crashing waves and hidden coves. Pirates were spotted here once.",
+        "color": "#5B8FA8",
+        "icon": "🌊",
+        "era": "Era 2",
+        "unlock_hint": "Complete Era 1 village goals to unlock"
+    },
+    "eastern_woods": {
+        "name": "Eastern Woods",
+        "grid_position": {"row": 1, "col": 2},
+        "status": "locked",
+        "description": "A dense forest full of mystery. The trees seem to whisper.",
+        "color": "#2D5A2D",
+        "icon": "🌲",
+        "era": "Era 2",
+        "unlock_hint": "Complete Era 1 village goals to unlock"
+    },
+    "sunken_ruins": {
+        "name": "Sunken Ruins",
+        "grid_position": {"row": 2, "col": 0},
+        "status": "locked",
+        "description": "An ancient civilization lies beneath the frozen lake.",
+        "color": "#3A3A8A",
+        "icon": "🏛️",
+        "era": "Era 4",
+        "unlock_hint": "Complete Era 3 to unlock"
+    },
+    "southern_shores": {
+        "name": "Southern Shores",
+        "grid_position": {"row": 2, "col": 1},
+        "status": "locked",
+        "description": "Warmer waters and sandy beaches. A penguin resort, perhaps?",
+        "color": "#D4AC0D",
+        "icon": "🏖️",
+        "era": "Era 2",
+        "unlock_hint": "Complete Era 1 village goals to unlock"
+    },
+    "the_abyss": {
+        "name": "The Abyss",
+        "grid_position": {"row": 2, "col": 2},
+        "status": "locked",
+        "description": "Darkness incarnate. The final frontier. Are you ready?",
+        "color": "#4a1a4a",
+        "icon": "💀",
+        "era": "Era 5",
+        "unlock_hint": "Complete Era 4 to unlock"
+    }
+}
+
 # Reverse lookup: cosmetic name → level that awards it
 _COSMETIC_LEVEL_MAP = {}
 for _lvl, _ldata in LEVEL_DATA.items():
@@ -1668,6 +1761,11 @@ if _APSCHEDULER_AVAILABLE and os.environ.get("WERKZEUG_RUN_MAIN") != "false":
 
 
 # ── ROUTES ───────────────────────────────────────────────────────────────────
+
+@app.route("/world/areas")
+def world_areas():
+    return jsonify({"areas": WORLD_AREAS})
+
 
 @app.route("/")
 def home():

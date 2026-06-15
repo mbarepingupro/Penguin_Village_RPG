@@ -3,7 +3,7 @@
 
 const TILE_W = 64;
 const TILE_H = 32;
-const GRID_SIZE = 30;
+const GRID_SIZE = 40;
 
 const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5, TILE_EXPAND = 6;
 

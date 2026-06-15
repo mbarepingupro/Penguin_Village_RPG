@@ -4,7 +4,7 @@
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 const TILE_W = 64;
 const TILE_H = 32;
-const GRID_SIZE = 30;
+const GRID_SIZE = 40;
 
 const TILE_COLORS = {
     0: "#C8DADA",
