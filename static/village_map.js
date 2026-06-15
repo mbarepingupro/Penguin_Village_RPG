@@ -558,14 +558,15 @@ function drawPenguin(sx, sy, penguin, isBehind) {
 }
 
 function isPenguinBehindBuilding(penguinX, penguinY) {
-    const penguinDepth = penguinX + penguinY;
     for (const [, bdef] of Object.entries(buildingLayout)) {
-        // Building renders after (on top of) penguin only when building depth > penguin depth
-        const buildingDepth = (bdef.gridX + bdef.width - 1) + (bdef.gridY + bdef.height - 1);
-        if (buildingDepth <= penguinDepth) continue;
-        // Check spatial overlap within the building footprint
-        if (penguinX >= bdef.gridX - 0.5 && penguinX < bdef.gridX + bdef.width &&
-            penguinY >= bdef.gridY - 0.5 && penguinY < bdef.gridY + bdef.height) {
+        const bLeft   = bdef.gridX;
+        const bRight  = bdef.gridX + bdef.width;
+        const bTop    = bdef.gridY;
+        const bBottom = bdef.gridY + bdef.height;
+        // Penguin is visually occluded when its X falls within the building's column range
+        // and its Y is closer to the back (smaller) than the building's front edge.
+        if (penguinX >= bLeft  - 0.5 && penguinX <= bRight  + 0.5 &&
+            penguinY >= bTop   - 1   && penguinY  <  bBottom - 0.5) {
             return true;
         }
     }
@@ -672,13 +673,16 @@ function mergePenguins(incoming) {
         incomingNames.add(p.username);
         if (existingMap[p.username]) {
             const ep = existingMap[p.username];
-            ep.job = p.job;
-            ep.active_title = p.active_title;
-            ep.level = p.level;
-            ep.prestige = p.prestige;
-            ep.working = !!p.job;
+            ep.job           = p.job;
+            ep.active_title  = p.active_title;
+            ep.level         = p.level;
+            ep.prestige      = p.prestige;
+            ep.working       = !!p.job;
             ep.isCurrentUser = p.username === currentUser;
-            ep.worn_items = p.worn_items || {};
+            ep.worn_items    = p.worn_items || {};
+            ep.penguin_shape = p.penguin_shape || 'normal';
+            ep.penguin_color = p.penguin_color || '#1a1a1a';
+            ep.display_name  = p.display_name  || p.username;
         } else {
             let spawn;
             if (p.startGridX !== undefined) {
@@ -690,11 +694,14 @@ function mergePenguins(incoming) {
             }
             const gx = spawn.x, gy = spawn.y;
             existingMap[p.username] = {
-                username: p.username,
-                job: p.job,
-                active_title: p.active_title,
-                level: p.level,
-                prestige: p.prestige,
+                username:      p.username,
+                display_name:  p.display_name  || p.username,
+                penguin_shape: p.penguin_shape || 'normal',
+                penguin_color: p.penguin_color || '#1a1a1a',
+                job:           p.job,
+                active_title:  p.active_title,
+                level:         p.level,
+                prestige:      p.prestige,
                 isCurrentUser: p.username === currentUser,
                 gridX: gx,
                 gridY: gy,
