@@ -5777,6 +5777,16 @@
     }
     evalEl.textContent = `${data.evaluation} — rolled ${data.roll} out of ${data.win_chance}%`;
     document.getElementById('fight-modal-ok').style.display = '';
+    if (data.is_first_kill) {
+      setTimeout(function() {
+        var fkRewards = [];
+        if (data.rewards) {
+          if (data.rewards.gold) fkRewards.push({text:'🪙 +'+data.rewards.gold+' Gold', color:'#FF8C00'});
+          if (data.rewards.xp)   fkRewards.push({text:'⭐ +'+data.rewards.xp+' XP',     color:'#4aff6b'});
+        }
+        queueCelebration({type:'first_kill', icon:'⚔️', title:'FIRST KILL!', subtitle:'Monster Defeated!', description:'You slew a monster for the first time. The village is safer!', rewards:fkRewards, mayorQuote:'Blood and feathers everywhere. Glorious! The village is proud of you!'});
+      }, 200);
+    }
     refreshStats();
     if (data.level_ups && data.level_ups.length) {
       setTimeout(function() {
