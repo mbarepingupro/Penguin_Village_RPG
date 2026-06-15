@@ -1,4 +1,4 @@
-const OverworldMap = {
+var OverworldMap = {
     canvas: null,
     ctx: null,
     areas: {},
@@ -63,11 +63,21 @@ const OverworldMap = {
 
     render: function() {
         const ctx = this.ctx;
-        if (!ctx) return;
+        if (!ctx || !this.canvas || !this.canvas.width || !this.canvas.height) return;
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         ctx.fillStyle = '#0a0a12';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Loading state
+        if (!this.areas || Object.keys(this.areas).length === 0) {
+            ctx.font = '12px Silkscreen, monospace';
+            ctx.fillStyle = '#8888A8';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('LOADING WORLD MAP...', this.canvas.width / 2, this.canvas.height / 2);
+            return;
+        }
 
         // Star field
         const now = performance.now();
@@ -385,9 +395,12 @@ const OverworldMap = {
         const canvas = document.getElementById('overworld-canvas');
         if (!canvas) return;
         setTimeout(() => {
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width  = Math.max(rect.width,  400);
-            canvas.height = Math.max(rect.height, 300);
+            const parent = canvas.parentElement;
+            // Use clientWidth/clientHeight which reflect actual rendered size
+            const w = parent.clientWidth  || parent.offsetWidth  || window.innerWidth  * 0.65;
+            const h = parent.clientHeight || parent.offsetHeight || window.innerHeight * 0.75;
+            canvas.width  = Math.max(w, 400);
+            canvas.height = Math.max(h, 300);
             if (canvas.width < 500) {
                 this.AREA_WIDTH  = 100;
                 this.AREA_HEIGHT = 50;
@@ -398,11 +411,14 @@ const OverworldMap = {
             if (!this._initialized) {
                 this.init('overworld-canvas');
                 this._initialized = true;
-            } else if (!this._animFrame) {
-                this._loop();
+            } else {
+                // Re-assign canvas/ctx in case they changed
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                if (!this._animFrame) this._loop();
             }
             this._playOpenSound();
-        }, 60);
+        }, 80);
     },
 
     hide: function() {
