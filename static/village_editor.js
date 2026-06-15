@@ -4,7 +4,7 @@
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 const TILE_W = 64;
 const TILE_H = 32;
-const GRID_SIZE = 20;
+const GRID_SIZE = 30;
 
 const TILE_COLORS = {
     0: "#C8DADA",
@@ -13,6 +13,7 @@ const TILE_COLORS = {
     3: "#1E4520",
     4: "#2E2E2E",
     5: "#555555",
+    6: "#1a1a25",
 };
 
 const TILE_NAMES = {
@@ -22,6 +23,7 @@ const TILE_NAMES = {
     3: "TREE",
     4: "BUILDING",
     5: "FENCE",
+    6: "EXPANSION",
 };
 
 const MIN_ZOOM = 0.5, MAX_ZOOM = 2.0, ZOOM_STEP = 0.1;
