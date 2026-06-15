@@ -3,9 +3,9 @@
 
 const TILE_W = 64;
 const TILE_H = 32;
-const GRID_SIZE = 20;
+const GRID_SIZE = 30;
 
-const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5;
+const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5, TILE_EXPAND = 6;
 
 const SHAPE_CONFIG = {
     "normal": { frameWidth: 32, frameHeight: 32, stripFile: "penguin_normal.png", staticFile: "penguin_normal_static.png" },
@@ -18,6 +18,7 @@ const PENGUIN_ANIM_SPEED   = 400; // ms per frame
 const TILE_COLORS = {
     0: "#C8DADA",
     1: "#8B7355",
+    6: "#1a1a25",
     2: "#4A8FAA",
     3: "#1E4520",
     4: "#252535",
@@ -98,6 +99,15 @@ const JOB_ICONS = {
 
 let canvas, ctx, currentUser, openBuildingFn;
 let _visitedTodaySet = new Set();
+let _moveTarget    = null;  // { wx, wy, born }
+let _invalidTarget = null;  // { wx, wy, born }
+
+const EXPANSION_LABELS = [
+    { gridX: 2,  gridY: 2,  text: ['NORTHERN', 'FRONTIER'], era: 'ERA 2' },
+    { gridX: 26, gridY: 2,  text: ['FROZEN',   'PEAKS'    ], era: 'ERA 3' },
+    { gridX: 2,  gridY: 26, text: ['SOUTHERN', 'SHORES'   ], era: 'ERA 2' },
+    { gridX: 26, gridY: 26, text: ['THE',      'ABYSS'    ], era: 'ERA 4' },
+];
 let cameraX = 0, cameraY = 50;
 let zoomLevel = 1.0;
 const MIN_ZOOM = 0.5;
@@ -257,6 +267,26 @@ function drawFence(sx, sy) {
     ctx.moveTo(sx, sy - 12);
     ctx.lineTo(sx, sy + 12);
     ctx.stroke();
+}
+
+function drawExpansionTile(sx, sy) {
+    // Dark fill
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - TILE_H / 2);
+    ctx.lineTo(sx + TILE_W / 2, sy);
+    ctx.lineTo(sx, sy + TILE_H / 2);
+    ctx.lineTo(sx - TILE_W / 2, sy);
+    ctx.closePath();
+    ctx.fillStyle = '#1a1a25';
+    ctx.fill();
+    // Dashed border
+    ctx.save();
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = '#3A3A50';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
 }
 
 function drawBuilding(id, bdef, level) {
@@ -587,6 +617,74 @@ function getWalkableNeighbors(gx, gy) {
     return neighbors;
 }
 
+// BFS pathfinding — returns array of {x,y} steps (not including start), or null if unreachable
+function findPath(sx, sy, ex, ey) {
+    if (!isWalkable(ex, ey)) return null;
+    if (sx === ex && sy === ey) return [];
+    const queue = [{ x: sx, y: sy, path: [] }];
+    const visited = new Set();
+    visited.add(sx + ',' + sy);
+    const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+    while (queue.length > 0) {
+        const cur = queue.shift();
+        for (const [dx, dy] of dirs) {
+            const nx = cur.x + dx, ny = cur.y + dy;
+            const key = nx + ',' + ny;
+            if (!visited.has(key) && isWalkable(nx, ny)) {
+                visited.add(key);
+                const newPath = cur.path.concat([{ x: nx, y: ny }]);
+                if (nx === ex && ny === ey) return newPath;
+                queue.push({ x: nx, y: ny, path: newPath });
+                if (visited.size > 1200) return null; // safety limit
+            }
+        }
+    }
+    return null;
+}
+
+function processMovementQueue(penguin) {
+    if (!penguin.movementQueue || penguin.movementQueue.length === 0) {
+        penguin.isPlayerControlled = false;
+        // Resume auto-wander after 5 s pause
+        setTimeout(function() {
+            if (!penguin.isPlayerControlled) penguin.canAutoWander = true;
+        }, 5000);
+        return;
+    }
+    const next = penguin.movementQueue.shift();
+    if (next.x > penguin.gridX) penguin.facingRight = true;
+    else if (next.x < penguin.gridX) penguin.facingRight = false;
+    penguin.targetGridX = next.x;
+    penguin.targetGridY = next.y;
+    penguin.progress    = 0;
+    penguin.isMoving    = true;
+    // onArrival fires when progress reaches 1 in updatePenguins
+    penguin.onArrival = function() { processMovementQueue(penguin); };
+}
+
+function movePlayerTo(targetX, targetY) {
+    const player = penguins.find(function(p) { return p.isCurrentUser; });
+    if (!player) return;
+    const sx = Math.round(player.gridX), sy = Math.round(player.gridY);
+    if (!isWalkable(targetX, targetY)) {
+        const wpos = gridToScreen(targetX, targetY);
+        _invalidTarget = { wx: wpos.x, wy: wpos.y, born: performance.now() };
+        return;
+    }
+    const path = findPath(sx, sy, targetX, targetY);
+    if (!path || path.length === 0) {
+        const wpos = gridToScreen(targetX, targetY);
+        _invalidTarget = { wx: wpos.x, wy: wpos.y, born: performance.now() };
+        return;
+    }
+    player.movementQueue    = path;
+    player.isPlayerControlled = true;
+    player.canAutoWander    = false;
+    const wpos = gridToScreen(targetX, targetY);
+    _moveTarget = { wx: wpos.x, wy: wpos.y, born: performance.now() };
+    processMovementQueue(player);
+}
+
 function nearestWalkable(gx, gy) {
     if (isWalkable(gx, gy)) return { x: gx, y: gy };
     for (let r = 1; r < GRID_SIZE; r++) {
@@ -642,7 +740,9 @@ function updatePenguins(dt) {
     const now = performance.now();
     for (const p of penguins) {
         if (p.progress < 1) {
-            p.progress = Math.min(1, p.progress + dt / 1000);
+            // Player-controlled movement is twice as fast (500ms/tile vs 1000ms/tile)
+            const speed = p.isPlayerControlled ? 500 : 1000;
+            p.progress = Math.min(1, p.progress + dt / speed);
             p.isMoving = true;
             if (now - p.lastFrameTime > PENGUIN_ANIM_SPEED) {
                 p.animFrame    = (p.animFrame + 1) % PENGUIN_FRAME_COUNT;
@@ -653,10 +753,18 @@ function updatePenguins(dt) {
             p.gridY    = p.targetGridY;
             p.isMoving = false;
             p.animFrame = 0;
-            p.nextMoveIn -= dt;
-            if (p.nextMoveIn <= 0) {
-                stepPenguin(p);
-                p.nextMoveIn = 2000 + Math.random() * 2000;
+            if (p.onArrival) {
+                const cb = p.onArrival;
+                p.onArrival = null;
+                cb();
+                continue; // skip auto-wander this frame while following a path
+            }
+            if (!p.isPlayerControlled && (p.canAutoWander !== false)) {
+                p.nextMoveIn -= dt;
+                if (p.nextMoveIn <= 0) {
+                    stepPenguin(p);
+                    p.nextMoveIn = 2000 + Math.random() * 2000;
+                }
             }
         }
     }
@@ -717,6 +825,10 @@ function mergePenguins(incoming) {
                 facingRight: true,
                 isMoving: false,
                 worn_items: p.worn_items || {},
+                canAutoWander: true,
+                isPlayerControlled: false,
+                movementQueue: null,
+                onArrival: null,
             };
         }
     }
@@ -914,6 +1026,7 @@ function attachEvents() {
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
 
+        // 1. Penguin click (highest priority)
         for (const p of penguins) {
             const interp = {
                 x: p.gridX + (p.targetGridX - p.gridX) * p.progress,
@@ -928,6 +1041,7 @@ function attachEvents() {
             }
         }
 
+        // 2. Building click
         const g = screenToGrid(sx, sy);
         let bid = (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE)
             ? getBuildingAtTile(g.x, g.y) : null;
@@ -936,7 +1050,12 @@ function attachEvents() {
             const wy = (sy - cameraY) / zoomLevel;
             bid = getBuildingAtScreenPos(wx, wy);
         }
-        if (bid && openBuildingFn) openBuildingFn(bid);
+        if (bid && openBuildingFn) { openBuildingFn(bid); return; }
+
+        // 3. Click-to-move — move the player's penguin to the clicked tile
+        if (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE) {
+            movePlayerTo(g.x, g.y);
+        }
     });
 
     let touchStartX = 0, touchStartY = 0;
@@ -1063,7 +1182,9 @@ function gameLoop(ts) {
 
             const tileType = (grid[y] && grid[y][x] !== undefined) ? grid[y][x] : TILE_SNOW;
 
-            if (tileType === TILE_WATER) {
+            if (tileType === TILE_EXPAND) {
+                drawExpansionTile(pos.x, pos.y);
+            } else if (tileType === TILE_WATER) {
                 drawWaterTile(pos.x, pos.y, _time);
             } else {
                 drawTile(pos.x, pos.y, TILE_COLORS[tileType] || TILE_COLORS[0], tileType);
@@ -1074,6 +1195,28 @@ function gameLoop(ts) {
             }
             // Trees drawn in Phase 2 for correct depth ordering with buildings and penguins
         }
+    }
+
+    // Expansion zone labels (drawn in world space while transform is still active)
+    if (fontReady) {
+        ctx.save();
+        ctx.textAlign = 'center';
+        for (const lbl of EXPANSION_LABELS) {
+            const lpos = gridToScreen(lbl.gridX, lbl.gridY);
+            // Cull
+            const lsx = lpos.x * zoomLevel + cameraX;
+            const lsy = lpos.y * zoomLevel + cameraY;
+            if (lsx < -200 || lsx > canvas.width + 200 || lsy < -100 || lsy > canvas.height + 100) continue;
+            ctx.font = `${Math.max(7, Math.floor(9 * zoomLevel))}px 'Pixelify Sans', monospace`;
+            ctx.fillStyle = '#3A3A50';
+            lbl.text.forEach((line, i) => {
+                ctx.fillText(line, lpos.x, lpos.y + (i - lbl.text.length / 2 + 0.5) * 11 * zoomLevel);
+            });
+            ctx.font = `${Math.max(6, Math.floor(7 * zoomLevel))}px 'Pixelify Sans', monospace`;
+            ctx.fillStyle = '#6040A0';
+            ctx.fillText(lbl.era, lpos.x, lpos.y + (lbl.text.length / 2 + 0.5) * 11 * zoomLevel + 3 * zoomLevel);
+        }
+        ctx.restore();
     }
 
     updatePenguins(dt);
@@ -1120,6 +1263,45 @@ function gameLoop(ts) {
             const pos = gridToScreen(obj.ix, obj.iy);
             const isBehind = isPenguinBehindBuilding(obj.ix, obj.iy);
             drawPenguin(pos.x, pos.y, obj.data, isBehind);
+        }
+    }
+
+    // Move-target and invalid-target overlays (world space, before ctx.restore)
+    const now2 = performance.now();
+    if (_moveTarget) {
+        const elapsed = now2 - _moveTarget.born;
+        if (elapsed < 1400) {
+            const alpha = 1 - elapsed / 1400;
+            const pulse = 1 + 0.25 * Math.sin(elapsed / 120);
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.7;
+            ctx.fillStyle = '#4aff6b';
+            ctx.beginPath();
+            ctx.arc(_moveTarget.wx, _moveTarget.wy, 6 * pulse, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        } else {
+            _moveTarget = null;
+        }
+    }
+    if (_invalidTarget) {
+        const elapsed = now2 - _invalidTarget.born;
+        if (elapsed < 500) {
+            const alpha = 1 - elapsed / 500;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.8;
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = 2;
+            const r = 7;
+            ctx.beginPath();
+            ctx.moveTo(_invalidTarget.wx - r, _invalidTarget.wy - r);
+            ctx.lineTo(_invalidTarget.wx + r, _invalidTarget.wy + r);
+            ctx.moveTo(_invalidTarget.wx + r, _invalidTarget.wy - r);
+            ctx.lineTo(_invalidTarget.wx - r, _invalidTarget.wy + r);
+            ctx.stroke();
+            ctx.restore();
+        } else {
+            _invalidTarget = null;
         }
     }
 
