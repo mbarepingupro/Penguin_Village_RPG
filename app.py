@@ -3114,12 +3114,14 @@ def gear_inventory():
     rows    = db.execute("SELECT * FROM gear WHERE username=? ORDER BY id", (username,)).fetchall()
     gold    = get_gold(db, username)
     r       = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    player_cp = get_combat_power(username)
     db.close()
     return jsonify({
-        "gear":    [dict(g) for g in rows],
-        "catalog": GEAR_CATALOG,
-        "gold":    gold,
+        "gear":      [dict(g) for g in rows],
+        "catalog":   GEAR_CATALOG,
+        "gold":      gold,
         "resources": dict(r) if r else {},
+        "player_cp": player_cp,
     })
 
 

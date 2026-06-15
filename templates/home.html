@@ -3243,11 +3243,9 @@
         _playerSeals = pData.penguin.mayor_seals || 0;
       }
 
-      if (gData.gear && FEATURES.combat) {
-        const cp = (gData.gear.filter(g => g.type === 'combat' && g.equipped)
-                         .reduce((s, g) => s + (g.combat_power || 0), 0));
+      if (FEATURES.combat) {
         const cpEl = document.getElementById('sidebar-cp-val');
-        if (cpEl) cpEl.textContent = cp || '—';
+        if (cpEl && gData.player_cp != null) cpEl.textContent = gData.player_cp;
       }
       loadSecretBonuses();
     } catch(e) {}
@@ -7623,6 +7621,7 @@
         relEl.style.display = 'none';
       }
 
+      _pendingVisitUsername = hostUsername;
       document.getElementById('igloo-result-overlay').classList.add('show');
       if (data.level_ups && data.level_ups.length) {
         setTimeout(function() {
@@ -7663,8 +7662,68 @@
     } catch(e) { showToast('Error visiting igloo', '#ff6b6b'); }
   }
 
+  var _pendingVisitUsername = null;
+
   function closeIglooResult() {
     document.getElementById('igloo-result-overlay').classList.remove('show');
+    if (_pendingVisitUsername) {
+      const u = _pendingVisitUsername;
+      _pendingVisitUsername = null;
+      loadVisitedIgloo(u);
+    }
+  }
+
+  async function loadVisitedIgloo(username) {
+    try {
+      // Switch to igloo tab; initialize renderer if needed
+      const iglooTab = document.querySelector('.content-tab[data-tab="igloo"]');
+      switchContentTab('igloo', iglooTab || null);
+      await loadIgloo();  // no-op if already loaded
+
+      // Fetch visited igloo data
+      const res  = await fetch(`/igloo/${username}`);
+      const data = await res.json();
+      if (!data || data.status === 'error') return;
+
+      // Load into renderer (read-only — clear edit callbacks)
+      IglooRenderer.load(data);
+      IglooRenderer.onCellClick      = null;
+      IglooRenderer.onFurnitureSelect = null;
+      IglooRenderer.onPaintCell      = null;
+      IglooRenderer.onWallClick      = null;
+
+      const titleEl = document.getElementById('igloo-room-title');
+      if (titleEl) titleEl.textContent = username.toUpperCase() + "'S IGLOO";
+
+      document.getElementById('igloo-edit-btn').style.display    = 'none';
+      document.getElementById('igloo-edit-panel').classList.remove('visible');
+
+      showVisitingHeader(username);
+    } catch(e) {}
+  }
+
+  function showVisitingHeader(username) {
+    const existing = document.getElementById('igloo-visiting-header');
+    if (existing) existing.remove();
+
+    const panel = document.getElementById('panel-igloo');
+    if (!panel) return;
+
+    const header = document.createElement('div');
+    header.id = 'igloo-visiting-header';
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#252535;border-bottom:2px solid #A86EFF;flex-shrink:0;';
+    header.innerHTML =
+      '<div style="font-family:Silkscreen,monospace;font-size:11px;color:#A86EFF;">🏠 Visiting <span style="color:#FFFFFF;">' + username + '</span>\'s Igloo</div>' +
+      '<button id="igloo-back-own-btn" style="font-family:Silkscreen,monospace;font-size:10px;color:#4aff6b;background:transparent;border:2px solid #4aff6b;padding:4px 12px;cursor:pointer;">← MY IGLOO</button>';
+    panel.insertBefore(header, panel.firstChild);
+
+    document.getElementById('igloo-back-own-btn').addEventListener('click', function() {
+      header.remove();
+      // Restore edit controls and reload own igloo
+      document.getElementById('igloo-edit-btn').style.display = '';
+      _iglooLoaded = false;
+      loadIgloo();
+    });
   }
 
   // Called from village_map.js via window._mapVisitIgloo
