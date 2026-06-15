@@ -1,5 +1,6 @@
 import sqlite3
-
+import os
+DATABASE = os.environ.get('DATABASE_PATH', 'village.db')
 
 def _add_col(cursor, table, col_def):
     try:
@@ -9,7 +10,7 @@ def _add_col(cursor, table, col_def):
 
 
 def init_db():
-    conn = sqlite3.connect("village.db")
+    conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
 
     c.execute("""
@@ -537,14 +538,14 @@ def init_db():
 
 
 def get_db():
-    conn = sqlite3.connect("village.db")
+    conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def backfill_cosmetics(LEVEL_DATA, COSMETIC_SLOTS):
     import time as _time
-    conn = sqlite3.connect("village.db")
+    conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     try:
