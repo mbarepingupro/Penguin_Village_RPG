@@ -5111,7 +5111,7 @@ def tutorial_advance():
         return jsonify({"status": "error", "message": "Not logged in."})
     db = get_db()
     db.execute("UPDATE penguins SET tutorial_step=? WHERE username=?", (step, username))
-    if step >= 11:
+    if step >= 12:
         db.execute("UPDATE penguins SET tutorial_completed=1 WHERE username=?", (username,))
     db.commit()
     db.close()
@@ -5143,9 +5143,8 @@ def tutorial_gift():
 
     STEP_GIFTS = {
         2:  {"fish": 50,  "gold": 30,  "xp": 50},
-        3:  {"gold": 100, "herbs": 20, "bones": 10, "spell_fragments": 5},
-        4:  {"gold": 30,  "xp": 20},
-        10: {"gold": 200, "mayor_seals": 1},
+        4:  {"gold": 100, "herbs": 20, "bones": 10, "spell_fragments": 5},
+        11: {"gold": 200, "mayor_seals": 1},
     }
 
     for resource, amount in STEP_GIFTS.get(step, {}).items():
@@ -5187,7 +5186,7 @@ def tutorial_starter_fight():
         return jsonify({"status": "error", "message": "Penguin not found."})
 
     rewards_given = json.loads(p["tutorial_rewards_given"] or "[]")
-    if 4 in rewards_given:
+    if 5 in rewards_given:
         db.close()
         return jsonify({"status": "already_given", "message": "Tutorial fight already completed."})
 
@@ -5205,7 +5204,7 @@ def tutorial_starter_fight():
     )
     gear_id = db.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
 
-    rewards_given.append(4)
+    rewards_given.append(5)
     db.execute("UPDATE penguins SET tutorial_rewards_given=? WHERE username=?",
                (json.dumps(rewards_given), username))
     log_event(db, "combat", f"{username} defeated the Tutorial Snow Crab! 🦀 (Tutorial)", username)
@@ -5234,7 +5233,7 @@ def tutorial_free_boutique():
         return jsonify({"status": "error", "message": "Penguin not found."})
 
     rewards_given = json.loads(p["tutorial_rewards_given"] or "[]")
-    if 6 in rewards_given:
+    if 7 in rewards_given:
         db.close()
         return jsonify({"status": "already_given", "message": "Free item already claimed."})
 
@@ -5260,7 +5259,7 @@ def tutorial_free_boutique():
         "VALUES (?,?,?,'cosmetic',?,'shop',0,?)",
         (username, item_id, item["name"], item["slot"], now)
     )
-    rewards_given.append(6)
+    rewards_given.append(7)
     db.execute("UPDATE penguins SET tutorial_rewards_given=? WHERE username=?",
                (json.dumps(rewards_given), username))
     log_event(db, "shop", f"{username} received a free gift from the Mayor: {item['name']}! 🎁", username)
@@ -5284,14 +5283,14 @@ def tutorial_free_rest():
         return jsonify({"status": "error", "message": "Penguin not found."})
 
     rewards_given = json.loads(p["tutorial_rewards_given"] or "[]")
-    if 7 in rewards_given:
+    if 8 in rewards_given:
         db.close()
         return jsonify({"status": "already_given"})
 
     max_e    = p["max_energy"] or 100
     restored = max_e - (p["energy"] or 0)
     db.execute("UPDATE penguins SET energy=? WHERE username=?", (max_e, username))
-    rewards_given.append(7)
+    rewards_given.append(8)
     db.execute("UPDATE penguins SET tutorial_rewards_given=? WHERE username=?",
                (json.dumps(rewards_given), username))
     db.commit()
@@ -6388,6 +6387,100 @@ def bank_shop_buy(gear_id):
     db.commit()
     db.close()
     return jsonify({"status": "success", "message": f"Bought {g['name']}!"})
+
+
+def calculate_minigame_rewards(building_id, score, player_level):
+    base = {
+        "sea_lion_pit":  {"fish": 15, "gold": 5, "xp": 10},
+        "club_soda":     {"herbs": 15, "gold": 5, "xp": 10},
+        "parkmusement":  {"gold": 20, "xp": 10},
+        "cursed_temple": {"spell_fragments": 12, "gold": 5, "xp": 10},
+        "guillotine":    {"blood_gems": 6, "bones": 6, "gold": 5, "xp": 10},
+    }
+    multiplier = max(0.2, min(2.0, score / 50.0))
+    gather_bonus = 1 + (player_level or 1) * 0.05
+    rewards = {}
+    for resource, amount in base.get(building_id, {}).items():
+        if resource == "xp":
+            rewards[resource] = max(1, int(amount * multiplier))
+        else:
+            rewards[resource] = max(1, int(amount * multiplier * gather_bonus))
+    return rewards
+
+
+@app.route("/minigame/start", methods=["POST"])
+def minigame_start():
+    data        = request.get_json(silent=True) or {}
+    username    = data.get("username") or session.get("username")
+    building_id = data.get("building_id", "")
+    is_tutorial = bool(data.get("tutorial", False))
+
+    MINIGAME_BUILDINGS = {"sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine"}
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if building_id not in MINIGAME_BUILDINGS:
+        return jsonify({"status": "error", "message": "No mini-game at this building."})
+
+    db = get_db()
+    p  = db.execute("SELECT energy, job FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    if p["job"]:
+        db.close()
+        return jsonify({"status": "error", "message": "Collect your passive job first!"})
+
+    energy = p["energy"] or 0
+    if not is_tutorial:
+        if energy < 10:
+            db.close()
+            return jsonify({"status": "error", "message": "Need 10 energy to play! Rest at the hotel."})
+        db.execute("UPDATE penguins SET energy=energy-10 WHERE username=?", (username,))
+        db.commit()
+        energy -= 10
+
+    db.close()
+    return jsonify({"status": "success", "energy_remaining": energy})
+
+
+@app.route("/minigame/complete", methods=["POST"])
+def minigame_complete():
+    data        = request.get_json(silent=True) or {}
+    username    = data.get("username") or session.get("username")
+    building_id = data.get("building_id", "")
+    score       = max(0, min(100, int(data.get("score", 0))))
+
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    p  = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+
+    ensure_resources(db, username)
+    rewards = calculate_minigame_rewards(building_id, score, p["level"] or 1)
+    level_up_info = {"leveled": False}
+
+    for resource, amount in rewards.items():
+        if resource == "gold":
+            add_gold(db, username, amount)
+        elif resource == "xp":
+            leveled, lvl_rewards = award_xp(db, username, amount)
+            if leveled and lvl_rewards:
+                level_up_info = {"leveled": True, "level": lvl_rewards[0].get("level", 0)}
+        else:
+            db.execute(
+                f"UPDATE resources SET {resource}={resource}+? WHERE username=?",
+                (amount, username)
+            )
+
+    log_event(db, "work", f"{username} played the {building_id} mini-game! Score: {score}", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "rewards": rewards, "level_up": level_up_info})
 
 
 if __name__ == "__main__":

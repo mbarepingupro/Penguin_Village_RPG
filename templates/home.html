@@ -2758,6 +2758,7 @@
 <script src="/static/recolor.js"></script>
 <script src="/static/village_map.js"></script>
 <script src="/static/overworld_map.js"></script>
+  <script src="/static/minigames.js"></script>
   <script src="/static/igloo_renderer.js"></script>
 <script>
   function switchSidebarTab(name, btn) {
@@ -3911,6 +3912,7 @@
         html += `</button>`;
       } else if (data.player_job && data.player_job !== data.building_id) {
         html += `<div class="bp-info" style="color:#ff6b6b;">Already working elsewhere!<br>Collect first.</div>`;
+        html += `<button class="bp-btn" disabled style="opacity:0.4;margin-top:6px;">🎮 MINI-GAME (collect job first)</button>`;
       } else {
         const produces = data.produces || {};
         const BSMULTS  = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
@@ -3922,6 +3924,10 @@
         }).join(', ');
         if (prodStr) html += `<div class="bp-info" style="color:#B8B8D0;">${prodStr}<br>Caps at 8 hours.</div>`;
         html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label||'WORK'}</button>`;
+        html += `<div style="margin:8px 0 4px;border-top:1px solid #2a2a4a;padding-top:8px;">`;
+        html += `<div style="color:#B8B8D0;font-size:12px;margin-bottom:6px;text-align:center;">— OR PLAY ACTIVELY —</div>`;
+        html += `<button class="bp-btn" style="background:#1a1030;border-color:#A86EFF;color:#A86EFF;" onclick="startMiniGame('${data.building_id}')">🎮 PLAY MINI-GAME (10 ⚡)</button>`;
+        html += `</div>`;
       }
     } else if (btype === 'rest') {
       const energy   = data.player_energy    || 0;
@@ -5172,6 +5178,55 @@
   }
 
 
+
+  async function startMiniGame(buildingId) {
+    const isTutorial = window.TutorialManager && TutorialManager._minigameTutorial;
+    try {
+      const res = await fetch('/minigame/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId, tutorial: isTutorial })
+      });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast(data.message || 'Cannot start mini-game', 'err'); return; }
+    } catch(e) { showToast('Error starting mini-game.', 'err'); return; }
+    closeBuildingPanel();
+    if (!window.MiniGameManager) { showToast('Mini-game system not loaded.', 'err'); return; }
+    MiniGameManager.startGame(buildingId, async function(score) {
+      try {
+        const cRes = await fetch('/minigame/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId, score: score, tutorial: isTutorial })
+        });
+        const cData = await cRes.json();
+        if (cData.status === 'success') {
+          const r = cData.rewards || {};
+          const parts = [];
+          if (r.fish)            parts.push('+' + r.fish + ' 🐟');
+          if (r.herbs)           parts.push('+' + r.herbs + ' 🌿');
+          if (r.gold)            parts.push('+' + r.gold + ' 🪙');
+          if (r.xp)              parts.push('+' + r.xp + ' XP');
+          if (r.spell_fragments) parts.push('+' + r.spell_fragments + ' ✨');
+          if (r.blood_gems)      parts.push('+' + r.blood_gems + ' 💎');
+          if (r.bones)           parts.push('+' + r.bones + ' 🦴');
+          if (parts.length) _flyEmojiCollection(parts);
+          if (cData.level_up && cData.level_up.leveled) {
+            setTimeout(function() {
+              queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+cData.level_up.level+' Reached!', rewards:[]});
+            }, 800);
+          }
+          await refreshStats();
+          if (window.TutorialManager && TutorialManager._pendingMinigameCb) {
+            const cb = TutorialManager._pendingMinigameCb;
+            TutorialManager._pendingMinigameCb = null;
+            TutorialManager._minigameTutorial = false;
+            cb(score);
+          }
+        }
+      } catch(e) { showToast('Error collecting rewards.', 'err'); }
+    });
+  }
 
   async function bpStartWork(buildingId) {
     try {
@@ -7955,6 +8010,8 @@
     _pendingContentTabCb: null,
     _pendingSidebarCb: null,
     _pendingInventoryCb: null,
+    _pendingMinigameCb: null,
+    _minigameTutorial: false,
     _mapDragListening: false,
     _skipTimer: null,
 
@@ -8188,6 +8245,7 @@
         case 8:  this._step8();  break;
         case 9:  this._step9();  break;
         case 10: this._step10(); break;
+        case 11: this._step11(); break;
         default: this._clearSkipTimer(); this._complete(); break;
       }
     },
@@ -8281,8 +8339,45 @@
       self._showContinue('Nice! →', function() { self._advanceStep(); });
     },
 
-    // ── Step 3 — Stats Tab ───────────────────────────────────────────────────
+    // ── Step 3 — Mini-Game Demo ──────────────────────────────────────────────
     _step3: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightBuilding('sea_lion_pit');
+      await self._sayThen('Here\'s something fun — instead of waiting for passive income, you can play mini-games to earn resources RIGHT NOW! Try the Fish Catch game at the Sea Lion Pit!');
+      self._waitForBuilding('sea_lion_pit').then(function() {
+        self._clearHighlights();
+        self._injectTutorialMinigameButton();
+        self._say('Click "PLAY MINI-GAME (FREE)" in the panel to try it — it\'s free for the tutorial!', null);
+      });
+    },
+
+    _injectTutorialMinigameButton: function() {
+      var self = this;
+      var content = document.getElementById('bm-content');
+      if (!content || document.getElementById('tutorial-minigame-inject')) return;
+      var div = document.createElement('div');
+      div.id = 'tutorial-minigame-inject';
+      div.style.cssText = 'background:#080e18;border:2px solid #A86EFF;border-radius:6px;padding:12px;margin-bottom:12px;text-align:center;';
+      div.innerHTML = '<div style="color:#A86EFF;font-size:13px;margin-bottom:8px;">🎓 TUTORIAL: FREE MINI-GAME</div>' +
+        '<button id="tutorial-minigame-btn" style="background:#A86EFF;color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:13px;cursor:pointer;border-radius:4px;font-weight:bold;">🎮 PLAY MINI-GAME (FREE)!</button>';
+      content.insertBefore(div, content.firstChild);
+      document.getElementById('tutorial-minigame-btn').onclick = function() {
+        this.disabled = true;
+        this.textContent = 'Starting...';
+        TutorialManager._minigameTutorial = true;
+        TutorialManager._pendingMinigameCb = function(score) {
+          self._sayThen('Nice! Score: ' + score + '! The better you play, the more resources you earn. Mini-games cost 10 energy each (free here in the tutorial).').then(function() {
+            self._showContinue('Got it! →', function() { self._advanceStep(); });
+          });
+        };
+        startMiniGame('sea_lion_pit');
+      };
+    },
+
+    // ── Step 4 — Stats Tab ───────────────────────────────────────────────────
+    _step4: async function() {
       var self = this;
       self._highlightEl('.sidebar-tab[onclick*="stats"]');
       await self._sayThen('Let\'s see how you\'re doing! Click on the STATS tab on the left panel.');
@@ -8293,7 +8388,7 @@
           var res  = await fetch('/tutorial/gift', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: CURRENT_USER, step: 3 })
+            body: JSON.stringify({ username: CURRENT_USER, step: 4 })
           });
           var data = await res.json();
           if (data.earned) {
@@ -8309,8 +8404,8 @@
       });
     },
 
-    // ── Step 4 — First Fight ─────────────────────────────────────────────────
-    _step4: async function() {
+    // ── Step 5 — First Fight ─────────────────────────────────────────────────
+    _step5: async function() {
       var self = this;
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
@@ -8372,8 +8467,8 @@
       }
     },
 
-    // ── Step 5 — Equip Gear ──────────────────────────────────────────────────
-    _step5: async function() {
+    // ── Step 6 — Equip Gear ──────────────────────────────────────────────────
+    _step6: async function() {
       var self = this;
       self._highlightEl('.inv-open-btn');
       await self._sayThen('Open your inventory — the 📦 INVENTORY button on the left — and equip the gear you just found!');
@@ -8384,8 +8479,8 @@
       });
     },
 
-    // ── Step 6 — Boutique ────────────────────────────────────────────────────
-    _step6: async function() {
+    // ── Step 7 — Boutique ────────────────────────────────────────────────────
+    _step7: async function() {
       var self = this;
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
@@ -8436,8 +8531,8 @@
       };
     },
 
-    // ── Step 7 — Hotel ───────────────────────────────────────────────────────
-    _step7: async function() {
+    // ── Step 8 — Hotel ───────────────────────────────────────────────────────
+    _step8: async function() {
       var self = this;
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
@@ -8481,8 +8576,8 @@
       };
     },
 
-    // ── Step 8 — Village Building ────────────────────────────────────────────
-    _step8: async function() {
+    // ── Step 9 — Village Building ────────────────────────────────────────────
+    _step9: async function() {
       var self = this;
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
@@ -8493,8 +8588,8 @@
       });
     },
 
-    // ── Step 9 — Igloo ───────────────────────────────────────────────────────
-    _step9: async function() {
+    // ── Step 10 — Igloo ──────────────────────────────────────────────────────
+    _step10: async function() {
       var self = this;
       self._highlightEl('.content-tab[data-tab="igloo"]');
       await self._sayThen('Almost forgot — you have your own home! Click the IGLOO tab to see your personal space.');
@@ -8505,8 +8600,8 @@
       });
     },
 
-    // ── Step 10 — Stream + Final Gift ────────────────────────────────────────
-    _step10: async function() {
+    // ── Step 11 — Stream + Final Gift ────────────────────────────────────────
+    _step11: async function() {
       var self = this;
       await self._sayThen('Last thing — Penguin Village is connected to my Twitch stream! When I\'m live, you earn bonus resources and exclusive Mayor\'s Seals for special cosmetics.');
       self._showContinue('Awesome! →', async function() {
@@ -8515,7 +8610,7 @@
           var res  = await fetch('/tutorial/gift', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: CURRENT_USER, step: 10 })
+            body: JSON.stringify({ username: CURRENT_USER, step: 11 })
           });
           var data = await res.json();
           if (data.earned) {
@@ -8545,7 +8640,7 @@
       fetch('/tutorial/advance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, step: 11 })
+        body: JSON.stringify({ username: CURRENT_USER, step: 12 })
       }).catch(function() {});
       showToast('Tutorial complete! Welcome to Penguin Village! 🐧', 'ok');
     },
@@ -8605,6 +8700,8 @@
       TutorialManager._pendingContentTabCb  = null;
       TutorialManager._pendingSidebarCb     = null;
       TutorialManager._pendingInventoryCb   = null;
+      TutorialManager._pendingMinigameCb    = null;
+      TutorialManager._minigameTutorial     = false;
       TutorialManager._step2done            = false;
       TutorialManager._clearHighlights();
       TutorialManager._createDialogueBox();
@@ -8615,7 +8712,7 @@
   // Auto-start tutorial for new players
   {% if logged_in and not tutorial_completed %}
   setTimeout(function() {
-    if (window.TutorialManager && TUTORIAL_STEP < 11) {
+    if (window.TutorialManager && TUTORIAL_STEP < 12) {
       TutorialManager.init(TUTORIAL_STEP);
     }
   }, 900);
