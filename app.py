@@ -3108,8 +3108,6 @@ def mayor_spawn_boss():
 
 @app.route("/gear/inventory")
 def gear_inventory():
-    if not FEATURES.get("gear_equip", False):
-        return jsonify({"status": "disabled", "message": "This feature is coming soon!", "gear": []})
     username = request.args.get("username", "")
     db = get_db()
     ensure_resources(db, username)
@@ -3174,8 +3172,6 @@ def gear_buy():
 
 @app.route("/gear/equip", methods=["POST"])
 def gear_equip():
-    if not FEATURES.get("gear_equip", False):
-        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
     username = data.get("username", "")
     gear_id  = int(data.get("gear_id", 0))
