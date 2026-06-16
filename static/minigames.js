@@ -59,6 +59,7 @@ var MiniGameManager = {
     this._createOverlay();
     this._score = 0;
     this._onComplete = onComplete;
+    if (window.GameSounds) GameSounds.minigameStart();
 
     var titles = {
       sea_lion_pit:  '🎣 FISH CATCH',
@@ -130,6 +131,7 @@ var MiniGameManager = {
   _showResults: function() {
     var self = this;
     var finalScore = Math.min(100, this._score);
+    if (window.GameSounds) GameSounds.minigameComplete();
 
     var canvas = this._canvas;
     if (!canvas) return;
@@ -260,7 +262,7 @@ var FishCatchGame = {
         f.hit = true;
         f.riseSpd = 55;
         MiniGameManager.addScore(f.pts);
-        if (window.Sounds && Sounds.collect) Sounds.collect();
+        if (window.GameSounds) { if (f.pts > 0) GameSounds.minigameHit(); else GameSounds.minigameMiss(); }
         break;
       }
     }
@@ -405,7 +407,7 @@ var HerbGardenGame = {
       cell.popAnim = 1.0;
       cell.popTimer = 1.0;
       MiniGameManager.addScore(pts);
-      if (window.Sounds && Sounds.collect) Sounds.collect();
+      if (window.GameSounds) GameSounds.minigameHit();
     }
   },
 
@@ -551,10 +553,11 @@ var JuggleMasterGame = {
       MiniGameManager.addScore(pts);
       this._flash = { text: '+' + pts + (this._combo >= 2 ? ' x' + this._combo + '!' : ''), color: '#4aff6b', t: 1.0 };
       b.vy = -(280 + Math.min(this._combo, 5) * 20);
-      if (window.Sounds && Sounds.collect) Sounds.collect();
+      if (window.GameSounds) { if (this._combo >= 2) GameSounds.minigameCombo(); else GameSounds.minigameHit(); }
     } else {
       this._combo = 0;
       this._flash = { text: 'MISS!', color: '#ff6b6b', t: 0.8 };
+      if (window.GameSounds) GameSounds.minigameMiss();
     }
     this._clickCooldown = 0.35;
   },
@@ -725,11 +728,12 @@ var RuneMemoryGame = {
         if (rn.idx !== this._sequence[pos]) {
           this._phase = 'result'; this._resultTimer = 1.4; this._correct = false;
           MiniGameManager.addScore(-3);
+          if (window.GameSounds) GameSounds.minigameMiss();
         } else if (this._input.length === this._sequence.length) {
           this._phase = 'result'; this._resultTimer = 0.9; this._correct = true;
           var pts = 5 + this._round * 3;
           MiniGameManager.addScore(pts);
-          if (window.Sounds && Sounds.collect) Sounds.collect();
+          if (window.GameSounds) { if (this._round >= 3) GameSounds.minigameCombo(); else GameSounds.minigameHit(); }
         }
         break;
       }
@@ -907,7 +911,7 @@ var ExecutionerGame = {
       if (t.cell === cellIdx && !t.hit) {
         t.hit = true; t.hitAnim = 1.0;
         MiniGameManager.addScore(t.pts);
-        if (window.Sounds && Sounds.collect) Sounds.collect();
+        if (window.GameSounds) { if (t.pts > 0) GameSounds.minigameHit(); else GameSounds.minigameMiss(); }
         break;
       }
     }

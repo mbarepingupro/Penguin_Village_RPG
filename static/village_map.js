@@ -669,14 +669,17 @@ function movePlayerTo(targetX, targetY) {
     if (!isWalkable(targetX, targetY)) {
         const wpos = gridToScreen(targetX, targetY);
         _invalidTarget = { wx: wpos.x, wy: wpos.y, born: performance.now() };
+        if (window.GameSounds) GameSounds.moveBlocked();
         return;
     }
     const path = findPath(sx, sy, targetX, targetY);
     if (!path || path.length === 0) {
         const wpos = gridToScreen(targetX, targetY);
         _invalidTarget = { wx: wpos.x, wy: wpos.y, born: performance.now() };
+        if (window.GameSounds) GameSounds.moveBlocked();
         return;
     }
+    if (window.GameSounds) GameSounds.moveClick();
     player.movementQueue    = path;
     player.isPlayerControlled = true;
     player.canAutoWander    = false;
@@ -749,10 +752,15 @@ function updatePenguins(dt) {
                 p.lastFrameTime = now;
             }
         } else {
+            const prevX = p.gridX, prevY = p.gridY;
             p.gridX    = p.targetGridX;
             p.gridY    = p.targetGridY;
             p.isMoving = false;
             p.animFrame = 0;
+            // Footstep sound when current player arrives at a new tile
+            if (p.isCurrentUser && window.GameSounds && (p.gridX !== prevX || p.gridY !== prevY)) {
+                GameSounds.footstep();
+            }
             if (p.onArrival) {
                 const cb = p.onArrival;
                 p.onArrival = null;
@@ -1036,6 +1044,7 @@ function attachEvents() {
             const spos = worldToScreen(wpos.x, wpos.y);
             const dist = Math.sqrt((sx - spos.x) ** 2 + (sy - spos.y) ** 2);
             if (dist <= 16) {
+                if (window.GameSounds) GameSounds.uiClick();
                 showPenguinPopup(p, spos.x, spos.y);
                 return;
             }
@@ -1050,7 +1059,7 @@ function attachEvents() {
             const wy = (sy - cameraY) / zoomLevel;
             bid = getBuildingAtScreenPos(wx, wy);
         }
-        if (bid && openBuildingFn) { openBuildingFn(bid); return; }
+        if (bid && openBuildingFn) { if (window.GameSounds) GameSounds.buildingClick(); openBuildingFn(bid); return; }
 
         // 3. Click-to-move — move the player's penguin to the clicked tile
         if (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE) {
@@ -1110,6 +1119,7 @@ function attachEvents() {
                 const spos = worldToScreen(wpos.x, wpos.y);
                 const dist = Math.sqrt((sx - spos.x) ** 2 + (sy - spos.y) ** 2);
                 if (dist <= 16) {
+                    if (window.GameSounds) GameSounds.uiClick();
                     showPenguinPopup(p, spos.x, spos.y);
                     return;
                 }
@@ -1123,7 +1133,7 @@ function attachEvents() {
                 const wy = (sy - cameraY) / zoomLevel;
                 bid = getBuildingAtScreenPos(wx, wy);
             }
-            if (bid && openBuildingFn) openBuildingFn(bid);
+            if (bid && openBuildingFn) { if (window.GameSounds) GameSounds.buildingClick(); openBuildingFn(bid); }
         }
     });
 
@@ -1142,6 +1152,7 @@ function attachEvents() {
             const mouseY = e.clientY - rect.top;
             cameraX = mouseX - (mouseX - cameraX) * (zoomLevel / oldZoom);
             cameraY = mouseY - (mouseY - cameraY) * (zoomLevel / oldZoom);
+            if (window.GameSounds) GameSounds.mapZoom();
         }
     }, { passive: false });
 

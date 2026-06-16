@@ -333,58 +333,19 @@ var OverworldMap = {
     },
 
     _playHoverSound: function() {
-        try {
-            const ctx = window.Sounds ? Sounds.getCtx() : null; if (!ctx) return;
-            const osc = ctx.createOscillator(), g = ctx.createGain();
-            osc.connect(g); g.connect(ctx.destination);
-            osc.type = 'sine'; osc.frequency.value = 660;
-            g.gain.setValueAtTime(0.035, ctx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
-            osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.06);
-        } catch(e) {}
+        if (window.GameSounds) GameSounds.overworldHover();
     },
 
     _playConfirmSound: function() {
-        try {
-            const ctx = window.Sounds ? Sounds.getCtx() : null; if (!ctx) return;
-            const now = ctx.currentTime;
-            [[523, 0], [659, 0.08], [784, 0.16]].forEach(([f, t]) => {
-                const osc = ctx.createOscillator(), g = ctx.createGain();
-                osc.connect(g); g.connect(ctx.destination);
-                osc.type = 'square'; osc.frequency.value = f;
-                g.gain.setValueAtTime(0.07, now + t);
-                g.gain.exponentialRampToValueAtTime(0.001, now + t + 0.1);
-                osc.start(now + t); osc.stop(now + t + 0.1);
-            });
-        } catch(e) {}
+        if (window.GameSounds) GameSounds.overworldEnter();
     },
 
     _playOpenSound: function() {
-        try {
-            const ctx = window.Sounds ? Sounds.getCtx() : null; if (!ctx) return;
-            const now = ctx.currentTime;
-            const osc = ctx.createOscillator(), g = ctx.createGain();
-            osc.connect(g); g.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(200, now);
-            osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-            g.gain.setValueAtTime(0.1, now);
-            g.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-            osc.start(now); osc.stop(now + 0.3);
-        } catch(e) {}
+        if (window.GameSounds) GameSounds.overworldOpen();
     },
 
     _playLockedSound: function() {
-        try {
-            const ctx = window.Sounds ? Sounds.getCtx() : null; if (!ctx) return;
-            const now = ctx.currentTime;
-            const osc = ctx.createOscillator(), g = ctx.createGain();
-            osc.connect(g); g.connect(ctx.destination);
-            osc.type = 'sine'; osc.frequency.value = 110;
-            g.gain.setValueAtTime(0.12, now);
-            g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
-            osc.start(now); osc.stop(now + 0.22);
-        } catch(e) {}
+        if (window.GameSounds) GameSounds.overworldLocked();
     },
 
     show: function() {
