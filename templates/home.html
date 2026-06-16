@@ -2763,6 +2763,7 @@
   }
 
   function switchContentTab(name, btn) {
+    if (window.GameSounds) GameSounds.tabSwitch();
     document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
     if (btn) btn.classList.add('active');
@@ -2966,7 +2967,7 @@
       const res  = await fetch(`/missions/${CURRENT_USER}/claim/${key}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
-        Sounds.collect && Sounds.collect();
+        if (window.GameSounds) GameSounds.missionClaim();
         if (data.reward_gold) Effects.animateResourceCollection('gold', data.reward_gold, btn);
         if (data.reward_xp)   Effects.animateXPGain(data.reward_xp, btn);
         const card = document.getElementById('mission-card-' + key);
@@ -3437,7 +3438,7 @@
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         msg += parts.length ? parts.join(', ') : 'nothing (too soon!)';
         showToast(msg, 'ok');
-        Sounds.collect();
+        if (window.GameSounds) GameSounds.jobCollect();
         if (parts.length) Effects.floatText(btn, parts.join('  '), '#4aff6b');
         Effects.animateEarned(data.earned, btn);
         if (data.level_ups && data.level_ups.length) {
@@ -3508,6 +3509,7 @@
       return;
     }
 
+    if (window.GameSounds) GameSounds.modalOpen();
     document.getElementById('bm-overlay').style.display = 'block';
     const modal = document.getElementById('building-modal');
     modal.style.display = 'block';
@@ -3536,6 +3538,7 @@
   }
 
   function closeBuildingPanel() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('bm-overlay').style.display = 'none';
     document.getElementById('building-modal').style.display = 'none';
     document.getElementById('bm-content').innerHTML = '';
@@ -3705,7 +3708,7 @@
         showToast(data.message || 'Purchase failed.', 'err');
         return;
       }
-      Sounds.purchase();
+      if (window.GameSounds) GameSounds.purchase();
       _bqData.player_gold = data.gold_remaining;
       const allItems = Object.values(_bqData.categories).flat();
       const bought = allItems.find(i => i.id === itemId);
@@ -3737,7 +3740,7 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message || 'Could not equip.', 'err'); return; }
-      Sounds.equip();
+      if (window.GameSounds) { if (data.equipped) GameSounds.equip(); else GameSounds.unequip(); }
       const allItems = Object.values(_bqData.categories).flat();
       allItems.forEach(i => { if (i.slot === (allItems.find(x => x.id === itemId)||{}).slot) i.equipped = false; });
       const it = allItems.find(i => i.id === itemId);
@@ -3799,7 +3802,7 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message || 'Purchase failed.', 'err'); return; }
-      Sounds.purchase && Sounds.purchase();
+      if (window.GameSounds) GameSounds.purchase();
       showToast(`🛋️ ${((_bqFurnData||{}).furniture||{})[itemId]?.name || itemId} added to inventory!`, 'ok');
       _iglooLoaded = false;  // force igloo reload next open
       await _loadFurnitureShop();
@@ -4197,20 +4200,7 @@
     if (btn) { btn.disabled = true; btn.textContent = 'SAVING...'; }
 
     // Play mystical chime
-    try {
-      if (!window.Sounds || !Sounds.muted) {
-        const actx = Sounds.getCtx();
-        if (actx) {
-          const osc = actx.createOscillator(); const gain = actx.createGain();
-          osc.connect(gain); gain.connect(actx.destination);
-          osc.type = 'sine'; osc.frequency.value = 523;
-          const t = actx.currentTime + 0.05;
-          gain.gain.setValueAtTime(0.3, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
-          osc.start(t); osc.stop(t + 1.5);
-        }
-      }
-    } catch(e) {}
+    if (window.GameSounds) GameSounds.chime();
 
     try {
       const res  = await fetch('/penguin/reshape', {
@@ -4401,7 +4391,7 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
-        Sounds.donate();
+        if (window.GameSounds) GameSounds.donate();
         showToast(`Donated ${data.donated.toLocaleString()} ${data.resource}!`, 'ok');
         const anchor = donateBtn || document.getElementById('bm-content');
         if (anchor) Effects.floatText(anchor, `+${data.donated.toLocaleString()} donated!`, '#A86EFF');
@@ -4428,7 +4418,7 @@
           queueCelebration({type:'milestone', icon:'🖼️', title:'CARD BACKGROUND UNLOCKED!', subtitle:bg.name||'New Background', description:(bg.description||'')+' Go to VIEW CARD to equip it!'});
         }
         if (data.level_up) {
-          Sounds.buildingLevelUp();
+          if (window.GameSounds) GameSounds.buildingLevelUp();
           setTimeout(() => showToast(`🏗️ Building upgraded to Level ${data.building_level}!`, 'ok'), 400);
           const modal = document.getElementById('building-modal');
           if (modal) Effects.flashElement(modal, '#FF7FE5', 3);
@@ -4446,7 +4436,7 @@
   }
 
   function _showMilestone(ms) {
-    Sounds.levelUp();
+    if (window.GameSounds) GameSounds.levelUp();
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
     overlay.innerHTML = `<div style="background:#252535;border:3px solid #FF8C00;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Pixelify Sans',monospace;animation:popIn 0.3s ease;">
@@ -4463,7 +4453,7 @@
   }
 
   function _showBgUnlock(bg) {
-    Sounds.levelUp();
+    if (window.GameSounds) GameSounds.achievement();
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);';
     overlay.innerHTML = `<div style="background:#252535;border:3px solid #A86EFF;padding:24px;max-width:320px;width:90%;text-align:center;font-family:'Pixelify Sans',monospace;animation:popIn 0.3s ease;">
@@ -4617,6 +4607,7 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
+        if (title && window.GameSounds) GameSounds.titleEquip();
         updateSidebarTitle(data.active_title || null);
         await renderTitleModal();
       } else {
@@ -4764,7 +4755,7 @@
       const data = await res.json();
       if (data.status === 'success') {
         showToast('Card background equipped!', 'ok');
-        Sounds.equip();
+        if (window.GameSounds) GameSounds.equip();
         await loadBgList();
       } else {
         showToast(data.message || 'Error.', 'err');
@@ -4927,7 +4918,7 @@
     document.getElementById('set-discovery-name').textContent = setName;
     document.getElementById('set-discovery-desc').textContent = description;
     overlay.style.display = 'flex';
-    Sounds.equip();
+    if (window.GameSounds) GameSounds.secretDiscovered();
   }
 
   function closeSetDiscovery() {
@@ -4958,6 +4949,7 @@
   let _invGearData = [];
 
   async function openInventory() {
+    if (window.GameSounds) GameSounds.modalOpen();
     if (window.TutorialManager) window.TutorialManager._notifyInventory();
     try {
       const res = await fetch(`/gear/cosmetics/${CURRENT_USER}`);
@@ -4984,6 +4976,7 @@
   }
 
   function closeInventory() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('inventory-overlay').classList.remove('show');
   }
 
@@ -5120,7 +5113,7 @@
           if (action === 'equip') {
             _invCosmeticData.filter(c => c.slot === target.slot).forEach(c => c.equipped = 0);
             target.equipped = 1;
-            Sounds.equip();
+            if (window.GameSounds) GameSounds.equip();
           } else {
             target.equipped = 0;
           }
@@ -5156,7 +5149,7 @@
           _invGearData.filter(g => areaSlots.includes(g.slot)).forEach(g => g.worn = 0);
         }
         item.worn = 1;
-        Sounds.wear();
+        if (window.GameSounds) GameSounds.wear();
         renderInventory();
         await loadWardrobe();
       } else {
@@ -5178,7 +5171,7 @@
         const combat   = _invGearData.find(g => g.id === gearId);
         if (cosmetic) cosmetic.worn = 0;
         if (combat)   combat.worn   = 0;
-        Sounds.unwear();
+        if (window.GameSounds) GameSounds.unwear();
         renderInventory();
         await loadWardrobe();
       } else {
@@ -5271,6 +5264,7 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
+        if (window.GameSounds) GameSounds.jobStart();
         showToast(data.message, 'ok');
         await refreshStats();
         closeBuildingPanel();
@@ -5291,7 +5285,7 @@
       if (data.status === 'success') {
         const parts = Object.entries(data.earned || {}).map(([k,v]) => `+${v} ${k}`);
         showToast('Collected: ' + (parts.join(', ') || 'nothing yet'), 'ok');
-        Sounds.collect();
+        if (window.GameSounds) GameSounds.jobCollect();
         const bpcBtn = document.getElementById('bp-collect-btn');
         if (bpcBtn && parts.length) Effects.floatText(bpcBtn, parts.join('  '), '#4aff6b');
         Effects.animateEarned(data.earned, bpcBtn);
@@ -5322,7 +5316,7 @@
       const res  = await fetch(`/hotel/rest/${CURRENT_USER}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
-        Sounds.rest();
+        if (window.GameSounds) GameSounds.hotelRest();
         showToast(`Fully rested! -${data.gold_spent} gold`, 'ok');
         Effects.smoothFillBar(document.getElementById('energy-bar'), 100, 500);
         Effects.floatText(document.getElementById('stat-energy') || document.getElementById('sidebar-collect-btn'), '💤 Fully Rested!', '#4aff6b');
@@ -5365,21 +5359,7 @@
       }
     });
     if (tab === 'leaderboard') {
-      // Subtle fanfare
-      try {
-        const ctx = Sounds.getCtx(); if (ctx) {
-          const now = ctx.currentTime + 0.05;
-          [[523.25, 0], [659.25, 0.10], [783.99, 0.20]].forEach(([f, d]) => {
-            const o = ctx.createOscillator(), g = ctx.createGain();
-            o.connect(g); g.connect(ctx.destination);
-            o.type = 'triangle'; o.frequency.setValueAtTime(f, now + d);
-            g.gain.setValueAtTime(0, now + d);
-            g.gain.linearRampToValueAtTime(0.12, now + d + 0.01);
-            g.gain.exponentialRampToValueAtTime(0.001, now + d + 0.09);
-            o.start(now + d); o.stop(now + d + 0.09);
-          });
-        }
-      } catch(e) {}
+      if (window.GameSounds) GameSounds.tabSwitch();
       if (!_lbOverviewLoaded) { _lbOverviewLoaded = true; loadLbOverview(); }
       loadLeaderboard(_lbCurrentCat);
     }
@@ -5415,19 +5395,7 @@
       // Triumphant chime if top 3 in any category
       const best = Math.min(...Object.values(pr).map(d => d.rank || 9999));
       if (best <= 3) {
-        try {
-          const ctx = Sounds.getCtx(); if (ctx) {
-            const now = ctx.currentTime + 0.05;
-            [[784, 0], [1047, 0.12], [1319, 0.24], [1568, 0.36]].forEach(([f, d]) => {
-              const o = ctx.createOscillator(), g = ctx.createGain();
-              o.connect(g); g.connect(ctx.destination);
-              o.type = 'triangle'; o.frequency.setValueAtTime(f, now + d);
-              g.gain.setValueAtTime(0.15, now + d);
-              g.gain.exponentialRampToValueAtTime(0.001, now + d + 0.15);
-              o.start(now + d); o.stop(now + d + 0.15);
-            });
-          }
-        } catch(e) {}
+        if (window.GameSounds) GameSounds.achievement();
       }
     } catch(e) {
       if (el) el.innerHTML = '';
@@ -5501,19 +5469,7 @@
         }
         // Chime if top 3
         if (playerRank && playerRank <= 3) {
-          try {
-            const ctx = Sounds.getCtx(); if (ctx) {
-              const now = ctx.currentTime + 0.05;
-              [[784, 0], [1047, 0.12], [1319, 0.24]].forEach(([f, d]) => {
-                const o = ctx.createOscillator(), g = ctx.createGain();
-                o.connect(g); g.connect(ctx.destination);
-                o.type = 'triangle'; o.frequency.setValueAtTime(f, now + d);
-                g.gain.setValueAtTime(0.13, now + d);
-                g.gain.exponentialRampToValueAtTime(0.001, now + d + 0.12);
-                o.start(now + d); o.stop(now + d + 0.12);
-              });
-            }
-          } catch(e) {}
+          if (window.GameSounds) GameSounds.achievement();
         }
       }
     } catch(e) {
@@ -5974,36 +5930,12 @@
 
   // ── SOUND EFFECTS ──
   function playFightSound(type) {
-    if (window.Sounds && Sounds.muted) return;
-    try {
-      const ctx = window.Sounds ? Sounds.getCtx() : null; if (!ctx) return;
-      const osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      const t = ctx.currentTime + 0.05;
-      if (type === 'start') {
-        osc.frequency.setValueAtTime(220, t); osc.frequency.setValueAtTime(330, t+0.08);
-        gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.25);
-        osc.start(t); osc.stop(t+0.25);
-      } else if (type === 'roll') {
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(440, t);
-        gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.1);
-        osc.start(t); osc.stop(t+0.1);
-      } else if (type === 'victory') {
-        osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t+0.1); osc.frequency.setValueAtTime(784, t+0.2);
-        gain.gain.setValueAtTime(0.25, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.5);
-        osc.start(t); osc.stop(t+0.5);
-      } else if (type === 'defeat') {
-        osc.frequency.setValueAtTime(220, t); osc.frequency.setValueAtTime(150, t+0.2);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.4);
-        osc.start(t); osc.stop(t+0.4);
-      } else if (type === 'gear') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, t); osc.frequency.setValueAtTime(1100, t+0.06); osc.frequency.setValueAtTime(1320, t+0.12);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.001, t+0.35);
-        osc.start(t); osc.stop(t+0.35);
-      }
-    } catch(e) {}
+    if (!window.GameSounds) return;
+    if (type === 'start')   GameSounds.combatStart();
+    else if (type === 'roll')    GameSounds.combatRoll();
+    else if (type === 'victory') GameSounds.combatVictory();
+    else if (type === 'defeat')  GameSounds.combatDefeat();
+    else if (type === 'gear')    GameSounds.equip();
   }
 
   // ── BOSS BANNER ──
@@ -6139,7 +6071,7 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
-        Sounds.equip();
+        if (window.GameSounds) GameSounds.equip();
         Effects.flashElement(document.getElementById('gear-content'), '#A86EFF', 2);
         showToast(data.message, 'ok');
         await refreshStats();
@@ -6476,7 +6408,6 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
-      Sounds.collect && Sounds.collect();
       _iglooPlacingItemId = null;
       IglooRenderer.cancelPlacing();
       document.getElementById('igloo-status-bar').classList.remove('visible');
@@ -6496,6 +6427,7 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
+      if (window.GameSounds) GameSounds.furnitureRemove();
       await iglooRefresh();
     } catch(e) { showToast('Error removing item.', 'err'); }
   }
@@ -6508,7 +6440,7 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
-      Sounds.levelUp && Sounds.levelUp();
+      if (window.GameSounds) GameSounds.iglooUpgrade();
       showToast(`🏠 Igloo upgraded to ${data.level_name}!`, 'ok');
       await iglooRefresh();
       iglooRenderRoomOptions();
@@ -6767,7 +6699,7 @@
       const data = await r.json();
       if (data.status === 'success') {
         showToast('Trade complete!', 'ok');
-        Sounds.collect && Sounds.collect();
+        if (window.GameSounds) GameSounds.purchase();
         bankLoadBrowse();
         refreshStats();
       } else { showToast(data.message || 'Error.', 'err'); }
@@ -6864,7 +6796,7 @@
       const data = await r.json();
       if (data.status === 'success') {
         showToast(data.message, 'ok');
-        Sounds.purchase && Sounds.purchase();
+        if (window.GameSounds) GameSounds.purchase();
         document.getElementById('bk-bank-sell-preview').style.display = 'none';
         bankLoadBankSell();
         refreshStats();
@@ -6912,7 +6844,7 @@
       const data = await r.json();
       if (data.status === 'success') {
         showToast(data.message, 'ok');
-        Sounds.collect && Sounds.collect();
+        if (window.GameSounds) GameSounds.purchase();
         bankLoadShop();
         refreshStats();
       } else { showToast(data.message || 'Error.', 'err'); }
@@ -6924,60 +6856,11 @@
   let _luCelebShowing = false;
 
   function playLevelUpFanfare() {
-    if (Sounds.muted) return;
-    try {
-      const ctx = Sounds.getCtx(); if (!ctx) return;
-      const now = ctx.currentTime;
-      const noise = ctx.createOscillator(), noiseGain = ctx.createGain();
-      noise.connect(noiseGain); noiseGain.connect(ctx.destination);
-      noise.type = 'square';
-      noise.frequency.setValueAtTime(100, now);
-      noise.frequency.linearRampToValueAtTime(200, now + 0.5);
-      noiseGain.gain.setValueAtTime(0.08, now);
-      noiseGain.gain.linearRampToValueAtTime(0.15, now + 0.4);
-      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-      noise.start(now); noise.stop(now + 0.5);
-      const fanfareNotes = [
-        {freq:523, time:0.5, dur:0.15}, {freq:659, time:0.65, dur:0.15},
-        {freq:784, time:0.8, dur:0.15}, {freq:1047, time:0.95, dur:0.3},
-        {freq:784, time:1.1, dur:0.1},  {freq:1047, time:1.2, dur:0.4},
-      ];
-      fanfareNotes.forEach(n => {
-        const osc = ctx.createOscillator(), gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(n.freq, now + n.time);
-        gain.gain.setValueAtTime(0.2, now + n.time);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + n.time + n.dur);
-        osc.start(now + n.time); osc.stop(now + n.time + n.dur);
-      });
-      for (let i = 0; i < 6; i++) {
-        const osc = ctx.createOscillator(), gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        const sf = 1500 + Math.random() * 1500;
-        osc.frequency.setValueAtTime(sf, now + 1.4 + i * 0.1);
-        gain.gain.setValueAtTime(0.06, now + 1.4 + i * 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.4 + i * 0.1 + 0.15);
-        osc.start(now + 1.4 + i * 0.1); osc.stop(now + 1.4 + i * 0.1 + 0.15);
-      }
-    } catch(e) {}
+    if (window.GameSounds) GameSounds.levelUp();
   }
 
   function playMilestoneImpact() {
-    if (Sounds.muted) return;
-    try {
-      const ctx = Sounds.getCtx(); if (!ctx) return;
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(80, now);
-      osc.frequency.exponentialRampToValueAtTime(40, now + 0.5);
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-      osc.start(now); osc.stop(now + 0.5);
-    } catch(e) {}
+    if (window.GameSounds) GameSounds.buildingLevelUp();
   }
 
   function startConfetti(container) {
@@ -7124,39 +7007,11 @@
   }
 
   function playCelebrationSound(type) {
-    if (window.Sounds && Sounds.muted) return;
-    try {
-      var ctx = window.Sounds ? Sounds.getCtx() : null;
-      if (!ctx) return;
-      var now = ctx.currentTime;
-      if (type === 'level_up') {
-        playLevelUpFanfare();
-      } else if (type === 'achievement' || type === 'title') {
-        var notes = [{f:523,t:0,d:0.12},{f:659,t:0.14,d:0.12},{f:784,t:0.28,d:0.18},{f:1047,t:0.46,d:0.3}];
-        notes.forEach(function(n) {
-          var osc = ctx.createOscillator(), g = ctx.createGain();
-          osc.connect(g); g.connect(ctx.destination);
-          osc.type = 'square'; osc.frequency.setValueAtTime(n.f, now + n.t);
-          g.gain.setValueAtTime(0.15, now + n.t);
-          g.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
-          osc.start(now + n.t); osc.stop(now + n.t + n.d);
-        });
-      } else if (type === 'first_kill') {
-        var osc2 = ctx.createOscillator(), g2 = ctx.createGain();
-        osc2.connect(g2); g2.connect(ctx.destination);
-        osc2.type = 'sawtooth';
-        osc2.frequency.setValueAtTime(110, now); osc2.frequency.linearRampToValueAtTime(440, now + 0.3);
-        g2.gain.setValueAtTime(0.2, now); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-        osc2.start(now); osc2.stop(now + 0.5);
-      } else if (type === 'milestone') {
-        var osc3 = ctx.createOscillator(), g3 = ctx.createGain();
-        osc3.connect(g3); g3.connect(ctx.destination);
-        osc3.type = 'sine'; osc3.frequency.setValueAtTime(440, now);
-        osc3.frequency.setValueAtTime(550, now + 0.1); osc3.frequency.setValueAtTime(660, now + 0.2);
-        g3.gain.setValueAtTime(0.18, now); g3.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-        osc3.start(now); osc3.stop(now + 0.4);
-      }
-    } catch(e) {}
+    if (!window.GameSounds) return;
+    if (type === 'level_up')                        GameSounds.levelUp();
+    else if (type === 'achievement' || type === 'title') GameSounds.achievement();
+    else if (type === 'first_kill')                 GameSounds.firstKill();
+    else if (type === 'milestone')                  GameSounds.buildingLevelUp();
   }
 
   function showCelebration(config, onDismiss) {
@@ -7267,7 +7122,7 @@
     document.getElementById('lvup-rewards').innerHTML = rewardHtml;
     document.getElementById('lvup-overlay').classList.add('show');
 
-    Sounds.levelUp();
+    if (window.GameSounds) GameSounds.levelUp();
     if (box) {
       const _lvupCycleColors = ['#A86EFF', '#FF7FE5', '#FF8C00', '#4aff6b'];
       let _lvupCi = 0;
@@ -7404,6 +7259,7 @@
       const data = await res.json();
       if (!data.show) return;
       _wbShown = true;
+      if (window.GameSounds) GameSounds.welcomeBack();
 
       const ICONS = { fish:'🐟', herbs:'🌿', blood_gems:'💎', bones:'🦴', spell_fragments:'✨', gold:'🪙', xp:'⭐' };
 
@@ -7581,7 +7437,7 @@
         if (mode !== 'focused') _socialTarget = null;
         _updateSocialModeButtons(mode);
         _renderSocialTargetLabel();
-        Sounds.socialModeChange();
+        if (window.GameSounds) GameSounds.socialModeChange();
         showToast('Social mode: ' + data.mode_name, '#4aff6b');
       } else {
         showToast(data.message || 'Error', '#ff6b6b');
@@ -7695,7 +7551,7 @@
         return;
       }
 
-      Sounds.doorbell();
+      if (window.GameSounds) GameSounds.iglooVisit();
 
       // Show result popup
       const R = data.rewards;
@@ -7710,7 +7566,7 @@
       if (rel && rel.level_changed) {
         relEl.textContent = `Relationship: ${rel.old_level} → ${rel.level}!`;
         relEl.style.display = '';
-        Sounds.relationshipLevelUp();
+        if (window.GameSounds) GameSounds.achievement();
       } else if (rel) {
         relEl.textContent = `Relationship with ${hostUsername}: ${rel.level}`;
         relEl.style.display = '';
@@ -7953,7 +7809,7 @@
       const res  = await fetch(`/streak/claim/${CURRENT_USER}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
-        Sounds.streak();
+        if (window.GameSounds) GameSounds.streakClaim();
         Effects.confettiBurst(btn, 12);
         const dpBox = document.querySelector('#daily-popup > div');
         if (dpBox) Effects.pulseElement(dpBox, '#FF8C00', 3);
@@ -8005,19 +7861,7 @@
   var _twAudioCtx = null;
 
   function _tutBeep() {
-    try {
-      if (!_twAudioCtx) _twAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      var osc  = _twAudioCtx.createOscillator();
-      var gain = _twAudioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(_twAudioCtx.destination);
-      osc.type = 'square';
-      osc.frequency.value = 520;
-      gain.gain.setValueAtTime(0.055, _twAudioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, _twAudioCtx.currentTime + 0.038);
-      osc.start(_twAudioCtx.currentTime);
-      osc.stop(_twAudioCtx.currentTime + 0.04);
-    } catch(e) {}
+    if (window.GameSounds) GameSounds.typewriterTick();
   }
 
   function _tutTypewriter(element, text, speed) {
@@ -8060,6 +7904,7 @@
     init: function(startStep) {
       this.currentStep = startStep;
       this._createDialogueBox();
+      if (window.GameSounds) GameSounds.mayorAppears();
       // Add padding so dialogue doesn't cover bottom game content
       var main = document.querySelector('.main');
       if (main) main.style.paddingBottom = '165px';
@@ -8105,7 +7950,7 @@
       var btn = document.createElement('button');
       btn.className = 'mayor-continue';
       btn.textContent = label || 'Next →';
-      btn.onclick = action;
+      btn.onclick = function() { if (window.GameSounds) GameSounds.tutorialAdvance(); if (action) action(); };
       btnsEl.appendChild(btn);
     },
 
@@ -8313,7 +8158,7 @@
         self._say('Drag the map to explore...', function() {
           self._waitForMapDrag().then(function() {
             self._clearHighlights();
-            if (window.Sounds && Sounds.chime) Sounds.chime();
+            if (window.GameSounds) GameSounds.chime();
             self._say('Perfect! You\'re a natural explorer.', function() {
               setTimeout(function() { self._advanceStep(); }, 1200);
             });

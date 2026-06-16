@@ -326,6 +326,7 @@ const IglooRenderer = (function () {
         const g = _s2g(sx, sy, s);
 
         if (_pendingItem) {
+            if (window.GameSounds) GameSounds.furniturePlace();
             if (pub.onCellClick) pub.onCellClick(g.gx, g.gy);
         } else {
             const sorted = [...(_data.furniture || [])].sort(
