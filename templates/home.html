@@ -3043,6 +3043,7 @@
       const res  = await fetch(`/missions/${CURRENT_USER}/claim/${key}`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') {
+        if (window.GameSounds) GameSounds.missionClaim();
         showToast(data.message, 'ok');
         loadMissions();
         loadStatsMissions();
@@ -3561,6 +3562,7 @@
   }
 
   async function openBoutique() {
+    if (window.GameSounds) GameSounds.modalOpen();
     document.getElementById('bm-overlay').style.display = 'block';
     document.getElementById('building-modal').style.display = 'block';
     document.getElementById('bm-content').innerHTML =
@@ -3705,6 +3707,7 @@
       });
       const data = await res.json();
       if (data.status !== 'success') {
+        if (window.GameSounds) GameSounds.cantAfford();
         showToast(data.message || 'Purchase failed.', 'err');
         return;
       }
@@ -4039,6 +4042,7 @@
   }
 
   async function openReshapeOverlay() {
+    if (window.GameSounds) GameSounds.modalOpen();
     // Load current color data
     let colorsData = null;
     try {
@@ -4177,6 +4181,7 @@
   }
 
   function closeReshapeOverlay() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('reshape-overlay').style.display = 'none';
   }
 
@@ -4495,11 +4500,13 @@
   }
 
   async function openTitleModal() {
+    if (window.GameSounds) GameSounds.modalOpen();
     document.getElementById('title-modal').classList.add('show');
     await renderTitleModal();
   }
 
   function closeTitleModal() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('title-modal').classList.remove('show');
   }
 
@@ -4655,6 +4662,7 @@
   let _ownedSealIds  = new Set();
 
   async function openSealShop() {
+    if (window.GameSounds) GameSounds.modalOpen();
     document.getElementById('seal-shop-player-count').textContent = _playerSeals;
     document.getElementById('seal-shop-modal').classList.add('show');
     await renderSealShop();
@@ -4662,11 +4670,13 @@
   }
 
   function closeSealShop() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('seal-shop-modal').classList.remove('show');
   }
 
   // ── PENGUIN CARD MODAL ──
   function openCardModal() {
+    if (window.GameSounds) GameSounds.modalOpen();
     const goldEl = document.getElementById('count-gold');
     const gold   = goldEl ? goldEl.textContent : '0';
     const level  = _playerLevel || 1;
@@ -4704,15 +4714,18 @@
   }
 
   function closeCardModal() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('card-modal').classList.remove('show');
   }
 
   function openBgSelection() {
+    if (window.GameSounds) GameSounds.modalOpen();
     document.getElementById('bg-selection-modal').style.display = 'flex';
     loadBgList();
   }
 
   function closeBgSelection() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('bg-selection-modal').style.display = 'none';
   }
 
@@ -4868,6 +4881,7 @@
   const SLOT_LABELS = { hat: 'HAT', outfit: 'OUTFIT', accessory: 'ITEM', footwear: 'FOOTWEAR' };
 
   function openCosmeticSlot(slot) {
+    if (window.GameSounds) GameSounds.modalOpen();
     const items = _cosmeticCache.filter(c => c.slot === slot);
     const title = document.getElementById('cosmetic-modal-title');
     const list  = document.getElementById('cosmetic-modal-list');
@@ -4910,6 +4924,7 @@
   }
 
   function closeCosmeticModal() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('cosmetic-modal').classList.remove('show');
   }
 
@@ -5195,6 +5210,7 @@
           _invGearData.filter(g => g.slot === target.slot).forEach(g => g.equipped = 0);
           if (!wasEquipped) target.equipped = 1;
         }
+        if (window.GameSounds) wasEquipped ? GameSounds.unequip() : GameSounds.equip();
         showToast(wasEquipped ? 'Item unequipped!' : 'Item equipped!', 'ok');
         renderInventory();
         await refreshStats();
@@ -5561,10 +5577,12 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
+        if (window.GameSounds) GameSounds.forge();
         showToast(data.message, 'ok');
         await refreshStats();
         loadBarracksShop();
       } else {
+        if (window.GameSounds) GameSounds.cantAfford();
         showToast(data.message, 'err');
       }
     } catch(e) { showToast('Error forging gear.', 'err'); }
@@ -6408,6 +6426,7 @@
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message, 'err'); return; }
+      if (window.GameSounds) GameSounds.furniturePlace();
       _iglooPlacingItemId = null;
       IglooRenderer.cancelPlacing();
       document.getElementById('igloo-status-bar').classList.remove('visible');
@@ -7714,11 +7733,13 @@
   }
 
   async function openRelationshipModal() {
+    if (window.GameSounds) GameSounds.modalOpen();
     document.getElementById('rel-modal-overlay').classList.add('show');
     await _loadRelationshipModal();
   }
 
   function closeRelationshipModal() {
+    if (window.GameSounds) GameSounds.modalClose();
     document.getElementById('rel-modal-overlay').classList.remove('show');
   }
 
@@ -7784,6 +7805,7 @@
   function showDailyPopup(streak, reward) {
     if (_dailyPopupShown) return;
     _dailyPopupShown = true;
+    if (window.GameSounds) GameSounds.streakClaim();
     document.getElementById('dp-day').textContent = streak;
     document.getElementById('dp-resource').textContent =
       `+${reward.resource_amount} ${reward.resource_icon} ${reward.resource.toUpperCase().replace('_',' ')}`;
