@@ -311,7 +311,7 @@ function drawBuilding(id, bdef, level) {
     const sprite = SpriteLoader.get(`/static/buildings/${id}.png`);
     if (sprite) {
         const anchorX = (lPt.x + bPt.x) / 2;
-        const anchorY = Math.max(lPt.y, bPt.y);
+        const anchorY = Math.max(lPt.y, bPt.y) + TILE_H / 2;
         ctx.drawImage(sprite, anchorX - sprite.width / 2, anchorY - sprite.height, sprite.width, sprite.height);
     } else {
         const color = cfg.color;
