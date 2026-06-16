@@ -1,8 +1,8 @@
 FEATURES = {
-    "combat":        False,
-    "gear_equip":    False,
-    "gear_crafting": False,
-    "prestige":      False,
+    "combat":        True,
+    "gear_equip":    True,
+    "gear_crafting": True,
+    "prestige":      True,
     "achievements":  True,
     "daily_missions": True,
     "login_streak":  True,
