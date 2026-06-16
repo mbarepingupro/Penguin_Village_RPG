@@ -1712,14 +1712,12 @@ def run_autonomous_actions():
     generated = 0
     for penguin in all_penguins:
         try:
-            smode   = penguin.get("social_mode") or "social"
-            starget = penguin.get("social_target")
-            action  = pick_autonomous_action(penguin, all_penguins, smode, starget)
+            action  = pick_autonomous_action(penguin, all_penguins)
             if not action:
                 continue
             other_penguin = None
             if action["requires_other"]:
-                other_penguin = pick_other_penguin(penguin, all_penguins, smode, starget)
+                other_penguin = pick_other_penguin(penguin, all_penguins)
                 if not other_penguin:
                     continue
             text   = generate_action_text(action, penguin, other_penguin)
@@ -1831,9 +1829,6 @@ def home():
             session["streak_reward"] = milestone
         advance_mission(db, username, "login_today", today)
         check_achievements(db, username)
-
-    # Always update last_active so welcome-back and active-ping work correctly
-    db.execute("UPDATE penguins SET last_active=? WHERE username=?", (int(time.time()), username))
 
     db.commit()
     resources  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()

@@ -269,24 +269,30 @@ AUTONOMOUS_ACTIONS = [
 ]
 
 
-def pick_autonomous_action(penguin, all_penguins, social_mode="social", social_target=None):
-    traits = [penguin.get("trait_social"), penguin.get("trait_interest"), penguin.get("trait_quirk")]
-    others = [p for p in all_penguins if p["username"] != penguin["username"]]
+def pick_autonomous_action(penguin, all_penguins):
+    traits      = [penguin.get("trait_social"), penguin.get("trait_interest"), penguin.get("trait_quirk")]
+    social_mode = penguin.get("social_mode") or "social"
+    others      = [p for p in all_penguins if p["username"] != penguin["username"]]
 
     scored = []
     for action in AUTONOMOUS_ACTIONS:
-        if action["requires_other"] and not others:
+        requires_other = action.get("requires_other", False)
+        if requires_other and not others:
             continue
-        if social_mode == "homebody" and action["requires_other"]:
-            if random.random() > 0.30:
-                continue
 
-        score = 0
-        for trait in traits:
-            if trait and trait in action["weights"]:
-                score += action["weights"][trait]
-        if score == 0:
-            score = 1
+        score = sum(action["weights"].get(t, 0) for t in traits if t) or 1
+
+        if social_mode == "homebody":
+            if requires_other:
+                score = max(1, score // 4)   # drastically reduce social
+            else:
+                score = int(score * 1.5)     # boost solo
+        elif social_mode == "social":
+            if requires_other:
+                score = int(score * 1.3)     # slightly boost social
+        elif social_mode == "focused":
+            if requires_other:
+                score = int(score * 1.2)     # slightly boost social (target handled in pick_other)
 
         scored.append((action, score))
 
@@ -294,7 +300,7 @@ def pick_autonomous_action(penguin, all_penguins, social_mode="social", social_t
         return random.choice(AUTONOMOUS_ACTIONS)
 
     total = sum(s for _, s in scored)
-    roll = random.uniform(0, total)
+    roll  = random.uniform(0, total)
     cumulative = 0
     for action, score in scored:
         cumulative += score
@@ -303,10 +309,12 @@ def pick_autonomous_action(penguin, all_penguins, social_mode="social", social_t
     return scored[-1][0]
 
 
-def pick_other_penguin(penguin, all_penguins, social_mode="social", social_target=None):
+def pick_other_penguin(penguin, all_penguins):
     others = [p for p in all_penguins if p["username"] != penguin["username"]]
     if not others:
         return None
+    social_mode   = penguin.get("social_mode") or "social"
+    social_target = penguin.get("social_target")
     if social_mode == "focused" and social_target:
         target = next((p for p in others if p["username"] == social_target), None)
         if target and random.random() < 0.60:
