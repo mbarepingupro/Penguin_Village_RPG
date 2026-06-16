@@ -1781,11 +1781,13 @@ def home():
         return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
     update_passive_energy(username)
     db = get_db()
-    penguin = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
-    if not penguin:
+    _prow = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not _prow:
         session.clear()
         db.close()
         return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
+    penguin = dict(_prow)
+    penguin["penguin_color"] = _resolve_hex_color(penguin.get("penguin_color") or "#1a1a1a")
     ensure_resources(db, username)
 
     # ── Character creation gate ────────────────────────────────────────────────

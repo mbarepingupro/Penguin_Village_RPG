@@ -2052,7 +2052,7 @@
       <div class="sidebar-panel active" id="sidebar-penguin">
 
         <div class="penguin-display">
-          <img src="/static/penguin_{{ penguin['penguin_shape'] or 'normal' }}_static.png" class="penguin-sprite" alt="Penguin"
+          <img id="sidebar-penguin-img" src="/static/penguin_{{ penguin['penguin_shape'] or 'normal' }}_static.png" class="penguin-sprite" alt="Penguin"
                onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
           {% if penguin['prestige'] and penguin['prestige'] > 0 %}
@@ -3003,6 +3003,7 @@
   const TUTORIAL_STEP     = {{ tutorial_step | tojson }};
   const TUTORIAL_DONE     = {{ tutorial_completed | tojson }};
   const PLAYER_SHAPE      = {{ (penguin['penguin_shape'] or 'normal') | tojson }};
+  const PLAYER_COLOR      = {{ (penguin['penguin_color'] or '#1a1a1a') | tojson }};
   const FEATURES          = {{ features | tojson }};
   const LEVEL_DATA_CONFIG = {{ level_data | tojson }};
   let _playerLevel        = {{ penguin['level'] | tojson }};
@@ -3660,7 +3661,7 @@
     prev.innerHTML = `
       <div class="bq-preview-penguin" style="border:3px solid ${tierColor};padding:10px;">
         <div class="bq-preview-slot-label">[${slotLabel}: ${item.name}]</div>
-        <img src="/static/penguin_${PLAYER_SHAPE}_static.png" alt="penguin" onerror="this.style.display='none'">
+        <img id="bq-preview-penguin-img" src="/static/penguin_${PLAYER_SHAPE}_static.png" alt="penguin" onerror="this.style.display='none'">
         <img src="/static/penguin_wearing/${item.slot}/${item.id}.png" alt=""
              style="position:absolute;top:10px;left:10px;width:80px;height:80px;image-rendering:pixelated;"
              onerror="this.style.display='none'">
@@ -3676,6 +3677,7 @@
         <button class="bq-btn preview" style="flex:none;width:100px;" onclick="bqClosePreview()">CLOSE</button>
       </div>`;
     prev.className = 'show';
+    _applyPenguinColorToImg(document.getElementById('bq-preview-penguin-img'), PLAYER_COLOR);
   }
 
   function bqClosePreview() {
@@ -4656,7 +4658,7 @@
     const prestigeStars = prestige > 0 ? '★'.repeat(prestige) : '';
     inner.innerHTML = `
       <div class="card-preview-left">
-        <img src="/static/penguin_${PLAYER_SHAPE}_static.png" class="card-preview-sprite" alt="penguin"
+        <img id="card-penguin-img" src="/static/penguin_${PLAYER_SHAPE}_static.png" class="card-preview-sprite" alt="penguin"
              onerror="this.style.display='none'">
         <div class="card-preview-username">${CURRENT_USER.toUpperCase()}</div>
         ${_activeTitle ? `<div class="card-preview-title">${_activeTitle}</div>` : ''}
@@ -4676,6 +4678,7 @@
     urlEl.textContent = window.location.origin + '/penguin/' + CURRENT_USER.toLowerCase();
 
     document.getElementById('card-modal').classList.add('show');
+    _applyPenguinColorToImg(document.getElementById('card-penguin-img'), PLAYER_COLOR);
   }
 
   function closeCardModal() {
@@ -6992,7 +6995,7 @@
     overlay.innerHTML = `
       <div class="lu-confetti-container"></div>
       <div class="lu-content">
-        <img src="/static/penguin_${PLAYER_SHAPE}_static.png" class="lu-penguin" alt="Penguin" />
+        <img id="lu-penguin-img" src="/static/penguin_${PLAYER_SHAPE}_static.png" class="lu-penguin" alt="Penguin" />
         <div class="lu-text">LEVEL UP!</div>
         <div class="lu-level-transition">
           <span class="lu-lv-prefix">LV</span>
@@ -7004,6 +7007,7 @@
         <div class="lu-continue">TAP TO CONTINUE</div>
       </div>`;
     document.body.appendChild(overlay);
+    _applyPenguinColorToImg(document.getElementById('lu-penguin-img'), PLAYER_COLOR);
     startConfetti(overlay.querySelector('.lu-confetti-container'));
 
     if (isBig) playMilestoneImpact();
@@ -8810,7 +8814,42 @@
   // openSealShop, and switchInvTab (see inline calls in those functions above).
 
   // Reshape name input → live preview update
+  // ── PENGUIN COLOR HELPERS ─────────────────────────────────────────────────
+
+  function _applyPenguinColorToImg(imgEl, color) {
+    if (!imgEl || imgEl.tagName !== 'IMG') return;
+    if (!color || color === '#1a1a1a' || !color.startsWith('#')) return;
+    function doRecolor() {
+      const nw = imgEl.naturalWidth  || 64;
+      const nh = imgEl.naturalHeight || 80;
+      const canvas = document.createElement('canvas');
+      canvas.width  = nw;
+      canvas.height = nh;
+      canvas.className = imgEl.className;
+      if (imgEl.id) canvas.id = imgEl.id + '-canvas';
+      const attrStyle = imgEl.getAttribute('style');
+      if (attrStyle) canvas.setAttribute('style', attrStyle);
+      canvas.style.imageRendering = 'pixelated';
+      try {
+        const recolored = (typeof recolorPenguin === 'function') ? recolorPenguin(imgEl, color) : imgEl;
+        canvas.getContext('2d').drawImage(recolored, 0, 0);
+        if (imgEl.parentNode) imgEl.parentNode.replaceChild(canvas, imgEl);
+      } catch(e) {}
+    }
+    if (imgEl.complete && imgEl.naturalWidth > 0) doRecolor();
+    else imgEl.addEventListener('load', doRecolor);
+  }
+
+  function _initPenguinColors() {
+    const color = PLAYER_COLOR;
+    if (!color || color === '#1a1a1a') return;
+    // Sidebar penguin
+    const sidebarImg = document.getElementById('sidebar-penguin-img');
+    _applyPenguinColorToImg(sidebarImg, color);
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
+    _initPenguinColors();
     const inp = document.getElementById('reshape-name-input');
     if (inp) {
       inp.addEventListener('input', () => {
