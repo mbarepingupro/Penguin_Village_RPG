@@ -134,6 +134,7 @@ const Effects = (function () {
   };
 
   function playCollectTink() {
+    if (window.GameSounds) { GameSounds.collectTink(); return; }
     try {
       if (window.Sounds && Sounds.muted) return;
       const ctx = window.Sounds ? Sounds.getCtx() : new (window.AudioContext || window.webkitAudioContext)();
