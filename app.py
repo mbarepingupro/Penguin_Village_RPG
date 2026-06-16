@@ -5338,14 +5338,14 @@ def help_dismissed_list(username):
     db = get_db()
     rows = db.execute("SELECT help_key FROM help_dismissed WHERE username=?", (username,)).fetchall()
     db.close()
-    return jsonify({"keys": [r["help_key"] for r in rows]})
+    return jsonify({"dismissed": [r["help_key"] for r in rows]})
 
 
 @app.route("/help/dismiss", methods=["POST"])
 def help_dismiss():
     data     = request.get_json(silent=True) or {}
     username = data.get("username") or session.get("username")
-    help_key = data.get("key", "")
+    help_key = data.get("help_key") or data.get("key", "")
     if not username or not help_key:
         return jsonify({"status": "error"})
     db = get_db()

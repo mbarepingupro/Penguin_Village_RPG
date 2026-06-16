@@ -2393,10 +2393,6 @@
             <div style="color:#4aff6b;" id="lv-bonus-line">GATHERING BONUS: +0%</div>
             <div style="color:#A86EFF;margin-top:3px;" id="lv-next-line"></div>
           </div>
-          <div class="title-progress-section">
-            <div class="title-progress-header">🏅 TITLE PROGRESS</div>
-            <div id="title-progress-list"><div style="color:#8888A8;font-size:13px;">LOADING...</div></div>
-          </div>
         </div>
       </div>
 
@@ -4527,41 +4523,81 @@
       _activeTitle   = data.active_title || null;
       updateSidebarTitle(_activeTitle);
 
-      if (_earnedTitles.length === 0) {
-        list.innerHTML = '<div class="title-none-msg">No titles earned yet.<br>Work jobs to earn your first!</div>';
-        return;
-      }
-
-      const grouped = { level: [], fishing: [], herbalism: [], circus: [], monk: [], executioner: [], ceremonial: [] };
-      _earnedTitles.forEach(t => { if (grouped[t.category] !== undefined) grouped[t.category].push(t); });
-
-      const CAT_LABELS = {
-        level: '🏆 LEVEL MILESTONES', fishing: '🐟 FISHING', herbalism: '🌿 HERBALISM',
-        circus: '🎪 CIRCUS', monk: '🕯️ MONK', executioner: '⚔️ EXECUTIONER', ceremonial: '👑 CEREMONIAL'
+      const CAT_ICONS = {
+        level: '🏆', fishing: '🐟', herbalism: '🌿',
+        circus: '🎪', monk: '🕯️', executioner: '⚔️', ceremonial: '👑'
       };
 
       let html = '';
+
+      // ── UNLOCKED section ──
+      html += `<div style="color:#4aff6b;font-size:12px;letter-spacing:1px;margin:8px 0 6px;">UNLOCKED</div>`;
       if (_activeTitle) {
-        html += `<button class="title-unequip-btn" onclick="equipTitle(null)">REMOVE TITLE</button><br>`;
+        html += `<button class="title-unequip-btn" onclick="equipTitle(null)" style="margin-bottom:8px;">✕ REMOVE ACTIVE TITLE</button>`;
       }
-      for (const [cat, items] of Object.entries(grouped)) {
-        if (!items.length) continue;
-        const isCer = cat === 'ceremonial';
-        html += `<div class="title-section-label${isCer ? ' ceremonial' : ''}">${CAT_LABELS[cat] || cat.toUpperCase()}</div>`;
-        items.forEach(t => {
+      if (_earnedTitles.length === 0) {
+        html += `<div style="color:#8888A8;font-size:11px;padding:6px 0 10px;">No titles earned yet. Work jobs to earn your first!</div>`;
+      } else {
+        _earnedTitles.forEach(t => {
           const isEquipped = t.title === _activeTitle;
+          const icon = CAT_ICONS[t.category] || '📛';
           const badge = isEquipped
             ? `<span class="title-equipped-badge">✓ EQUIPPED</span>`
             : `<button class="title-equip-btn" onclick="equipTitle('${t.title.replace(/'/g, "\\'")}')">EQUIP</button>`;
-          html += `<div class="title-item-row">
+          html += `<div class="title-item-row" style="${isEquipped ? 'border-color:#FF7FE5;' : ''}">
             <div>
-              <div class="title-item-name">${t.title}</div>
+              <div class="title-item-name">${icon} ${t.title}</div>
               <div class="title-item-source">${t.source}</div>
             </div>
             <div>${badge}</div>
           </div>`;
         });
       }
+
+      // ── IN PROGRESS section ──
+      const inProgress = [];
+      for (const [cat, p] of Object.entries(_titleProgress)) {
+        if (p.next_title && p.hours_needed !== null) {
+          inProgress.push({ cat, ...p });
+        }
+      }
+      if (inProgress.length > 0) {
+        html += `<div style="color:#FF8C00;font-size:12px;letter-spacing:1px;margin:14px 0 6px;border-top:1px solid #2a2a4a;padding-top:10px;">IN PROGRESS</div>`;
+        inProgress.forEach(p => {
+          const icon = CAT_ICONS[p.cat] || '📛';
+          const pct  = p.progress_pct || 0;
+          html += `<div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <span style="color:#B8B8D0;font-size:12px;">${icon} ${p.next_title}</span>
+              <span style="color:#8888A8;font-size:10px;">${p.current_hours}h / ${p.hours_needed}h</span>
+            </div>
+            <div style="background:#1a1a2a;height:6px;width:100%;">
+              <div style="background:#FF8C00;height:6px;width:${pct}%;"></div>
+            </div>
+            <div style="color:#8888A8;font-size:10px;margin-top:2px;">${pct}% complete</div>
+          </div>`;
+        });
+      }
+
+      // ── LOCKED section (level titles not yet reached) ──
+      const LEVEL_TITLE_MAP = {3:'Newcomer',7:'Settler',10:'Villager',14:'Explorer',
+                               19:'Pathfinder',20:'Veteran',24:'Sage',29:'Elder',30:'Legend'};
+      const lockedLevelTitles = Object.entries(LEVEL_TITLE_MAP)
+        .filter(([lv]) => parseInt(lv) > _playerLevel)
+        .map(([lv, name]) => ({ name, req: `Reach Level ${lv}`, lv: parseInt(lv) }));
+      if (lockedLevelTitles.length > 0) {
+        html += `<div style="color:#8888A8;font-size:12px;letter-spacing:1px;margin:14px 0 6px;border-top:1px solid #2a2a4a;padding-top:10px;">🔒 LOCKED</div>`;
+        lockedLevelTitles.forEach(t => {
+          html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;opacity:0.6;">
+            <div>
+              <div style="color:#8888A8;font-size:11px;">🏆 ${t.name}</div>
+              <div style="color:#555570;font-size:10px;">${t.req}</div>
+            </div>
+            <span style="font-size:16px;">🔒</span>
+          </div>`;
+        });
+      }
+
       list.innerHTML = html;
     } catch(e) {
       list.innerHTML = '<div style="color:#ff6b6b;font-size:13px;text-align:center;padding:12px;">FAILED TO LOAD</div>';
@@ -7278,7 +7314,7 @@
     }
     renderLevelsList();
 
-    // Footer
+    // Footer (no title progress here — use the TITLES modal instead)
     const totalBonus = Object.keys(LEVEL_DATA_CONFIG)
       .filter(k => parseInt(k) <= _playerLevel)
       .reduce((sum, k) => sum + (LEVEL_DATA_CONFIG[k].gathering_bonus || 0), 0);
@@ -7301,7 +7337,6 @@
     } else {
       nextEl.textContent = _playerLevel >= 30 ? 'MAX LEVEL REACHED!' : '';
     }
-    loadTitleProgress();
   }
 
   function renderLevelsList() {
@@ -8755,7 +8790,7 @@
     try {
       const res  = await fetch(`/help/dismissed/${CURRENT_USER}`);
       const data = await res.json();
-      _dismissedHelp = new Set(data.keys || []);
+      _dismissedHelp = new Set(data.dismissed || []);
     } catch(e) {}
     _helpReadyResolve();
   }
@@ -8797,7 +8832,7 @@
       fetch('/help/dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, key }),
+        body: JSON.stringify({ username: CURRENT_USER, help_key: key }),
       }).catch(() => {});
     }
   }
