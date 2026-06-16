@@ -2633,9 +2633,7 @@
         <button class="inv-close-x" onclick="closeInventory()">✕</button>
         <div class="inv-tabs">
           <button class="inv-tab active" id="inv-tab-cosmetics" onclick="switchInvTab('cosmetics')">✨ COSMETICS</button>
-          {% if features.get("gear_equip", False) %}
-          <button class="inv-tab" id="inv-tab-gear" onclick="switchInvTab('gear')">⚔️ COMBAT</button>
-          {% endif %}
+          <button class="inv-tab" id="inv-tab-gear" onclick="switchInvTab('gear')" style="display:none;">⚔️ COMBAT</button>
         </div>
       </div>
       <div class="inv-body" id="inv-body"></div>
@@ -3512,7 +3510,6 @@
 
   async function openBuilding(buildingId) {
     if (buildingId === 'boutique') {
-      if (window.TutorialManager) window.TutorialManager._notifyBuilding('boutique');
       openBoutique();
       return;
     }
@@ -4934,13 +4931,15 @@
       _invCosmeticData = data.cosmetics || [];
     } catch(e) { _invCosmeticData = []; }
 
-    if (FEATURES.gear_equip) {
-      try {
-        const res = await fetch(`/gear/inventory?username=${CURRENT_USER}`);
-        const data = await res.json();
-        _invGearData = (data.gear || []).filter(g => g.type !== 'cosmetic');
-      } catch(e) { _invGearData = []; }
-    }
+    try {
+      const res = await fetch(`/gear/inventory?username=${CURRENT_USER}`);
+      const data = await res.json();
+      _invGearData = (data.gear || []).filter(g => g.type !== 'cosmetic');
+    } catch(e) { _invGearData = []; }
+
+    const hasCombatGear = _invGearData.some(g => g.type === 'combat');
+    const gearTab = document.getElementById('inv-tab-gear');
+    if (gearTab) gearTab.style.display = (FEATURES.gear_equip || hasCombatGear) ? '' : 'none';
 
     _invTab = 'cosmetics';
     document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
@@ -5028,7 +5027,6 @@
   }
 
   function renderCombatGearTab() {
-    if (!FEATURES.gear_equip) return '<div class="inv-empty">Combat gear coming soon!</div>';
     const COMBAT_SLOTS = [
       { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
       { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
@@ -5156,7 +5154,6 @@
   }
 
   async function invGearEquipAction(gearId) {
-    if (!FEATURES.gear_equip) return;
     try {
       const res = await fetch('/gear/equip', {
         method: 'POST',
