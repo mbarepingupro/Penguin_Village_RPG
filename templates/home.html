@@ -913,15 +913,17 @@
       flex-shrink: 0; overflow: hidden;
     }
     .news-label { color: var(--purple); font-size: 17px; white-space: nowrap; flex-shrink: 0; }
-    .news-ticker-wrap { flex: 1; overflow: hidden; position: relative; height: 14px; }
+    .news-ticker-wrap { flex: 1; overflow: hidden; position: relative; }
     .news-ticker {
-      display: flex; gap: 48px; position: absolute;
-      white-space: nowrap; animation: ticker 30s linear infinite;
+      display: inline-block; white-space: nowrap;
+      animation: ticker 60s linear infinite;
     }
-    .news-ticker-item { color: #B8B8D0; font-size: 17px; }
+    .news-ticker:hover { animation-play-state: paused; }
+    .news-ticker-item { color: #B8B8D0; font-size: 11px; margin-right: 48px; }
     .news-ticker-item .hi   { color: var(--purple); }
     .news-ticker-item .gold { color: var(--orange); }
-    @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+    .news-ticker-ts { color: #555570; font-size: 9px; margin-left: 4px; }
+    @keyframes ticker { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
 
     /* ── LOGIN SCREEN ── */
     .login-screen {
@@ -2520,12 +2522,7 @@
     <div class="news-label">NEWS:</div>
     <div class="news-ticker-wrap">
       <div class="news-ticker" id="news-ticker">
-        <span class="news-ticker-item">
-          <span class="hi">WELCOME TO PENGUIN VILLAGE</span> — build, work, and grow the community!
-        </span>
-        <span class="news-ticker-item">
-          <span class="hi">{{ penguin['username'] | upper }}</span> is logged in
-        </span>
+        <span class="news-ticker-item"><span class="hi">WELCOME TO PENGUIN VILLAGE</span> — build, work, and grow the community!</span>
       </div>
     </div>
   </div>
@@ -8845,8 +8842,33 @@
     _applyPenguinColorToImg(sidebarImg, color);
   }
 
+  const _TICKER_COLORS = {
+    autonomous: '#B8B8D0', village: '#4aff6b', level_up: '#FF8C00',
+    achievement: '#FF8C00', combat: '#ff6b6b', job: '#4aff6b',
+    shop: '#FF7FE5', seal_shop: '#FF7FE5', igloo: '#A86EFF',
+    social: '#4a9eff', milestone: '#FF8C00', title: '#FF8C00',
+    gear_purchase: '#A86EFF', reshape: '#4a9eff', character_created: '#4aff6b',
+  };
+
+  async function loadNewsTicker() {
+    try {
+      const res  = await fetch('/events/recent');
+      const data = await res.json();
+      const ticker = document.getElementById('news-ticker');
+      if (!ticker || !data.events || !data.events.length) return;
+      ticker.innerHTML = data.events.map(ev => {
+        const color = _TICKER_COLORS[ev.event_type] || '#B8B8D0';
+        return `<span class="news-ticker-item"><span style="color:${color}">${ev.message}</span><span class="news-ticker-ts">${ev.time_ago}</span></span>`;
+      }).join('');
+      const duration = Math.max(30, Math.round(ticker.scrollWidth / 60));
+      ticker.style.animationDuration = duration + 's';
+    } catch(e) {}
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     _initPenguinColors();
+    loadNewsTicker();
+    setInterval(loadNewsTicker, 5 * 60 * 1000);
     const inp = document.getElementById('reshape-name-input');
     if (inp) {
       inp.addEventListener('input', () => {

@@ -1701,32 +1701,41 @@ def run_autonomous_actions():
             "SELECT username, penguin_name, trait_social, trait_interest, trait_quirk, "
             "social_mode, social_target FROM penguins WHERE character_created=1"
         ).fetchall()]
-    except Exception:
+    except Exception as e:
+        print(f"[Autonomous] Failed to load penguins: {e}")
         db.close()
         return
     if not all_penguins:
         db.close()
         return
     now = int(time.time())
+    generated = 0
     for penguin in all_penguins:
-        smode   = penguin.get("social_mode") or "social"
-        starget = penguin.get("social_target")
-        action  = pick_autonomous_action(penguin, all_penguins, smode, starget)
-        other_penguin = None
-        if action["requires_other"]:
-            other_penguin = pick_other_penguin(penguin, all_penguins, smode, starget)
-            if not other_penguin:
+        try:
+            smode   = penguin.get("social_mode") or "social"
+            starget = penguin.get("social_target")
+            action  = pick_autonomous_action(penguin, all_penguins, smode, starget)
+            if not action:
                 continue
-        text   = generate_action_text(action, penguin, other_penguin)
-        prefix = CATEGORY_EMOJIS.get(action.get("category", "solo"), "🐧")
-        db.execute(
-            "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
-            ("autonomous", f"{prefix} {text}", penguin["username"], now)
-        )
-        if action["requires_other"] and other_penguin:
-            _record_auto_interaction(db, penguin["username"], other_penguin["username"], action, now)
+            other_penguin = None
+            if action["requires_other"]:
+                other_penguin = pick_other_penguin(penguin, all_penguins, smode, starget)
+                if not other_penguin:
+                    continue
+            text   = generate_action_text(action, penguin, other_penguin)
+            prefix = CATEGORY_EMOJIS.get(action.get("category", "solo"), "🐧")
+            db.execute(
+                "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
+                ("autonomous", f"{prefix} {text}", penguin["username"], now)
+            )
+            if action["requires_other"] and other_penguin:
+                _record_auto_interaction(db, penguin["username"], other_penguin["username"], action, now)
+            generated += 1
+        except Exception as e:
+            print(f"[Autonomous] Error for {penguin.get('username')}: {e}")
     db.commit()
     db.close()
+    print(f"[Autonomous] Generated {generated} actions for {len(all_penguins)} penguins")
 
 
 def _record_auto_interaction(db, user_a, user_b, action, now):
@@ -1753,11 +1762,14 @@ def _record_auto_interaction(db, user_a, user_b, action, now):
     )
 
 
-if _APSCHEDULER_AVAILABLE and os.environ.get("WERKZEUG_RUN_MAIN") != "false":
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
     _scheduler = BackgroundScheduler(daemon=True)
     _scheduler.add_job(run_autonomous_actions, "interval", minutes=30, id="autonomous_actions",
                        misfire_grace_time=60)
     _scheduler.start()
+    print("[Scheduler] Autonomous actions scheduler started — runs every 30 minutes")
+elif not _APSCHEDULER_AVAILABLE:
+    print("[Scheduler] WARNING: apscheduler not available — autonomous actions disabled")
 
 
 # ── ROUTES ───────────────────────────────────────────────────────────────────
@@ -3622,6 +3634,14 @@ def get_relationships(username):
 
 # ── EVENT LOG ─────────────────────────────────────────────────────────────────
 
+def _format_time_ago(ts):
+    diff = int(time.time()) - int(ts)
+    if diff < 60:   return "just now"
+    if diff < 3600: return f"{diff // 60}m ago"
+    if diff < 86400: return f"{diff // 3600}h ago"
+    return f"{diff // 86400}d ago"
+
+
 @app.route("/events")
 def get_events():
     cutoff = int(time.time()) - 86400  # last 24 hours
@@ -3632,6 +3652,28 @@ def get_events():
     ).fetchall()
     db.close()
     return jsonify({"events": [dict(r) for r in rows]})
+
+
+@app.route("/events/recent")
+def events_recent():
+    db   = get_db()
+    rows = db.execute(
+        "SELECT * FROM event_log ORDER BY created_at DESC LIMIT 40"
+    ).fetchall()
+    db.close()
+    return jsonify({"events": [{
+        **dict(r),
+        "time_ago": _format_time_ago(r["created_at"])
+    } for r in rows]})
+
+
+@app.route("/debug/run-autonomous", methods=["POST"])
+def debug_run_autonomous():
+    key = request.args.get("key", "")
+    if not MAYOR_KEY or key != MAYOR_KEY:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+    run_autonomous_actions()
+    return jsonify({"status": "success", "message": "Autonomous actions executed"})
 
 
 # ── IGLOO ─────────────────────────────────────────────────────────────────────
