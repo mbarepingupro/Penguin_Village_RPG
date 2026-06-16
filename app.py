@@ -1858,7 +1858,7 @@ def login():
     )
 
 
-@app.route("/callback")
+@app.route("/auth/callback")
 def callback():
     code = request.args.get("code")
     token_resp = http_requests.post("https://id.twitch.tv/oauth2/token", data={

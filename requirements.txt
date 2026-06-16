@@ -2,4 +2,5 @@ flask
 python-dotenv
 requests
 Pillow
-APScheduler
+flask-apscheduler
+gunicorn
