@@ -1136,6 +1136,18 @@ def ensure_resources(db, username):
         pass
 
 
+def ensure_player_data(db, username):
+    """Ensure all per-player table rows exist. Safe to call multiple times."""
+    try:
+        db.execute("INSERT OR IGNORE INTO resources (username) VALUES (?)", (username,))
+    except Exception as e:
+        print(f"[ensure_player_data] resources: {e}")
+    try:
+        db.execute("INSERT OR IGNORE INTO igloos (username) VALUES (?)", (username,))
+    except Exception as e:
+        print(f"[ensure_player_data] igloos: {e}")
+
+
 def get_gold(db, username):
     ensure_resources(db, username)
     r = db.execute("SELECT gold FROM resources WHERE username=?", (username,)).fetchone()
@@ -1805,8 +1817,28 @@ def home():
         db.close()
         return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
     penguin = dict(_prow)
+    penguin.setdefault("penguin_shape", "normal")
+    penguin.setdefault("penguin_color", "#1a1a1a")
+    penguin.setdefault("penguin_name", username)
+    penguin.setdefault("character_created", 0)
+    penguin.setdefault("tutorial_completed", 0)
+    penguin.setdefault("tutorial_step", 0)
+    penguin.setdefault("trait_social", None)
+    penguin.setdefault("trait_interest", None)
+    penguin.setdefault("trait_quirk", None)
+    penguin.setdefault("social_mode", "social")
+    penguin.setdefault("social_target", None)
+    penguin.setdefault("total_contributions", 0)
+    penguin.setdefault("total_monsters_defeated", 0)
+    penguin.setdefault("total_resources_collected", 0)
+    penguin.setdefault("total_gold_collected", 0)
+    penguin.setdefault("prestige", 0)
+    penguin.setdefault("active_title", None)
+    penguin.setdefault("tutorial_rewards_given", "[]")
+    penguin.setdefault("last_active", 0)
     penguin["penguin_color"] = _resolve_hex_color(penguin.get("penguin_color") or "#1a1a1a")
     ensure_resources(db, username)
+    ensure_player_data(db, username)
 
     # ── Character creation gate ────────────────────────────────────────────────
     if not penguin["character_created"]:
@@ -1903,6 +1935,7 @@ def callback():
         )
     except Exception:
         session["new_user"] = False
+    ensure_player_data(db, username)
     db.commit()
     db.close()
     return redirect(url_for("home"))
@@ -5043,6 +5076,7 @@ def penguin_create():
         "trait_social=?, trait_interest=?, trait_quirk=? WHERE username=?",
         (pname, pcolor, pshape, t_social, t_interest, t_quirk, username)
     )
+    ensure_player_data(db, username)
     db.commit()
     db.close()
     log_event(get_db(), "character_created", f"{username} created their penguin as '{pname}' ({pcolor}, {pshape})", username)
@@ -6113,6 +6147,92 @@ def mayor_lookup():
             "mayor_seals":  r["mayor_seals"] if r else 0,
         }
     })
+
+
+@app.route("/mayor/players")
+def mayor_list_players():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db = get_db()
+    players = db.execute(
+        "SELECT username, penguin_name, level, character_created, tutorial_completed, last_active FROM penguins ORDER BY last_active DESC"
+    ).fetchall()
+    db.close()
+    return jsonify({"status": "success", "players": [dict(p) for p in players], "total": len(players)})
+
+
+@app.route("/mayor/lookup-player/<username>")
+def mayor_lookup_player(username):
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db = get_db()
+    p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": f"Player '{username}' not found"})
+    gear_count = db.execute("SELECT COUNT(*) as c FROM gear WHERE username=?", (username,)).fetchone()["c"]
+    db.close()
+    pd = dict(p)
+    return jsonify({"status": "success", "player": {
+        "username":               pd.get("username"),
+        "penguin_name":           pd.get("penguin_name"),
+        "level":                  pd.get("level"),
+        "xp":                     pd.get("xp"),
+        "penguin_shape":          pd.get("penguin_shape"),
+        "penguin_color":          pd.get("penguin_color"),
+        "character_created":      pd.get("character_created"),
+        "tutorial_completed":     pd.get("tutorial_completed"),
+        "tutorial_step":          pd.get("tutorial_step"),
+        "prestige":               pd.get("prestige", 0),
+        "gear_count":             gear_count,
+        "total_monsters_defeated": pd.get("total_monsters_defeated", 0),
+    }})
+
+
+@app.route("/mayor/delete-player", methods=["POST"])
+def mayor_delete_player():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data = request.get_json(silent=True) or {}
+    username_to_delete = (data.get("username") or "").strip()
+    if not username_to_delete:
+        return jsonify({"status": "error", "message": "No username provided"})
+    if username_to_delete == MAYOR_USERNAME:
+        return jsonify({"status": "error", "message": "Cannot delete the Mayor!"})
+    db = get_db()
+    if not db.execute("SELECT 1 FROM penguins WHERE username=?", (username_to_delete,)).fetchone():
+        db.close()
+        return jsonify({"status": "error", "message": f"Player '{username_to_delete}' not found"})
+    delete_queries = [
+        ("penguins",                      "DELETE FROM penguins WHERE username=?",                               (username_to_delete,)),
+        ("resources",                     "DELETE FROM resources WHERE username=?",                              (username_to_delete,)),
+        ("igloos",                        "DELETE FROM igloos WHERE username=?",                                 (username_to_delete,)),
+        ("igloo_furniture",               "DELETE FROM igloo_furniture WHERE username=?",                        (username_to_delete,)),
+        ("igloo_items",                   "DELETE FROM igloo_items WHERE username=?",                            (username_to_delete,)),
+        ("igloo_visits",                  "DELETE FROM igloo_visits WHERE visitor=? OR host=?",                  (username_to_delete, username_to_delete)),
+        ("gear",                          "DELETE FROM gear WHERE username=?",                                   (username_to_delete,)),
+        ("help_dismissed",                "DELETE FROM help_dismissed WHERE username=?",                         (username_to_delete,)),
+        ("monster_kills",                 "DELETE FROM monster_kills WHERE username=?",                          (username_to_delete,)),
+        ("event_log",                     "DELETE FROM event_log WHERE username=?",                              (username_to_delete,)),
+        ("relationships",                 "DELETE FROM relationships WHERE username_a=? OR username_b=?",        (username_to_delete, username_to_delete)),
+        ("building_contributions_tracker","DELETE FROM building_contributions_tracker WHERE username=?",         (username_to_delete,)),
+        ("discovered_sets",               "DELETE FROM discovered_sets WHERE username=?",                        (username_to_delete,)),
+        ("building_donations",            "DELETE FROM building_donations WHERE username=?",                     (username_to_delete,)),
+        ("achievements",                  "DELETE FROM achievements WHERE username=?",                           (username_to_delete,)),
+        ("login_streaks",                 "DELETE FROM login_streaks WHERE username=?",                          (username_to_delete,)),
+        ("daily_missions",                "DELETE FROM daily_missions WHERE username=?",                         (username_to_delete,)),
+    ]
+    tables_cleaned = []
+    for table_name, query, params in delete_queries:
+        try:
+            db.execute(query, params)
+            tables_cleaned.append(table_name)
+        except Exception as e:
+            print(f"[Mayor] Delete from {table_name} failed: {e}")
+    db.commit()
+    db.close()
+    print(f"[Mayor] Player '{username_to_delete}' deleted by {session.get('username') or 'key auth'}. Tables: {tables_cleaned}")
+    return jsonify({"status": "success", "message": f"Player '{username_to_delete}' has been completely deleted.", "tables_cleaned": tables_cleaned})
 
 
 # ── PENGUIN BANK ─────────────────────────────────────────────────────────────
