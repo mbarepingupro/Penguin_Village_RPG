@@ -1785,44 +1785,14 @@
     }
 
     /* ══════════════════════════════════════════════════════════
-       CONTEXTUAL TOOLTIP
+       HELP BANNERS
     ══════════════════════════════════════════════════════════ */
-    .ctx-tip {
-      position: absolute;
-      background: var(--panel);
-      border: 2px solid var(--gold);
-      padding: 10px 14px;
-      font-family: 'Pixelify Sans', monospace;
-      font-size: 13px;
-      color: var(--white);
-      line-height: 1.9;
-      z-index: 500;
-      max-width: 260px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
-      pointer-events: all;
-    }
-    .ctx-tip-arrow {
-      position: absolute;
-      top: -8px;
-      left: 18px;
-      width: 0;
-      height: 0;
-      border-left: 7px solid transparent;
-      border-right: 7px solid transparent;
-      border-bottom: 8px solid var(--gold);
-    }
-    .ctx-tip-close {
-      display: block;
-      margin-top: 8px;
-      font-size: 13px;
-      color: #A86EFF;
-      cursor: pointer;
-      background: none;
-      border: 1px solid #A86EFF;
-      font-family: 'Pixelify Sans', monospace;
-      padding: 3px 8px;
-    }
-    .ctx-tip-close:hover { background: rgba(168,110,255,0.15); }
+    .help-banner { position: relative; width: 100%; background: #181820; border-bottom: 2px solid #A86EFF; padding: 10px 40px 10px 14px; display: flex; align-items: flex-start; gap: 8px; animation: helpBannerSlideIn 0.3s ease-out; z-index: 10; box-sizing: border-box; }
+    @keyframes helpBannerSlideIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .help-banner-text { font-family: 'Pixelify Sans', monospace; font-size: 11px; color: #B8B8D0; line-height: 1.6; flex: 1; }
+    .help-banner-icon { font-size: 16px; flex-shrink: 0; }
+    .help-banner-dismiss { position: absolute; top: 8px; right: 8px; font-family: 'Pixelify Sans', monospace; font-size: 10px; color: #A86EFF; background: transparent; border: 1px solid #A86EFF; padding: 3px 10px; cursor: pointer; }
+    .help-banner-dismiss:hover { background: #A86EFF; color: #181820; }
 
     /* ── Help button in nav ── */
     #help-btn {
@@ -2792,8 +2762,14 @@
         );
       }
     }
-    const _ctxTabKeys = { map:'tab-map', levels:'tab-levels', missions:'tab-missions', igloo:'tab-igloo', awards:'tab-awards', eventlog:'tab-eventlog' };
-    if (_ctxTabKeys[name] && btn) setTimeout(() => showCtxTip(_ctxTabKeys[name], btn), 300);
+    const _helpTabMap = {
+      map:      ['tab_map',      '#panel-map',      'EXPLORE THE VILLAGE! Click on any building to work, donate resources, or shop.'],
+      levels:   ['tab_levels',   '#panel-levels',   'MILESTONE REWARDS! Earn XP by working and completing missions to reach new levels.'],
+      missions: ['tab_missions', '#panel-missions',  'DAILY CHALLENGES! New missions refresh every day — complete them for bonus gold and XP.'],
+      igloo:    ['tab_igloo',    '#panel-igloo',    'YOUR IGLOO! Collect cosmetic items to decorate your personal space.'],
+      awards:   ['tab_awards',   '#panel-awards',   'YOUR ACHIEVEMENTS! Earn special titles and badges by playing.'],
+    };
+    if (_helpTabMap[name]) { const [k,s,m] = _helpTabMap[name]; showHelpBanner(k, s, m); }
     if (window.TutorialManager) window.TutorialManager._notifyContentTab(name);
   }
 
@@ -3534,7 +3510,15 @@
       _renderModalContent(bData, upgData);
       // Notify tutorial AFTER content is fully rendered so injection finds the right DOM
       if (window.TutorialManager) window.TutorialManager._notifyBuilding(buildingId);
-      setTimeout(() => showCtxTip('bldg-' + buildingId, document.getElementById('building-modal')), 400);
+      const _bldgHelp = {
+        sea_lion_pit:  'FISHING GROUNDS! Send your penguin to fish here and earn fish resources over time.',
+        club_soda:     'SOCIAL HUB! Work here to earn herbs and bonus social XP.',
+        parkmusement:  'THEME PARK! Fun activities here earn you XP and circus hours.',
+        cursed_temple: 'DANGEROUS! The Cursed Temple offers spell fragments and blood gems for the brave.',
+        guillotine:    'HIGH RISK, HIGH REWARD! Work the Guillotine for bones and executioner XP.',
+        hotel:         'REST UP! The Hotel restores your energy. Great when you\'re running low.',
+      };
+      if (_bldgHelp[buildingId]) showHelpBanner('bldg_' + buildingId, '#bm-content', _bldgHelp[buildingId]);
     } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
   }
 
@@ -3575,7 +3559,7 @@
       _renderBoutique();
       // Notify tutorial AFTER boutique content is rendered
       if (window.TutorialManager) window.TutorialManager._notifyBuilding('boutique');
-      setTimeout(() => showCtxTip('bldg-boutique', document.getElementById('building-modal')), 400);
+      showHelpBanner('bldg_boutique', '#bm-content', 'WELCOME TO THE BOUTIQUE! Browse hats, outfits, footwear, and accessories for your penguin.');
     } catch(e) { showToast('Error loading boutique.', 'err'); closeBuildingPanel(); }
   }
 
@@ -4666,7 +4650,7 @@
     document.getElementById('seal-shop-player-count').textContent = _playerSeals;
     document.getElementById('seal-shop-modal').classList.add('show');
     await renderSealShop();
-    setTimeout(() => showCtxTip('seal-shop', document.querySelector('.seal-shop-box')), 400);
+    showHelpBanner('seal_shop', '.seal-shop-box', "MAYOR'S SEAL SHOP! Spend Mayor's Seals (earned during live streams) on exclusive items.");
   }
 
   function closeSealShop() {
@@ -4988,6 +4972,7 @@
     if (cosTab) cosTab.classList.add('active');
     renderInventory();
     document.getElementById('inventory-overlay').classList.add('show');
+    showHelpBanner('inv_cosmetics', '#inv-body', 'COSMETICS! These are wearable items for your penguin. Click EQUIP to put them on.');
   }
 
   function closeInventory() {
@@ -5001,7 +4986,7 @@
     const tabEl = document.getElementById(`inv-tab-${tab}`);
     if (tabEl) tabEl.classList.add('active');
     renderInventory();
-    if (tab === 'cosmetics') setTimeout(() => showCtxTip('inv-cosmetics', tabEl), 300);
+    if (tab === 'cosmetics') showHelpBanner('inv_cosmetics', '#inv-body', 'COSMETICS! These are wearable items for your penguin. Click EQUIP to put them on.');
   }
 
   function renderInventory() {
@@ -8626,95 +8611,59 @@
   {% endif %}
 
   // ═══════════════════════════════════════════════════════════════
-  // CONTEXTUAL TOOLTIPS
+  // HELP BANNERS
   // ═══════════════════════════════════════════════════════════════
-  const _CTX_TIPS = {
-    'tab-map':      'EXPLORE THE VILLAGE! Click on any building to work, donate resources, or shop.',
-    'tab-levels':   'MILESTONE REWARDS! Earn XP by working and completing missions to reach new levels.',
-    'tab-missions': 'DAILY CHALLENGES! New missions refresh every day — complete them for bonus gold and XP.',
-    'tab-igloo':    'YOUR IGLOO! Collect cosmetic items to decorate your personal space.',
-    'tab-awards':   'YOUR ACHIEVEMENTS! Earn special titles and badges by playing.',
-    'tab-eventlog': 'VILLAGE ACTIVITY! See recent events and what\'s happening in your community.',
-    'bldg-sea_lion_pit':   'FISHING GROUNDS! Send your penguin to fish here and earn fish resources over time.',
-    'bldg-club_soda':      'SOCIAL HUB! Work here to earn herbs and bonus social XP.',
-    'bldg-parkmusement':   'THEME PARK! Fun activities here earn you XP and circus hours.',
-    'bldg-cursed_temple':  'DANGEROUS! The Cursed Temple offers spell fragments and blood gems for the brave.',
-    'bldg-guillotine':     'HIGH RISK, HIGH REWARD! Work the Guillotine for bones and executioner XP.',
-    'bldg-hotel':          'REST UP! The Hotel restores your energy. Great when you\'re running low.',
-    'bldg-boutique':       'WELCOME TO THE BOUTIQUE! Browse hats, outfits, footwear, and accessories for your penguin.',
-    'inv-cosmetics':       'COSMETICS! These are wearable items for your penguin. Click EQUIP to put them on.',
-    'seal-shop':           'MAYOR\'S SEAL SHOP! Spend Mayor\'s Seals (earned during live streams) on exclusive items.',
-  };
-
-  let _dismissedHelp    = new Set();
-  let _helpReadyResolve = null;
-  const _helpReady      = new Promise(r => { _helpReadyResolve = r; });
+  let dismissedHelp = new Set();
+  let helpLoaded    = false;
 
   async function loadDismissedHelp() {
-    if (!CURRENT_USER) { _helpReadyResolve(); return; }
+    if (!CURRENT_USER) { helpLoaded = true; return; }
     try {
       const res  = await fetch(`/help/dismissed/${CURRENT_USER}`);
       const data = await res.json();
-      _dismissedHelp = new Set(data.dismissed || []);
+      dismissedHelp = new Set(data.dismissed || []);
     } catch(e) {}
-    _helpReadyResolve();
+    helpLoaded = true;
   }
 
-  async function showCtxTip(key, anchorEl) {
-    await _helpReady;
-    if (!_CTX_TIPS[key]) return;
-    if (_dismissedHelp.has(key)) return;
-
-    const container = document.getElementById('ctx-tip-container');
-    container.innerHTML = '';
-    const tip = document.createElement('div');
-    tip.className     = 'ctx-tip';
-    tip.id            = 'active-ctx-tip';
-    tip.dataset.helpKey = key;
-
-    const rect = anchorEl ? anchorEl.getBoundingClientRect() : null;
-    if (rect) {
-      tip.style.position = 'fixed';
-      tip.style.top  = (rect.bottom + 6) + 'px';
-      tip.style.left = Math.max(6, Math.min(rect.left, window.innerWidth - 280)) + 'px';
-    } else {
-      tip.style.position = 'fixed';
-      tip.style.top  = '70px';
-      tip.style.left = '50%';
-      tip.style.transform = 'translateX(-50%)';
-    }
-
-    tip.innerHTML = '<div class="ctx-tip-arrow"></div>' + _CTX_TIPS[key] +
-      `<button class="ctx-tip-close" onclick="closeCtxTip('${key}')">GOT IT ✓</button>`;
-    container.appendChild(tip);
+  function showHelpBanner(helpKey, containerSelector, message) {
+    if (!helpLoaded) return;
+    if (dismissedHelp.has(helpKey)) return;
+    if (document.getElementById('help-' + helpKey)) return;
+    const container = document.querySelector(containerSelector);
+    if (!container) return;
+    const banner = document.createElement('div');
+    banner.className = 'help-banner';
+    banner.id = 'help-' + helpKey;
+    banner.innerHTML = `<span class="help-banner-icon">💡</span><span class="help-banner-text">${message}</span><button class="help-banner-dismiss" onclick="dismissHelpBanner('${helpKey}')">GOT IT</button>`;
+    container.insertBefore(banner, container.firstChild);
   }
 
-  function closeCtxTip(key) {
-    const t = document.getElementById('active-ctx-tip');
-    if (t) t.remove();
-    if (key) {
-      _dismissedHelp.add(key);
-      fetch('/help/dismiss', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, help_key: key }),
-      }).catch(() => {});
+  async function dismissHelpBanner(helpKey) {
+    const el = document.getElementById('help-' + helpKey);
+    if (el) {
+      el.style.transition = 'opacity 0.2s, max-height 0.2s';
+      el.style.opacity = '0'; el.style.maxHeight = '0';
+      el.style.overflow = 'hidden'; el.style.padding = '0';
+      el.style.margin = '0'; el.style.borderWidth = '0';
+      setTimeout(() => el.remove(), 200);
     }
+    dismissedHelp.add(helpKey);
+    try {
+      await fetch('/help/dismiss', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: CURRENT_USER, help_key: helpKey}) });
+    } catch(e) {}
   }
 
   function resetHelpTooltips() {
-    _dismissedHelp.clear();
+    dismissedHelp.clear();
     fetch('/help/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: CURRENT_USER }),
-    }).catch(() => {});
+    }).then(() => location.reload()).catch(() => location.reload());
   }
 
   loadDismissedHelp();
-
-  // Contextual tips are triggered from within switchContentTab, openBuilding,
-  // openSealShop, and switchInvTab (see inline calls in those functions above).
 
   // Reshape name input → live preview update
   // ── PENGUIN COLOR HELPERS ─────────────────────────────────────────────────
@@ -8845,9 +8794,6 @@
   </div>
 
   <!-- Mayor dialogue is injected dynamically by TutorialManager -->
-
-  <!-- CONTEXTUAL TOOLTIP CONTAINER -->
-  <div id="ctx-tip-container"></div>
 
   <!-- RESHAPE OVERLAY -->
   <div id="reshape-overlay">
