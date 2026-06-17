@@ -5195,6 +5195,22 @@ def tutorial_advance():
     return jsonify({"status": "success", "step": step})
 
 
+@app.route("/tutorial/reset", methods=["POST"])
+def tutorial_reset():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username") or session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    db = get_db()
+    try:
+        db.execute("UPDATE penguins SET tutorial_step=0, tutorial_completed=0 WHERE username=?", (username,))
+        db.commit()
+    except Exception as e:
+        print(f"[Tutorial] Reset failed: {e}")
+    db.close()
+    return jsonify({"status": "success"})
+
+
 @app.route("/tutorial/gift", methods=["POST"])
 def tutorial_gift():
     data     = request.get_json(silent=True) or {}
