@@ -1136,6 +1136,18 @@ def ensure_resources(db, username):
         pass
 
 
+def ensure_player_data(db, username):
+    """Ensure all per-player table rows exist. Safe to call multiple times."""
+    try:
+        db.execute("INSERT OR IGNORE INTO resources (username) VALUES (?)", (username,))
+    except Exception as e:
+        print(f"[ensure_player_data] resources: {e}")
+    try:
+        db.execute("INSERT OR IGNORE INTO igloos (username) VALUES (?)", (username,))
+    except Exception as e:
+        print(f"[ensure_player_data] igloos: {e}")
+
+
 def get_gold(db, username):
     ensure_resources(db, username)
     r = db.execute("SELECT gold FROM resources WHERE username=?", (username,)).fetchone()
@@ -1805,8 +1817,28 @@ def home():
         db.close()
         return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
     penguin = dict(_prow)
+    penguin.setdefault("penguin_shape", "normal")
+    penguin.setdefault("penguin_color", "#1a1a1a")
+    penguin.setdefault("penguin_name", username)
+    penguin.setdefault("character_created", 0)
+    penguin.setdefault("tutorial_completed", 0)
+    penguin.setdefault("tutorial_step", 0)
+    penguin.setdefault("trait_social", None)
+    penguin.setdefault("trait_interest", None)
+    penguin.setdefault("trait_quirk", None)
+    penguin.setdefault("social_mode", "social")
+    penguin.setdefault("social_target", None)
+    penguin.setdefault("total_contributions", 0)
+    penguin.setdefault("total_monsters_defeated", 0)
+    penguin.setdefault("total_resources_collected", 0)
+    penguin.setdefault("total_gold_collected", 0)
+    penguin.setdefault("prestige", 0)
+    penguin.setdefault("active_title", None)
+    penguin.setdefault("tutorial_rewards_given", "[]")
+    penguin.setdefault("last_active", 0)
     penguin["penguin_color"] = _resolve_hex_color(penguin.get("penguin_color") or "#1a1a1a")
     ensure_resources(db, username)
+    ensure_player_data(db, username)
 
     # ── Character creation gate ────────────────────────────────────────────────
     if not penguin["character_created"]:
@@ -1903,6 +1935,7 @@ def callback():
         )
     except Exception:
         session["new_user"] = False
+    ensure_player_data(db, username)
     db.commit()
     db.close()
     return redirect(url_for("home"))
@@ -5043,6 +5076,7 @@ def penguin_create():
         "trait_social=?, trait_interest=?, trait_quirk=? WHERE username=?",
         (pname, pcolor, pshape, t_social, t_interest, t_quirk, username)
     )
+    ensure_player_data(db, username)
     db.commit()
     db.close()
     log_event(get_db(), "character_created", f"{username} created their penguin as '{pname}' ({pcolor}, {pshape})", username)
