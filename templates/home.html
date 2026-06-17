@@ -8613,8 +8613,8 @@
   // ═══════════════════════════════════════════════════════════════
   // HELP BANNERS
   // ═══════════════════════════════════════════════════════════════
-  let dismissedHelp = new Set();
-  let helpLoaded    = false;
+  var dismissedHelp = new Set();
+  var helpLoaded    = false;
 
   async function loadDismissedHelp() {
     if (!CURRENT_USER) { helpLoaded = true; return; }
@@ -8627,8 +8627,8 @@
   }
 
   function showHelpBanner(helpKey, containerSelector, message) {
-    if (!helpLoaded) return;
-    if (dismissedHelp.has(helpKey)) return;
+    if (typeof helpLoaded === 'undefined' || !helpLoaded) return;
+    if (!dismissedHelp || dismissedHelp.has(helpKey)) return;
     if (document.getElementById('help-' + helpKey)) return;
     const container = document.querySelector(containerSelector);
     if (!container) return;
