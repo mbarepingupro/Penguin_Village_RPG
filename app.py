@@ -1777,6 +1777,14 @@ def world_areas():
     return jsonify({"areas": WORLD_AREAS})
 
 
+@app.route("/editor")
+def editor():
+    username = session.get("username")
+    if not username or username != MAYOR_USERNAME:
+        return redirect(url_for("home"))
+    return render_template("editor.html")
+
+
 @app.route("/")
 def home():
     # Editor mode — only available from localhost
