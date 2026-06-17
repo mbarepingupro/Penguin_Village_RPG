@@ -7910,9 +7910,6 @@
       this.currentStep = startStep;
       this._createDialogueBox();
       if (window.GameSounds) GameSounds.mayorAppears();
-      // Add padding so dialogue doesn't cover bottom game content
-      var main = document.querySelector('.main');
-      if (main) main.style.paddingBottom = '165px';
       this._runStep(startStep);
     },
 
@@ -8522,8 +8519,6 @@
     _complete: function() {
       this._clearSkipTimer();
       this._clearHighlights();
-      var main = document.querySelector('.main');
-      if (main) main.style.paddingBottom = '';
       var box = this.dialogueBox;
       if (box) {
         box.style.animation = 'slideDown 0.35s ease forwards';
@@ -8541,8 +8536,6 @@
       if (confirm('Skip the tutorial? You\'ll miss out on some free rewards!')) {
         this._clearSkipTimer();
         this._clearHighlights();
-        var main = document.querySelector('.main');
-        if (main) main.style.paddingBottom = '';
         var box = this.dialogueBox;
         if (box) {
           box.style.animation = 'slideDown 0.35s ease forwards';
@@ -8654,13 +8647,21 @@
     } catch(e) {}
   }
 
-  function resetHelpTooltips() {
+  async function resetHelpTooltips() {
     dismissedHelp.clear();
-    fetch('/help/reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: CURRENT_USER }),
-    }).then(() => location.reload()).catch(() => location.reload());
+    try {
+      await fetch('/help/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER }),
+      });
+      await fetch('/tutorial/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER }),
+      });
+    } catch(e) {}
+    location.reload();
   }
 
   loadDismissedHelp();
