@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no"/>
   <title>Penguin Village</title>
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet"/>
   <style>
@@ -1573,42 +1573,90 @@
     /* ══════════════════════════════════════════════════════════
        MOBILE  ≤ 768px
     ══════════════════════════════════════════════════════════ */
+    /* ── Mobile player button (hidden on desktop) ── */
+    .mobile-player-btn {
+      display: none;
+      font-family: 'Pixelify Sans', monospace;
+      font-size: 11px;
+      color: #A86EFF;
+      background: #252535;
+      border: 2px solid #A86EFF;
+      padding: 6px 10px;
+      cursor: pointer;
+      line-height: 1;
+      white-space: nowrap;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── touch-action for all interactive elements ── */
+    button, canvas, a, [onclick], .content-tab, .sidebar-tab {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     @media (max-width: 768px) {
+      /* ── iOS viewport height fix ── */
+      body {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+
       /* ── Overall layout ── */
-      .main { flex-direction: column; overflow: auto; }
+      .main {
+        flex-direction: column;
+        height: calc(var(--vh, 1vh) * 100);
+        overflow: hidden;
+      }
 
       /* ── Nav ── */
-      nav { padding: 8px 12px; }
-      .pixel-title {
-    font-family: 'Press Start 2P', monospace !important;
-  }
-  .nav-logo { font-size: 17px; }
-      .nav-user { font-size: 17px; }
-      .nav-logout { min-height: 44px; display: flex; align-items: center; padding: 0 10px; }
+      nav { padding: 6px 10px; gap: 6px; }
+      .nav-logo { font-size: 15px; }
+      .nav-user { display: none; }
+      .nav-logout { min-height: 44px; display: flex; align-items: center; padding: 0 8px; font-size: 12px; }
+      .mobile-player-btn { display: inline-flex; align-items: center; }
 
-      /* ── Sidebar becomes a scrollable top strip ── */
-      .sidebar {
-        width: 100%;
-        max-height: 45vh;
-        overflow-y: auto;
-        border-right: none;
-        border-bottom: 3px solid var(--purple);
+      /* ── Sidebar hidden on mobile — player button handles this ── */
+      .sidebar { display: none !important; }
+
+      /* ── Content area fills all remaining space ── */
+      .content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .content-tabs {
+        -webkit-overflow-scrolling: touch;
+        overflow-x: auto;
         flex-shrink: 0;
+        display: flex;
       }
-      .sidebar-panel { overflow-y: auto; }
-      .sidebar-tab { min-height: 44px; padding: 10px 4px; }
-      .sidebar-panel.active { flex: none; }
+      .content-tab { min-height: 44px; padding: 10px 12px; flex-shrink: 0; }
+      .content-panel { flex: 1; min-height: 0; overflow: hidden; }
 
-      /* ── Content area fills rest ── */
-      .content { flex: 1; min-height: 0; }
-      .content-tabs { -webkit-overflow-scrolling: touch; }
-      .content-tab { min-height: 44px; padding: 10px 12px; }
+      /* ── Map fullscreen ── */
+      #panel-map { display: flex; flex-direction: column; }
+      #map-area { flex: 1; min-height: 0; }
+      #village-canvas { touch-action: none; width: 100%; height: 100%; }
 
       /* ── Building modal mobile ── */
       #building-modal { width: 95vw; max-height: 85vh; }
 
-      /* ── Canvas — prevent browser gestures ── */
-      #village-canvas { touch-action: none; }
+      /* ── Mayor dialogue compact on mobile ── */
+      .mayor-dialogue { padding: 8px 80px 8px 12px; min-height: 70px; }
+      .mayor-portrait { width: 70px !important; height: 70px !important; right: 4px !important; }
+      .mayor-message { font-size: 11px !important; }
+      .mayor-name { font-size: 10px !important; }
+
+      /* ── Scrollable containers on iOS ── */
+      .content-panel,
+      #building-modal,
+      .inv-body,
+      .seal-shop-box,
+      .wb-box,
+      #lvup-box {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
 
       /* ── Modals ── */
       .inv-box {
@@ -1984,6 +2032,7 @@
       {% if logged_in %}
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
         <button id="help-btn" onclick="resetHelpTooltips();replayTutorial()" title="Help &amp; Tutorial">❓</button>
+        <button id="mobile-player-btn" class="mobile-player-btn" onclick="openMobilePlayerPanel()">🐧 <span id="mobile-player-name">{{ penguin['username'] }}</span></button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -8756,6 +8805,89 @@
       }
     })();
   });
+</script>
+
+<script>
+// ── MOBILE & iOS FIXES ────────────────────────────────────────────────────────
+
+// iOS viewport height custom property (fixes 100vh > visible area)
+function _setVH() {
+  document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+}
+_setVH();
+window.addEventListener('resize', _setVH);
+window.addEventListener('orientationchange', function() { setTimeout(_setVH, 150); });
+
+// iOS AudioContext — resume on first touch
+document.addEventListener('touchstart', function _iosAudio() {
+  if (window.GameSounds) {
+    try {
+      var ctx = GameSounds.getCtx ? GameSounds.getCtx() : null;
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+    } catch(e) {}
+  }
+  document.removeEventListener('touchstart', _iosAudio);
+}, { once: true, passive: true });
+
+// ── Mobile player panel ───────────────────────────────────────────────────────
+
+function openMobilePlayerPanel() {
+  var existing = document.getElementById('mobile-player-overlay');
+  if (existing) { existing.remove(); return; }
+
+  var overlay = document.createElement('div');
+  overlay.id = 'mobile-player-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#181820;z-index:80000;display:flex;flex-direction:column;overflow:hidden;';
+
+  var header = document.createElement('div');
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid #A86EFF;flex-shrink:0;';
+  header.innerHTML = '<div style="font-family:\'Pixelify Sans\',monospace;font-size:14px;color:#A86EFF;">PLAYER INFO</div>' +
+    '<button onclick="document.getElementById(\'mobile-player-overlay\').remove()" style="font-family:\'Pixelify Sans\',monospace;font-size:20px;color:#FF7FE5;background:none;border:none;cursor:pointer;padding:4px 12px;touch-action:manipulation;">✕</button>';
+  overlay.appendChild(header);
+
+  var tabBar = document.createElement('div');
+  tabBar.style.cssText = 'display:flex;flex-shrink:0;border-bottom:2px solid #252535;';
+  tabBar.innerHTML =
+    '<button data-mp-tab="penguin" style="flex:1;padding:12px 8px;font-family:\'Pixelify Sans\',monospace;font-size:12px;color:#A86EFF;background:#252535;border:none;border-bottom:2px solid #A86EFF;cursor:pointer;touch-action:manipulation;">🐧 PENGUIN</button>' +
+    '<button data-mp-tab="stats"   style="flex:1;padding:12px 8px;font-family:\'Pixelify Sans\',monospace;font-size:12px;color:#8888A8;background:transparent;border:none;cursor:pointer;touch-action:manipulation;">📊 STATS</button>';
+  overlay.appendChild(tabBar);
+
+  var content = document.createElement('div');
+  content.id = 'mobile-sidebar-content';
+  content.style.cssText = 'flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;';
+  overlay.appendChild(content);
+
+  document.body.appendChild(overlay);
+  _loadMobileTab('penguin');
+
+  tabBar.querySelectorAll('[data-mp-tab]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      tabBar.querySelectorAll('[data-mp-tab]').forEach(function(b) {
+        b.style.color = '#8888A8'; b.style.background = 'transparent'; b.style.borderBottom = 'none';
+      });
+      btn.style.color = '#A86EFF'; btn.style.background = '#252535'; btn.style.borderBottom = '2px solid #A86EFF';
+      _loadMobileTab(btn.getAttribute('data-mp-tab'));
+    });
+  });
+}
+
+function _loadMobileTab(tabName) {
+  var content = document.getElementById('mobile-sidebar-content');
+  if (!content) return;
+  var src = document.getElementById('sidebar-' + tabName);
+  if (src) {
+    content.innerHTML = src.innerHTML;
+  }
+}
+
+// Update mobile player name button when player data is available
+(function() {
+  var el = document.getElementById('mobile-player-name');
+  if (el && window.CURRENT_USER) {
+    var nameEl = document.getElementById('sidebar-penguin-name') || document.querySelector('.penguin-name');
+    if (nameEl) el.textContent = nameEl.textContent.trim() || window.CURRENT_USER;
+  }
+})();
 </script>
 
 <div id="sb-tooltip"></div>
