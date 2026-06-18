@@ -2075,8 +2075,7 @@
       <div class="sidebar-panel active" id="sidebar-penguin">
 
         <div class="penguin-display">
-          <img id="sidebar-penguin-img" src="/static/penguin_{{ penguin['penguin_shape'] or 'normal' }}_static.png" class="penguin-sprite" alt="Penguin"
-               onerror="this.outerHTML='<div class=penguin-placeholder>YOUR PENGUIN</div>'"/>
+          <canvas id="sidebar-penguin-canvas" width="72" height="72" class="penguin-sprite" style="image-rendering:pixelated;"></canvas>
           <div class="penguin-name">{{ penguin['username'] | upper }}</div>
           {% if penguin['prestige'] and penguin['prestige'] > 0 %}
           <div style="color:var(--pink);font-size:15px;">{{ '★' * penguin['prestige'] }} PRESTIGE</div>
@@ -8748,10 +8747,9 @@
 
   function _initPenguinColors() {
     const color = PLAYER_COLOR;
-    if (!color || color === '#1a1a1a') return;
-    // Sidebar penguin
-    const sidebarImg = document.getElementById('sidebar-penguin-img');
-    _applyPenguinColorToImg(sidebarImg, color);
+    // Sidebar penguin — canvas, always draw (handles default black too)
+    const sidebarCanvas = document.getElementById('sidebar-penguin-canvas');
+    if (sidebarCanvas) _drawPenguinOnCanvas(sidebarCanvas, color);
   }
 
   const _TICKER_COLORS = {
