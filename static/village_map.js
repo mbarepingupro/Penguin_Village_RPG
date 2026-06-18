@@ -1027,6 +1027,25 @@ function attachEvents() {
         document.addEventListener('mouseup', mouseUpHandler);
     });
 
+    // iOS Safari touch-to-click shim
+    let _touchStartX = null, _touchStartY = null;
+    canvas.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) {
+            _touchStartX = e.touches[0].clientX;
+            _touchStartY = e.touches[0].clientY;
+        }
+    }, { passive: true });
+    canvas.addEventListener('touchend', function(e) {
+        if (_touchStartX === null) return;
+        const t = e.changedTouches[0];
+        if (Math.abs(t.clientX - _touchStartX) < 12 && Math.abs(t.clientY - _touchStartY) < 12) {
+            const synth = { clientX: t.clientX, clientY: t.clientY };
+            _clickValid = true;
+            canvas.dispatchEvent(Object.assign(new MouseEvent('click', { bubbles: false }), synth));
+        }
+        _touchStartX = null; _touchStartY = null;
+    }, { passive: false });
+
     canvas.addEventListener('click', function (e) {
         if (!_clickValid) return;
 
