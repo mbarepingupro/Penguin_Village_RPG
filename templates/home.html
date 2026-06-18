@@ -1596,12 +1596,14 @@
     }
 
     @media (max-width: 768px) {
-      /* ── iOS viewport height fix ── */
-      body {
-        position: fixed;
-        width: 100%;
-        height: 100%;
+      /* ── iOS scroll prevention (no position:fixed — breaks overlays) ── */
+      html, body {
         overflow: hidden;
+        overscroll-behavior: none;
+        height: 100%;
+      }
+      /* Prevent rubber-band scroll on the game container instead */
+      .main {
         overscroll-behavior: none;
       }
 
@@ -2559,7 +2561,7 @@
       <div style="color:var(--white);font-size:17px;" id="dp-resource"></div>
     </div>
     <div style="margin-bottom:16px;" id="dp-milestones"></div>
-    <button id="dp-collect-btn" onclick="collectDailyStreak()" style="width:100%;background:var(--orange);border:2px solid #ffa500;color:var(--dark);font-size:17px;font-family:'Pixelify Sans',monospace;padding:10px;cursor:pointer;">COLLECT</button>
+    <button id="dp-collect-btn" onclick="collectDailyStreak()" style="width:100%;background:var(--orange);border:2px solid #ffa500;color:var(--dark);font-size:17px;font-family:'Pixelify Sans',monospace;padding:12px 10px;cursor:pointer;min-height:48px;touch-action:manipulation;">COLLECT</button>
   </div>
 </div>
 
