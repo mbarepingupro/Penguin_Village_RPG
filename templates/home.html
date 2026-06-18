@@ -4156,7 +4156,7 @@
 
     // Draw penguins on all canvases
     document.querySelectorAll('.rs-color-canvas').forEach(c => {
-      _drawRsPenguin(c, c.dataset.body, c.dataset.belly);
+      _drawPenguinOnCanvas(c, c.dataset.body);
     });
 
     // Update preview
@@ -4168,28 +4168,30 @@
 
   let _reshapeSelectedColor = 'classic_black';
 
-  function _drawRsPenguin(canvas, bodyColor, bellyColor, scale) {
-    const c = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
-    const sc = scale || 1;
-    c.clearRect(0, 0, W, H);
-    const cx = W / 2, cy = H / 2 + 4 * sc;
-    // Body
-    c.beginPath(); c.ellipse(cx, cy, 22*sc, 28*sc, 0, 0, Math.PI*2); c.fillStyle = bodyColor; c.fill();
-    // Belly
-    c.beginPath(); c.ellipse(cx, cy+4*sc, 14*sc, 18*sc, 0, 0, Math.PI*2); c.fillStyle = bellyColor; c.fill();
-    // Head
-    c.beginPath(); c.arc(cx, cy-24*sc, 16*sc, 0, Math.PI*2); c.fillStyle = bodyColor; c.fill();
-    // Eyes
-    c.beginPath(); c.arc(cx-6*sc, cy-26*sc, 4*sc, 0, Math.PI*2); c.fillStyle = '#fff'; c.fill();
-    c.beginPath(); c.arc(cx+6*sc, cy-26*sc, 4*sc, 0, Math.PI*2); c.fillStyle = '#fff'; c.fill();
-    c.beginPath(); c.arc(cx-5*sc, cy-26*sc, 2*sc, 0, Math.PI*2); c.fillStyle = '#000'; c.fill();
-    c.beginPath(); c.arc(cx+7*sc, cy-26*sc, 2*sc, 0, Math.PI*2); c.fillStyle = '#000'; c.fill();
-    // Beak
-    c.beginPath(); c.moveTo(cx, cy-21*sc); c.lineTo(cx-3*sc, cy-16*sc); c.lineTo(cx+3*sc, cy-16*sc); c.closePath(); c.fillStyle = '#FF8C00'; c.fill();
-    // Feet
-    c.beginPath(); c.ellipse(cx-8*sc, cy+27*sc, 8*sc, 4*sc, -0.3, 0, Math.PI*2); c.fillStyle = '#FF8C00'; c.fill();
-    c.beginPath(); c.ellipse(cx+8*sc, cy+27*sc, 8*sc, 4*sc, 0.3, 0, Math.PI*2); c.fillStyle = '#FF8C00'; c.fill();
+  const _penguinSpriteCache = {};
+  function _drawPenguinOnCanvas(canvas, bodyColor, shape) {
+    shape = shape || (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
+    const src = '/static/penguin_' + shape + '_static.png';
+    function draw(img) {
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let spriteToDraw = img;
+      if (bodyColor && bodyColor !== '#1a1a1a' && typeof recolorPenguin === 'function') {
+        spriteToDraw = recolorPenguin(img, bodyColor);
+      }
+      const scale = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight) * 0.85;
+      const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+      ctx.drawImage(spriteToDraw, 0, 0, img.naturalWidth, img.naturalHeight,
+        (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+    }
+    const cached = _penguinSpriteCache[src];
+    if (cached && cached.complete && cached.naturalWidth > 0) { draw(cached); return; }
+    const img = cached || new Image();
+    _penguinSpriteCache[src] = img;
+    img.onload = () => draw(img);
+    if (!img.src) img.src = src;
+    else if (img.complete && img.naturalWidth > 0) draw(img);
   }
 
   function reshapeSelectColor(cid) {
@@ -4204,13 +4206,13 @@
     });
     const pal = (window._rsColors || {})[cid];
     const previewCanvas = document.getElementById('rs-preview-canvas');
-    if (pal && previewCanvas) _drawRsPenguin(previewCanvas, pal.body, pal.belly, 2);
+    if (pal && previewCanvas) _drawPenguinOnCanvas(previewCanvas, pal.body);
   }
 
   function _updateReshapePreview(starters, locked, name) {
     const pal = starters[_reshapeSelectedColor] || locked[_reshapeSelectedColor];
     const previewCanvas = document.getElementById('rs-preview-canvas');
-    if (pal && previewCanvas) _drawRsPenguin(previewCanvas, pal.body, pal.belly, 2);
+    if (pal && previewCanvas) _drawPenguinOnCanvas(previewCanvas, pal.body);
     const nameEl = document.getElementById('rs-preview-name');
     if (nameEl) nameEl.textContent = (name || CURRENT_USER).toUpperCase();
   }
