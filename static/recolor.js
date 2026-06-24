@@ -20,11 +20,10 @@ function recolorPenguin(sourceImage, targetColor) {
         const r = pixels[i], g = pixels[i+1], b = pixels[i+2], a = pixels[i+3];
         if (a === 0) continue;
         const brightness = (r + g + b) / 3;
-        if (brightness > 180) continue;          // belly / white areas
+        if (brightness > 180) continue;             // belly / white areas
         if (r > 150 && g > 80 && g < 180 && b < 80) continue; // beak / feet (orange)
-        if (brightness < 8) continue;            // hard outline — keep black
-        // Scale formula: map body brightness range to vivid colors
-        const scale = Math.min(2, brightness / 40);
+        // Body pixels can be pure black — use Math.max so they still get colored
+        const scale = Math.max(0.3, brightness / 80);
         pixels[i]   = Math.min(255, Math.floor(tr * scale));
         pixels[i+1] = Math.min(255, Math.floor(tg * scale));
         pixels[i+2] = Math.min(255, Math.floor(tb * scale));
