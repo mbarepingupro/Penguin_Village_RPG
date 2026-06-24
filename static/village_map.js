@@ -14,6 +14,7 @@ const SHAPE_CONFIG = {
     "normal": { frameWidth: 32, frameHeight: 40, stripFile: "penguin_normal.png", staticFile: "penguin_normal_static.png" },
     "tall":   { frameWidth: 32, frameHeight: 50, stripFile: "penguin_tall.png",   staticFile: "penguin_tall_static.png"   },
 };
+window.SHAPE_CONFIG = SHAPE_CONFIG;
 
 const PENGUIN_FRAME_COUNT  = 2;
 const PENGUIN_ANIM_SPEED   = 400; // ms per frame
