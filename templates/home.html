@@ -3712,7 +3712,7 @@
     prev.className = 'show';
     const bqCanvas = document.getElementById('bq-preview-canvas');
     const shape = PLAYER_SHAPE || 'normal';
-    const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: 40 };
+    const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: shape === 'tall' ? 50 : 40 };
     _drawPenguinOnCanvas(bqCanvas, PLAYER_COLOR, shape, () => {
       const wearPath = `/static/penguin_wearing/${shape}/${_slotFolder(item.slot)}/${item.id}.png`;
       const scale = Math.min(bqCanvas.width / cfg.frameWidth, bqCanvas.height / cfg.frameHeight) * 0.85;
@@ -4225,7 +4225,7 @@
   function _drawSidebarWornItems(canvas) {
     if (!_cosmeticCache || !_cosmeticCache.length) return;
     const shape = (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
-    const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: 40 };
+    const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: shape === 'tall' ? 50 : 40 };
     const scale = Math.min(canvas.width / cfg.frameWidth, canvas.height / cfg.frameHeight) * 0.85;
     const dw = cfg.frameWidth * scale, dh = cfg.frameHeight * scale;
     const dx = (canvas.width - dw) / 2, dy = (canvas.height - dh) / 2;
