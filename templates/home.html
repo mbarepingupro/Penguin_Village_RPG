@@ -4174,7 +4174,7 @@
   let _reshapeSelectedColor = 'classic_black';
 
   const _penguinSpriteCache = {};
-  function _drawPenguinOnCanvas(canvas, bodyColor, shape) {
+  function _drawPenguinOnCanvas(canvas, bodyColor, shape, onDrawn) {
     shape = shape || (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
     const src = '/static/penguin_' + shape + '_static.png';
     function draw(img) {
@@ -4189,6 +4189,7 @@
       const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
       ctx.drawImage(spriteToDraw, 0, 0, img.naturalWidth, img.naturalHeight,
         (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+      if (onDrawn) onDrawn();
     }
     const cached = _penguinSpriteCache[src];
     if (cached && cached.complete && cached.naturalWidth > 0) { draw(cached); return; }
@@ -4197,6 +4198,43 @@
     img.onload = () => draw(img);
     if (!img.src) img.src = src;
     else if (img.complete && img.naturalWidth > 0) draw(img);
+  }
+
+  // Layer worn cosmetics on top of the base penguin in a canvas preview.
+  // Uses frame 0 of each walk strip — same pixel area as the static sprite.
+  function _drawSidebarWornItems(canvas) {
+    if (!_cosmeticCache || !_cosmeticCache.length) return;
+    const shape = (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
+    const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: 40 };
+    const scale = Math.min(canvas.width / cfg.frameWidth, canvas.height / cfg.frameHeight) * 0.85;
+    const dw = cfg.frameWidth * scale, dh = cfg.frameHeight * scale;
+    const dx = (canvas.width - dw) / 2, dy = (canvas.height - dh) / 2;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    const wornByArea = {};
+    _cosmeticCache.forEach(c => {
+      if (!c.worn) return;
+      const area = _SLOT_TO_AREA[c.slot];
+      if (area) wornByArea[area] = c;
+    });
+    for (const area of ['body', 'feet', 'hand', 'head']) {
+      const item = wornByArea[area];
+      if (!item) continue;
+      const folder = _slotFolder(item.slot);
+      const src = `/static/penguin_wearing/${shape}/${folder}/${item.id}.png`;
+      const cached = _penguinSpriteCache[src];
+      if (cached && cached.complete && cached.naturalWidth > 0) {
+        ctx.drawImage(cached, 0, 0, cfg.frameWidth, cfg.frameHeight, dx, dy, dw, dh);
+      } else {
+        const img = cached || new Image();
+        _penguinSpriteCache[src] = img;
+        const _dx = dx, _dy = dy, _dw = dw, _dh = dh;
+        const _fw = cfg.frameWidth, _fh = cfg.frameHeight;
+        img.onload = () => ctx.drawImage(img, 0, 0, _fw, _fh, _dx, _dy, _dw, _dh);
+        if (!img.src) img.src = src;
+        else if (img.complete && img.naturalWidth > 0) ctx.drawImage(img, 0, 0, cfg.frameWidth, cfg.frameHeight, dx, dy, dw, dh);
+      }
+    }
   }
 
   function reshapeSelectColor(cid) {
@@ -5210,6 +5248,7 @@
         if (window.GameSounds) GameSounds.wear();
         renderInventory();
         await loadWardrobe();
+        _initPenguinColors();
       } else {
         showToast(data.message || 'Error.', 'err');
       }
@@ -5232,6 +5271,7 @@
         if (window.GameSounds) GameSounds.unwear();
         renderInventory();
         await loadWardrobe();
+        _initPenguinColors();
       } else {
         showToast(data.message || 'Error.', 'err');
       }
@@ -8755,7 +8795,8 @@
     const color = PLAYER_COLOR;
     // Sidebar penguin — canvas, always draw (handles default black too)
     const sidebarCanvas = document.getElementById('sidebar-penguin-canvas');
-    if (sidebarCanvas) _drawPenguinOnCanvas(sidebarCanvas, color);
+    if (sidebarCanvas) _drawPenguinOnCanvas(sidebarCanvas, color, null,
+      () => _drawSidebarWornItems(sidebarCanvas));
   }
 
   const _TICKER_COLORS = {

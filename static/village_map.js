@@ -500,8 +500,24 @@ function drawPenguin(sx, sy, penguin, isBehind) {
         const supportsFilter = typeof ctx.filter !== 'undefined';
         ctx.save();
         ctx.globalAlpha = 0.35;
+        ctx.imageSmoothingEnabled = false;
         if (supportsFilter) ctx.filter = 'brightness(0.2) saturate(0)';
         _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight);
+        // Layer worn items in the same silhouette pass
+        if (penguin.worn_items) {
+            const shape2 = penguin.penguin_shape || 'normal';
+            const cfg2   = SHAPE_CONFIG[shape2] || SHAPE_CONFIG['normal'];
+            const frameX2 = (penguin.animFrame || 0) * cfg2.frameWidth;
+            for (const area of ['body', 'feet', 'hand', 'head']) {
+                const itemId = penguin.worn_items[area];
+                if (!itemId) continue;
+                const folder = _AREA_FOLDER[area] || area;
+                const wornSprite = SpriteLoader.get(`/static/penguin_wearing/${shape2}/${folder}/${itemId}.png`)
+                                || SpriteLoader.get(`/static/penguin_wearing/${folder}/${itemId}.png`);
+                if (!wornSprite) continue;
+                ctx.drawImage(wornSprite, frameX2, 0, cfg2.frameWidth, cfg2.frameHeight, drawX, drawY, drawWidth, drawHeight);
+            }
+        }
         if (supportsFilter) ctx.filter = 'none';
         ctx.restore();
 
@@ -533,14 +549,15 @@ function drawPenguin(sx, sy, penguin, isBehind) {
 
     _drawPenguinSprite(sx, sy, penguin, drawX, drawY, drawWidth, drawHeight);
 
-    // Layer worn item sprites (body first so head renders on top)
+    // Layer worn item sprites using the current animation frame
     if (penguin.worn_items) {
         const shape = penguin.penguin_shape || 'normal';
+        const cfg   = SHAPE_CONFIG[shape] || SHAPE_CONFIG['normal'];
+        const frameX = (penguin.animFrame || 0) * cfg.frameWidth;
         const DRAW_ORDER = ['body', 'feet', 'hand', 'head'];
         for (const area of DRAW_ORDER) {
             const itemId = penguin.worn_items[area];
             if (!itemId) continue;
-            // Try shape-specific path first, then legacy flat path
             const folder    = _AREA_FOLDER[area] || area;
             const shapedUrl = `/static/penguin_wearing/${shape}/${folder}/${itemId}.png`;
             const legacyUrl = `/static/penguin_wearing/${folder}/${itemId}.png`;
@@ -555,7 +572,7 @@ function drawPenguin(sx, sy, penguin, isBehind) {
                 ctx.translate(sx * 2, 0);
                 ctx.scale(-1, 1);
             }
-            ctx.drawImage(wornSprite, drawX, drawY, drawWidth, drawHeight);
+            ctx.drawImage(wornSprite, frameX, 0, cfg.frameWidth, cfg.frameHeight, drawX, drawY, drawWidth, drawHeight);
             ctx.restore();
         }
     }
