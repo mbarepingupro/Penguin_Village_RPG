@@ -3584,6 +3584,12 @@
 
   // ── BOUTIQUE ──────────────────────────────────────────────────────────────
 
+  const _SLOT_FOLDER = {
+    hat: 'hats', helmet: 'helmets', outfit: 'outfits', armor: 'armor',
+    footwear: 'footwear', boots: 'footwear', accessory: 'accessories', weapon: 'weapons',
+  };
+  function _slotFolder(slot) { return _SLOT_FOLDER[slot] || slot; }
+
   let _bqData = null;
   let _bqActiveTab = 'hats';
   let _bqFurnData  = null;
@@ -3648,7 +3654,7 @@
 
       html += `<div class="${cardClass}">`;
       if (isDragon) html += `<span class="bq-legendary-tag">👑 LEGENDARY</span>`;
-      html += `<img src="/static/items/${item.slot}/${item.id}.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display='none'">`;
+      html += `<img src="/static/items/${_slotFolder(item.slot)}/${item.id}.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display='none'">`;
       html += `<div class="bq-item-name${isExpensive ? ' expensive' : ''}">${item.name}</div>`;
       html += `<div class="bq-price${isExpensive ? ' expensive' : ''}" style="color:${tierColor};">🪙 ${item.price.toLocaleString()}</div>`;
       html += `<div class="bq-btn-row">`;
@@ -3692,7 +3698,7 @@
       <div class="bq-preview-penguin" style="border:3px solid ${tierColor};padding:10px;">
         <div class="bq-preview-slot-label">[${slotLabel}: ${item.name}]</div>
         <img id="bq-preview-penguin-img" src="/static/penguin_${PLAYER_SHAPE}_static.png" alt="penguin" onerror="this.style.display='none'">
-        <img src="/static/penguin_wearing/${item.slot}/${item.id}.png" alt=""
+        <img src="/static/penguin_wearing/${PLAYER_SHAPE}/${_slotFolder(item.slot)}/${item.id}.png" alt=""
              style="position:absolute;top:10px;left:10px;width:80px;height:80px;image-rendering:pixelated;"
              onerror="this.style.display='none'">
       </div>
@@ -8443,7 +8449,7 @@
       div.className = 'bq-card';
       div.style.cssText = 'border:2px solid #FF7FE5;background:#1a0d18;position:relative;';
       div.innerHTML = '<span style="position:absolute;top:4px;right:4px;font-size:11px;color:#FF7FE5;background:#2a1a2a;padding:2px 4px;border-radius:3px;">🎓 GIFT</span>' +
-        '<img src="/static/items/hat/party_hat.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display=\'none\'">' +
+        '<img src="/static/items/hats/party_hat.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display=\'none\'">' +
         '<div class="bq-item-name">Party Hat</div>' +
         '<div class="bq-price" style="color:#FF7FE5;">🎁 FREE!</div>' +
         '<div class="bq-btn-row"><button id="tutorial-boutique-btn" class="bq-btn buy" style="background:#FF7FE5;color:#000;border-color:#FF7FE5;">CLAIM FREE!</button></div>';

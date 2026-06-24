@@ -7,6 +7,9 @@ const GRID_SIZE = 40;
 
 const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5, TILE_EXPAND = 6;
 
+// Maps visual area names (from worn_items API) to sprite folder names on disk
+const _AREA_FOLDER = { head: 'hats', body: 'outfits', feet: 'footwear', hand: 'accessories' };
+
 const SHAPE_CONFIG = {
     "normal": { frameWidth: 32, frameHeight: 40, stripFile: "penguin_normal.png", staticFile: "penguin_normal_static.png" },
     "tall":   { frameWidth: 32, frameHeight: 50, stripFile: "penguin_tall.png",   staticFile: "penguin_tall_static.png"   },
@@ -538,8 +541,9 @@ function drawPenguin(sx, sy, penguin, isBehind) {
             const itemId = penguin.worn_items[area];
             if (!itemId) continue;
             // Try shape-specific path first, then legacy flat path
-            const shapedUrl = `/static/penguin_wearing/${shape}/${area}/${itemId}.png`;
-            const legacyUrl = `/static/penguin_wearing/${area}/${itemId}.png`;
+            const folder    = _AREA_FOLDER[area] || area;
+            const shapedUrl = `/static/penguin_wearing/${shape}/${folder}/${itemId}.png`;
+            const legacyUrl = `/static/penguin_wearing/${folder}/${itemId}.png`;
             if (!SpriteLoader.get(shapedUrl) && !SpriteLoader.get(legacyUrl)) {
                 SpriteLoader.load(shapedUrl).then(img => { if (!img) SpriteLoader.load(legacyUrl); });
             }
