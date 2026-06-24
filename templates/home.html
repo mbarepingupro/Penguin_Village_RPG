@@ -555,7 +555,7 @@
     #bq-preview { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.85); z-index:10; align-items:center; justify-content:center; flex-direction:column; gap:12px; padding:20px; }
     #bq-preview.show { display:flex; }
     .bq-preview-penguin { position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center; }
-    .bq-preview-penguin img { width:80px; height:80px; image-rendering:pixelated; }
+    .bq-preview-penguin img, .bq-preview-penguin canvas { width:80px; height:100px; image-rendering:pixelated; }
     .bq-preview-slot-label { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:13px; color:#fff; white-space:nowrap; font-family:'Pixelify Sans',monospace; }
 
 
@@ -3697,10 +3697,7 @@
     prev.innerHTML = `
       <div class="bq-preview-penguin" style="border:3px solid ${tierColor};padding:10px;">
         <div class="bq-preview-slot-label">[${slotLabel}: ${item.name}]</div>
-        <img id="bq-preview-penguin-img" src="/static/penguin_${PLAYER_SHAPE}_static.png" alt="penguin" onerror="this.style.display='none'">
-        <img src="/static/penguin_wearing/${PLAYER_SHAPE}/${_slotFolder(item.slot)}/${item.id}.png" alt=""
-             style="position:absolute;top:10px;left:10px;width:80px;height:80px;image-rendering:pixelated;"
-             onerror="this.style.display='none'">
+        <canvas id="bq-preview-canvas" width="80" height="100" style="image-rendering:pixelated;display:block;"></canvas>
       </div>
       <div style="color:#fff;font-size:17px;text-align:center;">${item.name}</div>
       <div style="color:#B8B8D0;font-size:13px;text-align:center;">Slot: ${slotLabel}</div>
@@ -3713,7 +3710,27 @@
         <button class="bq-btn preview" style="flex:none;width:100px;" onclick="bqClosePreview()">CLOSE</button>
       </div>`;
     prev.className = 'show';
-    _applyPenguinColorToImg(document.getElementById('bq-preview-penguin-img'), PLAYER_COLOR);
+    const bqCanvas = document.getElementById('bq-preview-canvas');
+    const shape = PLAYER_SHAPE || 'normal';
+    const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: 40 };
+    _drawPenguinOnCanvas(bqCanvas, PLAYER_COLOR, shape, () => {
+      const wearPath = `/static/penguin_wearing/${shape}/${_slotFolder(item.slot)}/${item.id}.png`;
+      const scale = Math.min(bqCanvas.width / cfg.frameWidth, bqCanvas.height / cfg.frameHeight) * 0.85;
+      const dw = cfg.frameWidth * scale, dh = cfg.frameHeight * scale;
+      const dx = (bqCanvas.width - dw) / 2, dy = (bqCanvas.height - dh) / 2;
+      const ctx = bqCanvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      function drawWear(wearImg) {
+        ctx.drawImage(wearImg, 0, 0, cfg.frameWidth, cfg.frameHeight, dx, dy, dw, dh);
+      }
+      const wearCached = _penguinSpriteCache[wearPath];
+      if (wearCached && wearCached.complete && wearCached.naturalWidth > 0) { drawWear(wearCached); return; }
+      const wearImg = wearCached || new Image();
+      _penguinSpriteCache[wearPath] = wearImg;
+      wearImg.onload = () => drawWear(wearImg);
+      if (!wearImg.src) wearImg.src = wearPath;
+      else if (wearImg.complete && wearImg.naturalWidth > 0) drawWear(wearImg);
+    });
   }
 
   function bqClosePreview() {
@@ -4185,9 +4202,12 @@
       if (bodyColor && bodyColor !== '#1a1a1a' && typeof recolorPenguin === 'function') {
         spriteToDraw = recolorPenguin(img, bodyColor);
       }
-      const scale = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight) * 0.85;
-      const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
-      ctx.drawImage(spriteToDraw, 0, 0, img.naturalWidth, img.naturalHeight,
+      const cfg  = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: shape === 'tall' ? 50 : 40 };
+      const srcW = Math.min(cfg.frameWidth,  img.naturalWidth);
+      const srcH = Math.min(cfg.frameHeight, img.naturalHeight);
+      const scale = Math.min(canvas.width / srcW, canvas.height / srcH) * 0.85;
+      const dw = srcW * scale, dh = srcH * scale;
+      ctx.drawImage(spriteToDraw, 0, 0, srcW, srcH,
         (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
       if (onDrawn) onDrawn();
     }
