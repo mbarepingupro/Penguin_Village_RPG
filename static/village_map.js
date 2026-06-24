@@ -8,8 +8,8 @@ const GRID_SIZE = 40;
 const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5, TILE_EXPAND = 6;
 
 const SHAPE_CONFIG = {
-    "normal": { frameWidth: 32, frameHeight: 32, stripFile: "penguin_normal.png", staticFile: "penguin_normal_static.png" },
-    "tall":   { frameWidth: 32, frameHeight: 40, stripFile: "penguin_tall.png",   staticFile: "penguin_tall_static.png"   },
+    "normal": { frameWidth: 32, frameHeight: 40, stripFile: "penguin_normal.png", staticFile: "penguin_normal_static.png" },
+    "tall":   { frameWidth: 32, frameHeight: 50, stripFile: "penguin_tall.png",   staticFile: "penguin_tall_static.png"   },
 };
 
 const PENGUIN_FRAME_COUNT  = 2;
