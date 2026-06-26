@@ -314,9 +314,19 @@ function drawBuilding(id, bdef, level) {
     // Sprite override: draw PNG if loaded, skip placeholder block
     const sprite = SpriteLoader.get(`/static/buildings/${id}.png`);
     if (sprite) {
-        const anchorX = (lPt.x + bPt.x) / 2;
-        const anchorY = Math.max(lPt.y, bPt.y) + TILE_H / 2;
-        ctx.drawImage(sprite, anchorX - sprite.width / 2, anchorY - sprite.height, sprite.width, sprite.height);
+        // Scale sprite to match the isometric footprint width; anchor bottom-center
+        // to the raw (no TILE_H/2 offset) front corner so it sits on the tiles.
+        const footprintWidth = rPt.x - lPt.x;
+        const rawBottom = gs(gx + gw, gy + gh);
+        const frontX    = (lPt.x + rPt.x) / 2;
+        const frontY    = rawBottom.y;
+        const spriteScale = footprintWidth / sprite.width;
+        const drawWidth   = sprite.width  * spriteScale;
+        const drawHeight  = sprite.height * spriteScale;
+        const drawX = frontX - drawWidth  / 2;
+        const drawY = frontY - drawHeight;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sprite, drawX, drawY, drawWidth, drawHeight);
     } else {
         const color = cfg.color;
 
