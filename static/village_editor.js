@@ -395,9 +395,9 @@ function render() {
     const drawnBuildings = new Set();
 
     // Painter's algorithm: front-to-back diagonal order
-    for (let diag = 0; diag <= 38; diag++) {
-        const xiMin = Math.max(0, diag - 19);
-        const xiMax = Math.min(diag, 19);
+    for (let diag = 0; diag <= (GRID_SIZE - 1) * 2; diag++) {
+        const xiMin = Math.max(0, diag - (GRID_SIZE - 1));
+        const xiMax = Math.min(diag, GRID_SIZE - 1);
         for (let xi = xiMin; xi <= xiMax; xi++) {
             const x = xi;
             const y = diag - xi;
