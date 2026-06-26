@@ -26,7 +26,7 @@ const TILE_NAMES = {
     6: "EXPANSION",
 };
 
-const MIN_ZOOM = 0.5, MAX_ZOOM = 2.0, ZOOM_STEP = 0.1;
+const MIN_ZOOM = 0.15, MAX_ZOOM = 3.0, ZOOM_STEP = 0.1;
 
 const BUILDING_DEFS = {
     hotel:         { name: "PENGUIN HOTEL",      color: "#C0392B", width: 3, height: 3 },
@@ -79,15 +79,26 @@ function screenToGrid(sx, sy) {
     return { x: gx, y: gy };
 }
 
+// Returns the zoom level that fits the full 40×40 isometric grid in the canvas.
+// Isometric world extents: X spans ±(GRID_SIZE-1)*TILE_W/2, Y spans 0..(GRID_SIZE-1)*TILE_H.
+function calculateFitZoom() {
+    if (!canvas || !canvas.width) return 0.4;
+    const worldW = (GRID_SIZE - 1) * TILE_W;   // total X extent (left corner to right corner)
+    const worldH = (GRID_SIZE - 1) * TILE_H;   // total Y extent (top corner to bottom corner)
+    const zoomW  = (canvas.width  * 0.9) / worldW;
+    const zoomH  = (canvas.height * 0.9) / worldH;
+    return Math.max(MIN_ZOOM, Math.min(zoomW, zoomH));
+}
+
 function initCamera() {
-    camX = canvas.width / 2;
-    // Center the grid vertically. Grid spans world-y −16 to 624 (height 640 px
-    // at zoom 1). Grid center = (GRID_SIZE-1) * TILE_H/2 = 19*16 = 304.
-    camY = canvas.height / 2 - (GRID_SIZE - 1) * (TILE_H / 2);
+    zoomLevel = calculateFitZoom();
+    // Isometric grid center: world X = 0, world Y = (GRID_SIZE-1)*TILE_H/2
+    const gridCenterY = (GRID_SIZE - 1) * (TILE_H / 2);
+    camX = canvas.width  / 2;
+    camY = canvas.height / 2 - gridCenterY * zoomLevel;
 }
 
 function resetView() {
-    zoomLevel = 1.0;
     initCamera();
 }
 
@@ -992,6 +1003,7 @@ async function init() {
     updateInfoPanel();
     rebuildBuildingsList();
     updateToolbarActive();
+    resetView(); // fit the full grid after layout is applied and canvas is sized
 
     // Start render loop
     requestAnimationFrame(render);
