@@ -132,6 +132,29 @@ function darken(hex, amt) {
     return toHex(r - amt, g - amt, b - amt);
 }
 
+// ── SPRITE LOADER ────────────────────────────────────────────────────────────
+const EditorSprites = {
+    cache: {},
+    load(path) {
+        if (this.cache[path] !== undefined) return Promise.resolve(this.cache[path]);
+        return new Promise(resolve => {
+            const img = new Image();
+            img.onload  = () => { this.cache[path] = img;  resolve(img); };
+            img.onerror = () => { this.cache[path] = null; resolve(null); };
+            img.src = path;
+        });
+    },
+    get(path) { return this.cache[path] || null; },
+};
+
+async function preloadSprites() {
+    const loads = BUILDING_KEYS.map(id => EditorSprites.load(`/static/buildings/${id}.png`));
+    for (const name of ['snow', 'path', 'water', 'tree', 'fence']) {
+        loads.push(EditorSprites.load(`/static/tiles/${name}.png`));
+    }
+    await Promise.all(loads);
+}
+
 // ── GRID INIT ────────────────────────────────────────────────────────────────
 function initGrid() {
     grid = [];
@@ -177,18 +200,29 @@ function drawDiamondPath(sx, sy) {
     ctx.closePath();
 }
 
-function drawTile(sx, sy, color, outlineColor, isHover) {
-    drawDiamondPath(sx, sy);
-    ctx.fillStyle = color;
-    ctx.fill();
+const _TILE_SPRITE = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
+
+function drawTile(sx, sy, tileType, isHover) {
+    const spriteName = _TILE_SPRITE[tileType];
+    const sprite = spriteName ? EditorSprites.get(`/static/tiles/${spriteName}.png`) : null;
+
+    if (sprite) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sprite, sx - TILE_W / 2, sy - TILE_H / 2, TILE_W, TILE_H);
+    } else {
+        const color = TILE_COLORS[tileType] || TILE_COLORS[0];
+        drawDiamondPath(sx, sy);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.3)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
 
     if (isHover) {
+        drawDiamondPath(sx, sy);
         ctx.strokeStyle = "#FF7FE5";
         ctx.lineWidth = 2;
-        ctx.stroke();
-    } else {
-        ctx.strokeStyle = outlineColor || "rgba(0,0,0,0.3)";
-        ctx.lineWidth = 1;
         ctx.stroke();
     }
 }
@@ -212,6 +246,23 @@ function drawBuilding(key, bdef) {
     const BOX_H = 32 + bdef.width * 6;
     const color = def.color;
 
+    // Try PNG sprite — same anchor logic as village_map.js
+    const sprite = EditorSprites.get(`/static/buildings/${key}.png`);
+    if (sprite) {
+        const footprintWidth = rPt.x - lPt.x;
+        const frontX    = (lPt.x + rPt.x) / 2;
+        // gridToScreen gives the top vertex of a diamond; +TILE_H/2 = visual bottom
+        const rawBottom = gs(gx + gw, gy + gh);
+        const frontY    = rawBottom.y + TILE_H / 2;
+        const spriteScale = footprintWidth / sprite.width;
+        const drawWidth   = sprite.width  * spriteScale;
+        const drawHeight  = sprite.height * spriteScale;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sprite, frontX - drawWidth / 2, frontY - drawHeight, drawWidth, drawHeight);
+        return;
+    }
+
+    // Fallback: colored 3D block
     // Left face
     ctx.beginPath();
     ctx.moveTo(lPt.x, lPt.y + BOX_H);
@@ -341,8 +392,7 @@ function render() {
             const isBuildingTile = buildingTileSet.has(x + ',' + y);
 
             // Draw base tile
-            const tileColor = TILE_COLORS[tileType] || TILE_COLORS[0];
-            drawTile(sx, sy, tileColor, "rgba(0,0,0,0.3)", isHover && !isBuildingTile);
+            drawTile(sx, sy, tileType, isHover && !isBuildingTile);
 
             // Path preview overlay
             if (showPaths && !isBuildingTile) {
@@ -917,6 +967,7 @@ async function init() {
     setupToolbar();
     setupBeforeUnload();
     loadFont();
+    preloadSprites(); // fire-and-forget; render loop picks up sprites as they load
 
     // Try to load existing layout
     try {
