@@ -22,41 +22,38 @@
       color: #FFFFFF;
       font-family: 'Silkscreen', monospace;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     /* ── TOOLBAR ── */
     #toolbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 56px;
-      background: #2E2E2E;
+      height: auto;
+      background: #181820;
       border-bottom: 2px solid #A86EFF;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      padding: 0 10px;
+      padding: 4px 8px;
       gap: 4px;
-      z-index: 100;
+      flex-shrink: 0;
       overflow-x: auto;
-      overflow-y: hidden;
-      white-space: nowrap;
     }
 
     #toolbar::-webkit-scrollbar { height: 4px; }
-    #toolbar::-webkit-scrollbar-track { background: #2E2E2E; }
+    #toolbar::-webkit-scrollbar-track { background: #181820; }
     #toolbar::-webkit-scrollbar-thumb { background: #A86EFF; }
 
     .toolbar-btn {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 5px 8px;
-      background: #2E2E2E;
-      border: 2px solid #A86EFF;
-      color: #FFFFFF;
+      gap: 4px;
+      padding: 4px 8px;
+      background: transparent;
+      border: 1px solid #3A3A50;
+      color: #B8B8D0;
       font-family: 'Silkscreen', monospace;
-      font-size: 15px;
+      font-size: 10px;
       cursor: pointer;
       white-space: nowrap;
       flex-shrink: 0;
@@ -65,12 +62,13 @@
     }
 
     .toolbar-btn:hover {
-      border-color: #FF7FE5;
+      border-color: #A86EFF;
     }
 
     .toolbar-btn.active {
-      background: #A86EFF;
-      color: #1C1C1C;
+      border-color: #A86EFF;
+      color: #A86EFF;
+      background: #252535;
     }
 
     .toolbar-btn.active:hover {
@@ -79,26 +77,28 @@
 
     .tile-swatch {
       display: inline-block;
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       border: 1px solid rgba(255,255,255,0.3);
       flex-shrink: 0;
     }
 
     .toolbar-sep {
-      color: #A86EFF;
-      font-size: 23px;
-      padding: 0 4px;
+      color: #3A3A50;
+      font-size: 16px;
+      padding: 0 2px;
       flex-shrink: 0;
       user-select: none;
     }
 
     #btn-save.dirty {
       border-color: #4aff6b;
+      color: #4aff6b;
     }
 
     #btn-reset {
       border-color: #FF4444;
+      color: #FF4444;
     }
 
     #btn-reset:hover {
@@ -108,7 +108,7 @@
     #coord-display {
       margin-left: auto;
       font-family: 'Silkscreen', monospace;
-      font-size: 15px;
+      font-size: 10px;
       color: #888888;
       flex-shrink: 0;
       padding-left: 12px;
@@ -116,12 +116,10 @@
 
     /* ── MAIN AREA ── */
     #main-area {
-      position: fixed;
-      top: 56px;
-      bottom: 36px;
-      left: 0;
-      right: 0;
+      flex: 1;
+      position: relative;
       display: flex;
+      min-height: 0;
     }
 
     /* ── CANVAS WRAPPER ── */
@@ -270,31 +268,26 @@
 
     /* ── INFO PANEL ── */
     #info-panel {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 36px;
+      height: auto;
       background: #2E2E2E;
       border-top: 2px solid #A86EFF;
       display: flex;
       align-items: center;
-      padding: 0 12px;
-      font-size: 13px;
-      color: #CCCCCC;
-      z-index: 100;
+      padding: 4px 8px;
+      flex-shrink: 0;
       gap: 0;
     }
 
     #info-stats {
       font-family: 'Silkscreen', monospace;
-      font-size: 13px;
+      font-size: 10px;
       color: #CCCCCC;
     }
 
     #info-all-placed {
       color: #4aff6b;
       margin-left: 8px;
+      font-size: 10px;
     }
   </style>
 </head>

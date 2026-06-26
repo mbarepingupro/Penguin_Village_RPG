@@ -617,7 +617,7 @@
       background: #181820;
     }
     .inv-preview-penguin { margin-bottom: 10px; }
-    .inv-preview-penguin img { width: 64px; height: 64px; image-rendering: pixelated; }
+    .inv-preview-penguin canvas { width: 80px; height: 100px; image-rendering: pixelated; }
     .inv-preview-label { color: #A86EFF; font-size: 15px; margin-bottom: 14px; text-align: center; }
     .inv-preview-legend { width: 100%; margin-top: auto; }
     .inv-legend-row {
@@ -2622,7 +2622,7 @@
     <!-- LEFT: penguin preview + legend -->
     <div class="inv-col-left">
       <div class="inv-preview-penguin">
-        <img src="/static/penguin_{% if logged_in %}{{ penguin['penguin_shape'] or 'normal' }}{% else %}normal{% endif %}_static.png" alt="Your penguin">
+        <canvas id="inv-preview-canvas" width="80" height="100" style="image-rendering:pixelated;"></canvas>
       </div>
       <div class="inv-preview-label">📦 INVENTORY</div>
       <hr class="inv-legend-sep">
@@ -4257,6 +4257,12 @@
     }
   }
 
+  function updateInventoryPreview() {
+    const canvas = document.getElementById('inv-preview-canvas');
+    if (!canvas) return;
+    _drawPenguinOnCanvas(canvas, PLAYER_COLOR, null, () => _drawSidebarWornItems(canvas));
+  }
+
   function reshapeSelectColor(cid) {
     _reshapeSelectedColor = cid;
     document.querySelectorAll('.rs-color-card:not(.locked)').forEach(el => {
@@ -5088,6 +5094,7 @@
     if (cosTab) cosTab.classList.add('active');
     renderInventory();
     document.getElementById('inventory-overlay').classList.add('show');
+    updateInventoryPreview();
     showHelpBanner('inv_cosmetics', '#inv-body', 'COSMETICS! These are wearable items for your penguin. Click EQUIP to put them on.');
   }
 
@@ -5269,6 +5276,8 @@
         renderInventory();
         await loadWardrobe();
         _initPenguinColors();
+        updateInventoryPreview();
+        if (typeof loadPenguins === 'function') loadPenguins();
       } else {
         showToast(data.message || 'Error.', 'err');
       }
@@ -5292,6 +5301,8 @@
         renderInventory();
         await loadWardrobe();
         _initPenguinColors();
+        updateInventoryPreview();
+        if (typeof loadPenguins === 'function') loadPenguins();
       } else {
         showToast(data.message || 'Error.', 'err');
       }
@@ -8843,7 +8854,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    _initPenguinColors();
+    loadWardrobe().then(() => _initPenguinColors());
     loadNewsTicker();
     setInterval(loadNewsTicker, 5 * 60 * 1000);
     const inp = document.getElementById('reshape-name-input');
