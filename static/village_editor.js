@@ -48,6 +48,7 @@ const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
 let grid = [];
 let buildings = {};
 let selectedTool = 0;
+let lastTileType  = 0; // last numeric tile type selected; used as fill target
 let buildingMode = false;
 let selectedBuilding = null;
 let showPaths = false;
@@ -214,9 +215,16 @@ function drawTile(sx, sy, tileType, isHover) {
         drawDiamondPath(sx, sy);
         ctx.fillStyle = color;
         ctx.fill();
-        ctx.strokeStyle = "rgba(0,0,0,0.3)";
-        ctx.lineWidth = 1;
+        if (tileType === 6) {
+            ctx.strokeStyle = '#3A3A50';
+            ctx.setLineDash([3, 3]);
+            ctx.lineWidth = 0.5;
+        } else {
+            ctx.strokeStyle = "rgba(0,0,0,0.3)";
+            ctx.lineWidth = 1;
+        }
         ctx.stroke();
+        ctx.setLineDash([]);
     }
 
     if (isHover) {
@@ -436,7 +444,7 @@ function floodFill(startX, startY, targetType, fillType) {
     const buildingTileSet = getBuildingTileSet();
     let count = 0;
 
-    while (stack.length > 0 && count < 400) {
+    while (stack.length > 0 && count < 1600) {
         const { x, y } = stack.pop();
         if (!inBounds(x, y)) continue;
         const key = x + ',' + y;
@@ -462,11 +470,12 @@ function paintTile(gx, gy) {
     const buildingTileSet = getBuildingTileSet();
     if (buildingTileSet.has(gx + ',' + gy)) return;
 
-    const paintType = (selectedTool === 'eraser') ? 0 : (typeof selectedTool === 'number' ? selectedTool : 0);
+    const paintType = (selectedTool === 'eraser') ? 0 : (typeof selectedTool === 'number' ? selectedTool : lastTileType);
 
     if (selectedTool === 'fill') {
+        if (grid[gy][gx] === 4) return; // don't fill building zones
         const targetType = grid[gy][gx];
-        floodFill(gx, gy, targetType, paintType);
+        floodFill(gx, gy, targetType, lastTileType);
     } else {
         grid[gy][gx] = paintType;
     }
@@ -719,8 +728,8 @@ function rebuildBuildingsList() {
 
 // ── TOOLBAR SETUP ─────────────────────────────────────────────────────────────
 function setupToolbar() {
-    // Tile buttons
-    for (let i = 0; i <= 5; i++) {
+    // Tile buttons (0–6)
+    for (let i = 0; i <= 6; i++) {
         const btn = document.getElementById('btn-tile-' + i);
         if (!btn) continue;
         btn.addEventListener('click', function () {
@@ -729,6 +738,7 @@ function setupToolbar() {
                 setBuildingMode(false);
             }
             selectedTool = i;
+            lastTileType  = i;
             updateToolbarActive();
         });
     }
@@ -789,8 +799,8 @@ function setBuildingMode(val) {
 }
 
 function updateToolbarActive() {
-    // Tile buttons
-    for (let i = 0; i <= 5; i++) {
+    // Tile buttons (0–6)
+    for (let i = 0; i <= 6; i++) {
         const btn = document.getElementById('btn-tile-' + i);
         if (btn) btn.classList.toggle('active', !buildingMode && selectedTool === i);
     }
@@ -843,8 +853,8 @@ function setupCanvas() {
             document.getElementById('coord-display').textContent = '[-, -]';
         }
 
-        // Drag paint
-        if (isPainting && !buildingMode && hoverGrid) {
+        // Drag paint — skip fill tool (single click only)
+        if (isPainting && !buildingMode && selectedTool !== 'fill' && hoverGrid) {
             paintTile(hoverGrid.x, hoverGrid.y);
         }
     });
