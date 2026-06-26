@@ -1799,7 +1799,7 @@ def editor():
 
 @app.route("/")
 def home():
-username = session.get("username")
+    username = session.get("username")
     if not username:
         return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
     update_passive_energy(username)
