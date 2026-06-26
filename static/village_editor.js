@@ -250,10 +250,9 @@ function drawBuilding(key, bdef) {
     const sprite = EditorSprites.get(`/static/buildings/${key}.png`);
     if (sprite) {
         const footprintWidth = rPt.x - lPt.x;
-        const frontX    = (lPt.x + rPt.x) / 2;
-        // gridToScreen gives the top vertex of a diamond; +TILE_H/2 = visual bottom
-        const rawBottom = gs(gx + gw, gy + gh);
-        const frontY    = rawBottom.y + TILE_H / 2;
+        const frontX = (lPt.x + rPt.x) / 2;
+        // bPt is the front/bottom corner of the footprint diamond; sprite bottom sits here.
+        const frontY = bPt.y;
         const spriteScale = footprintWidth / sprite.width;
         const drawWidth   = sprite.width  * spriteScale;
         const drawHeight  = sprite.height * spriteScale;

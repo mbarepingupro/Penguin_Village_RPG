@@ -317,11 +317,9 @@ function drawBuilding(id, bdef, level) {
         // Scale sprite to match the isometric footprint width; anchor bottom-center
         // to the raw (no TILE_H/2 offset) front corner so it sits on the tiles.
         const footprintWidth = rPt.x - lPt.x;
-        const rawBottom = gs(gx + gw, gy + gh);
-        const frontX    = (lPt.x + rPt.x) / 2;
-        // gridToScreen returns the top vertex of a diamond; add TILE_H/2 to reach
-        // the actual visual bottom of the front tile so the building base sits on the ground.
-        const frontY    = rawBottom.y + TILE_H / 2;
+        const frontX = (lPt.x + rPt.x) / 2;
+        // bPt is the front/bottom corner of the footprint diamond; sprite bottom sits here.
+        const frontY = bPt.y;
         const spriteScale = footprintWidth / sprite.width;
         const drawWidth   = sprite.width  * spriteScale;
         const drawHeight  = sprite.height * spriteScale;
