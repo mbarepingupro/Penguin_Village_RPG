@@ -439,6 +439,27 @@ function render() {
         drawBuildingFootprintPreview(selectedBuilding, previewGX, previewGY);
     }
 
+    // Faint purple outline around the entire 40×40 grid boundary
+    {
+        const gs = gridToScreen;
+        const n = GRID_SIZE - 1;
+        const top = gs(0, 0);
+        const rgt = gs(n, 0);
+        const bot = gs(n, n);
+        const lft = gs(0, n);
+        ctx.beginPath();
+        ctx.moveTo(top.x, top.y - TILE_H / 2);
+        ctx.lineTo(rgt.x, rgt.y - TILE_H / 2);
+        ctx.lineTo(bot.x, bot.y + TILE_H / 2);
+        ctx.lineTo(lft.x, lft.y + TILE_H / 2);
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(168,110,255,0.5)';
+        ctx.lineWidth = 2 / zoomLevel;
+        ctx.setLineDash([6 / zoomLevel, 4 / zoomLevel]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
     ctx.restore();
 
     // Screen-space overlay (not affected by zoom)
@@ -841,10 +862,13 @@ function setupCanvas() {
         const oldHeight = canvas.height;
         canvas.width = wrapper.clientWidth;
         canvas.height = wrapper.clientHeight;
-        // Keep the view centred when the canvas is resized
         if (oldWidth && oldHeight) {
+            // Keep the view centred when the canvas is resized
             camX += (canvas.width - oldWidth) / 2;
             camY += (canvas.height - oldHeight) / 2;
+        } else {
+            // First real measurement — compute fit-zoom from scratch
+            initCamera();
         }
     }
 
@@ -1003,10 +1027,18 @@ async function init() {
     updateInfoPanel();
     rebuildBuildingsList();
     updateToolbarActive();
-    resetView(); // fit the full grid after layout is applied and canvas is sized
 
-    // Start render loop
-    requestAnimationFrame(render);
+    // Defer fit-zoom + render start to a rAF so the browser has finalised
+    // flex layout (wrapper.clientWidth is guaranteed non-zero by then).
+    requestAnimationFrame(() => {
+        const wrapper = document.getElementById('canvas-wrapper');
+        if (!canvas.width || !canvas.height) {
+            canvas.width  = wrapper.clientWidth;
+            canvas.height = wrapper.clientHeight;
+        }
+        resetView(); // fit the full 40×40 grid
+        requestAnimationFrame(render);
+    });
 }
 
 // ── EXPORTS ───────────────────────────────────────────────────────────────────
