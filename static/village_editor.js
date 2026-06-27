@@ -26,7 +26,7 @@ const TILE_NAMES = {
     6: "EXPANSION",
 };
 
-const MIN_ZOOM = 0.5, MAX_ZOOM = 2.0, ZOOM_STEP = 0.1;
+const MIN_ZOOM = 0.15, MAX_ZOOM = 3.0, ZOOM_STEP = 0.1;
 
 const BUILDING_DEFS = {
     hotel:         { name: "PENGUIN HOTEL",      color: "#C0392B", width: 3, height: 3 },
@@ -48,6 +48,7 @@ const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
 let grid = [];
 let buildings = {};
 let selectedTool = 0;
+let lastTileType  = 0; // last numeric tile type selected; used as fill target
 let buildingMode = false;
 let selectedBuilding = null;
 let showPaths = false;
@@ -78,15 +79,26 @@ function screenToGrid(sx, sy) {
     return { x: gx, y: gy };
 }
 
+// Returns the zoom level that fits the full 40×40 isometric grid in the canvas.
+// Isometric world extents: X spans ±(GRID_SIZE-1)*TILE_W/2, Y spans 0..(GRID_SIZE-1)*TILE_H.
+function calculateFitZoom() {
+    if (!canvas || !canvas.width) return 0.4;
+    const worldW = (GRID_SIZE - 1) * TILE_W;   // total X extent (left corner to right corner)
+    const worldH = (GRID_SIZE - 1) * TILE_H;   // total Y extent (top corner to bottom corner)
+    const zoomW  = (canvas.width  * 0.9) / worldW;
+    const zoomH  = (canvas.height * 0.9) / worldH;
+    return Math.max(MIN_ZOOM, Math.min(zoomW, zoomH));
+}
+
 function initCamera() {
-    camX = canvas.width / 2;
-    // Center the grid vertically. Grid spans world-y −16 to 624 (height 640 px
-    // at zoom 1). Grid center = (GRID_SIZE-1) * TILE_H/2 = 19*16 = 304.
-    camY = canvas.height / 2 - (GRID_SIZE - 1) * (TILE_H / 2);
+    zoomLevel = calculateFitZoom();
+    // Isometric grid center: world X = 0, world Y = (GRID_SIZE-1)*TILE_H/2
+    const gridCenterY = (GRID_SIZE - 1) * (TILE_H / 2);
+    camX = canvas.width  / 2;
+    camY = canvas.height / 2 - gridCenterY * zoomLevel;
 }
 
 function resetView() {
-    zoomLevel = 1.0;
     initCamera();
 }
 
@@ -130,6 +142,29 @@ function lighten(hex, amt) {
 function darken(hex, amt) {
     const { r, g, b } = hexToRgb(hex);
     return toHex(r - amt, g - amt, b - amt);
+}
+
+// ── SPRITE LOADER ────────────────────────────────────────────────────────────
+const EditorSprites = {
+    cache: {},
+    load(path) {
+        if (this.cache[path] !== undefined) return Promise.resolve(this.cache[path]);
+        return new Promise(resolve => {
+            const img = new Image();
+            img.onload  = () => { this.cache[path] = img;  resolve(img); };
+            img.onerror = () => { this.cache[path] = null; resolve(null); };
+            img.src = path;
+        });
+    },
+    get(path) { return this.cache[path] || null; },
+};
+
+async function preloadSprites() {
+    const loads = BUILDING_KEYS.map(id => EditorSprites.load(`/static/buildings/${id}.png`));
+    for (const name of ['snow', 'path', 'water', 'tree', 'fence']) {
+        loads.push(EditorSprites.load(`/static/tiles/${name}.png`));
+    }
+    await Promise.all(loads);
 }
 
 // ── GRID INIT ────────────────────────────────────────────────────────────────
@@ -177,18 +212,36 @@ function drawDiamondPath(sx, sy) {
     ctx.closePath();
 }
 
-function drawTile(sx, sy, color, outlineColor, isHover) {
-    drawDiamondPath(sx, sy);
-    ctx.fillStyle = color;
-    ctx.fill();
+const _TILE_SPRITE = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
+
+function drawTile(sx, sy, tileType, isHover) {
+    const spriteName = _TILE_SPRITE[tileType];
+    const sprite = spriteName ? EditorSprites.get(`/static/tiles/${spriteName}.png`) : null;
+
+    if (sprite) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sprite, sx - TILE_W / 2, sy - TILE_H / 2, TILE_W, TILE_H);
+    } else {
+        const color = TILE_COLORS[tileType] || TILE_COLORS[0];
+        drawDiamondPath(sx, sy);
+        ctx.fillStyle = color;
+        ctx.fill();
+        if (tileType === 6) {
+            ctx.strokeStyle = '#3A3A50';
+            ctx.setLineDash([3, 3]);
+            ctx.lineWidth = 0.5;
+        } else {
+            ctx.strokeStyle = "rgba(0,0,0,0.3)";
+            ctx.lineWidth = 1;
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
 
     if (isHover) {
+        drawDiamondPath(sx, sy);
         ctx.strokeStyle = "#FF7FE5";
         ctx.lineWidth = 2;
-        ctx.stroke();
-    } else {
-        ctx.strokeStyle = outlineColor || "rgba(0,0,0,0.3)";
-        ctx.lineWidth = 1;
         ctx.stroke();
     }
 }
@@ -212,6 +265,22 @@ function drawBuilding(key, bdef) {
     const BOX_H = 32 + bdef.width * 6;
     const color = def.color;
 
+    // Try PNG sprite — same anchor logic as village_map.js
+    const sprite = EditorSprites.get(`/static/buildings/${key}.png`);
+    if (sprite) {
+        const footprintWidth = rPt.x - lPt.x;
+        const frontX = (lPt.x + rPt.x) / 2;
+        // bPt is the front/bottom corner of the footprint diamond; sprite bottom sits here.
+        const frontY = bPt.y;
+        const spriteScale = footprintWidth / sprite.width;
+        const drawWidth   = sprite.width  * spriteScale;
+        const drawHeight  = sprite.height * spriteScale;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sprite, frontX - drawWidth / 2, frontY - drawHeight, drawWidth, drawHeight);
+        return;
+    }
+
+    // Fallback: colored 3D block
     // Left face
     ctx.beginPath();
     ctx.moveTo(lPt.x, lPt.y + BOX_H);
@@ -326,9 +395,9 @@ function render() {
     const drawnBuildings = new Set();
 
     // Painter's algorithm: front-to-back diagonal order
-    for (let diag = 0; diag <= 38; diag++) {
-        const xiMin = Math.max(0, diag - 19);
-        const xiMax = Math.min(diag, 19);
+    for (let diag = 0; diag <= (GRID_SIZE - 1) * 2; diag++) {
+        const xiMin = Math.max(0, diag - (GRID_SIZE - 1));
+        const xiMax = Math.min(diag, GRID_SIZE - 1);
         for (let xi = xiMin; xi <= xiMax; xi++) {
             const x = xi;
             const y = diag - xi;
@@ -341,8 +410,7 @@ function render() {
             const isBuildingTile = buildingTileSet.has(x + ',' + y);
 
             // Draw base tile
-            const tileColor = TILE_COLORS[tileType] || TILE_COLORS[0];
-            drawTile(sx, sy, tileColor, "rgba(0,0,0,0.3)", isHover && !isBuildingTile);
+            drawTile(sx, sy, tileType, isHover && !isBuildingTile);
 
             // Path preview overlay
             if (showPaths && !isBuildingTile) {
@@ -371,6 +439,27 @@ function render() {
         drawBuildingFootprintPreview(selectedBuilding, previewGX, previewGY);
     }
 
+    // Faint purple outline around the entire 40×40 grid boundary
+    {
+        const gs = gridToScreen;
+        const n = GRID_SIZE - 1;
+        const top = gs(0, 0);
+        const rgt = gs(n, 0);
+        const bot = gs(n, n);
+        const lft = gs(0, n);
+        ctx.beginPath();
+        ctx.moveTo(top.x, top.y - TILE_H / 2);
+        ctx.lineTo(rgt.x, rgt.y - TILE_H / 2);
+        ctx.lineTo(bot.x, bot.y + TILE_H / 2);
+        ctx.lineTo(lft.x, lft.y + TILE_H / 2);
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(168,110,255,0.5)';
+        ctx.lineWidth = 2 / zoomLevel;
+        ctx.setLineDash([6 / zoomLevel, 4 / zoomLevel]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
     ctx.restore();
 
     // Screen-space overlay (not affected by zoom)
@@ -387,7 +476,7 @@ function floodFill(startX, startY, targetType, fillType) {
     const buildingTileSet = getBuildingTileSet();
     let count = 0;
 
-    while (stack.length > 0 && count < 400) {
+    while (stack.length > 0 && count < 1600) {
         const { x, y } = stack.pop();
         if (!inBounds(x, y)) continue;
         const key = x + ',' + y;
@@ -413,11 +502,12 @@ function paintTile(gx, gy) {
     const buildingTileSet = getBuildingTileSet();
     if (buildingTileSet.has(gx + ',' + gy)) return;
 
-    const paintType = (selectedTool === 'eraser') ? 0 : (typeof selectedTool === 'number' ? selectedTool : 0);
+    const paintType = (selectedTool === 'eraser') ? 0 : (typeof selectedTool === 'number' ? selectedTool : lastTileType);
 
     if (selectedTool === 'fill') {
+        if (grid[gy][gx] === 4) return; // don't fill building zones
         const targetType = grid[gy][gx];
-        floodFill(gx, gy, targetType, paintType);
+        floodFill(gx, gy, targetType, lastTileType);
     } else {
         grid[gy][gx] = paintType;
     }
@@ -670,8 +760,8 @@ function rebuildBuildingsList() {
 
 // ── TOOLBAR SETUP ─────────────────────────────────────────────────────────────
 function setupToolbar() {
-    // Tile buttons
-    for (let i = 0; i <= 5; i++) {
+    // Tile buttons (0–6)
+    for (let i = 0; i <= 6; i++) {
         const btn = document.getElementById('btn-tile-' + i);
         if (!btn) continue;
         btn.addEventListener('click', function () {
@@ -680,6 +770,7 @@ function setupToolbar() {
                 setBuildingMode(false);
             }
             selectedTool = i;
+            lastTileType  = i;
             updateToolbarActive();
         });
     }
@@ -740,8 +831,8 @@ function setBuildingMode(val) {
 }
 
 function updateToolbarActive() {
-    // Tile buttons
-    for (let i = 0; i <= 5; i++) {
+    // Tile buttons (0–6)
+    for (let i = 0; i <= 6; i++) {
         const btn = document.getElementById('btn-tile-' + i);
         if (btn) btn.classList.toggle('active', !buildingMode && selectedTool === i);
     }
@@ -771,10 +862,13 @@ function setupCanvas() {
         const oldHeight = canvas.height;
         canvas.width = wrapper.clientWidth;
         canvas.height = wrapper.clientHeight;
-        // Keep the view centred when the canvas is resized
         if (oldWidth && oldHeight) {
+            // Keep the view centred when the canvas is resized
             camX += (canvas.width - oldWidth) / 2;
             camY += (canvas.height - oldHeight) / 2;
+        } else {
+            // First real measurement — compute fit-zoom from scratch
+            initCamera();
         }
     }
 
@@ -794,8 +888,8 @@ function setupCanvas() {
             document.getElementById('coord-display').textContent = '[-, -]';
         }
 
-        // Drag paint
-        if (isPainting && !buildingMode && hoverGrid) {
+        // Drag paint — skip fill tool (single click only)
+        if (isPainting && !buildingMode && selectedTool !== 'fill' && hoverGrid) {
             paintTile(hoverGrid.x, hoverGrid.y);
         }
     });
@@ -917,6 +1011,7 @@ async function init() {
     setupToolbar();
     setupBeforeUnload();
     loadFont();
+    preloadSprites(); // fire-and-forget; render loop picks up sprites as they load
 
     // Try to load existing layout
     try {
@@ -933,8 +1028,17 @@ async function init() {
     rebuildBuildingsList();
     updateToolbarActive();
 
-    // Start render loop
-    requestAnimationFrame(render);
+    // Defer fit-zoom + render start to a rAF so the browser has finalised
+    // flex layout (wrapper.clientWidth is guaranteed non-zero by then).
+    requestAnimationFrame(() => {
+        const wrapper = document.getElementById('canvas-wrapper');
+        if (!canvas.width || !canvas.height) {
+            canvas.width  = wrapper.clientWidth;
+            canvas.height = wrapper.clientHeight;
+        }
+        resetView(); // fit the full 40×40 grid
+        requestAnimationFrame(render);
+    });
 }
 
 // ── EXPORTS ───────────────────────────────────────────────────────────────────
