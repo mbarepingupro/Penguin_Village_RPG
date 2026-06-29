@@ -1007,6 +1007,16 @@
       padding: 20px; max-width: 400px; width: 90%;
       font-family: 'Pixelify Sans', monospace;
       animation: popIn 0.25s ease;
+      display: flex; flex-direction: column;
+      max-height: 85vh; overflow: hidden;
+    }
+    .wb-scroll {
+      overflow-y: auto; flex: 1; min-height: 0;
+      padding-right: 4px;
+    }
+    @media (max-width: 768px) {
+      .wb-box { max-height: none; overflow: visible; display: block; }
+      .wb-scroll { overflow-y: visible; }
     }
     .wb-title { color: #A86EFF; font-size: 23px; margin-bottom: 6px; text-align: center; }
     .wb-subtitle { color: #B8B8D0; font-size: 17px; margin-bottom: 10px; text-align: center; }
@@ -2669,13 +2679,15 @@
 <!-- WELCOME BACK MODAL -->
 <div id="wb-overlay">
   <div class="wb-box">
-    <div class="wb-title">WELCOME BACK!</div>
-    <div id="wb-subtitle" class="wb-subtitle"></div>
-    <hr class="wb-divider">
-    <div id="wb-job-section"></div>
-    <div id="wb-passive-section"></div>
-    <div id="wb-activities-section"></div>
-    <div id="wb-news-section"></div>
+    <div class="wb-scroll">
+      <div class="wb-title">WELCOME BACK!</div>
+      <div id="wb-subtitle" class="wb-subtitle"></div>
+      <hr class="wb-divider">
+      <div id="wb-job-section"></div>
+      <div id="wb-passive-section"></div>
+      <div id="wb-activities-section"></div>
+      <div id="wb-news-section"></div>
+    </div>
     <button id="wb-ok-btn" class="wb-collect-btn" onclick="wbDismiss()">OK</button>
   </div>
 </div>
