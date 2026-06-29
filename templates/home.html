@@ -2807,6 +2807,10 @@
     const panel = document.getElementById('panel-' + name);
     if (!panel) return;
     panel.classList.add('active');
+    if (window.innerWidth <= 768) {
+      const vc = document.getElementById('village-canvas');
+      if (vc) vc.style.display = name === 'map' ? '' : 'none';
+    }
     if (name === 'missions')  loadMissions();
     if (name === 'igloo')     loadIgloo();
     if (name === 'combat')    loadCombat();
