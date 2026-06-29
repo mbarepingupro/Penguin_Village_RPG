@@ -4264,6 +4264,14 @@
     _drawPenguinOnCanvas(canvas, PLAYER_COLOR, null, () => _drawSidebarWornItems(canvas));
   }
 
+  // Call after any gear POST (equip / unequip / wear / unwear) to keep
+  // the sidebar penguin and open inventory preview in sync.
+  async function refreshPenguinDisplay() {
+    await loadWardrobe();
+    _initPenguinColors();
+    updateInventoryPreview();
+  }
+
   function reshapeSelectColor(cid) {
     _reshapeSelectedColor = cid;
     document.querySelectorAll('.rs-color-card:not(.locked)').forEach(el => {
@@ -5019,8 +5027,8 @@
       });
       const data = await res.json();
       if (data.status === 'success') {
-        await loadWardrobe();
         closeCosmeticModal();
+        await refreshPenguinDisplay();
         if (data.newly_discovered && data.newly_discovered.length > 0) {
           data.newly_discovered.forEach(s => showSetDiscovery(s.set_name, s.description));
         }
@@ -5243,7 +5251,7 @@
           }
         }
         renderInventory();
-        await loadWardrobe();
+        await refreshPenguinDisplay();
         if (data.newly_discovered && data.newly_discovered.length > 0) {
           data.newly_discovered.forEach(s => showSetDiscovery(s.set_name, s.description));
         }
@@ -5275,9 +5283,7 @@
         item.worn = 1;
         if (window.GameSounds) GameSounds.wear();
         renderInventory();
-        await loadWardrobe();
-        _initPenguinColors();
-        updateInventoryPreview();
+        await refreshPenguinDisplay();
         if (typeof loadPenguins === 'function') loadPenguins();
       } else {
         showToast(data.message || 'Error.', 'err');
@@ -5300,9 +5306,7 @@
         if (combat)   combat.worn   = 0;
         if (window.GameSounds) GameSounds.unwear();
         renderInventory();
-        await loadWardrobe();
-        _initPenguinColors();
-        updateInventoryPreview();
+        await refreshPenguinDisplay();
         if (typeof loadPenguins === 'function') loadPenguins();
       } else {
         showToast(data.message || 'Error.', 'err');
@@ -5329,6 +5333,7 @@
         showToast(wasEquipped ? 'Item unequipped!' : 'Item equipped!', 'ok');
         renderInventory();
         await refreshStats();
+        await refreshPenguinDisplay();
       } else {
         showToast(data.message || 'Error.', 'err');
       }
@@ -6209,6 +6214,7 @@
         showToast(data.message, 'ok');
         await refreshStats();
         loadGear();
+        await refreshPenguinDisplay();
       } else {
         showToast(data.message, 'err');
       }
