@@ -6024,6 +6024,38 @@ def mayor_gift():
     return jsonify({"status": "success", "recipient": username, "gift_type": gift_type})
 
 
+@app.route("/mayor/gift/gear", methods=["POST"])
+def mayor_gift_gear():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    slot     = data.get("slot", "").strip()
+    item_id  = data.get("item_id", "").strip()
+    name     = data.get("name", "").strip()
+    if not username or not slot or not item_id or not name:
+        return jsonify({"status": "error", "message": "username, slot, item_id, and name required."})
+    COMBAT_SLOTS    = {"weapon", "armor", "helmet", "boots"}
+    COSMETIC_SLOTS2 = {"hat", "outfit", "footwear", "accessory"}
+    if slot not in COMBAT_SLOTS | COSMETIC_SLOTS2:
+        return jsonify({"status": "error", "message": "Invalid slot."})
+    item_type = "combat" if slot in COMBAT_SLOTS else "cosmetic"
+    db = get_db()
+    p  = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": f"Player '{username}' not found."})
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+        "VALUES (?,?,?,?,?,'mayor_gift',0,?)",
+        (username, item_id, name, item_type, slot, int(time.time()))
+    )
+    log_event(db, "village", f"👑 The Mayor gifted {username} the gear: {name} ({slot})! ⚔️", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "recipient": username, "item_id": item_id, "slot": slot})
+
+
 @app.route("/mayor/announce", methods=["POST"])
 def mayor_announce():
     if not _is_mayor_authed():
