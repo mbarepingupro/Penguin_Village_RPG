@@ -477,12 +477,12 @@
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       width: 500px; max-width: 95vw;
-      max-height: 80vh; overflow-y: auto;
+      max-height: 80vh; overflow: hidden;
       background: #252535; border: 3px solid #A86EFF;
       z-index: 90001; box-shadow: 0 0 30px rgba(0,0,0,0.8);
       font-family: 'Pixelify Sans', monospace;
     }
-    #bm-content { padding: 20px; }
+    #bm-content { padding: 20px; overflow-y: auto; max-height: 80vh; }
     .bm-close {
       float: right; font-size: 27px;
       color: #FF7FE5; cursor: pointer; padding: 0 0 8px 12px;
@@ -1652,6 +1652,7 @@
 
       /* ── Building modal mobile ── */
       #building-modal { width: 95vw; max-height: 85vh; }
+      #bm-content { max-height: 85vh; }
 
       /* ── Mayor dialogue compact on mobile ── */
       .mayor-dialogue { padding: 8px 80px 8px 12px; min-height: 70px; }
