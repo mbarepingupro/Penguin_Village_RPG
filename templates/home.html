@@ -2141,7 +2141,7 @@
         <!-- COLLECT SECTION (shown when working) -->
         <div id="sidebar-collect-section" style="display:none; padding:0 10px 8px;">
           <div id="sidebar-job-info" style="color:#B8B8D0; font-size:13px; margin-bottom:5px; line-height:2;"></div>
-          <button class="collect-btn" id="sidebar-collect-btn" onclick="sidebarCollect()">COLLECT</button>
+          <button class="collect-btn" id="sidebar-collect-btn" onclick="sidebarCollect()" ontouchend="event.preventDefault();sidebarCollect()">COLLECT</button>
         </div>
 
         <div class="work-msg" id="work-msg"></div>
