@@ -4757,6 +4757,7 @@
         if (title && window.GameSounds) GameSounds.titleEquip();
         updateSidebarTitle(data.active_title || null);
         await renderTitleModal();
+        await refreshPenguinDisplay();
       } else {
         showToast(data.message || 'Error.', 'err');
       }
