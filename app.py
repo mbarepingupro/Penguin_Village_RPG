@@ -6600,12 +6600,11 @@ def minigame_start():
         db.close()
         return jsonify({"status": "error", "message": "Penguin not found."})
 
-    if p["job"]:
-        db.close()
-        return jsonify({"status": "error", "message": "Collect your passive job first!"})
-
     energy = p["energy"] or 0
     if not is_tutorial:
+        if p["job"]:
+            db.close()
+            return jsonify({"status": "error", "message": "Collect your passive job first!"})
         if energy < 10:
             db.close()
             return jsonify({"status": "error", "message": "Need 10 energy to play! Rest at the hotel."})

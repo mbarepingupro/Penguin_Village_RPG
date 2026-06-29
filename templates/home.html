@@ -8389,15 +8389,25 @@
         '<button id="tutorial-minigame-btn" style="background:#A86EFF;color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:13px;cursor:pointer;border-radius:4px;font-weight:bold;">🎮 PLAY MINI-GAME (FREE)!</button>';
       content.insertBefore(div, content.firstChild);
       document.getElementById('tutorial-minigame-btn').onclick = function() {
-        this.disabled = true;
-        this.textContent = 'Starting...';
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
         TutorialManager._minigameTutorial = true;
         TutorialManager._pendingMinigameCb = function(score) {
           self._sayThen('Nice! Score: ' + score + '! The better you play, the more resources you earn. Mini-games cost 10 energy each (free here in the tutorial).').then(function() {
             self._showContinue('Got it! →', function() { self._advanceStep(); });
           });
         };
-        startMiniGame('sea_lion_pit');
+        // Re-enable button if startMiniGame returns without launching the game
+        // (network error, MiniGameManager not ready, etc.)
+        startMiniGame('sea_lion_pit').then(function() {
+          // game launched successfully — leave button disabled
+        }).catch(function() {
+          btn.disabled = false;
+          btn.textContent = '🎮 PLAY MINI-GAME (FREE)!';
+          TutorialManager._minigameTutorial = false;
+          TutorialManager._pendingMinigameCb = null;
+        });
       };
     },
 
