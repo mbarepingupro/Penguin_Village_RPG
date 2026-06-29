@@ -1435,6 +1435,11 @@ function setVisitedToday(usernameList) {
 function highlightBuilding(buildingId) { _highlightedBuilding = buildingId; }
 function clearBuildingHighlight() { _highlightedBuilding = null; }
 
-window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday, highlightBuilding, clearBuildingHighlight };
+function updatePlayerWornItems(wornItems) {
+    const player = penguins.find(function(p) { return p.isCurrentUser; });
+    if (player) player.worn_items = wornItems || {};
+}
+
+window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday, highlightBuilding, clearBuildingHighlight, updatePlayerWornItems };
 
 })();
