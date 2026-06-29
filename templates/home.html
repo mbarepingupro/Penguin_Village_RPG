@@ -4287,6 +4287,13 @@
     await loadWardrobe();
     _initPenguinColors();
     updateInventoryPreview();
+    if (window.VillageMap && VillageMap.updatePlayerWornItems) {
+      const mapWorn = {};
+      _cosmeticCache.forEach(function(c) {
+        if (c.worn) { const a = _SLOT_TO_AREA[c.slot]; if (a) mapWorn[a] = c.item_id; }
+      });
+      VillageMap.updatePlayerWornItems(mapWorn);
+    }
   }
 
   function reshapeSelectColor(cid) {
