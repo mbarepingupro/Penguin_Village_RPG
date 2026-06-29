@@ -4237,11 +4237,12 @@
       const area = _SLOT_TO_AREA[c.slot];
       if (area) wornByArea[area] = c;
     });
-    for (const area of ['body', 'feet', 'hand', 'head']) {
+    // Draw in layer order: footwear → outfit → hat → accessory
+    for (const area of ['feet', 'body', 'head', 'hand']) {
       const item = wornByArea[area];
       if (!item) continue;
       const folder = _slotFolder(item.slot);
-      const src = `/static/penguin_wearing/${shape}/${folder}/${item.id}.png`;
+      const src = `/static/penguin_wearing/${shape}/${folder}/${item.item_id}.png`;
       const cached = _penguinSpriteCache[src];
       if (cached && cached.complete && cached.naturalWidth > 0) {
         ctx.drawImage(cached, 0, 0, cfg.frameWidth, cfg.frameHeight, dx, dy, dw, dh);
