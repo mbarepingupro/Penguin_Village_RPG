@@ -3826,6 +3826,7 @@
       if (grid) grid.innerHTML = _renderBoutiqueItems(_bqData.categories[_bqActiveTab] || [], _bqData.player_gold || 0);
       showToast(data.equipped ? 'Equipped!' : 'Unequipped!', 'ok');
       refreshStats();
+      await refreshPenguinDisplay();
     } catch(e) { showToast('Equip error.', 'err'); }
   }
 
