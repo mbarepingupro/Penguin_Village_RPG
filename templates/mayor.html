@@ -310,8 +310,12 @@
           </select>
         </div>
         <div class="mh-field" id="gift-cosmetic-field" style="display:none;">
-          <label class="mh-label">COSMETIC NAME</label>
-          <input class="mh-input" type="text" id="gift-cosmetic" placeholder="e.g. Basic Scarf"/>
+          <label class="mh-label">COSMETIC ITEM</label>
+          <select class="mh-select" id="gift-cosmetic">
+            {% for name, slot in cosmetic_slots.items() | sort %}
+            <option value="{{ name }}">{{ name }} ({{ slot }})</option>
+            {% endfor %}
+          </select>
         </div>
         <button class="mh-btn" onclick="sendGift()">🎁 SEND GIFT</button>
       </div>
@@ -324,25 +328,14 @@
           <input class="mh-input" type="text" id="gg-username" placeholder="username"/>
         </div>
         <div class="mh-field">
-          <label class="mh-label">SLOT</label>
-          <select class="mh-select" id="gg-slot">
-            <option value="weapon">WEAPON</option>
-            <option value="armor">ARMOR</option>
-            <option value="helmet">HELMET</option>
-            <option value="boots">BOOTS</option>
-            <option value="hat">HAT</option>
-            <option value="outfit">OUTFIT</option>
-            <option value="footwear">FOOTWEAR</option>
-            <option value="accessory">ACCESSORY</option>
+          <label class="mh-label">ITEM</label>
+          <select class="mh-select" id="gg-item-select">
+            {% for item_id, item in gear_catalog.items() | sort(attribute='1.name') %}
+            <option value="{{ item_id }}" data-slot="{{ item.slot }}" data-name="{{ item.name }}">
+              {{ item.name }} ({{ item.slot }})
+            </option>
+            {% endfor %}
           </select>
-        </div>
-        <div class="mh-field">
-          <label class="mh-label">ITEM ID</label>
-          <input class="mh-input" type="text" id="gg-item-id" placeholder="e.g. iron_sword"/>
-        </div>
-        <div class="mh-field">
-          <label class="mh-label">ITEM NAME</label>
-          <input class="mh-input" type="text" id="gg-item-name" placeholder="e.g. Iron Sword"/>
         </div>
         <button class="mh-btn" onclick="sendGiftGear()">⚔️ GIFT GEAR</button>
       </div>
@@ -622,16 +615,16 @@
   async function sendGiftGear() {
     const btn      = event.target;
     const username = document.getElementById('gg-username').value.trim();
-    const slot     = document.getElementById('gg-slot').value;
-    const item_id  = document.getElementById('gg-item-id').value.trim();
-    const name     = document.getElementById('gg-item-name').value.trim();
-    if (!username || !item_id || !name) { toast('❌ Username, item ID and name required.', false); return; }
+    const sel     = document.getElementById('gg-item-select');
+    const opt     = sel.options[sel.selectedIndex];
+    const item_id = opt.value;
+    const slot    = opt.dataset.slot;
+    const name    = opt.dataset.name;
+    if (!username || !item_id) { toast('❌ Username and item required.', false); return; }
     const data = await api('/mayor/gift/gear', { username, slot, item_id, name }, btn);
     if (data.status === 'success') {
       toast(`✅ Gear "${name}" gifted to ${data.recipient}!`);
-      document.getElementById('gg-username').value  = '';
-      document.getElementById('gg-item-id').value   = '';
-      document.getElementById('gg-item-name').value = '';
+      document.getElementById('gg-username').value = '';
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
     }
