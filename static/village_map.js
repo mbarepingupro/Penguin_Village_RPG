@@ -603,7 +603,7 @@ function drawPenguin(sx, sy, penguin, isBehind) {
 
         if (penguin.active_title) {
             ctx.font = "14px 'Pixelify Sans', monospace";
-            ctx.fillStyle = "#A86EFF";
+            ctx.fillStyle = "#FF8C00";
             ctx.fillText(penguin.active_title, sx, drawY + 5);
         }
 
@@ -942,7 +942,7 @@ function showPenguinPopup(penguin, sx, sy) {
 
     el.innerHTML = [
         '<div style="color:#FFFFFF">' + (penguin.display_name || penguin.username) + '</div>',
-        penguin.active_title ? '<div style="color:#A86EFF">' + penguin.active_title + '</div>' : '',
+        penguin.active_title ? '<div style="color:#FF8C00">' + penguin.active_title + '</div>' : '',
         '<div style="color:#B8B8D0">LV' + (penguin.level || 1) + ' · ' + jobIcon + ' ' + jobName + '</div>',
         visitBtnHtml,
     ].join('');
