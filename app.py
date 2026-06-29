@@ -5869,6 +5869,8 @@ def mayor_dashboard():
         buff_names=BUFF_NAMES,
         is_live=is_live,
         mayor_key=MAYOR_KEY,
+        gear_catalog=GEAR_CATALOG,
+        cosmetic_slots=COSMETIC_SLOTS,
     )
 
 
