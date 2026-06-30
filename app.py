@@ -412,6 +412,7 @@ BOUTIQUE_ITEMS = {
         {"id": "backpack",    "name": "Backpack",      "slot": "accessory", "price": 400,  "tier": "mid"},
         {"id": "monocle",     "name": "Monocle",       "slot": "accessory", "price": 500,  "tier": "mid"},
         {"id": "bubble_pipe", "name": "Bubble Pipe",   "slot": "accessory", "price": 600,  "tier": "mid"},
+        {"id": "village_bandana","name": "Village Bandana","slot": "accessory","price": 750,  "tier": "mid"},
         {"id": "gold_chain",  "name": "Gold Chain",    "slot": "accessory", "price": 1000, "tier": "expensive"},
         {"id": "dragon_wings","name": "Dragon Wings",  "slot": "accessory", "price": 3000, "tier": "expensive"},
     ],
@@ -844,16 +845,14 @@ GEAR_CATALOG = {
     "ice_sword":   {"name":"ICE SWORD",       "set_name":"Frost Guardian","type":"combat",  "slot":"weapon","rarity":"rare",     "attack_bonus":18, "defense_bonus":2, "speed_bonus":0,"hp_bonus":0, "combat_power":20, "cost":{"gold":200, "fish":30}},
     "blood_axe":   {"name":"BLOOD AXE",       "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"epic",     "attack_bonus":30, "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":30, "cost":{"gold":500, "blood_gems":15}},
     # Armor
-    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":"Frost Guardian","type":"combat",  "slot":"armor", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"combat_power":10, "cost":{"gold":60,  "fish":15}},
+    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":None,            "type":"combat",  "slot":"armor", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"combat_power":10, "cost":{"gold":60,  "fish":15}},
     "bone_plate":  {"name":"BONE PLATE",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"armor", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":12,"speed_bonus":0,"hp_bonus":15,"combat_power":15, "cost":{"gold":120, "bones":20}},
     "ice_plate":   {"name":"ICE PLATE",       "set_name":"Frost Guardian","type":"combat",  "slot":"armor", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":22,"speed_bonus":0,"hp_bonus":25,"combat_power":27, "cost":{"gold":300, "fish":40,"herbs":10}},
     # Boots
     "leather_boots":{"name":"LEATHER BOOTS", "set_name":None,            "type":"combat",  "slot":"boots", "rarity":"common",   "attack_bonus":0,  "defense_bonus":3, "speed_bonus":5,"hp_bonus":0, "combat_power":8,  "cost":{"gold":40}},
     "bone_boots":  {"name":"BONE BOOTS",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"boots", "rarity":"uncommon", "attack_bonus":2,  "defense_bonus":5, "speed_bonus":8,"hp_bonus":0, "combat_power":15, "cost":{"gold":100, "bones":15}},
     "frost_boots": {"name":"FROST BOOTS",     "set_name":"Frost Guardian","type":"combat",  "slot":"boots", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":8, "speed_bonus":12,"hp_bonus":5,"combat_power":21, "cost":{"gold":250, "fish":20,"spell_fragments":5}},
-    # Cosmetics
-    "tophat":      {"name":"TOP HAT",         "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":25}},
-    "party_hat":   {"name":"PARTY HAT",       "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":15}},
+    # Cosmetics (purchasable via /gear/buy; boutique items live in BOUTIQUE_ITEMS)
     "crown":       {"name":"CROWN",           "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"rare",     "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":200}},
     "red_cape":    {"name":"RED CAPE",        "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":20}},
     "star_cape":   {"name":"STAR CAPE",       "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":80,  "herbs":10}},
