@@ -6058,6 +6058,70 @@ def mayor_gift_gear():
     return jsonify({"status": "success", "recipient": username, "item_id": item_id, "slot": slot})
 
 
+@app.route("/mayor/items/all", methods=["GET"])
+def mayor_items_all():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    items = []
+
+    # GEAR_CATALOG (combat weapons/armor/boots + combat cosmetics)
+    for item_id, item in GEAR_CATALOG.items():
+        items.append({
+            "id":     item_id,
+            "name":   item["name"],
+            "slot":   item["slot"],
+            "rarity": item.get("rarity", "common"),
+            "source": "gear_catalog",
+        })
+
+    # BOUTIQUE_ITEMS (purchasable cosmetics: hat/outfit/footwear/accessory)
+    for _category, entries in BOUTIQUE_ITEMS.items():
+        for entry in entries:
+            items.append({
+                "id":     entry["id"],
+                "name":   entry["name"],
+                "slot":   entry["slot"],
+                "rarity": entry.get("tier", "common"),
+                "source": "boutique",
+            })
+
+    # BARRACKS_SHOP (purchasable combat gear with rarity)
+    for rarity, entries in BARRACKS_SHOP.items():
+        for entry in entries:
+            items.append({
+                "id":     entry["id"],
+                "name":   entry["name"],
+                "slot":   entry["slot"],
+                "rarity": rarity,
+                "source": "barracks",
+            })
+
+    # de-duplicate by item_id (first occurrence wins)
+    seen = set()
+    unique_items = []
+    for item in items:
+        if item["id"] not in seen:
+            seen.add(item["id"])
+            unique_items.append(item)
+
+    # group by slot for the response
+    by_slot = {}
+    for item in unique_items:
+        by_slot.setdefault(item["slot"], []).append(item)
+
+    # print full list to terminal
+    print("\n=== /mayor/items/all — full item list ===")
+    for slot_name in sorted(by_slot):
+        print(f"  [{slot_name}]")
+        for it in sorted(by_slot[slot_name], key=lambda x: x["name"]):
+            print(f"    {it['id']:30s}  {it['name']:30s}  {it['rarity']:12s}  ({it['source']})")
+    print(f"  Total: {len(unique_items)} items across {len(by_slot)} slots")
+    print("=========================================\n")
+
+    return jsonify({"status": "success", "by_slot": by_slot, "items": unique_items})
+
+
 @app.route("/mayor/announce", methods=["POST"])
 def mayor_announce():
     if not _is_mayor_authed():
