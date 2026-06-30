@@ -626,6 +626,9 @@
     }
     .inv-legend-icon { font-size: 17px; flex-shrink: 0; }
     .inv-legend-sep { width: 100%; border: none; border-top: 1px solid #303045; margin: 6px 0; }
+    #inv-set-bonuses { width: 100%; margin-top: 8px; }
+    .inv-set-bonus-hdr { font-size: 10px; color: #5A5A7A; letter-spacing: .05em; border-top: 1px solid #303045; padding-top: 6px; margin-bottom: 4px; }
+    .inv-set-bonus-line { font-size: 11px; line-height: 1.5; margin-bottom: 2px; }
     /* Right content column */
     .inv-col-right {
       flex: 1; display: flex; flex-direction: column; min-width: 0;
@@ -2645,6 +2648,7 @@
           Independent — equip for CP, wear anything visually.
         </div>
       </div>
+      <div id="inv-set-bonuses"></div>
     </div>
     <!-- RIGHT: tabs + item list -->
     <div class="inv-col-right">
@@ -5098,6 +5102,36 @@
   let _invTab = 'cosmetics';
   let _invCosmeticData = [];
   let _invGearData = [];
+  let _activeSetBonuses = { combat: [], cosmetic: [] };
+
+  function renderSetBonusPanel() {
+    const el = document.getElementById('inv-set-bonuses');
+    if (!el) return;
+    const lines = [];
+    (_activeSetBonuses.combat || []).forEach(function(b) {
+      lines.push(`<div class="inv-set-bonus-line" style="color:#FF8C00;">⚔️ ${b}</div>`);
+    });
+    (_activeSetBonuses.cosmetic || []).forEach(function(s) {
+      lines.push(`<div class="inv-set-bonus-line" style="color:#A86EFF;">✨ ${s.name}: ${s.description}</div>`);
+    });
+    el.innerHTML = lines.length
+      ? `<div class="inv-set-bonus-hdr">ACTIVE SET BONUSES</div>` + lines.join('')
+      : '';
+  }
+
+  async function refreshSetBonuses() {
+    try {
+      const [cosRes, invRes] = await Promise.all([
+        fetch(`/gear/cosmetics/${CURRENT_USER}`),
+        fetch(`/gear/inventory?username=${CURRENT_USER}`)
+      ]);
+      const cosData = await cosRes.json();
+      const invData = await invRes.json();
+      _activeSetBonuses.cosmetic = cosData.active_sets || [];
+      _activeSetBonuses.combat   = (invData.set_bonuses || {}).active_bonuses || [];
+      renderSetBonusPanel();
+    } catch(e) {}
+  }
 
   async function openInventory() {
     if (window.GameSounds) GameSounds.modalOpen();
@@ -5106,13 +5140,15 @@
       const res = await fetch(`/gear/cosmetics/${CURRENT_USER}`);
       const data = await res.json();
       _invCosmeticData = data.cosmetics || [];
-    } catch(e) { _invCosmeticData = []; }
+      _activeSetBonuses.cosmetic = data.active_sets || [];
+    } catch(e) { _invCosmeticData = []; _activeSetBonuses.cosmetic = []; }
 
     try {
       const res = await fetch(`/gear/inventory?username=${CURRENT_USER}`);
       const data = await res.json();
       _invGearData = (data.gear || []).filter(g => g.type !== 'cosmetic');
-    } catch(e) { _invGearData = []; }
+      _activeSetBonuses.combat = (data.set_bonuses || {}).active_bonuses || [];
+    } catch(e) { _invGearData = []; _activeSetBonuses.combat = []; }
 
     const hasCombatGear = _invGearData.some(g => g.type === 'combat');
     const gearTab = document.getElementById('inv-tab-gear');
@@ -5123,6 +5159,7 @@
     const cosTab = document.getElementById('inv-tab-cosmetics');
     if (cosTab) cosTab.classList.add('active');
     renderInventory();
+    renderSetBonusPanel();
     document.getElementById('inventory-overlay').classList.add('show');
     updateInventoryPreview();
     showHelpBanner('inv_cosmetics', '#inv-body', 'COSMETICS! These are wearable items for your penguin. Click EQUIP to put them on.');
@@ -5273,6 +5310,7 @@
         }
         renderInventory();
         await refreshPenguinDisplay();
+        refreshSetBonuses();
         if (data.newly_discovered && data.newly_discovered.length > 0) {
           data.newly_discovered.forEach(s => showSetDiscovery(s.set_name, s.description));
         }
@@ -5355,6 +5393,7 @@
         renderInventory();
         await refreshStats();
         await refreshPenguinDisplay();
+        refreshSetBonuses();
       } else {
         showToast(data.message || 'Error.', 'err');
       }

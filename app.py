@@ -966,7 +966,11 @@ COSMETIC_SET_BONUSES = {
     },
     "Ultimate Collector": {
         "required_items": ["Dragon Wings", "Full Tuxedo", "Monocle"],
-        "bonus": {"gold_per_hour": 10, "description": "+10 gold/hr, +1 all resources/hr"},
+        "bonus": {
+            "gold_per_hour": 10, "fish_per_hour": 1, "herbs_per_hour": 1,
+            "bones_per_hour": 1, "blood_gems_per_hour": 1, "spell_fragments_per_hour": 1,
+            "description": "+10 gold/hr, +1 all resources/hr",
+        },
         "secret": True,
     },
 }
@@ -2504,23 +2508,27 @@ def work_collect():
     # Apply cosmetic set bonuses
     cosmetic_bonuses = check_cosmetic_sets(username)
     if cosmetic_bonuses and hours_worked > 0:
-        extra_gold = int(cosmetic_bonuses.get("gold_per_hour", 0) * hours_worked)
-        extra_fish = int(cosmetic_bonuses.get("fish_per_hour", 0) * hours_worked)
-        extra_frags = int(cosmetic_bonuses.get("spell_fragments_per_hour", 0) * hours_worked)
-        extra_blood_gems = int(cosmetic_bonuses.get("blood_gems_per_hour", 0) * hours_worked)
-        extra_xp = int(cosmetic_bonuses.get("xp_per_hour", 0) * hours_worked)
+        def _cb_earn(key, col, amount):
+            if amount <= 0:
+                return
+            db.execute(f"UPDATE resources SET {col}={col}+? WHERE username=?", (amount, username))
+            earned[key] = earned.get(key, 0) + amount
+
+        extra_gold        = int(cosmetic_bonuses.get("gold_per_hour", 0)             * hours_worked)
+        extra_fish        = int(cosmetic_bonuses.get("fish_per_hour", 0)             * hours_worked)
+        extra_herbs       = int(cosmetic_bonuses.get("herbs_per_hour", 0)            * hours_worked)
+        extra_bones       = int(cosmetic_bonuses.get("bones_per_hour", 0)            * hours_worked)
+        extra_blood_gems  = int(cosmetic_bonuses.get("blood_gems_per_hour", 0)       * hours_worked)
+        extra_frags       = int(cosmetic_bonuses.get("spell_fragments_per_hour", 0)  * hours_worked)
+        extra_xp          = int(cosmetic_bonuses.get("xp_per_hour", 0)               * hours_worked)
         if extra_gold > 0:
             add_gold(db, username, extra_gold)
             earned["gold"] = earned.get("gold", 0) + extra_gold
-        if extra_fish > 0:
-            db.execute("UPDATE resources SET fish=fish+? WHERE username=?", (extra_fish, username))
-            earned["fish"] = earned.get("fish", 0) + extra_fish
-        if extra_frags > 0:
-            db.execute("UPDATE resources SET spell_fragments=spell_fragments+? WHERE username=?", (extra_frags, username))
-            earned["spell_fragments"] = earned.get("spell_fragments", 0) + extra_frags
-        if extra_blood_gems > 0:
-            db.execute("UPDATE resources SET blood_gems=blood_gems+? WHERE username=?", (extra_blood_gems, username))
-            earned["blood_gems"] = earned.get("blood_gems", 0) + extra_blood_gems
+        _cb_earn("fish",             "fish",             extra_fish)
+        _cb_earn("herbs",            "herbs",            extra_herbs)
+        _cb_earn("bones",            "bones",            extra_bones)
+        _cb_earn("blood_gems",       "blood_gems",       extra_blood_gems)
+        _cb_earn("spell_fragments",  "spell_fragments",  extra_frags)
         if extra_xp > 0:
             _, lvl_rewards = award_xp(db, username, extra_xp)
             level_ups.extend(lvl_rewards)
@@ -2666,7 +2674,6 @@ def gear_cosmetics(username):
         "SELECT * FROM gear WHERE username=? AND type='cosmetic' ORDER BY obtained_at",
         (username,)
     ).fetchall()
-    db.close()
     seal_ids = {s["id"] for s in SEAL_SHOP}
     cosmetics = []
     for g in rows:
@@ -2681,7 +2688,9 @@ def gear_cosmetics(username):
         else:
             d["source"] = "Gear Shop"
         cosmetics.append(d)
-    return jsonify({"cosmetics": cosmetics})
+    active = check_cosmetic_sets(username, db)
+    db.close()
+    return jsonify({"cosmetics": cosmetics, "active_sets": active.get("active_sets", [])})
 
 
 @app.route("/gear/cosmetics/equip", methods=["POST"])
@@ -3154,14 +3163,16 @@ def gear_inventory():
     rows    = db.execute("SELECT * FROM gear WHERE username=? ORDER BY id", (username,)).fetchall()
     gold    = get_gold(db, username)
     r       = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-    player_cp = get_combat_power(username)
+    sb      = calculate_set_bonuses(db, username)
     db.close()
+    player_cp = get_combat_power(username)
     return jsonify({
-        "gear":      [dict(g) for g in rows],
-        "catalog":   GEAR_CATALOG,
-        "gold":      gold,
-        "resources": dict(r) if r else {},
-        "player_cp": player_cp,
+        "gear":        [dict(g) for g in rows],
+        "catalog":     GEAR_CATALOG,
+        "gold":        gold,
+        "resources":   dict(r) if r else {},
+        "player_cp":   player_cp,
+        "set_bonuses": sb,
     })
 
 
