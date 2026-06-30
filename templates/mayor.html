@@ -330,11 +330,7 @@
         <div class="mh-field">
           <label class="mh-label">ITEM</label>
           <select class="mh-select" id="gg-item-select">
-            {% for item_id, item in gear_catalog.items() | sort(attribute='1.name') %}
-            <option value="{{ item_id }}" data-slot="{{ item.slot }}" data-name="{{ item.name }}">
-              {{ item.name }} ({{ item.slot }})
-            </option>
-            {% endfor %}
+            <option value="">Loading items…</option>
           </select>
         </div>
         <button class="mh-btn" onclick="sendGiftGear()">⚔️ GIFT GEAR</button>
@@ -611,7 +607,35 @@
     }
   }
 
-  // ── GIFT GEAR ──
+  // ── GIFT GEAR — populate dropdown from /mayor/items/all ──
+  async function loadAllItems() {
+    const sel = document.getElementById('gg-item-select');
+    try {
+      const res  = await fetch('/mayor/items/all' + KEY_PARAM);
+      const data = await res.json();
+      if (data.status !== 'success') { sel.innerHTML = '<option value="">Failed to load items</option>'; return; }
+      const SLOT_ORDER = ['weapon','armor','helmet','boots','hat','outfit','footwear','accessory'];
+      sel.innerHTML = '';
+      SLOT_ORDER.forEach(function(slot) {
+        const entries = (data.by_slot[slot] || []).slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+        if (!entries.length) return;
+        const grp = document.createElement('optgroup');
+        grp.label = slot.toUpperCase();
+        entries.forEach(function(item) {
+          const opt = document.createElement('option');
+          opt.value            = item.id;
+          opt.dataset.slot     = item.slot;
+          opt.dataset.name     = item.name;
+          opt.textContent      = item.name + ' [' + item.rarity + ']';
+          grp.appendChild(opt);
+        });
+        sel.appendChild(grp);
+      });
+    } catch(e) {
+      sel.innerHTML = '<option value="">Error loading items</option>';
+    }
+  }
+
   async function sendGiftGear() {
     const btn      = event.target;
     const username = document.getElementById('gg-username').value.trim();
@@ -774,6 +798,7 @@
     } catch(e) {}
   }
   setInterval(refreshStats, 30000);
+  loadAllItems();
 </script>
 </body>
 </html>

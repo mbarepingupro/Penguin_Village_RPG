@@ -412,6 +412,7 @@ BOUTIQUE_ITEMS = {
         {"id": "backpack",    "name": "Backpack",      "slot": "accessory", "price": 400,  "tier": "mid"},
         {"id": "monocle",     "name": "Monocle",       "slot": "accessory", "price": 500,  "tier": "mid"},
         {"id": "bubble_pipe", "name": "Bubble Pipe",   "slot": "accessory", "price": 600,  "tier": "mid"},
+        {"id": "village_bandana","name": "Village Bandana","slot": "accessory","price": 750,  "tier": "mid"},
         {"id": "gold_chain",  "name": "Gold Chain",    "slot": "accessory", "price": 1000, "tier": "expensive"},
         {"id": "dragon_wings","name": "Dragon Wings",  "slot": "accessory", "price": 3000, "tier": "expensive"},
     ],
@@ -844,16 +845,14 @@ GEAR_CATALOG = {
     "ice_sword":   {"name":"ICE SWORD",       "set_name":"Frost Guardian","type":"combat",  "slot":"weapon","rarity":"rare",     "attack_bonus":18, "defense_bonus":2, "speed_bonus":0,"hp_bonus":0, "combat_power":20, "cost":{"gold":200, "fish":30}},
     "blood_axe":   {"name":"BLOOD AXE",       "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"epic",     "attack_bonus":30, "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":30, "cost":{"gold":500, "blood_gems":15}},
     # Armor
-    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":"Frost Guardian","type":"combat",  "slot":"armor", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"combat_power":10, "cost":{"gold":60,  "fish":15}},
+    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":None,            "type":"combat",  "slot":"armor", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"combat_power":10, "cost":{"gold":60,  "fish":15}},
     "bone_plate":  {"name":"BONE PLATE",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"armor", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":12,"speed_bonus":0,"hp_bonus":15,"combat_power":15, "cost":{"gold":120, "bones":20}},
     "ice_plate":   {"name":"ICE PLATE",       "set_name":"Frost Guardian","type":"combat",  "slot":"armor", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":22,"speed_bonus":0,"hp_bonus":25,"combat_power":27, "cost":{"gold":300, "fish":40,"herbs":10}},
     # Boots
     "leather_boots":{"name":"LEATHER BOOTS", "set_name":None,            "type":"combat",  "slot":"boots", "rarity":"common",   "attack_bonus":0,  "defense_bonus":3, "speed_bonus":5,"hp_bonus":0, "combat_power":8,  "cost":{"gold":40}},
     "bone_boots":  {"name":"BONE BOOTS",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"boots", "rarity":"uncommon", "attack_bonus":2,  "defense_bonus":5, "speed_bonus":8,"hp_bonus":0, "combat_power":15, "cost":{"gold":100, "bones":15}},
     "frost_boots": {"name":"FROST BOOTS",     "set_name":"Frost Guardian","type":"combat",  "slot":"boots", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":8, "speed_bonus":12,"hp_bonus":5,"combat_power":21, "cost":{"gold":250, "fish":20,"spell_fragments":5}},
-    # Cosmetics
-    "tophat":      {"name":"TOP HAT",         "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":25}},
-    "party_hat":   {"name":"PARTY HAT",       "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":15}},
+    # Cosmetics (purchasable via /gear/buy; boutique items live in BOUTIQUE_ITEMS)
     "crown":       {"name":"CROWN",           "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"rare",     "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":200}},
     "red_cape":    {"name":"RED CAPE",        "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":20}},
     "star_cape":   {"name":"STAR CAPE",       "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":80,  "herbs":10}},
@@ -967,7 +966,11 @@ COSMETIC_SET_BONUSES = {
     },
     "Ultimate Collector": {
         "required_items": ["Dragon Wings", "Full Tuxedo", "Monocle"],
-        "bonus": {"gold_per_hour": 10, "description": "+10 gold/hr, +1 all resources/hr"},
+        "bonus": {
+            "gold_per_hour": 10, "fish_per_hour": 1, "herbs_per_hour": 1,
+            "bones_per_hour": 1, "blood_gems_per_hour": 1, "spell_fragments_per_hour": 1,
+            "description": "+10 gold/hr, +1 all resources/hr",
+        },
         "secret": True,
     },
 }
@@ -2505,23 +2508,27 @@ def work_collect():
     # Apply cosmetic set bonuses
     cosmetic_bonuses = check_cosmetic_sets(username)
     if cosmetic_bonuses and hours_worked > 0:
-        extra_gold = int(cosmetic_bonuses.get("gold_per_hour", 0) * hours_worked)
-        extra_fish = int(cosmetic_bonuses.get("fish_per_hour", 0) * hours_worked)
-        extra_frags = int(cosmetic_bonuses.get("spell_fragments_per_hour", 0) * hours_worked)
-        extra_blood_gems = int(cosmetic_bonuses.get("blood_gems_per_hour", 0) * hours_worked)
-        extra_xp = int(cosmetic_bonuses.get("xp_per_hour", 0) * hours_worked)
+        def _cb_earn(key, col, amount):
+            if amount <= 0:
+                return
+            db.execute(f"UPDATE resources SET {col}={col}+? WHERE username=?", (amount, username))
+            earned[key] = earned.get(key, 0) + amount
+
+        extra_gold        = int(cosmetic_bonuses.get("gold_per_hour", 0)             * hours_worked)
+        extra_fish        = int(cosmetic_bonuses.get("fish_per_hour", 0)             * hours_worked)
+        extra_herbs       = int(cosmetic_bonuses.get("herbs_per_hour", 0)            * hours_worked)
+        extra_bones       = int(cosmetic_bonuses.get("bones_per_hour", 0)            * hours_worked)
+        extra_blood_gems  = int(cosmetic_bonuses.get("blood_gems_per_hour", 0)       * hours_worked)
+        extra_frags       = int(cosmetic_bonuses.get("spell_fragments_per_hour", 0)  * hours_worked)
+        extra_xp          = int(cosmetic_bonuses.get("xp_per_hour", 0)               * hours_worked)
         if extra_gold > 0:
             add_gold(db, username, extra_gold)
             earned["gold"] = earned.get("gold", 0) + extra_gold
-        if extra_fish > 0:
-            db.execute("UPDATE resources SET fish=fish+? WHERE username=?", (extra_fish, username))
-            earned["fish"] = earned.get("fish", 0) + extra_fish
-        if extra_frags > 0:
-            db.execute("UPDATE resources SET spell_fragments=spell_fragments+? WHERE username=?", (extra_frags, username))
-            earned["spell_fragments"] = earned.get("spell_fragments", 0) + extra_frags
-        if extra_blood_gems > 0:
-            db.execute("UPDATE resources SET blood_gems=blood_gems+? WHERE username=?", (extra_blood_gems, username))
-            earned["blood_gems"] = earned.get("blood_gems", 0) + extra_blood_gems
+        _cb_earn("fish",             "fish",             extra_fish)
+        _cb_earn("herbs",            "herbs",            extra_herbs)
+        _cb_earn("bones",            "bones",            extra_bones)
+        _cb_earn("blood_gems",       "blood_gems",       extra_blood_gems)
+        _cb_earn("spell_fragments",  "spell_fragments",  extra_frags)
         if extra_xp > 0:
             _, lvl_rewards = award_xp(db, username, extra_xp)
             level_ups.extend(lvl_rewards)
@@ -2667,7 +2674,6 @@ def gear_cosmetics(username):
         "SELECT * FROM gear WHERE username=? AND type='cosmetic' ORDER BY obtained_at",
         (username,)
     ).fetchall()
-    db.close()
     seal_ids = {s["id"] for s in SEAL_SHOP}
     cosmetics = []
     for g in rows:
@@ -2682,7 +2688,9 @@ def gear_cosmetics(username):
         else:
             d["source"] = "Gear Shop"
         cosmetics.append(d)
-    return jsonify({"cosmetics": cosmetics})
+    active = check_cosmetic_sets(username, db)
+    db.close()
+    return jsonify({"cosmetics": cosmetics, "active_sets": active.get("active_sets", [])})
 
 
 @app.route("/gear/cosmetics/equip", methods=["POST"])
@@ -3155,14 +3163,16 @@ def gear_inventory():
     rows    = db.execute("SELECT * FROM gear WHERE username=? ORDER BY id", (username,)).fetchall()
     gold    = get_gold(db, username)
     r       = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-    player_cp = get_combat_power(username)
+    sb      = calculate_set_bonuses(db, username)
     db.close()
+    player_cp = get_combat_power(username)
     return jsonify({
-        "gear":      [dict(g) for g in rows],
-        "catalog":   GEAR_CATALOG,
-        "gold":      gold,
-        "resources": dict(r) if r else {},
-        "player_cp": player_cp,
+        "gear":        [dict(g) for g in rows],
+        "catalog":     GEAR_CATALOG,
+        "gold":        gold,
+        "resources":   dict(r) if r else {},
+        "player_cp":   player_cp,
+        "set_bonuses": sb,
     })
 
 
@@ -6056,6 +6066,70 @@ def mayor_gift_gear():
     db.commit()
     db.close()
     return jsonify({"status": "success", "recipient": username, "item_id": item_id, "slot": slot})
+
+
+@app.route("/mayor/items/all", methods=["GET"])
+def mayor_items_all():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    items = []
+
+    # GEAR_CATALOG (combat weapons/armor/boots + combat cosmetics)
+    for item_id, item in GEAR_CATALOG.items():
+        items.append({
+            "id":     item_id,
+            "name":   item["name"],
+            "slot":   item["slot"],
+            "rarity": item.get("rarity", "common"),
+            "source": "gear_catalog",
+        })
+
+    # BOUTIQUE_ITEMS (purchasable cosmetics: hat/outfit/footwear/accessory)
+    for _category, entries in BOUTIQUE_ITEMS.items():
+        for entry in entries:
+            items.append({
+                "id":     entry["id"],
+                "name":   entry["name"],
+                "slot":   entry["slot"],
+                "rarity": entry.get("tier", "common"),
+                "source": "boutique",
+            })
+
+    # BARRACKS_SHOP (purchasable combat gear with rarity)
+    for rarity, entries in BARRACKS_SHOP.items():
+        for entry in entries:
+            items.append({
+                "id":     entry["id"],
+                "name":   entry["name"],
+                "slot":   entry["slot"],
+                "rarity": rarity,
+                "source": "barracks",
+            })
+
+    # de-duplicate by item_id (first occurrence wins)
+    seen = set()
+    unique_items = []
+    for item in items:
+        if item["id"] not in seen:
+            seen.add(item["id"])
+            unique_items.append(item)
+
+    # group by slot for the response
+    by_slot = {}
+    for item in unique_items:
+        by_slot.setdefault(item["slot"], []).append(item)
+
+    # print full list to terminal
+    print("\n=== /mayor/items/all — full item list ===")
+    for slot_name in sorted(by_slot):
+        print(f"  [{slot_name}]")
+        for it in sorted(by_slot[slot_name], key=lambda x: x["name"]):
+            print(f"    {it['id']:30s}  {it['name']:30s}  {it['rarity']:12s}  ({it['source']})")
+    print(f"  Total: {len(unique_items)} items across {len(by_slot)} slots")
+    print("=========================================\n")
+
+    return jsonify({"status": "success", "by_slot": by_slot, "items": unique_items})
 
 
 @app.route("/mayor/announce", methods=["POST"])
