@@ -2795,6 +2795,8 @@
   }
 
   function switchContentTab(name, btn) {
+    const _mpo = document.getElementById('mobile-player-overlay');
+    if (_mpo) _mpo.remove();
     if (window.GameSounds) GameSounds.tabSwitch();
     document.querySelectorAll('.content-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
@@ -5134,6 +5136,8 @@
   }
 
   async function openInventory() {
+    const _mpo = document.getElementById('mobile-player-overlay');
+    if (_mpo) _mpo.remove();
     if (window.GameSounds) GameSounds.modalOpen();
     if (window.TutorialManager) window.TutorialManager._notifyInventory();
     try {
