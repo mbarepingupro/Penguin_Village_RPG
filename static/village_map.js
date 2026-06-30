@@ -383,17 +383,32 @@ function drawBuilding(id, bdef, level) {
         ctx.font = "14px 'Pixelify Sans', monospace";
 
         const name = cfg.name;
+        const padX = 5, padY = 3, lineH = 14;
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
         if (name.length > 10) {
             const mid = Math.ceil(name.length / 2);
             let splitIdx = name.lastIndexOf(' ', mid);
             if (splitIdx === -1) splitIdx = mid;
             const line1 = name.slice(0, splitIdx).trim();
             const line2 = name.slice(splitIdx).trim();
+            const bw = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width) + padX * 2;
+            const bh = lineH * 2 + padY * 2;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(faceCenterX - bw / 2, faceCenterY - 5 - lineH / 2 - padY, bw, bh);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.shadowColor = "rgba(0,0,0,0.9)"; ctx.shadowBlur = 3;
             ctx.fillText(line1, faceCenterX, faceCenterY - 5);
             ctx.fillText(line2, faceCenterX, faceCenterY + 5);
         } else {
+            const bw = ctx.measureText(name).width + padX * 2;
+            const bh = lineH + padY * 2;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)';
+            ctx.fillRect(faceCenterX - bw / 2, faceCenterY - bh / 2, bw, bh);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.shadowColor = "rgba(0,0,0,0.9)"; ctx.shadowBlur = 3;
             ctx.fillText(name, faceCenterX, faceCenterY);
         }
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
 
         const lv = buildingLevels[id] !== undefined ? buildingLevels[id] : (level !== undefined ? level : 1);
 
