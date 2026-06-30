@@ -1644,7 +1644,7 @@
       .content-panel { flex: 1; min-height: 0; overflow: hidden; }
 
       /* ── Map fullscreen ── */
-      #panel-map { display: flex; flex-direction: column; }
+      #panel-map.active { display: flex; flex-direction: column; }
       #map-area { flex: 1; min-height: 0; }
       #village-canvas { touch-action: none; width: 100%; height: 100%; }
 
@@ -2807,10 +2807,6 @@
     const panel = document.getElementById('panel-' + name);
     if (!panel) return;
     panel.classList.add('active');
-    if (window.innerWidth <= 768) {
-      const vc = document.getElementById('village-canvas');
-      if (vc) vc.style.display = name === 'map' ? '' : 'none';
-    }
     if (name === 'missions')  loadMissions();
     if (name === 'igloo')     loadIgloo();
     if (name === 'combat')    loadCombat();
@@ -2818,14 +2814,18 @@
     if (name === 'eventlog')  loadEventLog();
     if (name === 'levels')    loadLevelsTab();
     if (name === 'bank') { bankLoadBrowse(); bankLoadSellItems(); bankLoadMyListings(); }
-    if (name === 'map' && !window._mapInitialized) {
-      window._mapInitialized = true;
-      if (window.VillageMap && document.getElementById('village-canvas')) {
-        VillageMap.init(
-          document.getElementById('village-canvas'),
-          {{ penguin["username"] | tojson if logged_in else "null" }},
-          openBuilding
-        );
+    if (name === 'map') {
+      if (!window._mapInitialized) {
+        window._mapInitialized = true;
+        if (window.VillageMap && document.getElementById('village-canvas')) {
+          VillageMap.init(
+            document.getElementById('village-canvas'),
+            {{ penguin["username"] | tojson if logged_in else "null" }},
+            openBuilding
+          );
+        }
+      } else if (window.VillageMap && window.VillageMap.resize) {
+        requestAnimationFrame(function() { VillageMap.resize(); });
       }
     }
     const _helpTabMap = {
