@@ -621,14 +621,14 @@
     }
     /* Left preview column */
     .inv-col-left {
-      width: 160px; flex-shrink: 0;
+      width: 200px; flex-shrink: 0;
       border-right: 2px solid #303045;
       display: flex; flex-direction: column;
       align-items: center; padding: 20px 12px 16px;
       background: #181820;
     }
     .inv-preview-penguin { margin-bottom: 10px; }
-    .inv-preview-penguin canvas { width: 80px; height: 100px; image-rendering: pixelated; }
+    .inv-preview-penguin canvas { width: 120px; height: 150px; image-rendering: pixelated; }
     .inv-preview-label { color: #A86EFF; font-size: 15px; margin-bottom: 14px; text-align: center; }
     .inv-preview-legend { width: 100%; margin-top: auto; }
     .inv-legend-row {
@@ -637,7 +637,7 @@
     }
     .inv-legend-icon { font-size: 17px; flex-shrink: 0; }
     .inv-legend-sep { width: 100%; border: none; border-top: 1px solid #303045; margin: 6px 0; }
-    #inv-set-bonuses { width: 100%; margin-top: 8px; }
+    #inv-set-bonuses { width: 100%; margin-top: 4px; margin-bottom: 6px; }
     .inv-set-bonus-hdr { font-size: 10px; color: #5A5A7A; letter-spacing: .05em; border-top: 1px solid #303045; padding-top: 6px; margin-bottom: 4px; }
     .inv-set-bonus-line { font-size: 11px; line-height: 1.5; margin-bottom: 2px; }
     /* Right content column */
@@ -1690,6 +1690,7 @@
         padding: 10px 14px; gap: 12px;
       }
       .inv-preview-penguin { margin-bottom: 0; }
+      .inv-preview-penguin canvas { width: 80px; height: 100px; }
       .inv-preview-label { margin-bottom: 0; }
       .inv-preview-legend { display: none; }
       .inv-legend-sep { display: none; }
@@ -2646,6 +2647,7 @@
       <div class="inv-preview-penguin">
         <canvas id="inv-preview-canvas" width="80" height="100" style="image-rendering:pixelated;"></canvas>
       </div>
+      <div id="inv-set-bonuses"></div>
       <div class="inv-preview-label">📦 INVENTORY</div>
       <hr class="inv-legend-sep">
       <div class="inv-preview-legend">
@@ -2661,7 +2663,6 @@
           Independent — equip for CP, wear anything visually.
         </div>
       </div>
-      <div id="inv-set-bonuses"></div>
     </div>
     <!-- RIGHT: tabs + item list -->
     <div class="inv-col-right">
@@ -4010,7 +4011,7 @@
             return `<span style="text-decoration:line-through;color:#8888A8;">${v}/hr</span> <span style="color:#FF7FE5;">${(v*bsMult).toFixed(1)}/hr</span> ${k}`;
           return `${v}/hr ${k}`;
         }).join(', ');
-        if (prodStr) html += `<div class="bp-info" style="color:#B8B8D0;">${prodStr}<br>Caps at 8 hours.</div>`;
+        if (prodStr) html += `<div class="bp-info" style="color:#B8B8D0;">${prodStr}<br>Caps at 12 hours.</div>`;
         html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label||'WORK'}</button>`;
         html += `<div style="margin:8px 0 4px;border-top:1px solid #2a2a4a;padding-top:8px;">`;
         html += `<div style="color:#B8B8D0;font-size:12px;margin-bottom:6px;text-align:center;">— OR PLAY ACTIVELY —</div>`;
@@ -8565,7 +8566,23 @@
         });
         var data = await res.json();
         if (data.status === 'already_given') {
-          overlay.style.zIndex = ''; closeFightModal(); self._advanceStep(); return;
+          document.getElementById('fight-monster-cp').textContent = '1 CP';
+          await animateRoll(95, 42, true);
+          showFightResult({
+            victory: true,
+            rewards: { gold: 30, xp: 20 },
+            level_ups: [],
+            roll: 42, win_chance: 95, evaluation: 'CRUSHING VICTORY',
+          });
+          var okBtn2 = document.getElementById('fight-modal-ok');
+          okBtn2.onclick = function() {
+            overlay.style.zIndex = '';
+            closeFightModal();
+            self._sayThen('Victory! 🎉 Let\'s equip your gear.').then(function() {
+              self._showContinue('Equip it! →', function() { self._advanceStep(); });
+            });
+          };
+          return;
         }
         if (data.status === 'success') {
           document.getElementById('fight-monster-cp').textContent = '1 CP';
@@ -8601,7 +8618,7 @@
     _step6: async function() {
       var self = this;
       self._highlightEl('.inv-open-btn');
-      await self._sayThen('Open your inventory — the 📦 INVENTORY button on the left — and equip the gear you just found!');
+      await self._sayThen('Open your inventory — tap the 🐧 Penguin tab, then hit 📦 INVENTORY — and equip the gear you just found!');
       self._waitForInventory().then(async function() {
         self._clearHighlights();
         await self._sayThen('Click EQUIP on your new gear to boost your Combat Power. Your penguin just got stronger!');
