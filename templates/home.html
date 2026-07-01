@@ -621,14 +621,14 @@
     }
     /* Left preview column */
     .inv-col-left {
-      width: 160px; flex-shrink: 0;
+      width: 200px; flex-shrink: 0;
       border-right: 2px solid #303045;
       display: flex; flex-direction: column;
       align-items: center; padding: 20px 12px 16px;
       background: #181820;
     }
     .inv-preview-penguin { margin-bottom: 10px; }
-    .inv-preview-penguin canvas { width: 80px; height: 100px; image-rendering: pixelated; }
+    .inv-preview-penguin canvas { width: 120px; height: 150px; image-rendering: pixelated; }
     .inv-preview-label { color: #A86EFF; font-size: 15px; margin-bottom: 14px; text-align: center; }
     .inv-preview-legend { width: 100%; margin-top: auto; }
     .inv-legend-row {
@@ -637,7 +637,7 @@
     }
     .inv-legend-icon { font-size: 17px; flex-shrink: 0; }
     .inv-legend-sep { width: 100%; border: none; border-top: 1px solid #303045; margin: 6px 0; }
-    #inv-set-bonuses { width: 100%; margin-top: 8px; }
+    #inv-set-bonuses { width: 100%; margin-top: 4px; margin-bottom: 6px; }
     .inv-set-bonus-hdr { font-size: 10px; color: #5A5A7A; letter-spacing: .05em; border-top: 1px solid #303045; padding-top: 6px; margin-bottom: 4px; }
     .inv-set-bonus-line { font-size: 11px; line-height: 1.5; margin-bottom: 2px; }
     /* Right content column */
@@ -1690,6 +1690,7 @@
         padding: 10px 14px; gap: 12px;
       }
       .inv-preview-penguin { margin-bottom: 0; }
+      .inv-preview-penguin canvas { width: 80px; height: 100px; }
       .inv-preview-label { margin-bottom: 0; }
       .inv-preview-legend { display: none; }
       .inv-legend-sep { display: none; }
@@ -2646,6 +2647,7 @@
       <div class="inv-preview-penguin">
         <canvas id="inv-preview-canvas" width="80" height="100" style="image-rendering:pixelated;"></canvas>
       </div>
+      <div id="inv-set-bonuses"></div>
       <div class="inv-preview-label">📦 INVENTORY</div>
       <hr class="inv-legend-sep">
       <div class="inv-preview-legend">
@@ -2661,7 +2663,6 @@
           Independent — equip for CP, wear anything visually.
         </div>
       </div>
-      <div id="inv-set-bonuses"></div>
     </div>
     <!-- RIGHT: tabs + item list -->
     <div class="inv-col-right">
