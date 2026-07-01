@@ -105,7 +105,7 @@ function resetView() {
 function drawZoomIndicator() {
     const pct = Math.round(zoomLevel * 100) + '%';
     ctx.save();
-    ctx.font = "8px 'Press Start 2P', monospace";
+    ctx.font = "8px 'C&C Red Alert', monospace";
     const tw = ctx.measureText(pct).width;
     const pad = 6, bw = tw + pad * 2, bh = 20;
     const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
@@ -331,7 +331,7 @@ function drawBuilding(key, bdef) {
         ctx.fillStyle = "#FFFFFF";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = "7px 'Press Start 2P', monospace";
+        ctx.font = "7px 'C&C Red Alert', monospace";
 
         const name = def.name;
         if (name.length > 10) {

@@ -175,7 +175,7 @@ function worldToScreen(wx, wy) {
 function drawZoomIndicator() {
     const pct = Math.round(zoomLevel * 100) + '%';
     ctx.save();
-    ctx.font = "17px 'Pixelify Sans', monospace";
+    ctx.font = "17px 'C&C Red Alert', monospace";
     const tw = ctx.measureText(pct).width;
     const pad = 6, bw = tw + pad * 2, bh = 20;
     const bx = canvas.width - bw - 10, by = canvas.height - bh - 10;
@@ -380,7 +380,7 @@ function drawBuilding(id, bdef, level) {
         ctx.fillStyle = "#FFFFFF";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.font = "14px 'Pixelify Sans', monospace";
+        ctx.font = "14px 'C&C Red Alert', monospace";
 
         const name = cfg.name;
         const padX = 5, padY = 3, lineH = 14;
@@ -413,7 +413,7 @@ function drawBuilding(id, bdef, level) {
         const lv = buildingLevels[id] !== undefined ? buildingLevels[id] : (level !== undefined ? level : 1);
 
         if (!cfg.noLevelBadge) {
-            ctx.font = "14px 'Pixelify Sans', monospace";
+            ctx.font = "14px 'C&C Red Alert', monospace";
             const lvBorderColors = { 1: '#8888A8', 2: '#4a9eff', 3: '#FF8C00' };
             const badgeText   = lv >= 3 ? '★ MAX' : ('LV.' + lv);
             const badgeBorder = lvBorderColors[lv] || '#8888A8';
@@ -612,12 +612,12 @@ function drawPenguin(sx, sy, penguin, isBehind) {
         ctx.textAlign   = "center";
         ctx.textBaseline = "middle";
 
-        ctx.font = "14px 'Pixelify Sans', monospace";
+        ctx.font = "14px 'C&C Red Alert', monospace";
         ctx.fillStyle = "#FFFFFF";
         ctx.fillText(displayName, sx, drawY - 5);
 
         if (penguin.active_title) {
-            ctx.font = "14px 'Pixelify Sans', monospace";
+            ctx.font = "14px 'C&C Red Alert', monospace";
             ctx.fillStyle = "#FF8C00";
             ctx.fillText(penguin.active_title, sx, drawY + 5);
         }
@@ -925,7 +925,7 @@ function showPenguinPopup(penguin, sx, sy) {
         'background:#181820',
         'border:2px solid #A86EFF',
         'padding:8px 10px',
-        "font-family:'Pixelify Sans',monospace",
+        "font-family:'C&C Red Alert',monospace",
         'font-size:12px',
         'color:#FFFFFF',
         'pointer-events:auto',
@@ -946,7 +946,7 @@ function showPenguinPopup(penguin, sx, sy) {
             visitBtnHtml = '<div style="margin-top:6px;color:#4aff6b;font-size:10px;">VISITED TODAY ✅</div>';
         } else {
             visitBtnHtml = '<button id="map-visit-btn" style="margin-top:6px;display:block;width:100%;'
-                + "font-family:'Pixelify Sans',monospace;font-size:10px;padding:4px 6px;"
+                + "font-family:'C&C Red Alert',monospace;font-size:10px;padding:4px 6px;"
                 + 'background:#181820;color:#A86EFF;border:1px solid #A86EFF;cursor:pointer;" '
                 + 'onmouseenter="this.style.background=\'#A86EFF\';this.style.color=\'#181820\'" '
                 + 'onmouseleave="this.style.background=\'#181820\';this.style.color=\'#A86EFF\'" '
@@ -1284,12 +1284,12 @@ function gameLoop(ts) {
             const lsx = lpos.x * zoomLevel + cameraX;
             const lsy = lpos.y * zoomLevel + cameraY;
             if (lsx < -200 || lsx > canvas.width + 200 || lsy < -100 || lsy > canvas.height + 100) continue;
-            ctx.font = `${Math.max(7, Math.floor(9 * zoomLevel))}px 'Pixelify Sans', monospace`;
+            ctx.font = `${Math.max(7, Math.floor(9 * zoomLevel))}px 'C&C Red Alert', monospace`;
             ctx.fillStyle = '#3A3A50';
             lbl.text.forEach((line, i) => {
                 ctx.fillText(line, lpos.x, lpos.y + (i - lbl.text.length / 2 + 0.5) * 11 * zoomLevel);
             });
-            ctx.font = `${Math.max(6, Math.floor(7 * zoomLevel))}px 'Pixelify Sans', monospace`;
+            ctx.font = `${Math.max(6, Math.floor(7 * zoomLevel))}px 'C&C Red Alert', monospace`;
             ctx.fillStyle = '#6040A0';
             ctx.fillText(lbl.era, lpos.x, lpos.y + (lbl.text.length / 2 + 0.5) * 11 * zoomLevel + 3 * zoomLevel);
         }
