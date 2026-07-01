@@ -4010,7 +4010,7 @@
             return `<span style="text-decoration:line-through;color:#8888A8;">${v}/hr</span> <span style="color:#FF7FE5;">${(v*bsMult).toFixed(1)}/hr</span> ${k}`;
           return `${v}/hr ${k}`;
         }).join(', ');
-        if (prodStr) html += `<div class="bp-info" style="color:#B8B8D0;">${prodStr}<br>Caps at 8 hours.</div>`;
+        if (prodStr) html += `<div class="bp-info" style="color:#B8B8D0;">${prodStr}<br>Caps at 12 hours.</div>`;
         html += `<button class="bp-btn" onclick="bpStartWork('${data.building_id}')">START ${data.job_label||'WORK'}</button>`;
         html += `<div style="margin:8px 0 4px;border-top:1px solid #2a2a4a;padding-top:8px;">`;
         html += `<div style="color:#B8B8D0;font-size:12px;margin-bottom:6px;text-align:center;">— OR PLAY ACTIVELY —</div>`;

@@ -470,7 +470,7 @@ def ensure_building_row(db, building_id):
 
 # ── BUILDINGS ─────────────────────────────────────────────────────────────────
 # produces = per-hour rates. Jobs cap at JOB_CAP_HOURS; earned = floor(rate * hours).
-JOB_CAP_HOURS = 8.0
+JOB_CAP_HOURS = 12.0
 
 BUILDINGS = {
     "hotel": {
