@@ -8617,7 +8617,7 @@
     _step6: async function() {
       var self = this;
       self._highlightEl('.inv-open-btn');
-      await self._sayThen('Open your inventory — the 📦 INVENTORY button on the left — and equip the gear you just found!');
+      await self._sayThen('Open your inventory — tap the 🐧 Penguin tab, then hit 📦 INVENTORY — and equip the gear you just found!');
       self._waitForInventory().then(async function() {
         self._clearHighlights();
         await self._sayThen('Click EQUIP on your new gear to boost your Combat Power. Your penguin just got stronger!');
