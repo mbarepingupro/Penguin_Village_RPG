@@ -8553,7 +8553,10 @@
 
     _runStarterFight: async function() {
       var self = this;
-      self._say('Rolling the dice...', null);
+      var overlay = document.getElementById('fight-modal-overlay');
+      overlay.style.zIndex = '95000';
+      _fightInProgress = true;
+      showFightModal(CURRENT_USER, '—', '❄️', 'Tutorial Snow Crab', '1');
       try {
         var res  = await fetch('/tutorial/starter-fight', {
           method: 'POST',
@@ -8561,20 +8564,34 @@
           body: JSON.stringify({ username: CURRENT_USER })
         });
         var data = await res.json();
-        if (data.status === 'success' || data.status === 'already_given') {
-          var parts = ['+30 💰', '+20 XP'];
-          _flyEmojiCollection(parts);
-          if (data.level_ups && data.level_ups.length) {
-            setTimeout(function() { queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+data.level_ups[0].level+' Reached!', rewards:[]}); }, 800);
-          }
-          var gearName = data.gear_drop ? data.gear_drop.name : 'some gear';
-          await self._sayThen('Victory! 🎉 And look — you found ' + gearName + '! Let\'s equip it.');
-          self._showContinue('Equip it! →', function() { self._advanceStep(); });
-        } else {
-          await self._sayThen('Hmm, something went wrong. Let\'s skip ahead.');
-          self._showContinue('OK →', function() { self._advanceStep(); });
+        if (data.status === 'already_given') {
+          overlay.style.zIndex = ''; closeFightModal(); self._advanceStep(); return;
         }
+        if (data.status === 'success') {
+          document.getElementById('fight-monster-cp').textContent = '1 CP';
+          await animateRoll(95, 42, true);
+          showFightResult({
+            victory: true,
+            rewards: { gold: (data.earned||{}).gold||30, xp: (data.earned||{}).xp||20, gear_drop: data.gear_drop },
+            level_ups: data.level_ups || [],
+            roll: 42, win_chance: 95, evaluation: 'CRUSHING VICTORY',
+          });
+          var okBtn = document.getElementById('fight-modal-ok');
+          okBtn.onclick = function() {
+            overlay.style.zIndex = '';
+            closeFightModal();
+            var gearName = data.gear_drop ? data.gear_drop.name : 'some gear';
+            self._sayThen('Victory! 🎉 And look — you found ' + gearName + '! Let\'s equip it.').then(function() {
+              self._showContinue('Equip it! →', function() { self._advanceStep(); });
+            });
+          };
+          return;
+        }
+        overlay.style.zIndex = ''; closeFightModal();
+        await self._sayThen('Hmm, something went wrong. Let\'s skip ahead.');
+        self._showContinue('OK →', function() { self._advanceStep(); });
       } catch(e) {
+        overlay.style.zIndex = ''; closeFightModal();
         await self._sayThen('Hmm, something went wrong. Let\'s skip ahead.');
         self._showContinue('OK →', function() { self._advanceStep(); });
       }
