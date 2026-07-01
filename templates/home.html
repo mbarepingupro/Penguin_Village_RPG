@@ -4060,8 +4060,7 @@
       </div>`;
       html += `<div id="barracks-pane-monsters">`;
       if (FEATURES.combat) {
-        html += `<div class="bp-info">Fight monsters. Win loot.</div>`;
-        html += `<button class="bp-btn" onclick="switchContentTab('combat', null); closeBuildingPanel();">ENTER BARRACKS</button>`;
+        html += `<button class="bp-btn" style="background:#2a0a0a;border-color:#ff6b6b;color:#ff6b6b;" onclick="switchContentTab('combat', null); closeBuildingPanel();">⚔️ FIGHT MONSTERS</button>`;
       } else {
         html += bpComingSoon('🚧', 'THE BARRACKS ARE BEING PREPARED...', 'Combat, gear, and monsters are coming soon.');
       }
