@@ -12,7 +12,7 @@ const Effects = (function () {
       top:        rect.top + 'px',
       transform:  'translateX(-50%)',
       color:      color,
-      fontFamily: "'Press Start 2P', monospace",
+      fontFamily: "'C&C Red Alert', monospace",
       fontSize:   '9px',
       pointerEvents: 'none',
       zIndex:     '99999',
