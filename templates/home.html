@@ -8,7 +8,8 @@
   <style>
     @font-face {
       font-family: 'C&C Red Alert';
-      src: url('https://db.onlinewebfonts.com/t/fc83af387d317b759906221583850c4f.woff2') format('woff2');
+      src: url('/static/fonts/CCRedAlertINET.woff2') format('woff2'),
+           url('/static/fonts/CCRedAlertINET.ttf') format('truetype');
       font-weight: normal; font-style: normal; font-display: swap;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -8442,11 +8443,13 @@
       if (mapBtn) mapBtn.click();
       self._highlightBuilding('sea_lion_pit');
       await self._sayThen('Here\'s something fun — instead of waiting for passive income, you can play mini-games to earn resources RIGHT NOW! Try the Fish Catch game at the Sea Lion Pit!');
+      self._clearHighlights();
+      // Register callback BEFORE opening so _notifyBuilding always fires it
       self._waitForBuilding('sea_lion_pit').then(function() {
-        self._clearHighlights();
         self._injectTutorialMinigameButton();
         self._say('Click "PLAY MINI-GAME (FREE)" in the panel to try it — it\'s free for the tutorial!', null);
       });
+      openBuilding('sea_lion_pit');
     },
 
     _injectTutorialMinigameButton: function() {
