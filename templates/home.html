@@ -8565,7 +8565,23 @@
         });
         var data = await res.json();
         if (data.status === 'already_given') {
-          overlay.style.zIndex = ''; closeFightModal(); self._advanceStep(); return;
+          document.getElementById('fight-monster-cp').textContent = '1 CP';
+          await animateRoll(95, 42, true);
+          showFightResult({
+            victory: true,
+            rewards: { gold: 30, xp: 20 },
+            level_ups: [],
+            roll: 42, win_chance: 95, evaluation: 'CRUSHING VICTORY',
+          });
+          var okBtn2 = document.getElementById('fight-modal-ok');
+          okBtn2.onclick = function() {
+            overlay.style.zIndex = '';
+            closeFightModal();
+            self._sayThen('Victory! 🎉 Let\'s equip your gear.').then(function() {
+              self._showContinue('Equip it! →', function() { self._advanceStep(); });
+            });
+          };
+          return;
         }
         if (data.status === 'success') {
           document.getElementById('fight-monster-cp').textContent = '1 CP';
