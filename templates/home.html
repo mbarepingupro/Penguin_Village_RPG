@@ -435,6 +435,12 @@
     .res-count.updated {
       animation: res-pulse 0.5s ease-out forwards;
     }
+    #res-tooltip {
+      position: fixed; z-index: 99999; display: none;
+      background: #181820; border: 1px solid #303045;
+      color: #fff; font-size: 12px; padding: 5px 9px;
+      pointer-events: none; max-width: 200px; line-height: 1.4;
+    }
     @keyframes res-pulse {
       0%   { transform: scale(1.3); color: #4aff6b; }
       100% { transform: scale(1);   color: inherit; }
@@ -9439,6 +9445,42 @@ function _loadMobileTab(tabName) {
 
 
     console.log('[Sounds] Universal sound wiring active');
+})();
+</script>
+<div id="res-tooltip"></div>
+<script>
+(function() {
+  var RES_TIPS = {
+    gold:            '🪙 Gold\nEarned from jobs, mini-games, and trading.',
+    fish:            '🐟 Fish\nObtained by working or playing mini-games at the Sea Lion Pit.',
+    herbs:           '🌿 Herbs\nObtained by working or playing mini-games at Club Soda.',
+    blood_gems:      '💎 Blood Gems\nObtained from the Cursed Temple (work & mini-games).',
+    bones:           '🦴 Bones\nObtained from the Guillotine (work & mini-games).',
+    spell_fragments: '✨ Spell Fragments\nObtained from the Cursed Temple (work & mini-games).',
+  };
+  var tip = document.getElementById('res-tooltip');
+  function show(el, resource) {
+    var text = RES_TIPS[resource];
+    if (!text || !tip) return;
+    tip.textContent = text;
+    tip.style.display = 'block';
+    var r = el.getBoundingClientRect();
+    var tx = r.left, ty = r.bottom + 4;
+    if (tx + 210 > window.innerWidth) tx = window.innerWidth - 214;
+    tip.style.left = tx + 'px';
+    tip.style.top  = ty + 'px';
+  }
+  function hide() { if (tip) tip.style.display = 'none'; }
+  document.querySelectorAll('.resource-item[data-resource]').forEach(function(el) {
+    var res = el.dataset.resource;
+    el.style.cursor = 'help';
+    el.addEventListener('mouseenter', function() { show(el, res); });
+    el.addEventListener('mouseleave', hide);
+    el.addEventListener('click', function(e) {
+      if (tip.style.display === 'block') { hide(); } else { show(el, res); e.stopPropagation(); }
+    });
+  });
+  document.addEventListener('click', hide);
 })();
 </script>
 </body>
