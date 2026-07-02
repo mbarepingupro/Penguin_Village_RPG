@@ -694,7 +694,7 @@ var JuggleMasterGame = {
       ctx.fillStyle = '#0a0915';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Physics — remove balls that hit the floor
+      // Physics — floor drops or respawns ball
       for (var i = self._balls.length - 1; i >= 0; i--) {
         var b = self._balls[i];
         b.vy += b.gravity * MiniGameManager.getDifficultyMult() * dt;
@@ -703,23 +703,19 @@ var JuggleMasterGame = {
         // Horizontal wall bounce (slight energy loss)
         if (b.x < BALL_R)               { b.x = BALL_R;               b.vx =  Math.abs(b.vx) * 0.85; }
         if (b.x > canvas.width - BALL_R) { b.x = canvas.width - BALL_R; b.vx = -Math.abs(b.vx) * 0.85; }
-        // Floor → drop this ball
+        // Floor
         if (b.y >= b.floorY) {
-          self._balls.splice(i, 1);
           self._combo = 0;
-          if (self._balls.length > 0) {
-            // Remaining balls keep the game alive
-            self._flash = { text: '💧 DROPPED!', color: '#ff6b6b', t: 1.0 };
-            if (window.GameSounds) GameSounds.minigameMiss();
+          self._flash = { text: '💧 DROPPED!', color: '#ff6b6b', t: 1.0 };
+          if (window.GameSounds) GameSounds.minigameMiss();
+          if (self._balls.length === 1) {
+            // Last ball — respawn instead of removing so the game never empties
+            self._balls[i] = self._makeBall(canvas);
+          } else {
+            // Extra ball dropped — splice it out, single ball keeps playing
+            self._balls.splice(i, 1);
           }
         }
-      }
-
-      // All balls gone — end game early
-      if (self._balls.length === 0) {
-        if (MiniGameManager._timer) { clearInterval(MiniGameManager._timer); MiniGameManager._timer = null; }
-        MiniGameManager._endGame();
-        return;
       }
 
       // Hit zone

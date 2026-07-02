@@ -3651,13 +3651,16 @@ def get_relationships(username):
     today = get_today()
 
     rows = db.execute(
-        "SELECT CASE WHEN r.username1=? THEN r.username2 ELSE r.username1 END as other_username, "
-        "r.interaction_count, r.relationship_level, p.penguin_name "
-        "FROM relationships r "
-        "LEFT JOIN penguins p ON p.username = CASE WHEN r.username1=? THEN r.username2 ELSE r.username1 END "
-        "WHERE (r.username1=? OR r.username2=?) AND r.interaction_count > 0 "
-        "ORDER BY r.interaction_count DESC LIMIT 50",
-        (username, username, username, username)
+        "SELECT p.username as other_username, p.penguin_name, "
+        "COALESCE(r.interaction_count, 0) as interaction_count, "
+        "COALESCE(r.relationship_level, 'stranger') as relationship_level "
+        "FROM penguins p "
+        "LEFT JOIN relationships r ON "
+        "  ((r.username1=? AND r.username2=p.username) OR "
+        "   (r.username2=? AND r.username1=p.username)) "
+        "WHERE p.character_created=1 AND p.username!=? "
+        "ORDER BY COALESCE(r.interaction_count,0) DESC",
+        (username, username, username)
     ).fetchall()
 
     visited_set = {r["host"] for r in db.execute(

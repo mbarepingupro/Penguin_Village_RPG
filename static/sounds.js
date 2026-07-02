@@ -1,14 +1,27 @@
 const GameSounds = {
     _ctx: null,
 
+    _resumePromise: null,
+
     getCtx() {
         try {
             if (!this._ctx || this._ctx.state === 'closed') {
                 this._ctx = new (window.AudioContext || window.webkitAudioContext)();
             }
-            if (this._ctx.state === 'suspended') this._ctx.resume();
+            if (this._ctx.state === 'suspended') {
+                this._resumePromise = this._ctx.resume();
+            }
         } catch(e) { return null; }
         return this._ctx;
+    },
+
+    // Returns a Promise that resolves once the AudioContext is running.
+    // Safe to call from any context; resolves immediately if already running.
+    ensureRunning() {
+        const ctx = this.getCtx();
+        if (!ctx) return Promise.resolve();
+        if (ctx.state === 'running') return Promise.resolve();
+        return (this._resumePromise || ctx.resume());
     },
 
     _play(config) {
@@ -116,14 +129,24 @@ const GameSounds = {
     titleEquip() { this._play({notes: [{freq:523, dur:0.10, type:'sine', vol:0.10}, {freq:659, dur:0.10, type:'sine', vol:0.10, time:0.08}, {freq:784, dur:0.15, type:'sine', vol:0.08, time:0.16}]}); },
 
     chime() { this._play({notes: [{freq:880, dur:0.10, type:'sine', vol:0.10}, {freq:1100, dur:0.15, type:'sine', vol:0.08, time:0.08}]}); },
-    // Each of the 6 runes gets a distinct pentatonic pitch (A4–C6)
+    // Each of the 6 runes gets a distinct pentatonic pitch (A4–C6).
+    // Awaits AudioContext resume before scheduling — fixes silent reveal phase
+    // when the context is still 'suspended' at game start.
     runeChime(idx) {
         const FREQS = [523, 659, 784, 880, 1047, 440];
         const freq = FREQS[idx & 7] || 523;
-        this._play({notes: [
-            {freq,          dur: 0.22, type:'sine', vol: 0.13},
+        const self = this;
+        const doPlay = () => self._play({notes: [
+            {freq,           dur: 0.22, type:'sine', vol: 0.13},
             {freq: freq*1.5, dur: 0.12, type:'sine', vol: 0.05, time: 0.16},
         ]});
+        const ctx = this.getCtx();
+        if (!ctx) return;
+        if (ctx.state === 'running') {
+            doPlay();
+        } else {
+            this.ensureRunning().then(doPlay);
+        }
     },
 };
 
