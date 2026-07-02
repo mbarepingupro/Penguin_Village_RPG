@@ -6,6 +6,7 @@ var MiniGameManager = {
   _ctx: null,
   _score: 0,
   _timeLeft: 0,
+  _duration: 15,
   _timer: null,
   _activeGame: null,
   _onComplete: null,
@@ -70,7 +71,7 @@ var MiniGameManager = {
     };
     var insts = {
       sea_lion_pit:  'Click fish to catch them! Avoid puffer fish! Golden fish = jackpot!',
-      club_soda:     'Click herbs when fully RIPE (green glow)! Sprouts score less.',
+      club_soda:     'Catch leaves 🌿 (+5) & ice 🧊 (+3) in your basket! Dodge toxic shrooms 🍄 (−5)! Arrow keys or drag.',
       parkmusement:  'Click when the ball is inside the green zone! Build combos!',
       cursed_temple: 'Watch the rune sequence, then repeat it in order!',
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
@@ -92,9 +93,17 @@ var MiniGameManager = {
     this._startTimer(this._activeGame.duration || 15);
   },
 
+  // Returns a linear 1.0→2.0 multiplier over the game's duration.
+  // Games use this to scale spawn rates, speeds, and timing windows.
+  getDifficultyMult: function() {
+    var elapsed = this._duration - this._timeLeft;
+    return 1.0 + elapsed / this._duration;
+  },
+
   _startTimer: function(seconds) {
     var self = this;
     self._timeLeft = seconds;
+    self._duration = seconds;
     self._updateHUD();
     self._timer = setInterval(function() {
       self._timeLeft--;
@@ -212,9 +221,13 @@ var FishCatchGame = {
     this._ctx = ctx;
     this._fish = [];
     this._running = true;
-    this._spawnFish();
     var self = this;
-    this._spawnTimer = setInterval(function() { self._spawnFish(); }, 1100);
+    function _schedFish() {
+      self._spawnFish();
+      if (self._running)
+        self._spawnTimer = setTimeout(_schedFish, 1100 / MiniGameManager.getDifficultyMult());
+    }
+    _schedFish();
     canvas.onclick = null;
     canvas.ontouchend = null;
     var handler = this._handleClick.bind(this);
@@ -234,9 +247,10 @@ var FishCatchGame = {
       puffer: { emoji:'🐡', size:34, speed:70,  pts:-5,  color:'#ff6b6b' },
     };
     var c = cfgs[type];
+    var mult = MiniGameManager.getDifficultyMult();
     this._fish.push({
       x: -55, y: 45 + Math.random() * (this._canvas.height - 90),
-      speed: c.speed, size: c.size, pts: c.pts, emoji: c.emoji,
+      speed: c.speed * mult, size: c.size, pts: c.pts, emoji: c.emoji,
       hit: false, alpha: 1, riseSpd: 0,
     });
   },
@@ -336,79 +350,113 @@ var FishCatchGame = {
 
   stop: function() {
     this._running = false;
-    if (this._spawnTimer) { clearInterval(this._spawnTimer); this._spawnTimer = null; }
+    if (this._spawnTimer) { clearTimeout(this._spawnTimer); this._spawnTimer = null; }
     if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
     if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
   },
 };
 
 // ─── Herb Garden (Club Soda) ───────────────────────────────────────────────
+// Falling-object catcher: move basket left/right (arrow keys or touch drag),
+// catch leaves (+5) and ice cubes (+3), dodge noxious mushrooms (-5).
 
 var HerbGardenGame = {
   duration: 20,
-  COLS: 4,
-  ROWS: 3,
   _canvas: null,
   _ctx: null,
-  _cells: [],
   _running: false,
   _animFrame: null,
+  _objects: [],
+  _spawnTimer: null,
+  _basketX: 0,
+  _basketW: 70,
+  _basketY: 0,
+  _basketSpeed: 280,
+  _keys: null,
+  _keyHandler: null,
+  _keyUpHandler: null,
+  _touchStartX: null,
+  _touchBasketX: null,
+
+  _CFGS: {
+    leaf:    { emoji: '🌿', pts:  5, color: '#4aff6b' },
+    ice:     { emoji: '🧊', pts:  3, color: '#4aafff' },
+    noxious: { emoji: '🍄', pts: -5, color: '#ff6b6b' },
+  },
+  _POOL: ['leaf','leaf','ice','ice','noxious'],
 
   init: function(canvas, ctx) {
     this._canvas = canvas;
     this._ctx = ctx;
-    this._cells = [];
+    this._objects = [];
     this._running = true;
-
-    for (var i = 0; i < this.COLS * this.ROWS; i++) {
-      var r = Math.random();
-      this._cells.push({
-        stage: r < 0.25 ? 0 : (r < 0.6 ? 1 : 2),
-        timer: 0,
-        growSpeed: 3.5 + Math.random() * 3.5,
-        wilted: false,
-        harvested: false,
-        harvestPts: 0,
-        popAnim: 0,
-        popTimer: 0,
-      });
-    }
+    this._keys = { left: false, right: false };
+    this._basketW = Math.min(70, canvas.width * 0.18);
+    this._basketX = canvas.width / 2 - this._basketW / 2;
+    this._basketY = canvas.height - 40;
+    this._touchStartX = null;
+    this._touchBasketX = null;
 
     var self = this;
-    var handler = this._handleClick.bind(this);
-    canvas.onclick = handler;
-    canvas.ontouchend = function(e) { e.preventDefault(); handler(e.changedTouches[0]); };
+
+    // Keyboard input
+    this._keyHandler = function(e) {
+      if (e.key === 'ArrowLeft')  { self._keys.left  = true; e.preventDefault(); }
+      if (e.key === 'ArrowRight') { self._keys.right = true; e.preventDefault(); }
+    };
+    this._keyUpHandler = function(e) {
+      if (e.key === 'ArrowLeft')  self._keys.left  = false;
+      if (e.key === 'ArrowRight') self._keys.right = false;
+    };
+    document.addEventListener('keydown', this._keyHandler);
+    document.addEventListener('keyup',   this._keyUpHandler);
+
+    // Touch drag
+    canvas.onclick    = null;
+    canvas.ontouchend = null;
+    canvas.ontouchstart = function(e) {
+      e.preventDefault();
+      self._touchStartX  = e.touches[0].clientX;
+      self._touchBasketX = self._basketX;
+    };
+    canvas.ontouchmove = function(e) {
+      e.preventDefault();
+      if (self._touchStartX === null) return;
+      var rect = canvas.getBoundingClientRect();
+      var sx = canvas.width / rect.width;
+      var dx = (e.touches[0].clientX - self._touchStartX) * sx;
+      self._basketX = Math.max(0, Math.min(canvas.width - self._basketW,
+                                            self._touchBasketX + dx));
+    };
+
+    // Spawn first object immediately; reschedule each time so interval adapts to difficulty
+    function _schedObj() {
+      if (!self._running) return;
+      self._spawnObject();
+      self._spawnTimer = setTimeout(_schedObj, 820 / MiniGameManager.getDifficultyMult());
+    }
+    _schedObj();
+
     this._render();
   },
 
-  _handleClick: function(e) {
-    if (!this._running) return;
-    var rect = this._canvas.getBoundingClientRect();
-    var sx = this._canvas.width / rect.width;
-    var sy = this._canvas.height / rect.height;
-    var mx = ((e.clientX !== undefined ? e.clientX : e.pageX) - rect.left) * sx;
-    var my = ((e.clientY !== undefined ? e.clientY : e.pageY) - rect.top) * sy;
-
-    var cw = this._canvas.width / this.COLS;
-    var ch = this._canvas.height / this.ROWS;
-    var col = Math.floor(mx / cw);
-    var row = Math.floor(my / ch);
-    if (col < 0 || col >= this.COLS || row < 0 || row >= this.ROWS) return;
-    var idx = row * this.COLS + col;
-    var cell = this._cells[idx];
-    if (!cell || cell.harvested || cell.wilted) return;
-
-    var pts = 0;
-    if (cell.stage === 2) pts = 3;
-    else if (cell.stage === 1) pts = 1;
-    if (pts > 0) {
-      cell.harvested = true;
-      cell.harvestPts = pts;
-      cell.popAnim = 1.0;
-      cell.popTimer = 1.0;
-      MiniGameManager.addScore(pts);
-      if (window.GameSounds) GameSounds.minigameHit();
-    }
+  _spawnObject: function() {
+    var canvas = this._canvas;
+    var type = this._POOL[Math.floor(Math.random() * this._POOL.length)];
+    var c = this._CFGS[type];
+    this._objects.push({
+      x:      20 + Math.random() * (canvas.width - 40),
+      y:      -22,
+      type:   type,
+      emoji:  c.emoji,
+      pts:    c.pts,
+      color:  c.color,
+      speed:  (80 + Math.random() * 60) * MiniGameManager.getDifficultyMult(),
+      size:   28,
+      caught: false,
+      alpha:  1,
+      popY:   0,
+    });
   },
 
   _render: function() {
@@ -423,75 +471,96 @@ var HerbGardenGame = {
       var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
       last = ts;
 
+      // Move basket via keyboard
+      if (self._keys.left)
+        self._basketX = Math.max(0, self._basketX - self._basketSpeed * dt);
+      if (self._keys.right)
+        self._basketX = Math.min(canvas.width - self._basketW, self._basketX + self._basketSpeed * dt);
+
+      // Background
       ctx.fillStyle = '#060e06';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      var cw = canvas.width / self.COLS;
-      var ch = canvas.height / self.ROWS;
+      // Hint text
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#55775555';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('← → or drag', canvas.width / 2, canvas.height - 8);
 
-      for (var i = 0; i < self._cells.length; i++) {
-        var cell = self._cells[i];
-        var col = i % self.COLS;
-        var row = Math.floor(i / self.COLS);
-        var cx = col * cw;
-        var cy = row * ch;
+      var bLeft  = self._basketX;
+      var bRight = self._basketX + self._basketW;
+      var bTop   = self._basketY;
 
-        if (!cell.harvested && !cell.wilted) {
-          cell.timer += dt;
-          if (cell.timer >= cell.growSpeed) {
-            cell.timer = 0;
-            cell.stage++;
-            if (cell.stage > 3) { cell.wilted = true; cell.stage = 3; }
+      // Objects
+      for (var i = self._objects.length - 1; i >= 0; i--) {
+        var o = self._objects[i];
+
+        if (!o.caught) {
+          o.y += o.speed * dt;
+
+          // Collision: object bottom edge reaches basket top, x inside basket
+          if (o.y + o.size * 0.5 >= bTop &&
+              o.x >= bLeft  - o.size * 0.5 &&
+              o.x <= bRight + o.size * 0.5) {
+            o.caught = true;
+            o.popY   = bTop - 4;
+            MiniGameManager.addScore(o.pts);
+            if (window.GameSounds) {
+              if (o.pts > 0) GameSounds.minigameHit();
+              else           GameSounds.minigameMiss();
+            }
           }
-        }
-        if (cell.popTimer > 0) cell.popTimer -= dt * 1.8;
 
-        // Cell background
-        var bgs = ['#0a140a','#0d200d','#0d3010','#1a1506'];
-        ctx.fillStyle = cell.harvested ? '#050905' : (cell.wilted ? '#18100a' : bgs[Math.min(cell.stage, 3)]);
-        ctx.fillRect(cx + 2, cy + 2, cw - 4, ch - 4);
-
-        // Herb emoji
-        if (!cell.harvested) {
-          var emojis = ['🌱','🌿','🌿','🍂'];
-          ctx.font = Math.min(cw, ch) * 0.45 + 'px serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.globalAlpha = cell.wilted ? 0.4 : 1;
-          ctx.fillText(emojis[cell.stage], cx + cw / 2, cy + ch / 2 - 6);
-          ctx.globalAlpha = 1;
-
-          // Stage label
-          var labels = ['sprout','growing','✦ RIPE!','wilted'];
-          var lcols  = ['#666','#4aff6b','#00ff66','#884400'];
-          ctx.font = '10px monospace';
-          ctx.fillStyle = lcols[cell.stage];
-          ctx.fillText(labels[cell.stage], cx + cw / 2, cy + ch - 8);
+          if (o.y > canvas.height + 32) { self._objects.splice(i, 1); continue; }
         } else {
-          ctx.font = Math.min(cw, ch) * 0.4 + 'px serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.globalAlpha = 0.15;
-          ctx.fillText('🌿', cx + cw / 2, cy + ch / 2);
-          ctx.globalAlpha = 1;
+          o.alpha -= dt * 3.5;
+          o.popY  -= 28 * dt;
+          if (o.alpha <= 0) { self._objects.splice(i, 1); continue; }
         }
 
-        // Harvest pop animation
-        if (cell.popTimer > 0 && cell.harvestPts > 0) {
-          var t = cell.popTimer;
-          ctx.globalAlpha = t;
-          ctx.fillStyle = '#4aff6b';
-          ctx.font = 'bold 16px monospace';
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, o.alpha);
+
+        if (!o.caught) {
+          // Draw falling object
+          ctx.font = o.size + 'px serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(o.emoji, o.x, o.y);
+
+          // Point label beneath emoji
+          ctx.font = '11px monospace';
+          ctx.fillStyle = o.pts > 0 ? '#4aff6b' : '#ff6b6b';
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillText((o.pts > 0 ? '+' : '') + o.pts, o.x, o.y + o.size * 0.65);
+        } else {
+          // Pop score float
+          ctx.font = 'bold 15px monospace';
+          ctx.fillStyle = o.pts > 0 ? '#4aff6b' : '#ff4444';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
-          ctx.fillText('+' + cell.harvestPts, cx + cw / 2, cy + ch / 2 - (1 - t) * 28);
-          ctx.globalAlpha = 1;
+          ctx.fillText((o.pts > 0 ? '+' : '') + o.pts, o.x, o.popY);
         }
 
-        ctx.strokeStyle = '#0e1e0e';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(cx, cy, cw, ch);
+        ctx.restore();
       }
+
+      // Draw basket
+      var bx = self._basketX, by = self._basketY, bw = self._basketW, bh = 28;
+      ctx.fillStyle = '#5a3e10';
+      ctx.fillRect(bx, by, bw, bh);
+      // Weave lines
+      ctx.strokeStyle = '#8B6514';
+      ctx.lineWidth = 1;
+      for (var lx = bx + 8; lx < bx + bw; lx += 10) {
+        ctx.beginPath(); ctx.moveTo(lx, by); ctx.lineTo(lx, by + bh); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(bx, by + bh * 0.45); ctx.lineTo(bx + bw, by + bh * 0.45); ctx.stroke();
+      // Gold rim
+      ctx.strokeStyle = '#C8961E';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bx, by, bw, bh);
 
       self._animFrame = requestAnimationFrame(loop);
     }
@@ -500,12 +569,22 @@ var HerbGardenGame = {
 
   stop: function() {
     this._running = false;
-    if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
-    if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
+    if (this._spawnTimer)  { clearTimeout(this._spawnTimer);        this._spawnTimer  = null; }
+    if (this._animFrame)   { cancelAnimationFrame(this._animFrame); this._animFrame   = null; }
+    if (this._keyHandler)  document.removeEventListener('keydown', this._keyHandler);
+    if (this._keyUpHandler)document.removeEventListener('keyup',   this._keyUpHandler);
+    if (this._canvas) {
+      this._canvas.onclick      = null;
+      this._canvas.ontouchstart = null;
+      this._canvas.ontouchmove  = null;
+      this._canvas.ontouchend   = null;
+    }
   },
 };
 
 // ─── Juggle Master (Parkmusement) ──────────────────────────────────────────
+// Click/tap moves ball horizontally toward the click X AND bounces it.
+// At combo 10 a second ball spawns; game ends only when ALL balls drop.
 
 var JuggleMasterGame = {
   duration: 15,
@@ -513,12 +592,24 @@ var JuggleMasterGame = {
   _ctx: null,
   _running: false,
   _animFrame: null,
-  _ball: null,
+  _balls: [],              // array so more balls can be added at higher streaks later
   _combo: 0,
   _hitZoneY: 0,
   _hitZoneH: 0,
   _clickCooldown: 0,
   _flash: null,
+  _secondBallSpawned: false,
+
+  _makeBall: function(canvas, xOff) {
+    return {
+      x:       canvas.width / 2 + (xOff || 0),
+      y:       canvas.height * 0.20,
+      vx:      0,
+      vy:      200,
+      gravity: 380,
+      floorY:  canvas.height * 0.88,
+    };
+  },
 
   init: function(canvas, ctx) {
     this._canvas = canvas;
@@ -527,14 +618,11 @@ var JuggleMasterGame = {
     this._combo = 0;
     this._clickCooldown = 0;
     this._flash = null;
+    this._secondBallSpawned = false;
 
     this._hitZoneY = canvas.height * 0.62;
     this._hitZoneH = canvas.height * 0.14;
-
-    this._ball = {
-      x: canvas.width / 2, y: canvas.height * 0.2,
-      vy: 200, gravity: 380, floorY: canvas.height * 0.88,
-    };
+    this._balls    = [this._makeBall(canvas)];
 
     var self = this;
     var handler = this._handleClick.bind(this);
@@ -543,22 +631,47 @@ var JuggleMasterGame = {
     this._render();
   },
 
-  _handleClick: function() {
+  _handleClick: function(e) {
     if (!this._running || this._clickCooldown > 0) return;
-    var b = this._ball;
-    var inZone = b.y >= this._hitZoneY && b.y <= this._hitZoneY + this._hitZoneH;
-    if (inZone) {
+
+    // Resolve click X for horizontal nudge
+    var mx = this._canvas.width / 2;
+    if (e) {
+      var rect = this._canvas.getBoundingClientRect();
+      var sx = this._canvas.width / rect.width;
+      mx = ((e.clientX !== undefined ? e.clientX : e.pageX) - rect.left) * sx;
+    }
+
+    var hitAny = false;
+    for (var i = 0; i < this._balls.length; i++) {
+      var b = this._balls[i];
+      var inZone = b.y >= this._hitZoneY && b.y <= this._hitZoneY + this._hitZoneH;
+      if (!inZone) continue;
+      hitAny = true;
       this._combo++;
+      // Horizontal nudge: push ball toward click position (capped at ±200 px/s)
+      b.vx = Math.max(-200, Math.min(200, (mx - b.x) * 1.5));
+      b.vy = -(280 + Math.min(this._combo, 5) * 20);
       var pts = this._combo >= 3 ? 3 + this._combo : (this._combo >= 2 ? 4 : 3);
       MiniGameManager.addScore(pts);
-      this._flash = { text: '+' + pts + (this._combo >= 2 ? ' x' + this._combo + '!' : ''), color: '#4aff6b', t: 1.0 };
-      b.vy = -(280 + Math.min(this._combo, 5) * 20);
+      this._flash = { text: '+' + pts + (this._combo >= 2 ? ' ×' + this._combo + '!' : ''), color: '#4aff6b', t: 1.0 };
       if (window.GameSounds) { if (this._combo >= 2) GameSounds.minigameCombo(); else GameSounds.minigameHit(); }
-    } else {
+    }
+
+    if (!hitAny) {
       this._combo = 0;
       this._flash = { text: 'MISS!', color: '#ff6b6b', t: 0.8 };
       if (window.GameSounds) GameSounds.minigameMiss();
+    } else if (this._combo >= 10 && !this._secondBallSpawned && this._balls.length === 1) {
+      // Spawn second ball at streak 10
+      this._secondBallSpawned = true;
+      var b2 = this._makeBall(this._canvas, Math.random() > 0.5 ? 65 : -65);
+      b2.vx = (Math.random() < 0.5 ? 1 : -1) * 60;
+      this._balls.push(b2);
+      this._flash = { text: '🎪 2ND BALL!', color: '#FFD700', t: 1.8 };
+      if (window.GameSounds) GameSounds.minigameCombo();
     }
+
     this._clickCooldown = 0.35;
   },
 
@@ -568,6 +681,8 @@ var JuggleMasterGame = {
     var ctx = this._ctx;
     var canvas = this._canvas;
     var last = null;
+    var BALL_R  = 22;
+    var BALL_EMOJIS = ['🎪', '⭐'];
 
     function loop(ts) {
       if (!self._running) return;
@@ -579,11 +694,33 @@ var JuggleMasterGame = {
       ctx.fillStyle = '#0a0915';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Physics
-      var b = self._ball;
-      b.vy += b.gravity * dt;
-      b.y += b.vy * dt;
-      if (b.y >= b.floorY) { b.y = b.floorY; b.vy = -Math.abs(b.vy) * 0.72; self._combo = 0; }
+      // Physics — remove balls that hit the floor
+      for (var i = self._balls.length - 1; i >= 0; i--) {
+        var b = self._balls[i];
+        b.vy += b.gravity * MiniGameManager.getDifficultyMult() * dt;
+        b.y  += b.vy * dt;
+        b.x  += b.vx * dt;
+        // Horizontal wall bounce (slight energy loss)
+        if (b.x < BALL_R)               { b.x = BALL_R;               b.vx =  Math.abs(b.vx) * 0.85; }
+        if (b.x > canvas.width - BALL_R) { b.x = canvas.width - BALL_R; b.vx = -Math.abs(b.vx) * 0.85; }
+        // Floor → drop this ball
+        if (b.y >= b.floorY) {
+          self._balls.splice(i, 1);
+          self._combo = 0;
+          if (self._balls.length > 0) {
+            // Remaining balls keep the game alive
+            self._flash = { text: '💧 DROPPED!', color: '#ff6b6b', t: 1.0 };
+            if (window.GameSounds) GameSounds.minigameMiss();
+          }
+        }
+      }
+
+      // All balls gone — end game early
+      if (self._balls.length === 0) {
+        if (MiniGameManager._timer) { clearInterval(MiniGameManager._timer); MiniGameManager._timer = null; }
+        MiniGameManager._endGame();
+        return;
+      }
 
       // Hit zone
       var hz = self._hitZoneY;
@@ -600,32 +737,37 @@ var JuggleMasterGame = {
       ctx.textAlign = 'right';
       ctx.fillText('HIT ZONE', canvas.width - 5, hz + hh / 2 + 4);
 
-      // Ball
-      var inZone = b.y >= hz && b.y <= hz + hh;
-      ctx.beginPath();
-      ctx.arc(b.x, b.y, 22, 0, Math.PI * 2);
-      ctx.fillStyle = inZone ? '#FFD700' : '#6688cc';
-      ctx.fill();
-      ctx.strokeStyle = inZone ? '#fff' : '#334488';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.font = '26px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🎪', b.x, b.y);
-      ctx.textBaseline = 'alphabetic';
+      // Draw balls
+      var anyInZone = false;
+      for (var i = 0; i < self._balls.length; i++) {
+        var b = self._balls[i];
+        var inZone = b.y >= hz && b.y <= hz + hh;
+        if (inZone) anyInZone = true;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, BALL_R, 0, Math.PI * 2);
+        ctx.fillStyle = inZone ? '#FFD700' : '#6688cc';
+        ctx.fill();
+        ctx.strokeStyle = inZone ? '#fff' : '#334488';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.font = '26px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(BALL_EMOJIS[i] || '🎪', b.x, b.y);
+        ctx.textBaseline = 'alphabetic';
+      }
 
       // Instruction
       ctx.textAlign = 'center';
-      ctx.fillStyle = inZone ? '#FFD700' : '#556';
+      ctx.fillStyle = anyInZone ? '#FFD700' : '#556';
       ctx.font = 'bold 14px monospace';
-      ctx.fillText(inZone ? '👆 CLICK NOW!' : 'Wait for the zone...', canvas.width / 2, 26);
+      ctx.fillText(anyInZone ? '👆 CLICK NOW!' : 'Wait for the zone...', canvas.width / 2, 26);
 
       // Combo
       if (self._combo >= 2) {
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold 18px monospace';
-        ctx.fillText('🔥 x' + self._combo + ' COMBO!', canvas.width / 2, 52);
+        ctx.fillText('🔥 ×' + self._combo + ' COMBO!', canvas.width / 2, 52);
       }
 
       // Flash
@@ -646,6 +788,7 @@ var JuggleMasterGame = {
 
   stop: function() {
     this._running = false;
+    if (this._spawnTimer) { clearTimeout(this._spawnTimer); this._spawnTimer = null; }
     if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
     if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
   },
@@ -724,7 +867,7 @@ var RuneMemoryGame = {
       if (Math.sqrt(dx*dx + dy*dy) < 32) {
         this._input.push(rn.idx);
         rn.lit = true; rn.litT = 0.5;
-        if (window.GameSounds) GameSounds.uiClick();
+        if (window.GameSounds) GameSounds.runeChime(rn.idx);
         var pos = this._input.length - 1;
         if (rn.idx !== this._sequence[pos]) {
           this._phase = 'result'; this._resultTimer = 1.4; this._correct = false;
@@ -763,9 +906,10 @@ var RuneMemoryGame = {
           if (self._showIdx < self._sequence.length) {
             self._runes[self._sequence[self._showIdx]].lit = true;
             self._runes[self._sequence[self._showIdx]].litT = 0.65;
-            if (window.GameSounds) GameSounds.uiHover();
+            if (window.GameSounds) GameSounds.runeChime(self._sequence[self._showIdx]);
             self._showIdx++;
-            self._showTimer = 0.85;
+            // Cap at 1.5× so the sequence remains readable even late in the game
+            self._showTimer = 0.85 / Math.min(MiniGameManager.getDifficultyMult(), 1.5);
           } else {
             self._phase = 'input';
           }
@@ -860,8 +1004,12 @@ var ExecutionerGame = {
     this._running = true;
 
     var self = this;
-    this._spawnTarget();
-    this._spawnTimer = setInterval(function() { self._spawnTarget(); }, 780);
+    function _schedTarget() {
+      if (!self._running) return;
+      self._spawnTarget();
+      self._spawnTimer = setTimeout(_schedTarget, 780 / MiniGameManager.getDifficultyMult());
+    }
+    _schedTarget();
 
     var handler = this._handleClick.bind(this);
     canvas.onclick = handler;
@@ -880,10 +1028,11 @@ var ExecutionerGame = {
     var cell = free[Math.floor(Math.random() * free.length)];
     var pool = ['monster','monster','monster','elite','penguin'];
     var type = pool[Math.floor(Math.random() * pool.length)];
+    var mult = MiniGameManager.getDifficultyMult();
     var cfgs = {
-      monster: { emoji:'👹', pts: 4,  color:'#ff6b6b', life:2.0 },
-      elite:   { emoji:'💀', pts:10,  color:'#FF8C00', life:1.3 },
-      penguin: { emoji:'🐧', pts:-6,  color:'#4aafff', life:1.9 },
+      monster: { emoji:'👹', pts: 4,  color:'#ff6b6b', life:2.0 / mult },
+      elite:   { emoji:'💀', pts:10,  color:'#FF8C00', life:1.3 / mult },
+      penguin: { emoji:'🐧', pts:-6,  color:'#4aafff', life:1.9 / mult },
     };
     var c = cfgs[type];
     this._targets.push({
