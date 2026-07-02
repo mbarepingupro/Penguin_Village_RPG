@@ -405,6 +405,109 @@
       <div class="mh-lookup-result" id="lookup-result"></div>
     </div>
 
+    <!-- DEBUG PENGUIN -->
+    <div class="mh-section-title" style="margin-top:20px;">🛠️ DEBUG PENGUIN</div>
+    <div class="mh-lookup">
+      <div class="mh-lookup-row">
+        <div class="mh-field">
+          <label class="mh-label">PLAYER USERNAME</label>
+          <input class="mh-input" type="text" id="dbg-username" placeholder="username"
+                 onkeydown="if(event.key==='Enter')debugLoad()"/>
+        </div>
+        <button class="mh-lookup-btn" onclick="debugLoad()">LOAD</button>
+      </div>
+      <div id="dbg-form" style="display:none;margin-top:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="mh-field">
+            <label class="mh-label">NAME</label>
+            <input class="mh-input" type="text" id="dbg-name" maxlength="16"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">COLOR (#RRGGBB)</label>
+            <input class="mh-input" type="text" id="dbg-color" maxlength="7"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">SHAPE</label>
+            <select class="mh-select" id="dbg-shape">
+              <option value="normal">NORMAL</option>
+              <option value="tall">TALL</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="mh-field">
+            <label class="mh-label">LEVEL (1–30)</label>
+            <input class="mh-input" type="number" id="dbg-level" min="1" max="30"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">ENERGY</label>
+            <input class="mh-input" type="number" id="dbg-energy" min="0"/>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--dim);margin-bottom:4px;">RESOURCES</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="mh-field">
+            <label class="mh-label">GOLD</label>
+            <input class="mh-input" type="number" id="dbg-gold" min="0"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">FISH</label>
+            <input class="mh-input" type="number" id="dbg-fish" min="0"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">HERBS</label>
+            <input class="mh-input" type="number" id="dbg-herbs" min="0"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">BLOOD GEMS</label>
+            <input class="mh-input" type="number" id="dbg-blood_gems" min="0"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">BONES</label>
+            <input class="mh-input" type="number" id="dbg-bones" min="0"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">SPELL FRAGMENTS</label>
+            <input class="mh-input" type="number" id="dbg-spell_fragments" min="0"/>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <div class="mh-field">
+            <label class="mh-label">STREAK (days)</label>
+            <input class="mh-input" type="number" id="dbg-streak" min="0"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">LAST LOGIN DATE (YYYY-MM-DD)</label>
+            <input class="mh-input" type="text" id="dbg-last_login_date" maxlength="10" placeholder="2025-01-01"/>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--dim);margin-bottom:4px;">FORCE-EQUIP GEAR (optional)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div class="mh-field">
+            <label class="mh-label">SLOT</label>
+            <input class="mh-input" type="text" id="dbg-equip-slot" placeholder="weapon"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">ITEM ID</label>
+            <input class="mh-input" type="text" id="dbg-equip-item_id" placeholder="debug_sword"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">NAME</label>
+            <input class="mh-input" type="text" id="dbg-equip-name" placeholder="Debug Sword"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">TYPE</label>
+            <select class="mh-select" id="dbg-equip-type">
+              <option value="combat">COMBAT</option>
+              <option value="cosmetic">COSMETIC</option>
+            </select>
+          </div>
+        </div>
+        <button class="mh-btn" id="dbg-apply-btn" onclick="debugApply()">✅ APPLY CHANGES</button>
+        <div id="dbg-result" style="margin-top:8px;font-size:13px;"></div>
+      </div>
+    </div>
+
     <!-- PLAYER MANAGEMENT -->
     <div class="mh-section-title" style="margin-top:20px;">👥 PLAYER MANAGEMENT</div>
     <div class="mh-lookup">
@@ -697,6 +800,80 @@
       toast(msg);
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── DEBUG PENGUIN ──
+  async function debugLoad() {
+    const username = document.getElementById('dbg-username').value.trim();
+    if (!username) return;
+    const res  = await fetch(`/mayor/debug/penguin/fetch?username=${encodeURIComponent(username)}${KEY_PARAM ? '&' + KEY_PARAM.slice(1) : ''}`);
+    const data = await res.json();
+    const resultEl = document.getElementById('dbg-result');
+    if (data.status !== 'ok') {
+      document.getElementById('dbg-form').style.display = 'none';
+      toast(data.message || 'Player not found.', false);
+      return;
+    }
+    const p = data.player;
+    document.getElementById('dbg-name').value           = p.name;
+    document.getElementById('dbg-color').value          = p.color;
+    document.getElementById('dbg-shape').value          = p.shape;
+    document.getElementById('dbg-level').value          = p.level;
+    document.getElementById('dbg-energy').value         = p.energy;
+    document.getElementById('dbg-gold').value           = p.gold;
+    document.getElementById('dbg-fish').value           = p.fish;
+    document.getElementById('dbg-herbs').value          = p.herbs;
+    document.getElementById('dbg-blood_gems').value     = p.blood_gems;
+    document.getElementById('dbg-bones').value          = p.bones;
+    document.getElementById('dbg-spell_fragments').value= p.spell_fragments;
+    document.getElementById('dbg-streak').value         = p.current_streak;
+    document.getElementById('dbg-last_login_date').value= p.last_login_date;
+    document.getElementById('dbg-equip-slot').value     = '';
+    document.getElementById('dbg-equip-item_id').value  = '';
+    document.getElementById('dbg-equip-name').value     = '';
+    document.getElementById('dbg-equip-type').value     = 'combat';
+    resultEl.innerHTML = '';
+    document.getElementById('dbg-form').style.display = 'block';
+  }
+
+  async function debugApply() {
+    const username = document.getElementById('dbg-username').value.trim();
+    if (!username) return;
+    const btn  = document.getElementById('dbg-apply-btn');
+    const body = {
+      username,
+      name:           document.getElementById('dbg-name').value.trim(),
+      color:          document.getElementById('dbg-color').value.trim(),
+      shape:          document.getElementById('dbg-shape').value,
+      level:          parseInt(document.getElementById('dbg-level').value, 10),
+      energy:         parseInt(document.getElementById('dbg-energy').value, 10),
+      gold:           parseInt(document.getElementById('dbg-gold').value, 10),
+      fish:           parseInt(document.getElementById('dbg-fish').value, 10),
+      herbs:          parseInt(document.getElementById('dbg-herbs').value, 10),
+      blood_gems:     parseInt(document.getElementById('dbg-blood_gems').value, 10),
+      bones:          parseInt(document.getElementById('dbg-bones').value, 10),
+      spell_fragments:parseInt(document.getElementById('dbg-spell_fragments').value, 10),
+      current_streak: parseInt(document.getElementById('dbg-streak').value, 10),
+      last_login_date:document.getElementById('dbg-last_login_date').value.trim(),
+    };
+    const slot = document.getElementById('dbg-equip-slot').value.trim();
+    if (slot) {
+      body.equip = {
+        slot,
+        item_id: document.getElementById('dbg-equip-item_id').value.trim() || undefined,
+        name:    document.getElementById('dbg-equip-name').value.trim() || undefined,
+        type:    document.getElementById('dbg-equip-type').value,
+      };
+    }
+    const data = await api('/mayor/debug/penguin', body, btn);
+    const resultEl = document.getElementById('dbg-result');
+    if (data.status === 'success') {
+      resultEl.innerHTML = `<span style="color:var(--green);">✅ Applied: ${data.changed.join(' · ')}</span>`;
+      toast(`Updated ${username}`);
+    } else {
+      resultEl.innerHTML = `<span style="color:var(--red);">❌ ${data.message}</span>`;
+      toast(data.message || 'Error.', false);
     }
   }
 

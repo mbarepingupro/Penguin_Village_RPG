@@ -6810,5 +6810,165 @@ def minigame_complete():
     return jsonify({"status": "success", "rewards": rewards, "level_up": level_up_info})
 
 
+@app.route("/mayor/debug/penguin", methods=["POST"])
+def mayor_debug_penguin():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data     = request.get_json(silent=True) or {}
+    target   = data.get("username", "").strip()
+    if not target:
+        return jsonify({"status": "error", "message": "username required."})
+
+    db = get_db()
+    p  = db.execute("SELECT * FROM penguins WHERE username=?", (target,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": f"Player '{target}' not found."})
+
+    mayor = session.get("username") or "key-auth"
+    changed = []
+
+    # ── Resources ─────────────────────────────────────────────────────────────
+    ensure_resources(db, target)
+    res_fields = ["gold", "fish", "herbs", "blood_gems", "bones", "spell_fragments"]
+    res_updates = {}
+    for f in res_fields:
+        if f in data:
+            try:
+                res_updates[f] = int(data[f])
+            except (ValueError, TypeError):
+                pass
+    if res_updates:
+        set_clause = ", ".join(f"{k}=?" for k in res_updates)
+        db.execute(f"UPDATE resources SET {set_clause} WHERE username=?",
+                   list(res_updates.values()) + [target])
+        changed.append(f"resources: {res_updates}")
+
+    # ── Penguin table fields ───────────────────────────────────────────────────
+    penguin_updates = {}
+
+    if "name" in data and data["name"].strip():
+        penguin_updates["penguin_name"] = data["name"].strip()[:16]
+        changed.append(f"name={penguin_updates['penguin_name']}")
+
+    if "color" in data and re.match(r'^#[0-9a-fA-F]{6}$', data["color"]):
+        penguin_updates["penguin_color"] = data["color"]
+        changed.append(f"color={data['color']}")
+
+    if "shape" in data and data["shape"] in ("normal", "tall"):
+        penguin_updates["penguin_shape"] = data["shape"]
+        changed.append(f"shape={data['shape']}")
+
+    if "energy" in data:
+        try:
+            penguin_updates["energy"] = max(0, min(int(data["energy"]), p["max_energy"] or 100))
+            changed.append(f"energy={penguin_updates['energy']}")
+        except (ValueError, TypeError):
+            pass
+
+    # Level override: set xp to the minimum XP for that level
+    if "level" in data:
+        try:
+            target_level = max(1, min(30, int(data["level"])))
+            new_xp = sum(int(80 * (l ** 2.2)) for l in range(1, target_level))
+            penguin_updates["level"] = target_level
+            penguin_updates["xp"] = new_xp
+            changed.append(f"level={target_level} xp={new_xp}")
+        except (ValueError, TypeError):
+            pass
+
+    if penguin_updates:
+        set_clause = ", ".join(f"{k}=?" for k in penguin_updates)
+        db.execute(f"UPDATE penguins SET {set_clause} WHERE username=?",
+                   list(penguin_updates.values()) + [target])
+
+    # ── Streak ─────────────────────────────────────────────────────────────────
+    streak_updates = {}
+    if "current_streak" in data:
+        try:
+            streak_updates["current_streak"] = max(0, int(data["current_streak"]))
+            changed.append(f"streak={streak_updates['current_streak']}")
+        except (ValueError, TypeError):
+            pass
+    if "last_login_date" in data and re.match(r'^\d{4}-\d{2}-\d{2}$', data.get("last_login_date", "")):
+        streak_updates["last_login_date"] = data["last_login_date"]
+        changed.append(f"last_login_date={data['last_login_date']}")
+    if streak_updates:
+        db.execute("INSERT OR IGNORE INTO login_streaks (username, current_streak, longest_streak, last_login_date) VALUES (?,0,0,'')", (target,))
+        set_clause = ", ".join(f"{k}=?" for k in streak_updates)
+        db.execute(f"UPDATE login_streaks SET {set_clause} WHERE username=?",
+                   list(streak_updates.values()) + [target])
+
+    # ── Force-equip gear slot ──────────────────────────────────────────────────
+    # data["equip"] = {"slot": "weapon", "item_id": "sword_01", "name": "Debug Sword", "type": "combat"}
+    equip_req = data.get("equip")
+    if equip_req and equip_req.get("slot"):
+        slot      = equip_req["slot"].strip()
+        item_id   = equip_req.get("item_id", f"debug_{slot}_{int(time.time())}").strip()
+        name      = equip_req.get("name", f"Debug {slot.title()}").strip()
+        item_type = equip_req.get("type", "combat").strip()
+        # Unequip current in slot, then insert+equip new item
+        db.execute("UPDATE gear SET equipped=0 WHERE username=? AND slot=? AND equipped=1", (target, slot))
+        db.execute(
+            "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
+            "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
+            "VALUES (?,?,?,NULL,?,?,'debug',0,0,0,0,0,1,?)",
+            (target, item_id, name, item_type, slot, int(time.time()))
+        )
+        changed.append(f"equip slot={slot} item={item_id}")
+
+    if not changed:
+        db.close()
+        return jsonify({"status": "ok", "message": "No changes applied."})
+
+    db.commit()
+    summary = "; ".join(changed)
+    log_event(db, "achievement", f"👑 [DEBUG] {mayor} edited {target}: {summary}", target)
+    import traceback as _tb
+    print(f"[MAYOR DEBUG] {mayor} → {target}: {summary}")
+    db.close()
+    return jsonify({"status": "success", "target": target, "changed": changed})
+
+
+@app.route("/mayor/debug/penguin/fetch", methods=["GET"])
+def mayor_debug_penguin_fetch():
+    """Return current state of a player for pre-filling the debug form."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    target = request.args.get("username", "").strip()
+    if not target:
+        return jsonify({"status": "error", "message": "username required."})
+    db = get_db()
+    p  = db.execute("SELECT * FROM penguins WHERE username=?", (target,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Not found."})
+    ensure_resources(db, target)
+    r  = db.execute("SELECT * FROM resources WHERE username=?", (target,)).fetchone()
+    ls = db.execute("SELECT current_streak, last_login_date FROM login_streaks WHERE username=?", (target,)).fetchone()
+    db.close()
+    return jsonify({
+        "status": "ok",
+        "player": {
+            "username":       p["username"],
+            "name":           p["penguin_name"] or "",
+            "color":          p["penguin_color"] or "#1a1a1a",
+            "shape":          p["penguin_shape"] or "normal",
+            "level":          p["level"] or 1,
+            "xp":             p["xp"] or 0,
+            "energy":         p["energy"] or 0,
+            "max_energy":     p["max_energy"] or 100,
+            "gold":           r["gold"] if r else 0,
+            "fish":           r["fish"] if r else 0,
+            "herbs":          r["herbs"] if r else 0,
+            "blood_gems":     r["blood_gems"] if r else 0,
+            "bones":          r["bones"] if r else 0,
+            "spell_fragments":r["spell_fragments"] if r else 0,
+            "current_streak": ls["current_streak"] if ls else 0,
+            "last_login_date":ls["last_login_date"] if ls else "",
+        }
+    })
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5001)
