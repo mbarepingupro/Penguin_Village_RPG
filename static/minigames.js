@@ -70,7 +70,7 @@ var MiniGameManager = {
     };
     var insts = {
       sea_lion_pit:  'Click fish to catch them! Avoid puffer fish! Golden fish = jackpot!',
-      club_soda:     'Click herbs when fully RIPE (green glow)! Sprouts score less.',
+      club_soda:     'Catch leaves 🌿 (+5) & ice 🧊 (+3) in your basket! Dodge toxic shrooms 🍄 (−5)! Arrow keys or drag.',
       parkmusement:  'Click when the ball is inside the green zone! Build combos!',
       cursed_temple: 'Watch the rune sequence, then repeat it in order!',
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
@@ -343,72 +343,102 @@ var FishCatchGame = {
 };
 
 // ─── Herb Garden (Club Soda) ───────────────────────────────────────────────
+// Falling-object catcher: move basket left/right (arrow keys or touch drag),
+// catch leaves (+5) and ice cubes (+3), dodge noxious mushrooms (-5).
 
 var HerbGardenGame = {
   duration: 20,
-  COLS: 4,
-  ROWS: 3,
   _canvas: null,
   _ctx: null,
-  _cells: [],
   _running: false,
   _animFrame: null,
+  _objects: [],
+  _spawnTimer: null,
+  _basketX: 0,
+  _basketW: 70,
+  _basketY: 0,
+  _basketSpeed: 280,
+  _keys: null,
+  _keyHandler: null,
+  _keyUpHandler: null,
+  _touchStartX: null,
+  _touchBasketX: null,
+
+  _CFGS: {
+    leaf:    { emoji: '🌿', pts:  5, color: '#4aff6b' },
+    ice:     { emoji: '🧊', pts:  3, color: '#4aafff' },
+    noxious: { emoji: '🍄', pts: -5, color: '#ff6b6b' },
+  },
+  _POOL: ['leaf','leaf','ice','ice','noxious'],
 
   init: function(canvas, ctx) {
     this._canvas = canvas;
     this._ctx = ctx;
-    this._cells = [];
+    this._objects = [];
     this._running = true;
-
-    for (var i = 0; i < this.COLS * this.ROWS; i++) {
-      var r = Math.random();
-      this._cells.push({
-        stage: r < 0.25 ? 0 : (r < 0.6 ? 1 : 2),
-        timer: 0,
-        growSpeed: 3.5 + Math.random() * 3.5,
-        wilted: false,
-        harvested: false,
-        harvestPts: 0,
-        popAnim: 0,
-        popTimer: 0,
-      });
-    }
+    this._keys = { left: false, right: false };
+    this._basketW = Math.min(70, canvas.width * 0.18);
+    this._basketX = canvas.width / 2 - this._basketW / 2;
+    this._basketY = canvas.height - 40;
+    this._touchStartX = null;
+    this._touchBasketX = null;
 
     var self = this;
-    var handler = this._handleClick.bind(this);
-    canvas.onclick = handler;
-    canvas.ontouchend = function(e) { e.preventDefault(); handler(e.changedTouches[0]); };
+
+    // Keyboard input
+    this._keyHandler = function(e) {
+      if (e.key === 'ArrowLeft')  { self._keys.left  = true; e.preventDefault(); }
+      if (e.key === 'ArrowRight') { self._keys.right = true; e.preventDefault(); }
+    };
+    this._keyUpHandler = function(e) {
+      if (e.key === 'ArrowLeft')  self._keys.left  = false;
+      if (e.key === 'ArrowRight') self._keys.right = false;
+    };
+    document.addEventListener('keydown', this._keyHandler);
+    document.addEventListener('keyup',   this._keyUpHandler);
+
+    // Touch drag
+    canvas.onclick    = null;
+    canvas.ontouchend = null;
+    canvas.ontouchstart = function(e) {
+      e.preventDefault();
+      self._touchStartX  = e.touches[0].clientX;
+      self._touchBasketX = self._basketX;
+    };
+    canvas.ontouchmove = function(e) {
+      e.preventDefault();
+      if (self._touchStartX === null) return;
+      var rect = canvas.getBoundingClientRect();
+      var sx = canvas.width / rect.width;
+      var dx = (e.touches[0].clientX - self._touchStartX) * sx;
+      self._basketX = Math.max(0, Math.min(canvas.width - self._basketW,
+                                            self._touchBasketX + dx));
+    };
+
+    // Spawn first object immediately, then on interval
+    this._spawnObject();
+    this._spawnTimer = setInterval(function() { if (self._running) self._spawnObject(); }, 820);
+
     this._render();
   },
 
-  _handleClick: function(e) {
-    if (!this._running) return;
-    var rect = this._canvas.getBoundingClientRect();
-    var sx = this._canvas.width / rect.width;
-    var sy = this._canvas.height / rect.height;
-    var mx = ((e.clientX !== undefined ? e.clientX : e.pageX) - rect.left) * sx;
-    var my = ((e.clientY !== undefined ? e.clientY : e.pageY) - rect.top) * sy;
-
-    var cw = this._canvas.width / this.COLS;
-    var ch = this._canvas.height / this.ROWS;
-    var col = Math.floor(mx / cw);
-    var row = Math.floor(my / ch);
-    if (col < 0 || col >= this.COLS || row < 0 || row >= this.ROWS) return;
-    var idx = row * this.COLS + col;
-    var cell = this._cells[idx];
-    if (!cell || cell.harvested || cell.wilted) return;
-
-    var pts = 0;
-    if (cell.stage === 2) pts = 3;
-    else if (cell.stage === 1) pts = 1;
-    if (pts > 0) {
-      cell.harvested = true;
-      cell.harvestPts = pts;
-      cell.popAnim = 1.0;
-      cell.popTimer = 1.0;
-      MiniGameManager.addScore(pts);
-      if (window.GameSounds) GameSounds.minigameHit();
-    }
+  _spawnObject: function() {
+    var canvas = this._canvas;
+    var type = this._POOL[Math.floor(Math.random() * this._POOL.length)];
+    var c = this._CFGS[type];
+    this._objects.push({
+      x:      20 + Math.random() * (canvas.width - 40),
+      y:      -22,
+      type:   type,
+      emoji:  c.emoji,
+      pts:    c.pts,
+      color:  c.color,
+      speed:  80 + Math.random() * 60,
+      size:   28,
+      caught: false,
+      alpha:  1,
+      popY:   0,
+    });
   },
 
   _render: function() {
@@ -423,75 +453,96 @@ var HerbGardenGame = {
       var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
       last = ts;
 
+      // Move basket via keyboard
+      if (self._keys.left)
+        self._basketX = Math.max(0, self._basketX - self._basketSpeed * dt);
+      if (self._keys.right)
+        self._basketX = Math.min(canvas.width - self._basketW, self._basketX + self._basketSpeed * dt);
+
+      // Background
       ctx.fillStyle = '#060e06';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      var cw = canvas.width / self.COLS;
-      var ch = canvas.height / self.ROWS;
+      // Hint text
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#55775555';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText('← → or drag', canvas.width / 2, canvas.height - 8);
 
-      for (var i = 0; i < self._cells.length; i++) {
-        var cell = self._cells[i];
-        var col = i % self.COLS;
-        var row = Math.floor(i / self.COLS);
-        var cx = col * cw;
-        var cy = row * ch;
+      var bLeft  = self._basketX;
+      var bRight = self._basketX + self._basketW;
+      var bTop   = self._basketY;
 
-        if (!cell.harvested && !cell.wilted) {
-          cell.timer += dt;
-          if (cell.timer >= cell.growSpeed) {
-            cell.timer = 0;
-            cell.stage++;
-            if (cell.stage > 3) { cell.wilted = true; cell.stage = 3; }
+      // Objects
+      for (var i = self._objects.length - 1; i >= 0; i--) {
+        var o = self._objects[i];
+
+        if (!o.caught) {
+          o.y += o.speed * dt;
+
+          // Collision: object bottom edge reaches basket top, x inside basket
+          if (o.y + o.size * 0.5 >= bTop &&
+              o.x >= bLeft  - o.size * 0.5 &&
+              o.x <= bRight + o.size * 0.5) {
+            o.caught = true;
+            o.popY   = bTop - 4;
+            MiniGameManager.addScore(o.pts);
+            if (window.GameSounds) {
+              if (o.pts > 0) GameSounds.minigameHit();
+              else           GameSounds.minigameMiss();
+            }
           }
-        }
-        if (cell.popTimer > 0) cell.popTimer -= dt * 1.8;
 
-        // Cell background
-        var bgs = ['#0a140a','#0d200d','#0d3010','#1a1506'];
-        ctx.fillStyle = cell.harvested ? '#050905' : (cell.wilted ? '#18100a' : bgs[Math.min(cell.stage, 3)]);
-        ctx.fillRect(cx + 2, cy + 2, cw - 4, ch - 4);
-
-        // Herb emoji
-        if (!cell.harvested) {
-          var emojis = ['🌱','🌿','🌿','🍂'];
-          ctx.font = Math.min(cw, ch) * 0.45 + 'px serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.globalAlpha = cell.wilted ? 0.4 : 1;
-          ctx.fillText(emojis[cell.stage], cx + cw / 2, cy + ch / 2 - 6);
-          ctx.globalAlpha = 1;
-
-          // Stage label
-          var labels = ['sprout','growing','✦ RIPE!','wilted'];
-          var lcols  = ['#666','#4aff6b','#00ff66','#884400'];
-          ctx.font = '10px monospace';
-          ctx.fillStyle = lcols[cell.stage];
-          ctx.fillText(labels[cell.stage], cx + cw / 2, cy + ch - 8);
+          if (o.y > canvas.height + 32) { self._objects.splice(i, 1); continue; }
         } else {
-          ctx.font = Math.min(cw, ch) * 0.4 + 'px serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.globalAlpha = 0.15;
-          ctx.fillText('🌿', cx + cw / 2, cy + ch / 2);
-          ctx.globalAlpha = 1;
+          o.alpha -= dt * 3.5;
+          o.popY  -= 28 * dt;
+          if (o.alpha <= 0) { self._objects.splice(i, 1); continue; }
         }
 
-        // Harvest pop animation
-        if (cell.popTimer > 0 && cell.harvestPts > 0) {
-          var t = cell.popTimer;
-          ctx.globalAlpha = t;
-          ctx.fillStyle = '#4aff6b';
-          ctx.font = 'bold 16px monospace';
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, o.alpha);
+
+        if (!o.caught) {
+          // Draw falling object
+          ctx.font = o.size + 'px serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(o.emoji, o.x, o.y);
+
+          // Point label beneath emoji
+          ctx.font = '11px monospace';
+          ctx.fillStyle = o.pts > 0 ? '#4aff6b' : '#ff6b6b';
+          ctx.textBaseline = 'alphabetic';
+          ctx.fillText((o.pts > 0 ? '+' : '') + o.pts, o.x, o.y + o.size * 0.65);
+        } else {
+          // Pop score float
+          ctx.font = 'bold 15px monospace';
+          ctx.fillStyle = o.pts > 0 ? '#4aff6b' : '#ff4444';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'alphabetic';
-          ctx.fillText('+' + cell.harvestPts, cx + cw / 2, cy + ch / 2 - (1 - t) * 28);
-          ctx.globalAlpha = 1;
+          ctx.fillText((o.pts > 0 ? '+' : '') + o.pts, o.x, o.popY);
         }
 
-        ctx.strokeStyle = '#0e1e0e';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(cx, cy, cw, ch);
+        ctx.restore();
       }
+
+      // Draw basket
+      var bx = self._basketX, by = self._basketY, bw = self._basketW, bh = 28;
+      ctx.fillStyle = '#5a3e10';
+      ctx.fillRect(bx, by, bw, bh);
+      // Weave lines
+      ctx.strokeStyle = '#8B6514';
+      ctx.lineWidth = 1;
+      for (var lx = bx + 8; lx < bx + bw; lx += 10) {
+        ctx.beginPath(); ctx.moveTo(lx, by); ctx.lineTo(lx, by + bh); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(bx, by + bh * 0.45); ctx.lineTo(bx + bw, by + bh * 0.45); ctx.stroke();
+      // Gold rim
+      ctx.strokeStyle = '#C8961E';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bx, by, bw, bh);
 
       self._animFrame = requestAnimationFrame(loop);
     }
@@ -500,8 +551,16 @@ var HerbGardenGame = {
 
   stop: function() {
     this._running = false;
-    if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
-    if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
+    if (this._spawnTimer)  { clearInterval(this._spawnTimer);       this._spawnTimer  = null; }
+    if (this._animFrame)   { cancelAnimationFrame(this._animFrame); this._animFrame   = null; }
+    if (this._keyHandler)  document.removeEventListener('keydown', this._keyHandler);
+    if (this._keyUpHandler)document.removeEventListener('keyup',   this._keyUpHandler);
+    if (this._canvas) {
+      this._canvas.onclick      = null;
+      this._canvas.ontouchstart = null;
+      this._canvas.ontouchmove  = null;
+      this._canvas.ontouchend   = null;
+    }
   },
 };
 
