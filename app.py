@@ -3745,6 +3745,9 @@ def get_igloo(username):
     db = get_db()
     _ensure_igloo(db, username)
     igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+    p = db.execute("SELECT penguin_color, penguin_shape FROM penguins WHERE username=?", (username,)).fetchone()
+    host_color = _resolve_hex_color((p["penguin_color"] if p else None) or "#1a1a1a")
+    host_shape = (p["penguin_shape"] if p else None) or "normal"
     room_level = igloo["room_level"]
     room_size  = IGLOO_LEVELS[room_level]["size"]
     placed = db.execute(
@@ -3788,6 +3791,8 @@ def get_igloo(username):
         "unlocked_walls":   unlocked_walls,
         "floor_cells":      floor_cells,
         "wall_cells":       wall_cells,
+        "host_color":       host_color,
+        "host_shape":       host_shape,
     })
 
 
