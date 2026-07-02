@@ -3254,6 +3254,8 @@ def gear_buy():
 
 @app.route("/gear/equip", methods=["POST"])
 def gear_equip():
+    if not FEATURES.get("gear_equip", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
     username = session.get("username", "")
     gear_id  = int(data.get("gear_id", 0))
