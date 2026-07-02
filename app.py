@@ -249,36 +249,36 @@ BUILDING_UPGRADES = {
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit",
         "levels": {
-            2: {"fish": 1000, "gold": 500,  "benefit": "+15% fish rate for everyone"},
-            3: {"fish": 5000, "gold": 2500, "benefit": "+30% fish rate for everyone"},
+            2: {"fish": 2500,  "gold": 1250, "benefit": "+15% fish rate for everyone"},
+            3: {"fish": 12500, "gold": 6250, "benefit": "+30% fish rate for everyone"},
         },
     },
     "club_soda": {
         "name": "Club Soda",
         "levels": {
-            2: {"herbs": 1000, "gold": 500,  "benefit": "+15% herb rate for everyone"},
-            3: {"herbs": 5000, "gold": 2500, "benefit": "+30% herb rate for everyone"},
+            2: {"herbs": 2500,  "gold": 1250, "benefit": "+15% herb rate for everyone"},
+            3: {"herbs": 12500, "gold": 6250, "benefit": "+30% herb rate for everyone"},
         },
     },
     "parkmusement": {
         "name": "Ash's Parkmusement",
         "levels": {
-            2: {"gold": 1500, "benefit": "+15% gold rate for everyone"},
-            3: {"gold": 7500, "benefit": "+30% gold rate for everyone"},
+            2: {"gold": 3750,  "benefit": "+15% gold rate for everyone"},
+            3: {"gold": 18750, "benefit": "+30% gold rate for everyone"},
         },
     },
     "cursed_temple": {
         "name": "Cursed Temple",
         "levels": {
-            2: {"spell_fragments": 800,  "gold": 500,  "benefit": "+15% XP rate for everyone"},
-            3: {"spell_fragments": 4000, "gold": 2500, "benefit": "+30% XP rate for everyone"},
+            2: {"spell_fragments": 2000,  "gold": 1250, "benefit": "+15% XP rate for everyone"},
+            3: {"spell_fragments": 10000, "gold": 6250, "benefit": "+30% XP rate for everyone"},
         },
     },
     "guillotine": {
         "name": "Gil the Guillotine",
         "levels": {
-            2: {"blood_gems": 200,  "bones": 200,  "gold": 500,  "benefit": "+15% blood gem and bone rate for everyone"},
-            3: {"blood_gems": 1000, "bones": 1000, "gold": 2500, "benefit": "+30% rate for everyone"},
+            2: {"blood_gems": 500,  "bones": 500,  "gold": 1250, "benefit": "+15% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 2500, "bones": 2500, "gold": 6250, "benefit": "+30% rate for everyone"},
         },
     },
 }
