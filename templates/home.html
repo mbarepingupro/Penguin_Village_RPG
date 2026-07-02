@@ -1050,6 +1050,36 @@
     .wb-collect-btn.green { border-color: #4aff6b; color: #4aff6b; }
     .wb-collect-btn.green:hover { background: #4aff6b; color: #181820; }
 
+    /* ── FRIENDS TAB ── */
+    #sidebar-friends { overflow-y: auto; }
+    .frl-sort-row { display:flex; gap:5px; padding:6px 12px 4px; }
+    .frl-sort-btn {
+      flex:1; font-family:'C&C Red Alert',monospace; font-size:11px;
+      background:var(--dark); border:1px solid #3a3a3a; color:#8888A8;
+      padding:4px 0; cursor:pointer;
+    }
+    .frl-sort-btn:hover { border-color:#A86EFF; color:#fff; }
+    .frl-sort-btn.active { border-color:#4aff6b; color:#4aff6b; }
+    .frl-row {
+      display:flex; align-items:center; gap:6px; padding:5px 12px;
+      border-bottom:1px solid #1e1e2e;
+    }
+    .frl-row:hover { background:#181828; }
+    .frl-name { flex:1; font-size:13px; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .frl-prog { display:flex; align-items:center; gap:3px; }
+    .fp-pip { width:8px; height:8px; border-radius:50%; background:#2a2a3a; border:1px solid #4a4a6a; flex-shrink:0; }
+    .fp-pip.fill { background:#4aff6b; border-color:#4aff6b; }
+    .fp-pip.fill-top { background:#FF7FE5; border-color:#FF7FE5; }
+    .frl-emoji { font-size:14px; }
+    .frl-visit-btn {
+      font-family:'C&C Red Alert',monospace; font-size:11px;
+      background:transparent; border:1px solid #4aafff; color:#4aafff;
+      padding:3px 8px; cursor:pointer; flex-shrink:0;
+    }
+    .frl-visit-btn:hover:not(:disabled) { background:#4aafff; color:#000; }
+    .frl-visit-btn:disabled, .frl-visit-btn.visited { border-color:#3a3a3a; color:#3a3a3a; cursor:default; }
+    #friends-list { overflow-y:auto; max-height:320px; }
+
     /* ── SOCIAL MODE SELECTOR ── */
     .social-mode-section { padding: 8px 12px; border-bottom: 2px solid #A86EFF; }
     .social-mode-title { color: #A86EFF; font-size: 15px; margin-bottom: 7px; }
@@ -2092,6 +2122,7 @@
       <div class="sidebar-tabs">
         <button class="sidebar-tab active" onclick="switchSidebarTab('penguin', this)">PENGUIN</button>
         <button class="sidebar-tab" onclick="switchSidebarTab('stats', this)">STATS</button>
+        <button class="sidebar-tab" onclick="switchSidebarTab('friends', this)">FRIENDS</button>
       </div>
 
       <!-- PENGUIN TAB -->
@@ -2171,29 +2202,6 @@
         {% endif %}
         <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
 
-        <!-- SOCIAL MODE -->
-        <div class="social-mode-section">
-          <div class="social-mode-title">SOCIAL MODE</div>
-          <div class="social-mode-btns">
-            <button class="social-mode-btn active-social" id="smb-social"
-                    onclick="setSocialMode('social')">🤝 SOCIAL</button>
-            <button class="social-mode-btn" id="smb-homebody"
-                    onclick="setSocialMode('homebody')">🏠 HOME</button>
-            <button class="social-mode-btn" id="smb-focused"
-                    onclick="setSocialMode('focused')">🎯 FOCUS</button>
-          </div>
-          <div id="social-mode-desc" style="font-size:11px;color:#8888A8;margin:5px 0 2px;line-height:1.4;"></div>
-          <div class="social-target-wrap" id="social-target-wrap">
-            <div class="social-target-input-row">
-              <input class="social-target-input" id="social-target-input"
-                     placeholder="Enter penguin name..." autocomplete="off"
-                     oninput="socialTargetSearch(this.value)" />
-              <button class="social-target-set-btn" onclick="confirmSocialTarget()">SET</button>
-              <div class="social-autocomplete" id="social-autocomplete" style="display:none;"></div>
-            </div>
-            <div id="social-target-label" class="social-target-none">No target set</div>
-          </div>
-        </div>
 
       </div>
 
@@ -2252,7 +2260,37 @@
           <div id="sb-secret-bonuses-list" style="color:#B8B8D0;font-size:13px;line-height:1.8;"></div>
         </div>
 
-        <!-- IGLOO VISITS -->
+
+      </div>
+
+      <!-- FRIENDS TAB -->
+      <div class="sidebar-panel" id="sidebar-friends">
+
+        <!-- SOCIAL MODE (moved here from penguin tab) -->
+        <div class="social-mode-section">
+          <div class="social-mode-title">SOCIAL MODE</div>
+          <div class="social-mode-btns">
+            <button class="social-mode-btn active-social" id="smb-social"
+                    onclick="setSocialMode('social')">🤝 SOCIAL</button>
+            <button class="social-mode-btn" id="smb-homebody"
+                    onclick="setSocialMode('homebody')">🏠 HOME</button>
+            <button class="social-mode-btn" id="smb-focused"
+                    onclick="setSocialMode('focused')">🎯 FOCUS</button>
+          </div>
+          <div id="social-mode-desc" style="font-size:11px;color:#8888A8;margin:5px 0 2px;line-height:1.4;"></div>
+          <div class="social-target-wrap" id="social-target-wrap">
+            <div class="social-target-input-row">
+              <input class="social-target-input" id="social-target-input"
+                     placeholder="Enter penguin name..." autocomplete="off"
+                     oninput="socialTargetSearch(this.value)" />
+              <button class="social-target-set-btn" onclick="confirmSocialTarget()">SET</button>
+              <div class="social-autocomplete" id="social-autocomplete" style="display:none;"></div>
+            </div>
+            <div id="social-target-label" class="social-target-none">No target set</div>
+          </div>
+        </div>
+
+        <!-- IGLOO VISITS (moved here from stats tab) -->
         <div class="sb-section">
           <div class="sb-section-title">IGLOO VISITS</div>
           <div id="sb-visits-count" style="color:#B8B8D0;font-size:13px;margin-bottom:8px;">LOADING...</div>
@@ -2261,14 +2299,18 @@
           </div>
         </div>
 
-        <!-- RELATIONSHIPS -->
-        <div class="sb-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <div class="sb-section-title" style="margin-bottom:0;">RELATIONSHIPS</div>
-            <button class="sb-award-btn" onclick="openRelationshipModal()">VIEW ALL →</button>
+        <!-- VILLAGER RELATIONSHIPS (full list) -->
+        <div class="sb-section" style="padding-bottom:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 6px;">
+            <div class="sb-section-title" style="margin-bottom:0;">VILLAGERS</div>
+            <button class="sb-award-btn" onclick="openRelationshipModal()">DETAIL →</button>
           </div>
-          <div id="sb-rel-list">
-            <div style="color:#8888A8;font-size:13px;">LOADING...</div>
+          <div class="frl-sort-row">
+            <button class="frl-sort-btn active" id="frl-sort-best" onclick="setFriendSort('best')">⭐ BEST REL</button>
+            <button class="frl-sort-btn" id="frl-sort-new" onclick="setFriendSort('new')">🔮 UNVISITED</button>
+          </div>
+          <div id="friends-list">
+            <div style="color:#8888A8;font-size:13px;padding:8px 12px;">LOADING...</div>
           </div>
         </div>
 
@@ -2805,6 +2847,7 @@
     btn.classList.add('active');
     document.getElementById('sidebar-' + name).classList.add('active');
     if (name === 'stats') { loadStatsMissions(); loadStatsAchievements(); }
+    if (name === 'friends') { loadFriendsTab(); }
     if (window.TutorialManager) window.TutorialManager._notifySidebar(name);
   }
 
@@ -7813,6 +7856,8 @@
         const btn = rowEl.querySelector('.sb-visit-btn');
         if (btn) { btn.textContent = 'VISITED ✅'; btn.className = 'sb-visit-btn visited'; }
       }
+      const frlBtn = document.getElementById(`frl-visit-${hostUsername}`);
+      if (frlBtn) { frlBtn.textContent = 'VISITED ✅'; frlBtn.disabled = true; frlBtn.classList.add('visited'); }
       // Update map visited set
       if (VillageMap && VillageMap.setVisitedToday) {
         const countEl = document.getElementById('sb-visits-count');
@@ -7932,31 +7977,67 @@
 
   // ── RELATIONSHIPS ─────────────────────────────────────────────────────────
 
-  async function loadRelationships() {
+  const _TIER_ORDER = ['stranger','acquaintance','friend','village_comrade','trusted_flippers','penguin_mbare'];
+  let _friendsData  = [];
+  let _friendSort   = 'best';
+
+  function setFriendSort(mode) {
+    _friendSort = mode;
+    document.querySelectorAll('.frl-sort-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('frl-sort-' + mode);
+    if (btn) btn.classList.add('active');
+    _renderFriendsList();
+  }
+
+  function _tierStep(level) {
+    const i = _TIER_ORDER.indexOf(level);
+    return i < 0 ? 0 : i;
+  }
+
+  function _renderFriendsList() {
+    const listEl = document.getElementById('friends-list');
+    if (!listEl) return;
+    if (!_friendsData.length) {
+      listEl.innerHTML = '<div style="color:#8888A8;font-size:13px;padding:8px 12px;">No other villagers yet!</div>';
+      return;
+    }
+    const sorted = [..._friendsData];
+    if (_friendSort === 'new') {
+      sorted.sort((a, b) => (a.visited_today ? 1 : 0) - (b.visited_today ? 1 : 0) || b.interaction_count - a.interaction_count);
+    } else {
+      sorted.sort((a, b) => b.interaction_count - a.interaction_count);
+    }
+    const step = r => _tierStep(r.level);
+    listEl.innerHTML = sorted.map(r => {
+      const name = r.penguin_name || r.username;
+      const s    = step(r);
+      const isTop = r.level === 'penguin_mbare';
+      const pips = [1,2,3,4,5].map(i =>
+        `<span class="fp-pip${s >= i ? (isTop ? ' fill-top' : ' fill') : ''}"></span>`
+      ).join('');
+      const visitBtn = r.visited_today
+        ? `<button class="frl-visit-btn visited" id="frl-visit-${r.username}" disabled>VISITED ✅</button>`
+        : `<button class="frl-visit-btn" id="frl-visit-${r.username}" onclick="visitIgloo('${r.username}')">VISIT</button>`;
+      return `<div class="frl-row">
+        <div class="frl-name" title="${r.username}">${name}</div>
+        <div class="frl-prog">${pips}<span class="frl-emoji">${r.emoji}</span></div>
+        ${visitBtn}
+      </div>`;
+    }).join('');
+  }
+
+  async function loadFriendsList() {
     try {
       const res  = await fetch(`/relationships/${CURRENT_USER}`);
       const data = await res.json();
-      const rels = data.relationships || [];
-
-      const listEl = document.getElementById('sb-rel-list');
-      if (!listEl) return;
-
-      const top5 = rels.slice(0, 5);
-      if (top5.length === 0) {
-        listEl.innerHTML = '<div style="color:#8888A8;font-size:13px;">Visit igloos to build relationships!</div>';
-        return;
-      }
-
-      listEl.innerHTML = top5.map(r => `
-        <div style="padding:4px 0;border-bottom:1px solid #2a2a2a;">
-          <div style="display:flex;align-items:center;gap:5px;font-size:13px;">
-            <span>${r.emoji}</span>
-            <span style="flex:1;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.penguin_name || r.username}</span>
-            <span style="color:#B8B8D0;font-size:13px;">${r.level_name}</span>
-          </div>
-          ${r.next_level ? `<div class="rel-progress-wrap"><div class="rel-progress-fill" style="width:${r.progress_pct}%;"></div></div>` : ''}
-        </div>`).join('');
+      _friendsData = data.relationships || [];
+      _renderFriendsList();
     } catch(e) {}
+  }
+
+  function loadFriendsTab() {
+    loadIglooVisits();
+    loadFriendsList();
   }
 
   async function openRelationshipModal() {
@@ -8020,7 +8101,7 @@
   setInterval(loadBuildingLevels, 300000);
   loadSocialMode();
   loadIglooVisits();
-  loadRelationships();
+  loadFriendsList();
 
   // Map tab is active by default — trigger init now
   switchContentTab('map', null);
