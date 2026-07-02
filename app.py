@@ -3736,7 +3736,7 @@ def get_events():
 def events_recent():
     db   = get_db()
     rows = db.execute(
-        "SELECT * FROM event_log ORDER BY created_at DESC LIMIT 40"
+        "SELECT * FROM event_log WHERE event_type != 'admin_debug' ORDER BY created_at DESC LIMIT 40"
     ).fetchall()
     db.close()
     return jsonify({"events": [{
@@ -6923,7 +6923,7 @@ def mayor_debug_penguin():
 
     db.commit()
     summary = "; ".join(changed)
-    log_event(db, "achievement", f"👑 [DEBUG] {mayor} edited {target}: {summary}", target)
+    log_event(db, "admin_debug", f"👑 [DEBUG] {mayor} edited {target}: {summary}", target)
     import traceback as _tb
     print(f"[MAYOR DEBUG] {mayor} → {target}: {summary}")
     db.close()
