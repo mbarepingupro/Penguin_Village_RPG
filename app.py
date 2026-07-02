@@ -1206,7 +1206,7 @@ STREAK_MILESTONES = {
 
 # Resources awarded per milestone tier (every 7 days)
 _MILESTONE_TIERS = {
-    7:  {"gold": 300, "resources": [("fish", 20), ("herbs", 15)]},
+    7:  {"gold": 300, "resources": [("fish", 20), ("herbs", 15)], "gear_tier": 1},
     14: {"gold": 500, "resources": [("fish", 30), ("herbs", 20), ("bones", 15)]},
     21: {"gold": 500, "resources": [("blood_gems", 10), ("bones", 25), ("fish", 20)]},
     28: {"gold": 750, "resources": [("blood_gems", 15), ("spell_fragments", 10), ("herbs", 25)]},
@@ -1230,11 +1230,25 @@ def award_streak_milestone(db, username, streak):
     ensure_resources(db, username)
     for res_key, amount in resources:
         db.execute(f"UPDATE resources SET {res_key}={res_key}+? WHERE username=?", (amount, username))
+    gear_drop = None
+    if tier.get("gear_tier"):
+        gear_drop = generate_gear_drop(tier["gear_tier"])
+        db.execute(
+            "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
+            "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?)",
+            (username, gear_drop["item_id"], gear_drop["name"], gear_drop["set_name"],
+             gear_drop["type"], gear_drop["slot"], gear_drop["rarity"],
+             gear_drop["attack_bonus"], gear_drop["defense_bonus"],
+             gear_drop["speed_bonus"], gear_drop["hp_bonus"],
+             gear_drop["combat_power"], int(time.time()))
+        )
     res_summary = ", ".join(f"+{amt} {key}" for key, amt in resources)
     log_event(db, "achievement",
               f"{username} hit a {streak}-day streak! Haul: +{gold} gold, {res_summary} 🔥",
               username)
-    return {"gold": gold, "resources": resources, "streak": streak}
+    return {"gold": gold, "resources": resources, "streak": streak,
+            "gear_drop": {"name": gear_drop["name"], "rarity": gear_drop["rarity"], "slot": gear_drop["slot"]} if gear_drop else None}
 
 
 def update_login_streak(db, username, today):
@@ -1285,7 +1299,7 @@ def advance_mission(db, username, key, today, amount=1):
     if done:
         add_gold(db, username, defn["gold"])
         if defn.get("xp"):
-            db.execute("UPDATE penguins SET xp=xp+? WHERE username=?", (defn["xp"], username))
+            award_xp(db, username, defn["xp"])
     return done
 
 
