@@ -977,28 +977,28 @@ COSMETIC_SET_BONUSES = {
 
 # ── ACHIEVEMENT DEFINITIONS ───────────────────────────────────────────────────
 ACHIEVEMENT_DEFS = {
-    "first_login":    {"title":"WELCOME HOME",      "desc":"Log in for the first time",         "icon":"🐧", "category":"village"},
-    "first_job":      {"title":"CLOCK IN",          "desc":"Complete your first job",           "icon":"⚒️", "category":"jobs"},
-    "first_fight":    {"title":"BRAVE (OR DUMB)",   "desc":"Fight your first monster",          "icon":"⚔️", "category":"combat"},
-    "first_kill":     {"title":"MONSTER SLAYER",    "desc":"Defeat your first monster",         "icon":"💀", "category":"combat"},
-    "level_5":        {"title":"RISING STAR",       "desc":"Reach level 5",                     "icon":"⭐", "category":"village"},
-    "level_10":       {"title":"VILLAGE LEGEND",    "desc":"Reach level 10",                    "icon":"🌟", "category":"village"},
-    "level_20":       {"title":"SEASONED VETERAN",  "desc":"Reach level 20",                    "icon":"💫", "category":"village"},
-    "gold_500":       {"title":"GETTING PAID",      "desc":"Accumulate 500 gold",               "icon":"💰", "category":"collection"},
-    "gold_5000":      {"title":"MONEY PENGUIN",     "desc":"Accumulate 5000 gold total",        "icon":"🤑", "category":"collection"},
-    "fish_50":        {"title":"FISHER PENGUIN",    "desc":"Collect 50 fish",                   "icon":"🎣", "category":"jobs"},
-    "fish_500":       {"title":"MASTER FISHER",     "desc":"Collect 500 fish",                  "icon":"🐟", "category":"jobs"},
-    "kill_10":        {"title":"HUNTER",            "desc":"Defeat 10 monsters",                "icon":"🏹", "category":"combat"},
-    "kill_50":        {"title":"VETERAN HUNTER",    "desc":"Defeat 50 monsters",                "icon":"🗡️", "category":"combat"},
-    "igloo_5":        {"title":"HOME SWEET IGLOO",  "desc":"Place 5 items in your igloo",       "icon":"🏠", "category":"village"},
-    "streak_7":       {"title":"DEDICATED",         "desc":"Log in 7 days in a row",            "icon":"🔥", "category":"village"},
-    "streak_30":      {"title":"COMMITTED",         "desc":"Log in 30 days in a row",           "icon":"🔥", "category":"village"},
-    "prestige_1":         {"title":"REBORN",            "desc":"Prestige for the first time",         "icon":"♻️", "category":"prestige"},
-    "first_igloo_visit":  {"title":"WARM WELCOME",     "desc":"Visit your first igloo",              "icon":"🏠", "category":"social"},
-    "social_butterfly":   {"title":"SOCIAL BUTTERFLY", "desc":"Visit 50 igloos total",               "icon":"🦋", "category":"social"},
-    "best_friends_forever":{"title":"BFF",             "desc":"Reach Best Friend with any penguin",  "icon":"⭐", "category":"social"},
-    "popular_penguin":    {"title":"POPULAR PENGUIN",  "desc":"Receive 20 igloo visits",             "icon":"🎉", "category":"social"},
-    "village_socialite":  {"title":"THE SOCIALITE",    "desc":"Have 10+ relationships at Friend+",   "icon":"🌟", "category":"social"},
+    "first_login":    {"title":"WELCOME HOME",      "desc":"Log in for the first time",         "icon":"🐧", "category":"village",     "reward":{"gold":50}},
+    "first_job":      {"title":"CLOCK IN",          "desc":"Complete your first job",           "icon":"⚒️", "category":"jobs",        "reward":{"gold":50}},
+    "first_fight":    {"title":"BRAVE (OR DUMB)",   "desc":"Fight your first monster",          "icon":"⚔️", "category":"combat",      "reward":{"gold":75}},
+    "first_kill":     {"title":"MONSTER SLAYER",    "desc":"Defeat your first monster",         "icon":"💀", "category":"combat",      "reward":{"gold":100, "gear_tier":1}},
+    "level_5":        {"title":"RISING STAR",       "desc":"Reach level 5",                     "icon":"⭐", "category":"village",     "reward":{"gold":150}},
+    "level_10":       {"title":"VILLAGE LEGEND",    "desc":"Reach level 10",                    "icon":"🌟", "category":"village",     "reward":{"gold":300, "gear_tier":1}},
+    "level_20":       {"title":"SEASONED VETERAN",  "desc":"Reach level 20",                    "icon":"💫", "category":"village",     "reward":{"gold":750, "gear_tier":2}},
+    "gold_500":       {"title":"GETTING PAID",      "desc":"Accumulate 500 gold",               "icon":"💰", "category":"collection",  "reward":{"gold":100}},
+    "gold_5000":      {"title":"MONEY PENGUIN",     "desc":"Accumulate 5000 gold total",        "icon":"🤑", "category":"collection",  "reward":{"gold":300}},
+    "fish_50":        {"title":"FISHER PENGUIN",    "desc":"Collect 50 fish",                   "icon":"🎣", "category":"jobs",        "reward":{"gold":100}},
+    "fish_500":       {"title":"MASTER FISHER",     "desc":"Collect 500 fish",                  "icon":"🐟", "category":"jobs",        "reward":{"gold":250}},
+    "kill_10":        {"title":"HUNTER",            "desc":"Defeat 10 monsters",                "icon":"🏹", "category":"combat",      "reward":{"gold":150, "gear_tier":1}},
+    "kill_50":        {"title":"VETERAN HUNTER",    "desc":"Defeat 50 monsters",                "icon":"🗡️", "category":"combat",      "reward":{"gold":400, "gear_tier":2}},
+    "igloo_5":        {"title":"HOME SWEET IGLOO",  "desc":"Place 5 items in your igloo",       "icon":"🏠", "category":"village",     "reward":{"gold":100}},
+    "streak_7":       {"title":"DEDICATED",         "desc":"Log in 7 days in a row",            "icon":"🔥", "category":"village",     "reward":{"gold":200}},
+    "streak_30":      {"title":"COMMITTED",         "desc":"Log in 30 days in a row",           "icon":"🔥", "category":"village",     "reward":{"gold":500}},
+    "prestige_1":         {"title":"REBORN",            "desc":"Prestige for the first time",         "icon":"♻️", "category":"prestige", "reward":{"gold":1000, "gear_tier":3}},
+    "first_igloo_visit":  {"title":"WARM WELCOME",     "desc":"Visit your first igloo",              "icon":"🏠", "category":"social",   "reward":{"gold":50}},
+    "social_butterfly":   {"title":"SOCIAL BUTTERFLY", "desc":"Visit 50 igloos total",               "icon":"🦋", "category":"social",   "reward":{"gold":250}},
+    "best_friends_forever":{"title":"BFF",             "desc":"Reach Best Friend with any penguin",  "icon":"⭐", "category":"social",   "reward":{"gold":300}},
+    "popular_penguin":    {"title":"POPULAR PENGUIN",  "desc":"Receive 20 igloo visits",             "icon":"🎉", "category":"social",   "reward":{"gold":200}},
+    "village_socialite":  {"title":"THE SOCIALITE",    "desc":"Have 10+ relationships at Friend+",   "icon":"🌟", "category":"social",   "reward":{"gold":400}},
     "lb_top20": {"title":"RISING STAR",     "desc":"Reach top 20 in any leaderboard category", "icon":"📊", "category":"leaderboard"},
     "lb_top10": {"title":"CONTENDER",       "desc":"Reach top 10 in any leaderboard category",  "icon":"🏆", "category":"leaderboard"},
     "lb_top3":  {"title":"CHAMPION",        "desc":"Reach top 3 in any leaderboard category",   "icon":"🥇", "category":"leaderboard"},
@@ -1206,7 +1206,7 @@ STREAK_MILESTONES = {
 
 # Resources awarded per milestone tier (every 7 days)
 _MILESTONE_TIERS = {
-    7:  {"gold": 300, "resources": [("fish", 20), ("herbs", 15)]},
+    7:  {"gold": 300, "resources": [("fish", 20), ("herbs", 15)], "gear_tier": 1},
     14: {"gold": 500, "resources": [("fish", 30), ("herbs", 20), ("bones", 15)]},
     21: {"gold": 500, "resources": [("blood_gems", 10), ("bones", 25), ("fish", 20)]},
     28: {"gold": 750, "resources": [("blood_gems", 15), ("spell_fragments", 10), ("herbs", 25)]},
@@ -1230,11 +1230,25 @@ def award_streak_milestone(db, username, streak):
     ensure_resources(db, username)
     for res_key, amount in resources:
         db.execute(f"UPDATE resources SET {res_key}={res_key}+? WHERE username=?", (amount, username))
+    gear_drop = None
+    if tier.get("gear_tier"):
+        gear_drop = generate_gear_drop(tier["gear_tier"])
+        db.execute(
+            "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
+            "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?)",
+            (username, gear_drop["item_id"], gear_drop["name"], gear_drop["set_name"],
+             gear_drop["type"], gear_drop["slot"], gear_drop["rarity"],
+             gear_drop["attack_bonus"], gear_drop["defense_bonus"],
+             gear_drop["speed_bonus"], gear_drop["hp_bonus"],
+             gear_drop["combat_power"], int(time.time()))
+        )
     res_summary = ", ".join(f"+{amt} {key}" for key, amt in resources)
     log_event(db, "achievement",
               f"{username} hit a {streak}-day streak! Haul: +{gold} gold, {res_summary} 🔥",
               username)
-    return {"gold": gold, "resources": resources, "streak": streak}
+    return {"gold": gold, "resources": resources, "streak": streak,
+            "gear_drop": {"name": gear_drop["name"], "rarity": gear_drop["rarity"], "slot": gear_drop["slot"]} if gear_drop else None}
 
 
 def update_login_streak(db, username, today):
@@ -1285,7 +1299,7 @@ def advance_mission(db, username, key, today, amount=1):
     if done:
         add_gold(db, username, defn["gold"])
         if defn.get("xp"):
-            db.execute("UPDATE penguins SET xp=xp+? WHERE username=?", (defn["xp"], username))
+            award_xp(db, username, defn["xp"])
     return done
 
 
@@ -1592,8 +1606,25 @@ def check_achievements(db, username):
             new_ach.append(aid)
             defn = ACHIEVEMENT_DEFS.get(aid, {})
             log_event(db, "achievement", f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username)
-        except Exception:
-            pass
+            reward = defn.get("reward")
+            if reward:
+                ensure_resources(db, username)
+                if reward.get("gold"):
+                    add_gold(db, username, reward["gold"])
+                if reward.get("gear_tier"):
+                    gear = generate_gear_drop(reward["gear_tier"])
+                    db.execute(
+                        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
+                        "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?)",
+                        (username, gear["item_id"], gear["name"], gear["set_name"],
+                         gear["type"], gear["slot"], gear["rarity"],
+                         gear["attack_bonus"], gear["defense_bonus"],
+                         gear["speed_bonus"], gear["hp_bonus"],
+                         gear["combat_power"], now)
+                    )
+        except Exception as e:
+            import traceback; traceback.print_exc()
 
     if p:
         if p["level"] >= 5:  unlock("level_5")
@@ -1693,8 +1724,8 @@ def _check_lb_achievements(db, username):
 
     if best_rank <= 20: lb_unlock("lb_top20", 100)
     if best_rank <= 10: lb_unlock("lb_top10", 200)
-    if best_rank <= 3:  lb_unlock("lb_top3")
-    if best_rank == 1:  lb_unlock("lb_first")
+    if best_rank <= 3:  lb_unlock("lb_top3",  500)
+    if best_rank == 1:  lb_unlock("lb_first", 1000)
     return new_ach
 
 
