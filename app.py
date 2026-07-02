@@ -992,7 +992,7 @@ ACHIEVEMENT_DEFS = {
     "kill_50":        {"title":"VETERAN HUNTER",    "desc":"Defeat 50 monsters",                "icon":"🗡️", "category":"combat",      "reward":{"gold":400, "gear_tier":2}},
     "igloo_5":        {"title":"HOME SWEET IGLOO",  "desc":"Place 5 items in your igloo",       "icon":"🏠", "category":"village",     "reward":{"gold":100}},
     "streak_7":       {"title":"DEDICATED",         "desc":"Log in 7 days in a row",            "icon":"🔥", "category":"village",     "reward":{"gold":200}},
-    "streak_30":      {"title":"COMMITTED",         "desc":"Log in 30 days in a row",           "icon":"🔥", "category":"village",     "reward":{"gold":500, "gear_tier":2}},
+    "streak_30":      {"title":"COMMITTED",         "desc":"Log in 30 days in a row",           "icon":"🔥", "category":"village",     "reward":{"gold":500}},
     "prestige_1":         {"title":"REBORN",            "desc":"Prestige for the first time",         "icon":"♻️", "category":"prestige", "reward":{"gold":1000, "gear_tier":3}},
     "first_igloo_visit":  {"title":"WARM WELCOME",     "desc":"Visit your first igloo",              "icon":"🏠", "category":"social",   "reward":{"gold":50}},
     "social_butterfly":   {"title":"SOCIAL BUTTERFLY", "desc":"Visit 50 igloos total",               "icon":"🦋", "category":"social",   "reward":{"gold":250}},
