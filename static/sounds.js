@@ -116,6 +116,15 @@ const GameSounds = {
     titleEquip() { this._play({notes: [{freq:523, dur:0.10, type:'sine', vol:0.10}, {freq:659, dur:0.10, type:'sine', vol:0.10, time:0.08}, {freq:784, dur:0.15, type:'sine', vol:0.08, time:0.16}]}); },
 
     chime() { this._play({notes: [{freq:880, dur:0.10, type:'sine', vol:0.10}, {freq:1100, dur:0.15, type:'sine', vol:0.08, time:0.08}]}); },
+    // Each of the 6 runes gets a distinct pentatonic pitch (A4–C6)
+    runeChime(idx) {
+        const FREQS = [523, 659, 784, 880, 1047, 440];
+        const freq = FREQS[idx & 7] || 523;
+        this._play({notes: [
+            {freq,          dur: 0.22, type:'sine', vol: 0.13},
+            {freq: freq*1.5, dur: 0.12, type:'sine', vol: 0.05, time: 0.16},
+        ]});
+    },
 };
 
 // Warm up AudioContext on first user interaction
