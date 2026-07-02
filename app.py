@@ -6754,6 +6754,7 @@ def minigame_start():
         db.commit()
         energy -= 10
 
+    session["active_minigame"] = {"username": username, "building_id": building_id}
     db.close()
     return jsonify({"status": "success", "energy_remaining": energy})
 
@@ -6767,6 +6768,10 @@ def minigame_complete():
 
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
+
+    active = session.pop("active_minigame", None)
+    if not active or active.get("username") != username or active.get("building_id") != building_id:
+        return jsonify({"status": "error", "message": "No active mini-game found. Start the game first."})
 
     db = get_db()
     p  = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
