@@ -1606,8 +1606,8 @@ def check_achievements(db, username):
             new_ach.append(aid)
             defn = ACHIEVEMENT_DEFS.get(aid, {})
             log_event(db, "achievement", f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username)
-        except Exception:
-            pass
+        except Exception as e:
+            import traceback; traceback.print_exc()
 
     if p:
         if p["level"] >= 5:  unlock("level_5")
