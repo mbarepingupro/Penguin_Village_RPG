@@ -1942,12 +1942,17 @@ def callback():
         "grant_type": "authorization_code",
         "redirect_uri": TWITCH_REDIRECT_URI,
     })
-    access_token = token_resp.json().get("access_token")
-    user_resp = http_requests.get(
-        "https://api.twitch.tv/helix/users",
-        headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
-    )
-    username = user_resp.json()["data"][0]["login"]
+    try:
+        access_token = token_resp.json().get("access_token")
+        if not access_token:
+            raise ValueError("No access token")
+        user_resp = http_requests.get(
+            "https://api.twitch.tv/helix/users",
+            headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
+        )
+        username = user_resp.json()["data"][0]["login"]
+    except Exception:
+        return redirect("/?error=twitch_auth_failed")
     session["username"] = username
 
     db = get_db()
@@ -3503,9 +3508,10 @@ def igloo_visit():
     res_amount   = random.randint(reward_cfg["res_min"], reward_cfg["res_max"])
     xp_reward    = reward_cfg["xp"]
 
+    add_gold(db, visitor, gold_reward)
     ensure_resources(db, visitor)
-    db.execute(f"UPDATE resources SET gold=gold+?, {res_type}={res_type}+? WHERE username=?",
-               (gold_reward, res_amount, visitor))
+    db.execute(f"UPDATE resources SET {res_type}={res_type}+? WHERE username=?",
+               (res_amount, visitor))
     db.execute(
         "UPDATE penguins SET total_visits_given=total_visits_given+1, "
         "total_gold_collected=total_gold_collected+? WHERE username=?",
@@ -6766,7 +6772,7 @@ def minigame_complete():
     data        = request.get_json(silent=True) or {}
     username    = session.get("username", "")
     building_id = data.get("building_id", "")
-    score       = max(0, min(100, int(data.get("score", 0))))
+    score       = max(0, min(100, round(float(data.get("score", 0)))))
 
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
