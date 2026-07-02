@@ -7752,7 +7752,7 @@
   }
 
   function _relEmoji(level) {
-    const map = { stranger:'❓', acquaintance:'👋', friend:'🤝', good_friend:'💛', best_friend:'⭐', rivalry:'⚡', crush:'💘', mentor:'📚' };
+    const map = { stranger:'❓', acquaintance:'👋', friend:'🤝', village_comrade:'💛', trusted_flippers:'⭐', penguin_mbare:'👑', rivalry:'⚡', crush:'💘', mentor:'📚' };
     return map[level] || '❓';
   }
 
@@ -7868,8 +7868,35 @@
       document.getElementById('igloo-edit-btn').style.display    = 'none';
       document.getElementById('igloo-edit-panel').classList.remove('visible');
 
+      _showIglooHostSprite(username, data.host_color, data.host_shape);
       showVisitingHeader(username);
     } catch(e) {}
+  }
+
+  function _showIglooHostSprite(username, color, shape) {
+    const existing = document.getElementById('igloo-host-sprite');
+    if (existing) existing.remove();
+
+    const body = document.querySelector('.igloo-body');
+    if (!body) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'igloo-host-sprite';
+    wrap.style.cssText = 'width:90px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px 8px;gap:8px;';
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = 64;
+    canvas.height = 80;
+    canvas.style.cssText = 'image-rendering:pixelated;';
+    wrap.appendChild(canvas);
+
+    const label = document.createElement('div');
+    label.style.cssText = 'font-family:Silkscreen,monospace;font-size:10px;color:#B8B8D0;text-align:center;word-break:break-all;';
+    label.textContent = username;
+    wrap.appendChild(label);
+
+    body.appendChild(wrap);
+    _drawPenguinOnCanvas(canvas, color || '#1a1a1a', shape || 'normal');
   }
 
   function showVisitingHeader(username) {
@@ -7889,6 +7916,8 @@
 
     document.getElementById('igloo-back-own-btn').addEventListener('click', function() {
       header.remove();
+      const hostSprite = document.getElementById('igloo-host-sprite');
+      if (hostSprite) hostSprite.remove();
       // Restore edit controls and reload own igloo
       document.getElementById('igloo-edit-btn').style.display = '';
       _iglooLoaded = false;

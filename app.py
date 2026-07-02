@@ -249,36 +249,36 @@ BUILDING_UPGRADES = {
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit",
         "levels": {
-            2: {"fish": 1000, "gold": 500,  "benefit": "+15% fish rate for everyone"},
-            3: {"fish": 5000, "gold": 2500, "benefit": "+30% fish rate for everyone"},
+            2: {"fish": 2500,  "gold": 1250, "benefit": "+15% fish rate for everyone"},
+            3: {"fish": 12500, "gold": 6250, "benefit": "+30% fish rate for everyone"},
         },
     },
     "club_soda": {
         "name": "Club Soda",
         "levels": {
-            2: {"herbs": 1000, "gold": 500,  "benefit": "+15% herb rate for everyone"},
-            3: {"herbs": 5000, "gold": 2500, "benefit": "+30% herb rate for everyone"},
+            2: {"herbs": 2500,  "gold": 1250, "benefit": "+15% herb rate for everyone"},
+            3: {"herbs": 12500, "gold": 6250, "benefit": "+30% herb rate for everyone"},
         },
     },
     "parkmusement": {
         "name": "Ash's Parkmusement",
         "levels": {
-            2: {"gold": 1500, "benefit": "+15% gold rate for everyone"},
-            3: {"gold": 7500, "benefit": "+30% gold rate for everyone"},
+            2: {"gold": 3750,  "benefit": "+15% gold rate for everyone"},
+            3: {"gold": 18750, "benefit": "+30% gold rate for everyone"},
         },
     },
     "cursed_temple": {
         "name": "Cursed Temple",
         "levels": {
-            2: {"spell_fragments": 800,  "gold": 500,  "benefit": "+15% XP rate for everyone"},
-            3: {"spell_fragments": 4000, "gold": 2500, "benefit": "+30% XP rate for everyone"},
+            2: {"spell_fragments": 2000,  "gold": 1250, "benefit": "+15% XP rate for everyone"},
+            3: {"spell_fragments": 10000, "gold": 6250, "benefit": "+30% XP rate for everyone"},
         },
     },
     "guillotine": {
         "name": "Gil the Guillotine",
         "levels": {
-            2: {"blood_gems": 200,  "bones": 200,  "gold": 500,  "benefit": "+15% blood gem and bone rate for everyone"},
-            3: {"blood_gems": 1000, "bones": 1000, "gold": 2500, "benefit": "+30% rate for everyone"},
+            2: {"blood_gems": 500,  "bones": 500,  "gold": 1250, "benefit": "+15% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 2500, "bones": 2500, "gold": 6250, "benefit": "+30% rate for everyone"},
         },
     },
 }
@@ -566,30 +566,33 @@ SOCIAL_MODES = {
 }
 
 RELATIONSHIP_LEVELS = [
-    {"level": "stranger",     "emoji": "❓", "threshold": 0,  "next": "acquaintance", "next_threshold": 1},
-    {"level": "acquaintance", "emoji": "👋", "threshold": 1,  "next": "friend",       "next_threshold": 10},
-    {"level": "friend",       "emoji": "🤝", "threshold": 10, "next": "good_friend",  "next_threshold": 25},
-    {"level": "good_friend",  "emoji": "💛", "threshold": 25, "next": "best_friend",  "next_threshold": 50},
-    {"level": "best_friend",  "emoji": "⭐", "threshold": 50, "next": None,           "next_threshold": None},
+    {"level": "stranger",         "emoji": "❓", "threshold": 0,   "next": "acquaintance",    "next_threshold": 1},
+    {"level": "acquaintance",     "emoji": "👋", "threshold": 1,   "next": "friend",          "next_threshold": 10},
+    {"level": "friend",           "emoji": "🤝", "threshold": 10,  "next": "village_comrade", "next_threshold": 25},
+    {"level": "village_comrade",  "emoji": "💛", "threshold": 25,  "next": "trusted_flippers","next_threshold": 50},
+    {"level": "trusted_flippers", "emoji": "⭐", "threshold": 50,  "next": "penguin_mbare",   "next_threshold": 100},
+    {"level": "penguin_mbare",    "emoji": "👑", "threshold": 100, "next": None,              "next_threshold": None},
 ]
 
 RELATIONSHIP_DISPLAY = {
-    "stranger":     {"name": "Stranger",     "emoji": "❓"},
-    "acquaintance": {"name": "Acquaintance", "emoji": "👋"},
-    "friend":       {"name": "Friend",       "emoji": "🤝"},
-    "good_friend":  {"name": "Good Friend",  "emoji": "💛"},
-    "best_friend":  {"name": "Best Friend",  "emoji": "⭐"},
-    "rivalry":      {"name": "Rivalry",      "emoji": "⚡"},
-    "crush":        {"name": "Crush",        "emoji": "💘"},
-    "mentor":       {"name": "Mentor",       "emoji": "📚"},
+    "stranger":         {"name": "Stranger",         "emoji": "❓", "raid_cp_bonus": 0},
+    "acquaintance":     {"name": "Acquaintance",     "emoji": "👋", "raid_cp_bonus": 1},
+    "friend":           {"name": "Friend",           "emoji": "🤝", "raid_cp_bonus": 2},
+    "village_comrade":  {"name": "Village Comrade",  "emoji": "💛", "raid_cp_bonus": 3},
+    "trusted_flippers": {"name": "Trusted Flippers", "emoji": "⭐", "raid_cp_bonus": 4},
+    "penguin_mbare":    {"name": "Mbarepingu",       "emoji": "👑", "raid_cp_bonus": 5},
+    "rivalry":          {"name": "Rivalry",          "emoji": "⚡", "raid_cp_bonus": 0},
+    "crush":            {"name": "Crush",            "emoji": "💘", "raid_cp_bonus": 0},
+    "mentor":           {"name": "Mentor",           "emoji": "📚", "raid_cp_bonus": 0},
 }
 
 IGLOO_VISIT_REWARDS = {
-    "stranger":     {"gold_min": 5,  "gold_max": 10, "res_min": 1, "res_max": 1, "xp": 5},
-    "acquaintance": {"gold_min": 8,  "gold_max": 12, "res_min": 1, "res_max": 2, "xp": 5},
-    "friend":       {"gold_min": 10, "gold_max": 15, "res_min": 2, "res_max": 3, "xp": 5},
-    "good_friend":  {"gold_min": 12, "gold_max": 18, "res_min": 2, "res_max": 3, "xp": 8},
-    "best_friend":  {"gold_min": 15, "gold_max": 25, "res_min": 3, "res_max": 5, "xp": 10},
+    "stranger":         {"gold_min": 5,  "gold_max": 10, "res_min": 1, "res_max": 1, "xp": 5},
+    "acquaintance":     {"gold_min": 8,  "gold_max": 12, "res_min": 1, "res_max": 2, "xp": 5},
+    "friend":           {"gold_min": 10, "gold_max": 15, "res_min": 2, "res_max": 3, "xp": 5},
+    "village_comrade":  {"gold_min": 12, "gold_max": 18, "res_min": 2, "res_max": 3, "xp": 8},
+    "trusted_flippers": {"gold_min": 15, "gold_max": 25, "res_min": 3, "res_max": 5, "xp": 10},
+    "penguin_mbare":    {"gold_min": 20, "gold_max": 35, "res_min": 4, "res_max": 7, "xp": 15},
 }
 
 MAX_IGLOO_VISITS_PER_DAY = 5
@@ -1658,12 +1661,12 @@ def check_achievements(db, username):
             if visits_row["total_visits_received"] >= 20: unlock("popular_penguin")
         bf_count = db.execute(
             "SELECT COUNT(*) as c FROM relationships WHERE (username1=? OR username2=?) "
-            "AND relationship_level='best_friend'", (username, username)
+            "AND relationship_level IN ('trusted_flippers','penguin_mbare')", (username, username)
         ).fetchone()
         if bf_count and bf_count["c"] >= 1: unlock("best_friends_forever")
         friend_count = db.execute(
             "SELECT COUNT(*) as c FROM relationships WHERE (username1=? OR username2=?) "
-            "AND relationship_level IN ('friend','good_friend','best_friend')", (username, username)
+            "AND relationship_level IN ('friend','village_comrade','trusted_flippers','penguin_mbare')", (username, username)
         ).fetchone()
         if friend_count and friend_count["c"] >= 10: unlock("village_socialite")
     except Exception:
@@ -1785,25 +1788,6 @@ def run_autonomous_actions():
 def _record_auto_interaction(db, user_a, user_b, action, now):
     u1, u2 = sorted([user_a, user_b])
     db.execute("INSERT OR IGNORE INTO relationships (username1, username2) VALUES (?,?)", (u1, u2))
-    row = db.execute(
-        "SELECT interaction_count, relationship_level FROM relationships WHERE username1=? AND username2=?",
-        (u1, u2)
-    ).fetchone()
-    if not row:
-        return
-    new_count = row["interaction_count"] + 1
-    new_level = row["relationship_level"]
-    if action.get("category") == "conflict" and new_count >= 3:
-        new_level = "rivalry"
-    elif new_level not in ("rivalry", "crush", "mentor"):
-        for entry in sorted(RELATIONSHIP_LEVELS, key=lambda x: x["threshold"]):
-            if new_count >= entry["threshold"]:
-                new_level = entry["level"]
-    db.execute(
-        "UPDATE relationships SET interaction_count=?, relationship_level=?, last_interaction=? "
-        "WHERE username1=? AND username2=?",
-        (new_count, new_level, now, u1, u2)
-    )
 
 
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
@@ -3761,6 +3745,9 @@ def get_igloo(username):
     db = get_db()
     _ensure_igloo(db, username)
     igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
+    p = db.execute("SELECT penguin_color, penguin_shape FROM penguins WHERE username=?", (username,)).fetchone()
+    host_color = _resolve_hex_color((p["penguin_color"] if p else None) or "#1a1a1a")
+    host_shape = (p["penguin_shape"] if p else None) or "normal"
     room_level = igloo["room_level"]
     room_size  = IGLOO_LEVELS[room_level]["size"]
     placed = db.execute(
@@ -3804,6 +3791,8 @@ def get_igloo(username):
         "unlocked_walls":   unlocked_walls,
         "floor_cells":      floor_cells,
         "wall_cells":       wall_cells,
+        "host_color":       host_color,
+        "host_shape":       host_shape,
     })
 
 
