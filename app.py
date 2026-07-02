@@ -4241,7 +4241,10 @@ def welcome_back(username):
     today = get_today()
     streak_row = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
     if not streak_row or streak_row["last_login_date"] != today:
-        update_login_streak(db, username, today)
+        new_streak = update_login_streak(db, username, today)
+        milestone = award_streak_milestone(db, username, new_streak)
+        if milestone and not session.get("streak_reward"):
+            session["streak_reward"] = milestone
 
     # ── Autonomous activities while away ─────────────────────────────────────
     penguin_activities = []
