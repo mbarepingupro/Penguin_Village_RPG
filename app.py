@@ -1942,12 +1942,17 @@ def callback():
         "grant_type": "authorization_code",
         "redirect_uri": TWITCH_REDIRECT_URI,
     })
-    access_token = token_resp.json().get("access_token")
-    user_resp = http_requests.get(
-        "https://api.twitch.tv/helix/users",
-        headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
-    )
-    username = user_resp.json()["data"][0]["login"]
+    try:
+        access_token = token_resp.json().get("access_token")
+        if not access_token:
+            raise ValueError("No access token")
+        user_resp = http_requests.get(
+            "https://api.twitch.tv/helix/users",
+            headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
+        )
+        username = user_resp.json()["data"][0]["login"]
+    except Exception:
+        return redirect("/?error=twitch_auth_failed")
     session["username"] = username
 
     db = get_db()
@@ -2311,7 +2316,7 @@ def seals_shop():
 @app.route("/seals/buy", methods=["POST"])
 def seals_buy():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "").strip()
+    username = session.get("username", "").strip()
     item_id  = data.get("item_id", "").strip()
     shop_item = next((i for i in SEAL_SHOP if i["id"] == item_id), None)
     if not shop_item:
@@ -2445,7 +2450,7 @@ def building_info(building_id):
 @app.route("/work/start", methods=["POST"])
 def work_start():
     data        = request.get_json(silent=True) or {}
-    username    = data.get("username", "")
+    username    = session.get("username", "")
     building_id = data.get("building_id", "")
 
     b = BUILDINGS.get(building_id)
@@ -2482,7 +2487,7 @@ def work_start():
 @app.route("/work/collect", methods=["POST"])
 def work_collect():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     db = get_db()
     p  = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
     if not p or not p["job"]:
@@ -2727,7 +2732,7 @@ def gear_cosmetics(username):
 @app.route("/gear/cosmetics/equip", methods=["POST"])
 def gear_cosmetics_equip():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     gear_id  = data.get("gear_id")
     action   = data.get("action", "equip")
     db = get_db()
@@ -2873,7 +2878,7 @@ def combat_fight():
     db = None
     try:
         data = request.get_json(silent=True) or {}
-        username = data.get("username", "")
+        username = session.get("username", "")
         monster_id = data.get("monster_id", "")
 
         update_passive_energy(username)
@@ -3064,7 +3069,7 @@ def boss_attack():
     db = None
     try:
         data     = request.get_json(silent=True) or {}
-        username = data.get("username", "")
+        username = session.get("username", "")
 
         db  = get_db()
         p   = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
@@ -3212,7 +3217,7 @@ def gear_buy():
     if not FEATURES.get("gear_crafting", False):
         return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     item_id  = data.get("item_id", "")
     defn = GEAR_CATALOG.get(item_id)
     if not defn:
@@ -3254,8 +3259,10 @@ def gear_buy():
 
 @app.route("/gear/equip", methods=["POST"])
 def gear_equip():
+    if not FEATURES.get("gear_equip", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     gear_id  = int(data.get("gear_id", 0))
     db = get_db()
     item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
@@ -3280,7 +3287,7 @@ def gear_unequip():
     if not FEATURES.get("gear_equip", False):
         return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     gear_id  = int(data.get("gear_id", 0))
     db = get_db()
     item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
@@ -3296,7 +3303,7 @@ def gear_unequip():
 @app.route("/gear/wear", methods=["POST"])
 def gear_wear():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     gear_id  = int(data.get("gear_id", 0))
     db = get_db()
     item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
@@ -3323,7 +3330,7 @@ def gear_wear():
 @app.route("/gear/unwear", methods=["POST"])
 def gear_unwear():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     gear_id  = int(data.get("gear_id", 0))
     db = get_db()
     item = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
@@ -3411,7 +3418,7 @@ def get_achievements(username):
 @app.route("/penguin/social-mode", methods=["POST"])
 def set_social_mode():
     data = request.get_json() or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     mode = data.get("mode")
     target = data.get("target") or None
     if not username:
@@ -3501,9 +3508,10 @@ def igloo_visit():
     res_amount   = random.randint(reward_cfg["res_min"], reward_cfg["res_max"])
     xp_reward    = reward_cfg["xp"]
 
+    add_gold(db, visitor, gold_reward)
     ensure_resources(db, visitor)
-    db.execute(f"UPDATE resources SET gold=gold+?, {res_type}={res_type}+? WHERE username=?",
-               (gold_reward, res_amount, visitor))
+    db.execute(f"UPDATE resources SET {res_type}={res_type}+? WHERE username=?",
+               (res_amount, visitor))
     db.execute(
         "UPDATE penguins SET total_visits_given=total_visits_given+1, "
         "total_gold_collected=total_gold_collected+? WHERE username=?",
@@ -3833,7 +3841,7 @@ def igloo_shop():
 @app.route("/igloo/buy-furniture", methods=["POST"])
 def igloo_buy_furniture():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     item_id  = data.get("item_id", "")
     defn = IGLOO_FURNITURE.get(item_id)
     if not defn:
@@ -3866,7 +3874,7 @@ def igloo_buy_furniture():
 @app.route("/igloo/place", methods=["POST"])
 def igloo_place():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     item_id  = data.get("item_id", "")
     grid_x   = int(data.get("grid_x", -1))
     grid_y   = int(data.get("grid_y", -1))
@@ -3913,7 +3921,7 @@ def igloo_place():
 @app.route("/igloo/remove", methods=["POST"])
 def igloo_remove():
     data         = request.get_json(silent=True) or {}
-    username     = data.get("username") or session.get("username")
+    username     = session.get("username", "")
     placement_id = int(data.get("placement_id", -1))
     db = get_db()
     row = db.execute(
@@ -3932,7 +3940,7 @@ def igloo_remove():
 @app.route("/igloo/move", methods=["POST"])
 def igloo_move():
     data         = request.get_json(silent=True) or {}
-    username     = data.get("username") or session.get("username")
+    username     = session.get("username", "")
     placement_id = int(data.get("placement_id", -1))
     new_x        = int(data.get("new_grid_x", -1))
     new_y        = int(data.get("new_grid_y", -1))
@@ -3968,7 +3976,7 @@ def igloo_move():
 @app.route("/igloo/upgrade", methods=["POST"])
 def igloo_upgrade():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     db = get_db()
     _ensure_igloo(db, username)
     igloo = db.execute("SELECT room_level FROM igloos WHERE username=?", (username,)).fetchone()
@@ -4003,7 +4011,7 @@ def igloo_upgrade():
 @app.route("/igloo/floor", methods=["POST"])
 def igloo_change_floor():
     data       = request.get_json(silent=True) or {}
-    username   = data.get("username") or session.get("username")
+    username   = session.get("username", "")
     floor_type = data.get("floor_type", "")
     if floor_type not in FLOOR_TYPES:
         return jsonify({"status": "error", "message": "Invalid floor type."})
@@ -4033,7 +4041,7 @@ def igloo_change_floor():
 @app.route("/igloo/wall", methods=["POST"])
 def igloo_change_wall():
     data      = request.get_json(silent=True) or {}
-    username  = data.get("username") or session.get("username")
+    username  = session.get("username", "")
     wall_type = data.get("wall_type", "")
     if wall_type not in WALL_TYPES:
         return jsonify({"status": "error", "message": "Invalid wall type."})
@@ -4064,7 +4072,7 @@ def igloo_change_wall():
 def igloo_paint_floor_cell():
     import json as _json
     data       = request.get_json(silent=True) or {}
-    username   = data.get("username") or session.get("username")
+    username   = session.get("username", "")
     floor_type = data.get("floor_type", "")
     gx         = data.get("gx")
     gy         = data.get("gy")
@@ -4098,7 +4106,7 @@ def igloo_paint_floor_cell():
 def igloo_paint_wall_cell():
     import json as _json
     data      = request.get_json(silent=True) or {}
-    username  = data.get("username") or session.get("username")
+    username  = session.get("username", "")
     wall_type = data.get("wall_type", "")
     side      = data.get("side", "")
     index     = data.get("index")
@@ -4241,7 +4249,10 @@ def welcome_back(username):
     today = get_today()
     streak_row = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
     if not streak_row or streak_row["last_login_date"] != today:
-        update_login_streak(db, username, today)
+        new_streak = update_login_streak(db, username, today)
+        milestone = award_streak_milestone(db, username, new_streak)
+        if milestone and not session.get("streak_reward"):
+            session["streak_reward"] = milestone
 
     # ── Autonomous activities while away ─────────────────────────────────────
     penguin_activities = []
@@ -4347,7 +4358,7 @@ def titles_list(username):
 @app.route("/titles/equip", methods=["POST"])
 def titles_equip():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "").strip()
+    username = session.get("username", "").strip()
     title    = data.get("title", "").strip()
     db = get_db()
     earned = [t["title"] for t in get_all_earned_titles(db, username)]
@@ -4363,7 +4374,7 @@ def titles_equip():
 @app.route("/titles/unequip", methods=["POST"])
 def titles_unequip():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "").strip()
+    username = session.get("username", "").strip()
     db = get_db()
     db.execute("UPDATE penguins SET active_title=NULL WHERE username=?", (username,))
     db.commit()
@@ -4526,7 +4537,7 @@ def building_upgrade_info(building_id):
 @app.route("/building/donate", methods=["POST"])
 def building_donate():
     data          = request.get_json(silent=True) or {}
-    username      = data.get("username", "").strip()
+    username      = session.get("username", "").strip()
     building_id   = data.get("building_id", "").strip()
     resource_type = data.get("resource_type", "").strip()
     amount        = int(data.get("amount", 0))
@@ -4768,7 +4779,7 @@ def card_backgrounds(username):
 @app.route("/card/background/equip", methods=["POST"])
 def card_background_equip():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "").strip()
+    username = session.get("username", "").strip()
     item_id  = data.get("item_id", "").strip()
     db = get_db()
     item = db.execute(
@@ -4832,7 +4843,7 @@ def boutique_items():
 @app.route("/boutique/buy", methods=["POST"])
 def boutique_buy():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     item_id  = data.get("item_id", "")
     item = next(
         (i for items in BOUTIQUE_ITEMS.values() for i in items if i["id"] == item_id),
@@ -4868,7 +4879,7 @@ def boutique_buy():
 @app.route("/boutique/equip", methods=["POST"])
 def boutique_equip():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     item_id  = data.get("item_id", "")
     db = get_db()
     gear_row = db.execute(
@@ -4928,7 +4939,7 @@ def barracks_buy():
     if not FEATURES.get("gear_equip", False):
         return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     item_id  = data.get("item_id", "")
 
     defn = None
@@ -5216,7 +5227,7 @@ def tutorial_complete():
 @app.route("/tutorial/advance", methods=["POST"])
 def tutorial_advance():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     step     = int(data.get("step", 0))
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
@@ -5232,7 +5243,7 @@ def tutorial_advance():
 @app.route("/tutorial/reset", methods=["POST"])
 def tutorial_reset():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
     db = get_db()
@@ -5248,7 +5259,7 @@ def tutorial_reset():
 @app.route("/tutorial/gift", methods=["POST"])
 def tutorial_gift():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     step     = int(data.get("step", 0))
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
@@ -5302,7 +5313,7 @@ def tutorial_gift():
 @app.route("/tutorial/starter-fight", methods=["POST"])
 def tutorial_starter_fight():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
 
@@ -5348,7 +5359,7 @@ def tutorial_starter_fight():
 @app.route("/tutorial/free-boutique", methods=["POST"])
 def tutorial_free_boutique():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     item_id  = data.get("item_id", "")
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
@@ -5398,7 +5409,7 @@ def tutorial_free_boutique():
 @app.route("/tutorial/free-rest", methods=["POST"])
 def tutorial_free_rest():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
 
@@ -5436,7 +5447,7 @@ def help_dismissed_list(username):
 @app.route("/help/dismiss", methods=["POST"])
 def help_dismiss():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     help_key = data.get("help_key") or data.get("key", "")
     if not username or not help_key:
         return jsonify({"status": "error"})
@@ -5450,7 +5461,7 @@ def help_dismiss():
 @app.route("/help/reset", methods=["POST"])
 def help_reset():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username") or session.get("username")
+    username = session.get("username", "")
     if not username:
         return jsonify({"status": "error"})
     db = get_db()
@@ -6433,7 +6444,7 @@ def bank_my_listings():
 @app.route("/bank/list-item", methods=["POST"])
 def bank_list_item():
     data        = request.get_json(silent=True) or {}
-    username    = data.get("username", "")
+    username    = session.get("username", "")
     gear_id     = data.get("gear_id")
     ask_resource = data.get("ask_resource", "")
     ask_amount  = int(data.get("ask_amount", 0))
@@ -6475,7 +6486,7 @@ def bank_list_item():
 @app.route("/bank/list-resource", methods=["POST"])
 def bank_list_resource():
     data           = request.get_json(silent=True) or {}
-    username       = data.get("username", "")
+    username       = session.get("username", "")
     offer_resource = data.get("offer_resource", "")
     offer_amount   = int(data.get("offer_amount", 0))
     ask_resource   = data.get("ask_resource", "")
@@ -6521,7 +6532,7 @@ def bank_list_resource():
 @app.route("/bank/cancel/<int:listing_id>", methods=["POST"])
 def bank_cancel_listing(listing_id):
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     db       = get_db()
     listing  = db.execute(
         "SELECT * FROM bank_listings WHERE id=? AND seller_username=? AND status='open'",
@@ -6548,7 +6559,7 @@ def bank_cancel_listing(listing_id):
 @app.route("/bank/accept/<int:listing_id>", methods=["POST"])
 def bank_accept_listing(listing_id):
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")  # the buyer
+    username = session.get("username", "")  # the buyer
     db       = get_db()
     listing  = db.execute(
         "SELECT * FROM bank_listings WHERE id=? AND status='open'", (listing_id,)
@@ -6616,7 +6627,7 @@ def bank_accept_listing(listing_id):
 @app.route("/bank/sell-to-bank", methods=["POST"])
 def bank_sell_to_bank():
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     gear_id  = data.get("gear_id")
     db       = get_db()
 
@@ -6673,7 +6684,7 @@ def bank_shop():
 @app.route("/bank/shop-buy/<int:gear_id>", methods=["POST"])
 def bank_shop_buy(gear_id):
     data     = request.get_json(silent=True) or {}
-    username = data.get("username", "")
+    username = session.get("username", "")
     db       = get_db()
 
     g = db.execute(
@@ -6723,7 +6734,7 @@ def calculate_minigame_rewards(building_id, score, player_level):
 @app.route("/minigame/start", methods=["POST"])
 def minigame_start():
     data        = request.get_json(silent=True) or {}
-    username    = data.get("username") or session.get("username")
+    username    = session.get("username", "")
     building_id = data.get("building_id", "")
     is_tutorial = bool(data.get("tutorial", False))
 
@@ -6751,6 +6762,7 @@ def minigame_start():
         db.commit()
         energy -= 10
 
+    session["active_minigame"] = {"username": username, "building_id": building_id}
     db.close()
     return jsonify({"status": "success", "energy_remaining": energy})
 
@@ -6758,12 +6770,16 @@ def minigame_start():
 @app.route("/minigame/complete", methods=["POST"])
 def minigame_complete():
     data        = request.get_json(silent=True) or {}
-    username    = data.get("username") or session.get("username")
+    username    = session.get("username", "")
     building_id = data.get("building_id", "")
-    score       = max(0, min(100, int(data.get("score", 0))))
+    score       = max(0, min(100, round(float(data.get("score", 0)))))
 
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
+
+    active = session.pop("active_minigame", None)
+    if not active or active.get("username") != username or active.get("building_id") != building_id:
+        return jsonify({"status": "error", "message": "No active mini-game found. Start the game first."})
 
     db = get_db()
     p  = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
