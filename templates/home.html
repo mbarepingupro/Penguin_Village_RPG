@@ -30,7 +30,7 @@
       background: var(--bg);
       color: var(--white);
       font-family: 'C&C Red Alert', 'C&C Red Alert', monospace;
-      font-size: 21px;
+      font-size: 22.5px;
       image-rendering: pixelated;
       overflow: hidden;
     }
@@ -9360,12 +9360,7 @@ function _loadMobileTab(tabName) {
                     if (data.streak_milestone)
                         setTimeout(() => GameSounds.streak(), 500);
 
-                    if (url.includes('/combat/fight')) {
-                        if (data.victory === true)
-                            setTimeout(() => GameSounds.combatVictory(), 2500);
-                        else if (data.victory === false)
-                            setTimeout(() => GameSounds.combatDefeat(), 2500);
-                    }
+
                 }).catch(() => {});
             }
             return response;

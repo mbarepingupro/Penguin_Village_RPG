@@ -724,6 +724,7 @@ var RuneMemoryGame = {
       if (Math.sqrt(dx*dx + dy*dy) < 32) {
         this._input.push(rn.idx);
         rn.lit = true; rn.litT = 0.5;
+        if (window.GameSounds) GameSounds.uiClick();
         var pos = this._input.length - 1;
         if (rn.idx !== this._sequence[pos]) {
           this._phase = 'result'; this._resultTimer = 1.4; this._correct = false;
@@ -762,6 +763,7 @@ var RuneMemoryGame = {
           if (self._showIdx < self._sequence.length) {
             self._runes[self._sequence[self._showIdx]].lit = true;
             self._runes[self._sequence[self._showIdx]].litT = 0.65;
+            if (window.GameSounds) GameSounds.uiHover();
             self._showIdx++;
             self._showTimer = 0.85;
           } else {
