@@ -6,6 +6,7 @@ var MiniGameManager = {
   _ctx: null,
   _score: 0,
   _timeLeft: 0,
+  _duration: 15,
   _timer: null,
   _activeGame: null,
   _onComplete: null,
@@ -92,9 +93,17 @@ var MiniGameManager = {
     this._startTimer(this._activeGame.duration || 15);
   },
 
+  // Returns a linear 1.0→2.0 multiplier over the game's duration.
+  // Games use this to scale spawn rates, speeds, and timing windows.
+  getDifficultyMult: function() {
+    var elapsed = this._duration - this._timeLeft;
+    return 1.0 + elapsed / this._duration;
+  },
+
   _startTimer: function(seconds) {
     var self = this;
     self._timeLeft = seconds;
+    self._duration = seconds;
     self._updateHUD();
     self._timer = setInterval(function() {
       self._timeLeft--;
@@ -212,9 +221,13 @@ var FishCatchGame = {
     this._ctx = ctx;
     this._fish = [];
     this._running = true;
-    this._spawnFish();
     var self = this;
-    this._spawnTimer = setInterval(function() { self._spawnFish(); }, 1100);
+    function _schedFish() {
+      self._spawnFish();
+      if (self._running)
+        self._spawnTimer = setTimeout(_schedFish, 1100 / MiniGameManager.getDifficultyMult());
+    }
+    _schedFish();
     canvas.onclick = null;
     canvas.ontouchend = null;
     var handler = this._handleClick.bind(this);
@@ -234,9 +247,10 @@ var FishCatchGame = {
       puffer: { emoji:'🐡', size:34, speed:70,  pts:-5,  color:'#ff6b6b' },
     };
     var c = cfgs[type];
+    var mult = MiniGameManager.getDifficultyMult();
     this._fish.push({
       x: -55, y: 45 + Math.random() * (this._canvas.height - 90),
-      speed: c.speed, size: c.size, pts: c.pts, emoji: c.emoji,
+      speed: c.speed * mult, size: c.size, pts: c.pts, emoji: c.emoji,
       hit: false, alpha: 1, riseSpd: 0,
     });
   },
@@ -336,7 +350,7 @@ var FishCatchGame = {
 
   stop: function() {
     this._running = false;
-    if (this._spawnTimer) { clearInterval(this._spawnTimer); this._spawnTimer = null; }
+    if (this._spawnTimer) { clearTimeout(this._spawnTimer); this._spawnTimer = null; }
     if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
     if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
   },
@@ -415,9 +429,13 @@ var HerbGardenGame = {
                                             self._touchBasketX + dx));
     };
 
-    // Spawn first object immediately, then on interval
-    this._spawnObject();
-    this._spawnTimer = setInterval(function() { if (self._running) self._spawnObject(); }, 820);
+    // Spawn first object immediately; reschedule each time so interval adapts to difficulty
+    function _schedObj() {
+      if (!self._running) return;
+      self._spawnObject();
+      self._spawnTimer = setTimeout(_schedObj, 820 / MiniGameManager.getDifficultyMult());
+    }
+    _schedObj();
 
     this._render();
   },
@@ -433,7 +451,7 @@ var HerbGardenGame = {
       emoji:  c.emoji,
       pts:    c.pts,
       color:  c.color,
-      speed:  80 + Math.random() * 60,
+      speed:  (80 + Math.random() * 60) * MiniGameManager.getDifficultyMult(),
       size:   28,
       caught: false,
       alpha:  1,
@@ -551,7 +569,7 @@ var HerbGardenGame = {
 
   stop: function() {
     this._running = false;
-    if (this._spawnTimer)  { clearInterval(this._spawnTimer);       this._spawnTimer  = null; }
+    if (this._spawnTimer)  { clearTimeout(this._spawnTimer);        this._spawnTimer  = null; }
     if (this._animFrame)   { cancelAnimationFrame(this._animFrame); this._animFrame   = null; }
     if (this._keyHandler)  document.removeEventListener('keydown', this._keyHandler);
     if (this._keyUpHandler)document.removeEventListener('keyup',   this._keyUpHandler);
@@ -679,7 +697,7 @@ var JuggleMasterGame = {
       // Physics — remove balls that hit the floor
       for (var i = self._balls.length - 1; i >= 0; i--) {
         var b = self._balls[i];
-        b.vy += b.gravity * dt;
+        b.vy += b.gravity * MiniGameManager.getDifficultyMult() * dt;
         b.y  += b.vy * dt;
         b.x  += b.vx * dt;
         // Horizontal wall bounce (slight energy loss)
@@ -770,6 +788,7 @@ var JuggleMasterGame = {
 
   stop: function() {
     this._running = false;
+    if (this._spawnTimer) { clearTimeout(this._spawnTimer); this._spawnTimer = null; }
     if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
     if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
   },
@@ -889,7 +908,8 @@ var RuneMemoryGame = {
             self._runes[self._sequence[self._showIdx]].litT = 0.65;
             if (window.GameSounds) GameSounds.runeChime(self._sequence[self._showIdx]);
             self._showIdx++;
-            self._showTimer = 0.85;
+            // Cap at 1.5× so the sequence remains readable even late in the game
+            self._showTimer = 0.85 / Math.min(MiniGameManager.getDifficultyMult(), 1.5);
           } else {
             self._phase = 'input';
           }
@@ -984,8 +1004,12 @@ var ExecutionerGame = {
     this._running = true;
 
     var self = this;
-    this._spawnTarget();
-    this._spawnTimer = setInterval(function() { self._spawnTarget(); }, 780);
+    function _schedTarget() {
+      if (!self._running) return;
+      self._spawnTarget();
+      self._spawnTimer = setTimeout(_schedTarget, 780 / MiniGameManager.getDifficultyMult());
+    }
+    _schedTarget();
 
     var handler = this._handleClick.bind(this);
     canvas.onclick = handler;
@@ -1004,10 +1028,11 @@ var ExecutionerGame = {
     var cell = free[Math.floor(Math.random() * free.length)];
     var pool = ['monster','monster','monster','elite','penguin'];
     var type = pool[Math.floor(Math.random() * pool.length)];
+    var mult = MiniGameManager.getDifficultyMult();
     var cfgs = {
-      monster: { emoji:'👹', pts: 4,  color:'#ff6b6b', life:2.0 },
-      elite:   { emoji:'💀', pts:10,  color:'#FF8C00', life:1.3 },
-      penguin: { emoji:'🐧', pts:-6,  color:'#4aafff', life:1.9 },
+      monster: { emoji:'👹', pts: 4,  color:'#ff6b6b', life:2.0 / mult },
+      elite:   { emoji:'💀', pts:10,  color:'#FF8C00', life:1.3 / mult },
+      penguin: { emoji:'🐧', pts:-6,  color:'#4aafff', life:1.9 / mult },
     };
     var c = cfgs[type];
     this._targets.push({
