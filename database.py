@@ -341,6 +341,8 @@ def init_db():
     _add_col(c, "penguins", "total_resources_collected INTEGER DEFAULT 0")
     _add_col(c, "penguins", "total_gold_collected INTEGER DEFAULT 0")
     _add_col(c, "penguins", "penguin_shape TEXT DEFAULT 'normal'")
+    _add_col(c, "penguins", "auth_provider TEXT DEFAULT 'twitch'")
+    _add_col(c, "penguins", "discord_id TEXT DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:
