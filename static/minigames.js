@@ -587,7 +587,7 @@ var HerbGardenGame = {
 // At combo 10 a second ball spawns; game ends only when ALL balls drop.
 
 var JuggleMasterGame = {
-  duration: 15,
+  duration: 45,
   _canvas: null,
   _ctx: null,
   _running: false,
