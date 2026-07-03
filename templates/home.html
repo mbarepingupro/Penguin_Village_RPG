@@ -7922,25 +7922,26 @@
     const existing = document.getElementById('igloo-host-sprite');
     if (existing) existing.remove();
 
-    const body = document.querySelector('.igloo-body');
-    if (!body) return;
+    const anchor = document.getElementById('igloo-canvas');
+    if (!anchor) return;
 
     const wrap = document.createElement('div');
     wrap.id = 'igloo-host-sprite';
-    wrap.style.cssText = 'width:90px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px 8px;gap:8px;';
+    wrap.style.cssText = 'width:160px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:8px;gap:8px;';
 
     const canvas = document.createElement('canvas');
-    canvas.width  = 64;
-    canvas.height = 80;
-    canvas.style.cssText = 'image-rendering:pixelated;';
+    canvas.width  = 128;
+    canvas.height = 160;
+    canvas.style.cssText = 'image-rendering:pixelated;width:128px;height:160px;';
     wrap.appendChild(canvas);
 
     const label = document.createElement('div');
-    label.style.cssText = 'font-family:Silkscreen,monospace;font-size:10px;color:#B8B8D0;text-align:center;word-break:break-all;';
+    label.style.cssText = 'font-family:Silkscreen,monospace;font-size:11px;color:#B8B8D0;text-align:center;word-break:break-all;';
     label.textContent = username;
     wrap.appendChild(label);
 
-    body.appendChild(wrap);
+    // Insert directly after #igloo-canvas inside .igloo-canvas-wrap (same flex row)
+    anchor.insertAdjacentElement('afterend', wrap);
     _drawPenguinOnCanvas(canvas, color || '#1a1a1a', shape || 'normal');
   }
 
