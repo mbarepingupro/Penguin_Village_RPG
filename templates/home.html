@@ -9282,303 +9282,48 @@ function _loadMobileTab(tabName) {
   </div>
 </div><script>
 // ── UNIVERSAL SOUND WIRING ──────────────────────────────
-// Plays sounds based on clicks, fetch calls, and DOM changes
+// Residual generic layer — only entries with no specific call site elsewhere.
+// Most sounds are now fired directly at their event source; see sounds.js.
 (function() {
     if (typeof GameSounds === 'undefined') return;
 
     // ── 1. CLICK SOUNDS ──────────────────────────────────
+    // Only two cases remain without a specific call: generic "got it" dismissals
+    // and the catch-all button fallback. Everything else fires from its own handler.
     document.addEventListener('click', function(e) {
-        const target = e.target.closest('button, [onclick], [data-tab], .tab-btn, .content-tab-btn');
+        const target = e.target.closest('button, [onclick]');
         if (!target) return;
 
         const text = (target.textContent || '').toLowerCase().trim();
-        const classes = (target.className || '').toLowerCase();
-        const id = (target.id || '').toLowerCase();
 
-        // Tab switches
-        if (target.hasAttribute('data-tab') || classes.includes('tab-btn') || classes.includes('content-tab')) {
-            GameSounds.tabSwitch();
-            return;
-        }
-
-        // Modal close buttons
-        if (text === '✕' || text === '×' || text === 'x' || classes.includes('close') || classes.includes('modal-close')) {
-            GameSounds.modalClose();
-            return;
-        }
-
-        // GOT IT / dismiss help
         if (text.includes('got it')) {
             GameSounds.uiClick();
             return;
         }
 
-        // Job start
-        if (text.includes('start working') || text.includes('start fishing') || text.includes('start job')) {
-            GameSounds.jobStart();
-            return;
-        }
-
-        // Job collect
-        if (text.includes('collect') && !text.includes('collection')) {
-            GameSounds.jobCollect();
-            return;
-        }
-
-        // Fight
-        if (text.includes('fight') && !text.includes('fighter')) {
-            GameSounds.combatStart();
-            return;
-        }
-
-        // Mini-game start
-        if (text.includes('play') && text.includes('energy')) {
-            GameSounds.minigameStart();
-            return;
-        }
-
-        // Forge specifically before generic buy
-        if (text.includes('forge')) {
-            GameSounds.forge();
-            return;
-        }
-
-        // Buy / purchase
-        if (text.includes('buy') || text.includes('purchase')) {
-            GameSounds.purchase();
-            return;
-        }
-
-        // Claim (free item, mission, streak)
-        if (text.includes('claim') || text.includes('free')) {
-            GameSounds.missionClaim();
-            return;
-        }
-
-        // Unequip before equip to avoid false match
-        if (text.includes('unequip')) {
-            GameSounds.unequip();
-            return;
-        }
-
-        // Equip
-        if (text.includes('equip')) {
-            GameSounds.equip();
-            return;
-        }
-
-        // Unwear before wear
-        if (text.includes('unwear')) {
-            GameSounds.unwear();
-            return;
-        }
-
-        // Wear (avoid matching footwear labels)
-        if (text === 'wear') {
-            GameSounds.wear();
-            return;
-        }
-
-        // Donate
-        if (text.includes('donate')) {
-            GameSounds.donate();
-            return;
-        }
-
-        // Rest at hotel
-        if (text.includes('rest') && !text.includes('restart')) {
-            GameSounds.hotelRest();
-            return;
-        }
-
-        // Visit igloo
-        if (text.includes('visit igloo') || (text.includes('visit') && target.closest('.igloo-panel, #panel-igloo'))) {
-            GameSounds.iglooVisit();
-            return;
-        }
-
-        // Social mode
-        if (classes.includes('social-mode-btn') || target.closest('.social-mode-btns')) {
-            GameSounds.socialModeChange();
-            return;
-        }
-
-        // Title equip
-        if ((id.includes('title') || classes.includes('title')) && (text.includes('equip') || text.includes('set'))) {
-            GameSounds.titleEquip();
-            return;
-        }
-
-        // Overworld / world map
-        if (id.includes('world-map') || id.includes('overworld') || text.includes('🌍') || text.includes('world map')) {
-            GameSounds.overworldOpen();
-            return;
-        }
-
-        // Back to village
-        if (text.includes('village') && (text.includes('back') || text.includes('return'))) {
-            GameSounds.overworldEnter();
-            return;
-        }
-
-        // Tutorial next/continue
-        if (id.includes('mayor-continue') || id.includes('tutorial-next') || text === 'next' || text === "let's go!" || text === 'got it!') {
-            GameSounds.tutorialAdvance();
-            return;
-        }
-
-        // Igloo furniture
-        if (text.includes('place') && target.closest('#panel-igloo, .igloo-edit, .igloo-panel')) {
-            GameSounds.furniturePlace();
-            return;
-        }
-
-        // Igloo upgrade
-        if (text.includes('upgrade') && target.closest('#panel-igloo, .igloo-edit, .igloo-panel')) {
-            GameSounds.iglooUpgrade();
-            return;
-        }
-
-        // Generic button click fallback
         if (target.tagName === 'BUTTON') {
             GameSounds.uiClick();
         }
-    }, true); // capture phase — fires before other handlers
+    }, true);
 
 
     // ── 2. FETCH INTERCEPTOR ─────────────────────────────
+    // Only streak_milestone has no specific call site; all other fields are
+    // handled by their respective success callbacks.
     const _origFetch = window.fetch;
     window.fetch = function(...args) {
-        const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
         const method = (args[1]?.method || 'GET').toUpperCase();
-
         return _origFetch.apply(this, args).then(response => {
             if (method === 'POST' && response.ok) {
                 response.clone().json().then(data => {
                     if (data.status === 'error') return;
-
-                    if (data.level_up || (data.level_ups && data.level_ups.length))
-                        setTimeout(() => GameSounds.levelUp(), 500);
-                    if (data.achievement_unlocked)
-                        setTimeout(() => GameSounds.achievement(), 800);
-                    if (data.first_kill)
-                        setTimeout(() => GameSounds.firstKill(), 500);
-                    if (data.building_leveled_up)
-                        setTimeout(() => GameSounds.buildingLevelUp(), 500);
-                    if (data.set_bonus_discovered)
-                        setTimeout(() => GameSounds.secretDiscovered(), 500);
                     if (data.streak_milestone)
                         setTimeout(() => GameSounds.streak(), 500);
-
-
                 }).catch(() => {});
             }
             return response;
         });
     };
-
-
-    // ── 3. BUILDING CLICK ON CANVAS ──────────────────────
-    const villageCanvas = document.getElementById('village-canvas');
-    if (villageCanvas) {
-        villageCanvas.addEventListener('click', function() {
-            setTimeout(() => {
-                const bModal = document.getElementById('building-modal');
-                const bmOver = document.getElementById('bm-overlay');
-                if (bModal && bModal.style.display !== 'none' && bmOver && bmOver.style.display !== 'none') {
-                    GameSounds.buildingClick();
-                    GameSounds.modalOpen();
-                }
-            }, 120);
-        });
-    }
-
-
-    // ── 4. MUTATION OBSERVER FOR DYNAMIC ELEMENTS ────────
-    const _domObserver = new MutationObserver(function(mutations) {
-        for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (!node.id) continue;
-                if (node.id === 'wb-overlay' || node.id === 'welcome-back-overlay')
-                    GameSounds.welcomeBack();
-                if (node.id === 'mayor-dialogue' || node.id === 'tutorial-dialogue')
-                    GameSounds.mayorAppears();
-            }
-            // Watch for wb-overlay gaining 'show' class
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                const el = mutation.target;
-                if ((el.id === 'wb-overlay') && el.classList.contains('show'))
-                    GameSounds.welcomeBack();
-            }
-        }
-    });
-    _domObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-
-
-    // ── 5. PENGUIN FOOTSTEPS ─────────────────────────────
-    // Poll until village map penguins are loaded, then track tile changes
-    let _lastTileX = -1, _lastTileY = -1;
-    const _footstepPoll = setInterval(() => {
-        if (typeof penguins === 'undefined' || !Array.isArray(penguins)) return;
-        const me = penguins.find(p => p.username === (typeof CURRENT_USER !== 'undefined' ? CURRENT_USER : ''));
-        if (!me) return;
-        clearInterval(_footstepPoll);
-
-        setInterval(() => {
-            const p = penguins.find(p => p.username === CURRENT_USER);
-            if (!p || !p.path || !p.path.length) return;
-            const tx = Math.round(p.wx);
-            const ty = Math.round(p.wy);
-            if (tx !== _lastTileX || ty !== _lastTileY) {
-                GameSounds.footstep();
-                _lastTileX = tx;
-                _lastTileY = ty;
-            }
-        }, 250);
-    }, 1000);
-
-
-    // ── 6. MINI-GAME SOUND PATCHES ───────────────────────
-    const _mgPoll = setInterval(() => {
-        if (typeof MiniGameManager === 'undefined') return;
-        clearInterval(_mgPoll);
-
-        const _origAdd = MiniGameManager.addScore;
-        if (_origAdd && !_origAdd._sp) {
-            MiniGameManager.addScore = function(pts) {
-                if (pts > 0) GameSounds.minigameHit();
-                else if (pts < 0) GameSounds.minigameMiss();
-                return _origAdd.call(this, pts);
-            };
-            MiniGameManager.addScore._sp = true;
-        }
-
-        const _origEnd = MiniGameManager.endGame;
-        if (_origEnd && !_origEnd._sp) {
-            MiniGameManager.endGame = function(...a) {
-                GameSounds.minigameComplete();
-                return _origEnd.apply(this, a);
-            };
-            MiniGameManager.endGame._sp = true;
-        }
-    }, 500);
-
-
-    // ── 7. OVERWORLD HOVER SOUND ─────────────────────────
-    const _owPoll = setInterval(() => {
-        if (typeof OverworldMap === 'undefined' || !OverworldMap.canvas) return;
-        clearInterval(_owPoll);
-
-        let _lastOwHover = null;
-        OverworldMap.canvas.addEventListener('mousemove', function() {
-            const cur = OverworldMap.hoveredArea;
-            const key = cur ? (cur.row + ',' + cur.col) : null;
-            if (key !== _lastOwHover) {
-                if (key) GameSounds.overworldHover();
-                _lastOwHover = key;
-            }
-        });
-    }, 500);
 
 
     console.log('[Sounds] Universal sound wiring active');
