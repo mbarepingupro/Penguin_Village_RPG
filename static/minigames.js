@@ -706,13 +706,15 @@ var JuggleMasterGame = {
         // Floor
         if (b.y >= b.floorY) {
           self._combo = 0;
-          self._flash = { text: '💧 DROPPED!', color: '#ff6b6b', t: 1.0 };
           if (window.GameSounds) GameSounds.minigameMiss();
           if (self._balls.length === 1) {
-            // Last ball — respawn instead of removing so the game never empties
-            self._balls[i] = self._makeBall(canvas);
+            // Last ball — bounce in place so the game never empties
+            b.y  = b.floorY;
+            b.vy = -Math.max(Math.abs(b.vy) * 0.7, 180);
+            self._flash = { text: '⤴️ BOUNCE!', color: '#ffaa44', t: 1.0 };
           } else {
             // Extra ball dropped — splice it out, single ball keeps playing
+            self._flash = { text: '💧 DROPPED!', color: '#ff6b6b', t: 1.0 };
             self._balls.splice(i, 1);
           }
         }
