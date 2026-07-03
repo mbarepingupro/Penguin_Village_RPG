@@ -193,3 +193,6 @@ window.playVictorySound     = () => GameSounds.combatVictory();
 window.playDefeatSound      = () => GameSounds.combatDefeat();
 window.playCollectTink      = () => GameSounds.collectTink();
 window.playLevelUpFanfare   = () => GameSounds.levelUp();
+
+window.GameSounds = GameSounds;
+window.Sounds = Sounds;
