@@ -27,6 +27,9 @@ load_dotenv()
 TWITCH_CLIENT_ID    = os.getenv("TWITCH_CLIENT_ID")
 TWITCH_CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")
 TWITCH_REDIRECT_URI = os.getenv("TWITCH_REDIRECT_URI")
+DISCORD_CLIENT_ID     = os.getenv("DISCORD_CLIENT_ID")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET")
+DISCORD_REDIRECT_URI  = os.getenv("DISCORD_REDIRECT_URI")
 SECRET_KEY          = os.getenv("SECRET_KEY")
 MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
@@ -1960,6 +1963,90 @@ def callback():
 @app.route("/logout")
 def logout():
     session.clear()
+    return redirect(url_for("home"))
+
+
+@app.route("/login/discord")
+def login_discord():
+    return redirect(
+        "https://discord.com/oauth2/authorize"
+        f"?client_id={DISCORD_CLIENT_ID}"
+        f"&redirect_uri={DISCORD_REDIRECT_URI}"
+        "&response_type=code&scope=identify"
+    )
+
+
+@app.route("/auth/discord/callback")
+def discord_callback():
+    code = request.args.get("code")
+    try:
+        # Exchange code for access token
+        token_resp = http_requests.post(
+            "https://discord.com/api/oauth2/token",
+            data={
+                "grant_type":    "authorization_code",
+                "code":          code,
+                "client_id":     DISCORD_CLIENT_ID,
+                "client_secret": DISCORD_CLIENT_SECRET,
+                "redirect_uri":  DISCORD_REDIRECT_URI,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        access_token = token_resp.json().get("access_token")
+        if not access_token:
+            raise ValueError("No access token")
+
+        # Fetch Discord user identity
+        user_resp = http_requests.get(
+            "https://discord.com/api/users/@me",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        user_data    = user_resp.json()
+        discord_id   = user_data["id"]
+        discord_user = user_data.get("global_name") or user_data.get("username")
+    except Exception:
+        return redirect("/?error=discord_auth_failed")
+
+    db = get_db()
+    try:
+        # 1. Returning user — look up by stable discord_id first
+        row = db.execute(
+            "SELECT username FROM penguins WHERE discord_id = ?", (discord_id,)
+        ).fetchone()
+
+        if row:
+            username = row["username"]
+            session["new_user"] = False
+        else:
+            # 2. New Discord user — resolve a unique username
+            taken = db.execute(
+                "SELECT username FROM penguins WHERE username = ?", (discord_user,)
+            ).fetchone()
+            username = discord_user if not taken else f"{discord_user}_{discord_id[-4:]}"
+
+            db.execute("INSERT INTO penguins (username) VALUES (?)", (username,))
+            session["new_user"] = True
+            log_event(db, "village", f"{username} joined the village! 🐧", username)
+            ensure_resources(db, username)
+            db.execute(
+                "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
+                (username, "first_login", int(time.time()))
+            )
+
+        # Always sync auth metadata in case of first login or id not yet stored
+        db.execute(
+            "UPDATE penguins SET auth_provider='discord', discord_id=? WHERE username=?",
+            (discord_id, username),
+        )
+        ensure_player_data(db, username)
+        db.commit()
+    except Exception:
+        db.rollback()
+        db.close()
+        return redirect("/?error=discord_auth_failed")
+
+    db.close()
+    session["username"] = username
     return redirect(url_for("home"))
 
 
