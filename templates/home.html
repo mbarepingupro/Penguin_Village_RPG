@@ -2070,6 +2070,8 @@
       padding: 0;
       transition: background 0.15s, border-color 0.15s;
       pointer-events: auto;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
     }
     .build-btn:hover:not(:disabled) { background: #5ecde8; border-color: #aae6ff; }
     .build-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -2104,6 +2106,7 @@
     .back-to-village-btn:hover { background: #4aff6b; color: #181820; }
     @media (max-width: 600px) {
       .world-map-btn { width: 44px; height: 44px; }
+      .build-btn { width: 64px; height: 64px; font-size: 11px; bottom: 12px; }
     }
   </style>
 </head>
@@ -9390,7 +9393,7 @@ function _loadMobileTab(tabName) {
       var res  = await fetch('/build/roll', { method: 'POST' });
       var data = await res.json();
       if (data.status === 'error') {
-        showToast(data.message || 'Cannot build right now.', 'error');
+        showToast(data.message || 'Cannot build right now.', 'err');
         btn.disabled = false;
         return;
       }
@@ -9413,13 +9416,13 @@ function _loadMobileTab(tabName) {
         msg += ' Free rolls used up.';
         if (window.GameSounds) GameSounds.ice_normal_return();
       }
-      showToast(msg, data.is_crit ? 'success' : 'info');
+      showToast(msg, data.is_crit ? 'ok' : '');
       // Update button state for free rolls
       setBtnState(data.free_rolls_remaining || 0);
       // Refresh stats (energy etc.)
       if (typeof refreshStats === 'function') refreshStats();
     } catch(e) {
-      showToast('Build failed. Try again.', 'error');
+      showToast('Build failed. Try again.', 'err');
     }
     btn.disabled = false;
   });
