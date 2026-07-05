@@ -175,3 +175,49 @@ The following bugs were identified while building this checklist. **Do not fix i
 **[BUG-7] `igloo/visit` gold reward bypasses `add_gold()` (inconsistent pattern)**
 - File: `app.py:3505`
 - Gold is written via `UPDATE resources SET gold=gold+? ...` rather than `add_gold()`. Functionally correct (ensure_resources is called first), but `total_gold_collected` is updated separately, creating two code paths for gold that must be kept in sync manually.
+
+---
+
+## Ice Blocks Feature (`claude/ice-blocks-feature`)
+
+### Normal Roll
+- [ ] Click Build! on map tab → POST to `/build/roll` succeeds
+- [ ] `count-ice_blocks` increments by the roll value (1-19)
+- [ ] Toast shows "🧊 ×N ice blocks! (roll R)"
+- [ ] Energy decreases by 5
+- [ ] Button returns to enabled state after response
+
+### Energy Gate
+- [ ] With energy < 5 and no free rolls: clicking Build! shows "Need 5 energy to build! Rest at the hotel."
+- [ ] Energy is NOT consumed when the gate fires (player stays at current energy)
+- [ ] Build! button re-enables after the error toast
+
+### Crit (Roll 20)
+- [ ] Rolling a natural 20 grants 20 ice blocks
+- [ ] Toast includes "CRITICAL! 5 free rolls!"
+- [ ] Button turns red and shows "Build!\n(5 free)"
+- [ ] `penguins.build_free_rolls` persists to 5 in the DB (survives page reload)
+- [ ] `ice_crit` sound fires exactly once
+
+### Free Roll Consumption
+- [ ] With free rolls > 0: clicking Build! costs 0 energy
+- [ ] `build_free_rolls` decrements by 1 per click
+- [ ] Button label updates to "(N free)" after each click
+- [ ] On last free roll (`normal_return: true`): toast appends "Free rolls used up."
+- [ ] `ice_normal_return` sound fires on normal_return
+- [ ] Button reverts to blue after free rolls are exhausted
+- [ ] After exhausting free rolls: next click costs 5 energy again
+
+### Sound Regression
+- [ ] No double-sound firing on Build! click (only `ice_roll`/`ice_crit`/`ice_normal_return` — not also `uiClick`)
+- [ ] No MutationObserver, fetch-interceptor, or delegated-click-listener triggers a second sound
+
+### Map Layout Stability
+- [ ] Build! button appears on the map tab without causing any layout reflow or resize of the `.map-area` container
+- [ ] World map and other map-tab elements are unaffected
+- [ ] Toggling between tabs (map → village → map) leaves button in correct state
+
+### Resource Bar
+- [ ] 🧊 ice_blocks item appears in the resource bar
+- [ ] `updateResourceBar()` fetches and populates `count-ice_blocks`
+- [ ] Hovering 🧊 icon shows correct tooltip text

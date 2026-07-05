@@ -6810,6 +6810,69 @@ def calculate_minigame_rewards(building_id, score, player_level):
     return rewards
 
 
+def calculateIceBlockReward(roll):
+    """Return ice_blocks earned for a given 1-20 roll. Isolated for future multipliers."""
+    return roll
+
+
+@app.route("/build/roll", methods=["POST"])
+def build_roll():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    p = db.execute(
+        "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
+    ).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Player not found."})
+
+    energy          = p["energy"] or 0
+    free_rolls      = p["build_free_rolls"] or 0
+    energy_cost     = 5
+    is_free_roll    = free_rolls > 0
+    normal_return   = False
+
+    if not is_free_roll:
+        if energy < energy_cost:
+            db.close()
+            return jsonify({"status": "error", "message": f"Need {energy_cost} energy to build! Rest at the hotel."})
+        db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (energy_cost, username))
+
+    roll            = random.randint(1, 20)
+    ice_earned      = calculateIceBlockReward(roll)
+    is_crit         = (roll == 20 and not is_free_roll)
+
+    if is_free_roll:
+        new_free_rolls = free_rolls - 1
+        normal_return  = (new_free_rolls == 0)
+        db.execute("UPDATE penguins SET build_free_rolls=? WHERE username=?", (new_free_rolls, username))
+    elif is_crit:
+        new_free_rolls = 5
+        db.execute("UPDATE penguins SET build_free_rolls=5 WHERE username=?", (username,))
+    else:
+        new_free_rolls = 0
+
+    db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (ice_earned, username))
+    r = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
+    p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
+    db.commit()
+    db.close()
+
+    return jsonify({
+        "status":           "success",
+        "roll":             roll,
+        "ice_blocks_earned": ice_earned,
+        "ice_blocks_total": r["ice_blocks"] if r else ice_earned,
+        "free_rolls_remaining": new_free_rolls,
+        "is_crit":          is_crit,
+        "normal_return":    normal_return,
+        "energy_remaining": (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+    })
+
+
 @app.route("/minigame/start", methods=["POST"])
 def minigame_start():
     data        = request.get_json(silent=True) or {}
