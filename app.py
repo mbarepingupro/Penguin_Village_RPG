@@ -6903,6 +6903,7 @@ def build_roll():
         new_free_rolls = 0
 
     db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (ice_earned, username))
+    award_xp(db, username, roll)
     r = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
     db.commit()
@@ -6913,6 +6914,7 @@ def build_roll():
         "roll":             roll,
         "ice_blocks_earned": ice_earned,
         "ice_blocks_total": r["ice_blocks"] if r else ice_earned,
+        "xp_earned":        roll,
         "free_rolls_remaining": new_free_rolls,
         "is_crit":          is_crit,
         "normal_return":    normal_return,

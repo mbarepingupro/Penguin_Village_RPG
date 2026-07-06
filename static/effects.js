@@ -130,7 +130,7 @@ const Effects = (function () {
 
   const _RES_ICONS = {
     gold: '🪙', fish: '🐟', herbs: '🌿', blood_gems: '💎',
-    bones: '🦴', spell_fragments: '✨', xp: '⭐',
+    bones: '🦴', spell_fragments: '✨', xp: '⭐', ice_blocks: '🧊',
   };
 
   function playCollectTink() {
