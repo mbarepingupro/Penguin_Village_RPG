@@ -1922,20 +1922,21 @@ def login():
 @app.route("/auth/callback")
 def callback():
     code = request.args.get("code")
-    token_resp = http_requests.post("https://id.twitch.tv/oauth2/token", data={
-        "client_id": TWITCH_CLIENT_ID,
-        "client_secret": TWITCH_CLIENT_SECRET,
-        "code": code,
-        "grant_type": "authorization_code",
-        "redirect_uri": TWITCH_REDIRECT_URI,
-    })
     try:
+        token_resp = http_requests.post("https://id.twitch.tv/oauth2/token", data={
+            "client_id": TWITCH_CLIENT_ID,
+            "client_secret": TWITCH_CLIENT_SECRET,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": TWITCH_REDIRECT_URI,
+        }, timeout=10)
         access_token = token_resp.json().get("access_token")
         if not access_token:
             raise ValueError("No access token")
         user_resp = http_requests.get(
             "https://api.twitch.tv/helix/users",
-            headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID}
+            headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID},
+            timeout=10,
         )
         username = user_resp.json()["data"][0]["login"]
     except Exception:
@@ -1991,6 +1992,7 @@ def discord_callback():
                 "redirect_uri":  DISCORD_REDIRECT_URI,
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=10,
         )
         access_token = token_resp.json().get("access_token")
         if not access_token:
@@ -2000,6 +2002,7 @@ def discord_callback():
         user_resp = http_requests.get(
             "https://discord.com/api/users/@me",
             headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
         )
         user_data    = user_resp.json()
         discord_id   = user_data["id"]
@@ -5201,9 +5204,9 @@ def penguin_create():
         (pname, pcolor, pshape, t_social, t_interest, t_quirk, username)
     )
     ensure_player_data(db, username)
+    log_event(db, "character_created", f"{username} created their penguin as '{pname}' ({pcolor}, {pshape})", username)
     db.commit()
     db.close()
-    log_event(get_db(), "character_created", f"{username} created their penguin as '{pname}' ({pcolor}, {pshape})", username)
     return jsonify({"status": "success"})
 
 
