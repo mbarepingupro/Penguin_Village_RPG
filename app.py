@@ -5582,6 +5582,45 @@ def _font(size):
     except Exception:
         return ImageFont.load_default()
 
+
+def _recolor_sprite_pil(sprite_rgba, hex_color):
+    """PIL equivalent of recolor.js recolorPenguin() — same pixel logic, same constants.
+
+    Body pixels are all RGB(0,0,0) in the current sprites, so scale=max(1.0, 0/26)=1.0
+    and every body pixel is painted exactly the target color.  Belly (brightness>180)
+    and beak/feet (orange guard) are left untouched, matching the JS behaviour.
+    """
+    if not hex_color or hex_color == "#1a1a1a":
+        return sprite_rgba
+    try:
+        tr = int(hex_color[1:3], 16)
+        tg = int(hex_color[3:5], 16)
+        tb = int(hex_color[5:7], 16)
+    except (ValueError, IndexError):
+        return sprite_rgba
+
+    result = sprite_rgba.copy()
+    px = result.load()
+    w, h = result.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            brightness = (r + g + b) / 3
+            if brightness > 180:
+                continue                                  # belly / white
+            if r > 150 and 80 < g < 180 and b < 80:
+                continue                                  # beak / feet (orange)
+            scale = max(1.0, brightness / 26.0)
+            px[x, y] = (
+                min(255, int(tr * scale)),
+                min(255, int(tg * scale)),
+                min(255, int(tb * scale)),
+                a,
+            )
+    return result
+
 def _job_label(job):
     labels = {
         "sea_lion_pit":  "Fishing",
@@ -5711,6 +5750,8 @@ def _generate_card_image(data):
         if not os.path.exists(_sprite_path):
             _sprite_path = os.path.join(_CARD_SPRITE_DIR, "penguin_normal_static.png")
         sprite = Image.open(_sprite_path).convert("RGBA").resize((80, 80), Image.NEAREST)
+        pcolor = data.get("penguin_color", "#1a1a1a")
+        sprite = _recolor_sprite_pil(sprite, pcolor)
         bg_patch = Image.new("RGB", (80, 80), _COLORS["bg"])
         bg_patch.paste(sprite, mask=sprite.split()[3])
         img.paste(bg_patch, (LEFT_W//2 - 40, 40))
