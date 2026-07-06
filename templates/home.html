@@ -2088,17 +2088,31 @@
 
     #d20-die {
       width: 160px; height: 160px;
+      position: relative;
       filter: drop-shadow(0 6px 20px rgba(0,0,0,0.7));
     }
-    #d20-die svg { width: 160px; height: 160px; overflow: visible; }
+    #d20-die img {
+      width: 100%; height: 100%;
+      display: block; object-fit: contain;
+      pointer-events: none; user-select: none;
+      transition: filter 0.12s ease;
+    }
+    /* Crit red tint — applied to the image only, added at 880ms (number lock),
+       so it's invisible during the tumble and only reveals with the result */
+    #d20-die.crit img {
+      filter: sepia(1) saturate(6) hue-rotate(310deg) brightness(0.85);
+    }
 
     #d20-face-text {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
       font-family: 'Silkscreen', monospace;
       font-size: 38px; font-weight: bold;
-      fill: #fff;
-      text-anchor: middle;
-      dominant-baseline: central;
-      filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8));
+      color: #fff;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7);
+      pointer-events: none; user-select: none;
+      line-height: 1;
     }
 
     @keyframes d20Tumble {
@@ -2123,7 +2137,6 @@
     }
 
     #d20-die.tumbling { animation: d20Tumble 1.1s cubic-bezier(0.15, 0.6, 0.2, 1.0) forwards; }
-    #d20-die.crit #d20-polygon { fill: #d94040; stroke: #ff9f9f; }
 
     /* ── Pop effect fires on settle (after tumble ends) ── */
     @keyframes d20Pop {
@@ -2136,7 +2149,6 @@
 
     @media (max-width: 600px) {
       #d20-die { width: 120px; height: 120px; }
-      #d20-die svg { width: 120px; height: 120px; }
       #d20-face-text { font-size: 28px; }
     }
 
@@ -2484,18 +2496,8 @@
           <button class="build-btn" id="build-btn">Build!</button>
           <div id="d20-overlay" role="status" aria-live="polite" aria-label="Rolling d20">
             <div id="d20-die">
-              <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                <!-- Hexagonal d20 silhouette -->
-                <polygon id="d20-polygon" points="50,4 95,27 95,73 50,96 5,73 5,27"
-                         fill="#4ab8d8" stroke="#7fd4f0" stroke-width="3"/>
-                <!-- Internal triangle lines suggesting d20 geometry -->
-                <line x1="50" y1="4"  x2="5"  y2="73" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-                <line x1="50" y1="4"  x2="95" y2="73" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-                <line x1="5"  y1="73" x2="95" y2="73" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-                <line x1="50" y1="4"  x2="50" y2="96" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-                <!-- Roll value -->
-                <text id="d20-face-text" x="50" y="52">?</text>
-              </svg>
+              <img src="/static/images/d20_placeholder.png" alt="d20" draggable="false">
+              <span id="d20-face-text">?</span>
             </div>
           </div>
           <canvas id="village-canvas"></canvas>
@@ -9486,17 +9488,21 @@ function _loadMobileTab(tabName) {
     // Force reflow so animation re-triggers cleanly on repeated (free) rolls
     void die.offsetWidth;
     die.classList.add('tumbling');
-    if (isCrit) die.classList.add('crit');
+    // NOTE: crit class is NOT added here — adding it now would show the red
+    // tint immediately, spoiling the result before the roll lands.
 
     // Cycle random 1-20 during fast-tumble phase
     var cycleInterval = setInterval(function() {
       faceText.textContent = Math.floor(Math.random() * 20) + 1;
     }, 65);
 
-    // 880 ms — number locks; sounds + confetti fire on this exact frame
+    // 880 ms — number locks; crit tint, sounds + confetti all fire here together
     var lockTimer = setTimeout(function() {
       clearInterval(cycleInterval);
       faceText.textContent = rollValue;
+
+      // Red tint appears exactly when the result is revealed
+      if (isCrit) die.classList.add('crit');
 
       // Pop sound on settle (all rolls)
       if (window.GameSounds) GameSounds.ice_pop();
