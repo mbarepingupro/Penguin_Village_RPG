@@ -153,6 +153,8 @@ const GameSounds = {
     ice_roll()          { this._play({notes: [{freq:330, dur:0.08, type:'square', vol:0.10}, {freq:415, dur:0.12, type:'square', vol:0.10, time:0.07}]}); },
     ice_crit()          { this._play({notes: [{freq:523, dur:0.10, type:'triangle', vol:0.12}, {freq:659, dur:0.10, type:'triangle', vol:0.12, time:0.08}, {freq:880, dur:0.10, type:'triangle', vol:0.10, time:0.16}, {freq:1047, dur:0.25, type:'triangle', vol:0.10, time:0.24}]}); },
     ice_normal_return() { this._play({notes: [{freq:440, dur:0.10, type:'sine', vol:0.08}, {freq:330, dur:0.15, type:'sine', vol:0.07, time:0.09}]}); },
+    // Short sharp thud that fires exactly when the die pops on settle
+    ice_pop()           { this._play({notes: [{freq:160, dur:0.06, type:'square', vol:0.14}, {freq:320, dur:0.05, type:'triangle', vol:0.09, time:0.04}]}); },
 };
 
 // Warm up AudioContext on first user interaction

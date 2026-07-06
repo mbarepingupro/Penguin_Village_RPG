@@ -2125,6 +2125,15 @@
     #d20-die.tumbling { animation: d20Tumble 1.1s cubic-bezier(0.15, 0.6, 0.2, 1.0) forwards; }
     #d20-die.crit #d20-polygon { fill: #d94040; stroke: #ff9f9f; }
 
+    /* ── Pop effect fires on settle (after tumble ends) ── */
+    @keyframes d20Pop {
+      0%   { transform: perspective(500px) scale(1.0); }
+      50%  { transform: perspective(500px) scale(1.22); }
+      78%  { transform: perspective(500px) scale(0.96); }
+      100% { transform: perspective(500px) scale(1.0); }
+    }
+    #d20-die.popping { animation: d20Pop 210ms ease-out forwards; }
+
     @media (max-width: 600px) {
       #d20-die { width: 120px; height: 120px; }
       #d20-die svg { width: 120px; height: 120px; }
@@ -9457,45 +9466,77 @@ function _loadMobileTab(tabName) {
     }
   }
 
-  // Show d20 tumble animation, then call onSettle when done.
-  // rollValue: 1-20 integer to settle on. isCrit: turns die red.
-  function showD20(rollValue, isCrit, onSettle) {
-    die.classList.remove('tumbling', 'crit');
+  /*
+   * showD20 — full reveal sequence:
+   *   0 ms    : overlay shown, tumble animation starts, numbers cycle
+   *   880 ms  : number locks → pop sound + crit/normal_return sounds fire
+   *             → confetti burst if nat 20
+   *   1 150 ms: tumble animation done → inline transform set, tumbling class
+   *             removed, popping class added (d20Pop keyframe: 210 ms)
+   *   1 360 ms: pop finishes — die visible, static, result readable
+   *   2 360 ms: 1 000 ms hold complete → overlay hidden, onSettle fires
+   *             (button re-enable, counter update, toast, refreshStats)
+   */
+  function showD20(rollValue, isCrit, isNormalReturn, onSettle) {
+    die.classList.remove('tumbling', 'popping', 'crit');
+    die.style.transform = '';
     faceText.textContent = '?';
     overlay.classList.add('active');
 
-    // Force reflow so the animation re-triggers cleanly on repeated rolls
+    // Force reflow so animation re-triggers cleanly on repeated (free) rolls
     void die.offsetWidth;
     die.classList.add('tumbling');
     if (isCrit) die.classList.add('crit');
 
-    // Cycle random numbers during the fast-tumble phase
+    // Cycle random 1-20 during fast-tumble phase
     var cycleInterval = setInterval(function() {
       faceText.textContent = Math.floor(Math.random() * 20) + 1;
     }, 65);
 
-    // At 880 ms: animation decelerating — lock to the real roll value
+    // 880 ms — number locks; sounds + confetti fire on this exact frame
     var lockTimer = setTimeout(function() {
       clearInterval(cycleInterval);
       faceText.textContent = rollValue;
+
+      // Pop sound on settle (all rolls)
+      if (window.GameSounds) GameSounds.ice_pop();
+      // Additional sounds per outcome
+      if (isCrit         && window.GameSounds) GameSounds.ice_crit();
+      if (isNormalReturn && window.GameSounds) GameSounds.ice_normal_return();
+
+      // Nat 20 confetti — reuse Effects.confettiBurst from effects.js
+      if (isCrit && window.Effects && Effects.confettiBurst) {
+        Effects.confettiBurst(die, 28);
+      }
     }, 880);
 
-    // At 1 200 ms: animation fully settled — hide overlay, fire onSettle
+    // 1 150 ms — tumble keyframe has naturally ended (1.1 s + 50 ms buffer);
+    // swap to pop animation without a visible jump by pinning the settled
+    // transform (all axes are multiples of 360° = identity) as inline style first
+    var popTimer = setTimeout(function() {
+      die.style.transform = 'perspective(500px)';
+      die.classList.remove('tumbling');
+      void die.offsetWidth;            // reflow so popping animation starts fresh
+      die.classList.add('popping');
+    }, 1150);
+
+    // 2 360 ms — 1 000 ms hold complete; tear down overlay, fire results
     var doneTimer = setTimeout(function() {
       overlay.classList.remove('active');
-      die.classList.remove('tumbling', 'crit');
+      die.classList.remove('popping', 'crit');
+      die.style.transform = '';
       onSettle();
-    }, 1200);
+    }, 2360);
   }
 
   btn.addEventListener('click', async function() {
     if (btn.disabled) return;
     btn.disabled = true;
 
-    // Immediate audio feedback — "throwing" the die
+    // Immediate audio — "throwing" the die
     if (window.GameSounds) GameSounds.ice_roll();
 
-    // Fetch the roll result, but hold it until the animation reveals it
+    // Fetch roll result; hold it until the animation has fully revealed it
     var data;
     try {
       var res = await fetch('/build/roll', { method: 'POST' });
@@ -9512,9 +9553,9 @@ function _loadMobileTab(tabName) {
       return;
     }
 
-    // Animate the die; reveal result only inside onSettle
-    showD20(data.roll, data.is_crit, function() {
-      // Update ice_blocks counter
+    // Sounds are handled inside showD20; onSettle only does UI bookkeeping
+    showD20(data.roll, data.is_crit, data.normal_return, function() {
+      // Update ice_blocks counter with flash
       var counter = document.getElementById('count-ice_blocks');
       if (counter) {
         var oldVal = parseInt(counter.textContent.replace(/,/g,'')) || 0;
@@ -9524,22 +9565,14 @@ function _loadMobileTab(tabName) {
           setTimeout(function() { counter.classList.remove('updated'); }, 500);
         }
       }
-      // Toast + sounds (reuse existing hooks — no new sound system)
+      // Toast — sounds already played at pop time, not here
       var msg = '🧊 ×' + data.ice_blocks_earned + ' ice blocks! (roll ' + data.roll + ')';
-      if (data.is_crit) {
-        msg += ' CRITICAL! 5 free rolls!';
-        if (window.GameSounds) GameSounds.ice_crit();
-      } else if (data.normal_return) {
-        msg += ' Free rolls used up.';
-        if (window.GameSounds) GameSounds.ice_normal_return();
-      }
+      if (data.is_crit)         msg += ' CRITICAL! 5 free rolls!';
+      else if (data.normal_return) msg += ' Free rolls used up.';
       showToast(msg, data.is_crit ? 'ok' : '');
-      // Update button label / colour for free-roll state
       setBtnState(data.free_rolls_remaining || 0);
-      // Sync energy bar etc.
       if (typeof refreshStats === 'function') refreshStats();
-      // Re-enable only after full animate → reveal sequence
-      btn.disabled = false;
+      btn.disabled = false;   // re-enable only after full animate → hold cycle
     });
   });
 })();
