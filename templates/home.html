@@ -8578,6 +8578,9 @@
         case 9:  this._step9();  break;
         case 10: this._step10(); break;
         case 11: this._step11(); break;
+        case 12: this._step12(); break;
+        case 13: this._step13(); break;
+        case 14: this._step14(); break;
         default: this._clearSkipTimer(); this._complete(); break;
       }
     },
@@ -8977,10 +8980,53 @@
       });
     },
 
-    // ── Step 11 — Stream + Final Gift ────────────────────────────────────────
+    // ── Step 11 — Build! / Ice Blocks / d20 ─────────────────────────────────
     _step11: async function() {
       var self = this;
-      await self._sayThen('Last thing — Penguin Village is connected to my Twitch stream! When I\'m live, you earn bonus resources and exclusive Mayor\'s Seals for special cosmetics.');
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightEl('#build-btn');
+      await self._sayThen('See that blue circle on the map? That\'s the Build! button! Click it to roll a d20 die and earn 🧊 Ice Blocks — a resource unique to our village!');
+      self._showContinue('What\'s a d20? →', async function() {
+        self._clearHighlights();
+        await self._sayThen('A d20 is a 20-sided die! Watch it tumble and reveal your roll. The higher you roll, the more Ice Blocks you earn. Each roll costs 5 energy.');
+        self._showContinue('What if I roll a 20? →', async function() {
+          await self._sayThen('A natural 20 is a CRITICAL HIT — you get 5 free rolls with no energy cost! The button counts down your free rolls. Watch for the confetti! 🎉');
+          self._showContinue('Let\'s roll! →', function() { self._advanceStep(); });
+        });
+      });
+    },
+
+    // ── Step 12 — Juggle Master ──────────────────────────────────────────────
+    _step12: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightBuilding('sea_lion_pit');
+      await self._sayThen('One mini-game worth a special mention — Juggle Master! It\'s a skill challenge where you keep a fish in the air by clicking at just the right moment.');
+      self._showContinue('Sounds tricky! →', async function() {
+        self._clearHighlights();
+        await self._sayThen('The longer you juggle, the bigger your reward. You\'ll find Juggle Master available at certain buildings on the map. Practice makes perfect — give it a try!');
+        self._showContinue('I\'ll try it! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 13 — Friends tab ────────────────────────────────────────────────
+    _step13: async function() {
+      var self = this;
+      self._highlightEl('.sidebar-tab[onclick*="friends"]');
+      await self._sayThen('Penguin Village is better with friends! Click the FRIENDS tab on the left sidebar to see who else lives here.');
+      self._waitForSidebar('friends').then(async function() {
+        self._clearHighlights();
+        await self._sayThen('Here you can see other village penguins, send friend requests, and visit their igloos. The more connected we are, the stronger the village becomes!');
+        self._showContinue('Making friends! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 14 — Stream + Discord + Final Gift ──────────────────────────────
+    _step14: async function() {
+      var self = this;
+      await self._sayThen('Last thing — Penguin Village is connected to both Twitch AND Discord! When I\'m live, you earn bonus resources and exclusive Mayor\'s Seals. You can also log in with Discord if you prefer it over Twitch!');
       self._showContinue('Awesome! →', async function() {
         self._clearButtons();
         try {
@@ -9015,7 +9061,7 @@
       fetch('/tutorial/advance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, step: 12 })
+        body: JSON.stringify({ username: CURRENT_USER, step: 15 })
       }).catch(function() {});
       showToast('Tutorial complete! Welcome to Penguin Village! 🐧', 'ok');
     },
@@ -9033,7 +9079,7 @@
           await fetch('/tutorial/advance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: CURRENT_USER, step: 11 })
+            body: JSON.stringify({ username: CURRENT_USER, step: 14 })
           });
         } catch(e) {}
       }
@@ -9085,7 +9131,7 @@
   // Auto-start tutorial for new players
   {% if logged_in and not tutorial_completed %}
   setTimeout(function() {
-    if (window.TutorialManager && TUTORIAL_STEP < 12) {
+    if (window.TutorialManager && TUTORIAL_STEP < 15) {
       TutorialManager.init(TUTORIAL_STEP);
     }
   }, 900);
