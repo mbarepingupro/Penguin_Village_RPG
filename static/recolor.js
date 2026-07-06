@@ -22,8 +22,10 @@ function recolorPenguin(sourceImage, targetColor) {
         const brightness = (r + g + b) / 3;
         if (brightness > 180) continue;             // belly / white areas
         if (r > 150 && g > 80 && g < 180 && b < 80) continue; // beak / feet (orange)
-        // Body pixels can be pure black — use Math.max so they still get colored
-        const scale = Math.max(0.3, brightness / 80);
+        // Body pixels are pure black (brightness=0). Scale=1 means the flat body renders
+        // at exactly the target color. If a future sprite adds shading (brightness>26),
+        // those highlights scale proportionally above the target color, then clamp at 255.
+        const scale = Math.max(1.0, brightness / 26);
         pixels[i]   = Math.min(255, Math.floor(tr * scale));
         pixels[i+1] = Math.min(255, Math.floor(tg * scale));
         pixels[i+2] = Math.min(255, Math.floor(tb * scale));
