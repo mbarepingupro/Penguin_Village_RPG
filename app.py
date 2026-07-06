@@ -1821,8 +1821,10 @@ def editor():
 @app.route("/")
 def home():
     username = session.get("username")
+    auth_error = request.args.get("error", "")
     if not username:
-        return render_template("home.html", logged_in=False, features=FEATURES, penguin=None)
+        return render_template("home.html", logged_in=False, features=FEATURES, penguin=None,
+                               auth_error=auth_error)
     update_passive_energy(username)
     db = get_db()
     _prow = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
@@ -1906,6 +1908,7 @@ def home():
         social_traits=SOCIAL_TRAITS,
         interest_traits=INTEREST_TRAITS,
         quirk_traits=QUIRK_TRAITS,
+        auth_error=auth_error,
     )
 
 

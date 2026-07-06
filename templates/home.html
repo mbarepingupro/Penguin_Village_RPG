@@ -954,6 +954,11 @@
       padding: 12px 24px; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 8px;
     }
     .login-btn:hover { border-color: var(--pink); background: #7b52c9; }
+    .login-auth-error {
+      color: #ff6b6b; border: 2px solid #ff6b6b;
+      font-family: 'C&C Red Alert', monospace; font-size: 15px;
+      padding: 8px 18px; text-align: center; max-width: 360px;
+    }
 
     /* ── STREAK DISPLAY ── */
     .streak-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
@@ -2217,6 +2222,11 @@
       A pixel village built by the Mbarepingu community.<br>
       Log in with Twitch or Discord to claim your penguin and join the village!
     </div>
+    {% if auth_error == 'twitch_auth_failed' %}
+    <div class="login-auth-error">⚠ Twitch login failed. Please try again.</div>
+    {% elif auth_error == 'discord_auth_failed' %}
+    <div class="login-auth-error">⚠ Discord login failed. Please try again.</div>
+    {% endif %}
     <a href="/login" class="login-btn">LOGIN WITH TWITCH</a>
     <a href="/login/discord" class="login-btn">LOGIN WITH DISCORD</a>
   </div>
