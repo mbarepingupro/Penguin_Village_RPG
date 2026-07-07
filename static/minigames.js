@@ -72,7 +72,7 @@ var MiniGameManager = {
     var insts = {
       sea_lion_pit:  'Click fish to catch them! Avoid puffer fish! Golden fish = jackpot!',
       club_soda:     'Catch leaves 🌿 (+5) & ice 🧊 (+3) in your basket! Dodge toxic shrooms 🍄 (−5)! Arrow keys or drag.',
-      parkmusement:  'Click when the ball is inside the green zone! Build combos!',
+      parkmusement:  'Click in the green zone to bounce the ball! Hit 🎯 targets for +8 pts! Click off-center to steer.',
       cursed_temple: 'Watch the rune sequence, then repeat it in order!',
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
     };
@@ -583,8 +583,9 @@ var HerbGardenGame = {
 };
 
 // ─── Juggle Master (Parkmusement) ──────────────────────────────────────────
-// Click/tap moves ball horizontally toward the click X AND bounces it.
-// At combo 10 a second ball spawns; game ends only when ALL balls drop.
+// Click/tap in the hit zone bounces the ball. Click direction is INVERTED:
+// clicking right of ball center deflects it LEFT (billiard-style).
+// At combo 10 a second ball spawns. Targets spawn periodically for bonus pts.
 
 var JuggleMasterGame = {
   duration: 45,
@@ -592,13 +593,16 @@ var JuggleMasterGame = {
   _ctx: null,
   _running: false,
   _animFrame: null,
-  _balls: [],              // array so more balls can be added at higher streaks later
+  _balls: [],
   _combo: 0,
   _hitZoneY: 0,
   _hitZoneH: 0,
   _clickCooldown: 0,
   _flash: null,
   _secondBallSpawned: false,
+  _targets: [],
+  _spawnTimer: null,
+  _nextSpawnIn: 3.0,
 
   _makeBall: function(canvas, xOff) {
     return {
@@ -611,6 +615,22 @@ var JuggleMasterGame = {
     };
   },
 
+  _makeTarget: function(canvas) {
+    var icons  = ['🎯', '⭐', '💎', '🌟'];
+    var colors = ['#FFD700', '#4aff6b', '#A86EFF', '#FF7FE5'];
+    var idx = Math.floor(Math.random() * icons.length);
+    var r = 14;
+    return {
+      x: r + Math.random() * (canvas.width - r * 2),
+      y: canvas.height * (0.12 + Math.random() * 0.38),
+      r: r,
+      icon:  icons[idx],
+      color: colors[idx],
+      life: 5.0,
+      pts:  8,
+    };
+  },
+
   init: function(canvas, ctx) {
     this._canvas = canvas;
     this._ctx = ctx;
@@ -619,6 +639,8 @@ var JuggleMasterGame = {
     this._clickCooldown = 0;
     this._flash = null;
     this._secondBallSpawned = false;
+    this._targets = [];
+    this._nextSpawnIn = 3.0;
 
     this._hitZoneY = canvas.height * 0.62;
     this._hitZoneH = canvas.height * 0.14;
@@ -634,7 +656,6 @@ var JuggleMasterGame = {
   _handleClick: function(e) {
     if (!this._running || this._clickCooldown > 0) return;
 
-    // Resolve click X for horizontal nudge
     var mx = this._canvas.width / 2;
     if (e) {
       var rect = this._canvas.getBoundingClientRect();
@@ -649,8 +670,9 @@ var JuggleMasterGame = {
       if (!inZone) continue;
       hitAny = true;
       this._combo++;
-      // Horizontal nudge: push ball toward click position (capped at ±200 px/s)
-      b.vx = Math.max(-200, Math.min(200, (mx - b.x) * 1.5));
+      // INVERTED deflection: click right of ball → ball goes left (billiard-style).
+      // Multiplier 3.0 and cap ±380 for sharper, more skill-dependent angles.
+      b.vx = Math.max(-380, Math.min(380, (b.x - mx) * 3.0));
       b.vy = -(280 + Math.min(this._combo, 5) * 20);
       var pts = this._combo >= 3 ? 3 + this._combo : (this._combo >= 2 ? 4 : 3);
       MiniGameManager.addScore(pts);
@@ -663,7 +685,6 @@ var JuggleMasterGame = {
       this._flash = { text: 'MISS!', color: '#ff6b6b', t: 0.8 };
       if (window.GameSounds) GameSounds.minigameMiss();
     } else if (this._combo >= 10 && !this._secondBallSpawned && this._balls.length === 1) {
-      // Spawn second ball at streak 10
       this._secondBallSpawned = true;
       var b2 = this._makeBall(this._canvas, Math.random() > 0.5 ? 65 : -65);
       b2.vx = (Math.random() < 0.5 ? 1 : -1) * 60;
@@ -682,6 +703,7 @@ var JuggleMasterGame = {
     var canvas = this._canvas;
     var last = null;
     var BALL_R  = 22;
+    var TARGET_R = 14;
     var BALL_EMOJIS = ['🎪', '⭐'];
 
     function loop(ts) {
@@ -694,30 +716,73 @@ var JuggleMasterGame = {
       ctx.fillStyle = '#0a0915';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Physics — floor drops or respawns ball
+      // Target spawn timer
+      self._nextSpawnIn -= dt;
+      if (self._nextSpawnIn <= 0 && self._targets.length < 3) {
+        self._targets.push(self._makeTarget(canvas));
+        self._nextSpawnIn = 3.0 + Math.random() * 2.0;
+      }
+
+      // Ball physics
       for (var i = self._balls.length - 1; i >= 0; i--) {
         var b = self._balls[i];
         b.vy += b.gravity * MiniGameManager.getDifficultyMult() * dt;
         b.y  += b.vy * dt;
         b.x  += b.vx * dt;
-        // Horizontal wall bounce (slight energy loss)
         if (b.x < BALL_R)               { b.x = BALL_R;               b.vx =  Math.abs(b.vx) * 0.85; }
         if (b.x > canvas.width - BALL_R) { b.x = canvas.width - BALL_R; b.vx = -Math.abs(b.vx) * 0.85; }
-        // Floor
         if (b.y >= b.floorY) {
           self._combo = 0;
           if (window.GameSounds) GameSounds.minigameMiss();
           if (self._balls.length === 1) {
-            // Last ball — bounce in place so the game never empties
             b.y  = b.floorY;
             b.vy = -Math.max(Math.abs(b.vy) * 0.7, 180);
             self._flash = { text: '⤴️ BOUNCE!', color: '#ffaa44', t: 1.0 };
           } else {
-            // Extra ball dropped — splice it out, single ball keeps playing
             self._flash = { text: '💧 DROPPED!', color: '#ff6b6b', t: 1.0 };
             self._balls.splice(i, 1);
           }
         }
+      }
+
+      // Target collision + expiry
+      for (var ti = self._targets.length - 1; ti >= 0; ti--) {
+        var tgt = self._targets[ti];
+        tgt.life -= dt;
+        var hit = false;
+        for (var bi = 0; bi < self._balls.length; bi++) {
+          var bl = self._balls[bi];
+          var dx = bl.x - tgt.x, dy = bl.y - tgt.y;
+          if (dx * dx + dy * dy < (BALL_R + tgt.r) * (BALL_R + tgt.r)) { hit = true; break; }
+        }
+        if (hit || tgt.life <= 0) {
+          if (hit) {
+            MiniGameManager.addScore(tgt.pts);
+            self._flash = { text: '🎯 +' + tgt.pts + '!', color: tgt.color, t: 1.2 };
+            if (window.GameSounds) GameSounds.minigameCombo();
+          }
+          self._targets.splice(ti, 1);
+        }
+      }
+
+      // Draw targets
+      for (var ti = 0; ti < self._targets.length; ti++) {
+        var tgt = self._targets[ti];
+        var alpha = tgt.life < 1 ? tgt.life : 1;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(tgt.x, tgt.y, tgt.r, 0, Math.PI * 2);
+        ctx.fillStyle = tgt.color + '33';
+        ctx.fill();
+        ctx.strokeStyle = tgt.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.font = '18px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tgt.icon, tgt.x, tgt.y);
+        ctx.textBaseline = 'alphabetic';
+        ctx.globalAlpha = 1;
       }
 
       // Hit zone
@@ -755,7 +820,7 @@ var JuggleMasterGame = {
         ctx.textBaseline = 'alphabetic';
       }
 
-      // Instruction
+      // Top instruction
       ctx.textAlign = 'center';
       ctx.fillStyle = anyInZone ? '#FFD700' : '#556';
       ctx.font = 'bold 14px monospace';
