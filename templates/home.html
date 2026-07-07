@@ -3119,6 +3119,23 @@
   checkActiveBuff();
   setInterval(checkActiveBuff, 60000);
 
+  // ── PRESENCE HEARTBEAT ──
+  // POSTs every 90s so penguins.last_active stays fresh.
+  // Online threshold on the server: last_active > now - 180 (3 min).
+  // Any feature needing "is player online?" re-uses this same signal —
+  // query penguins.last_active against that threshold (no separate table needed).
+  (function() {
+    function _presencePing() {
+      fetch('/presence/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER })
+      }).catch(function() {});
+    }
+    _presencePing();
+    setInterval(_presencePing, 90000);
+  })();
+
   async function loadLeaderboard() {
     try {
       const res = await fetch('/leaderboard');

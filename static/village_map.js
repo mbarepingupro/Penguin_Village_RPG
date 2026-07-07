@@ -603,7 +603,7 @@ function drawPenguin(sx, sy, penguin, isBehind) {
         }
     }
 
-    // Labels (name + title)
+    // Labels (name + title) + online dot
     if (fontReady) {
         const displayName = penguin.display_name || penguin.username;
         ctx.save();
@@ -620,6 +620,18 @@ function drawPenguin(sx, sy, penguin, isBehind) {
             ctx.font = "14px 'C&C Red Alert', monospace";
             ctx.fillStyle = "#FF8C00";
             ctx.fillText(penguin.active_title, sx, drawY + 5);
+        }
+
+        // Green online dot to the right of the name
+        if (penguin.isOnline) {
+            const nameWidth = ctx.measureText(displayName).width;
+            const dotX = sx + nameWidth / 2 + 5;
+            const dotY = drawY - 5;
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = "#4aff6b";
+            ctx.fill();
         }
 
         ctx.restore();
@@ -842,6 +854,7 @@ function mergePenguins(incoming) {
             ep.prestige      = p.prestige;
             ep.working       = !!p.job;
             ep.isCurrentUser = p.username === currentUser;
+            ep.isOnline      = !!p.is_online;
             ep.worn_items    = p.worn_items || {};
             ep.penguin_shape = p.penguin_shape || 'normal';
             ep.penguin_color = p.penguin_color || '#1a1a1a';
@@ -849,10 +862,10 @@ function mergePenguins(incoming) {
         } else {
             let spawn;
             if (p.startGridX !== undefined) {
-                // Working penguin — snap building home tile to nearest walkable
+                // Working penguin — snap to nearest walkable tile by their building
                 spawn = nearestWalkable(p.startGridX, p.startGridY);
             } else {
-                // Resting penguin — pick any walkable tile on the map
+                // Jobless penguin — random walkable tile so they spread across the map
                 spawn = randomWalkableTile();
             }
             const gx = spawn.x, gy = spawn.y;
@@ -866,6 +879,7 @@ function mergePenguins(incoming) {
                 level:         p.level,
                 prestige:      p.prestige,
                 isCurrentUser: p.username === currentUser,
+                isOnline:      !!p.is_online,
                 gridX: gx,
                 gridY: gy,
                 targetGridX: gx,
