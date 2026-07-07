@@ -1,5 +1,24 @@
 import random
 
+# ── PLAYER INTERESTS ──────────────────────────────────────────────────────────
+# Placeholder list — swap the dict entries when the real wordlist arrives.
+# Structure: { key: {"label": str, "emoji": str} }
+# No other code references specific keys, so replacing entries is a data change only.
+INTEREST_TOPICS = {
+    "cooking":     {"label": "Cooking",     "emoji": "🍳"},
+    "music":       {"label": "Music",       "emoji": "🎵"},
+    "fishing":     {"label": "Fishing",     "emoji": "🎣"},
+    "history":     {"label": "History",     "emoji": "📜"},
+    "combat":      {"label": "Combat",      "emoji": "⚔️"},
+    "fashion":     {"label": "Fashion",     "emoji": "👗"},
+    "exploration": {"label": "Exploration", "emoji": "🗺️"},
+    "science":     {"label": "Science",     "emoji": "🔬"},
+    "nature":      {"label": "Nature",      "emoji": "🌿"},
+    "mystery":     {"label": "Mystery",     "emoji": "🔍"},
+}
+
+MAX_INTERESTS = 5  # cap per player (flagged: change here to adjust)
+
 SOCIAL_TRAITS = {
     "friendly": {
         "name": "Friendly", "emoji": "🤝",
@@ -266,6 +285,24 @@ AUTONOMOUS_ACTIONS = [
     {"template": "{penguin} triple-locked their igloo door and checked it five times",
      "weights": {"paranoid": 5, "greedy": 3, "shy": 2, "dramatic": 2},
      "requires_other": False, "category": "quirk"},
+
+    # ── INTEREST-FLAVORED (generic — {interest} filled at text-generation time) ──
+    # These only fire when the penguin has at least one selected interest.
+    {"template": "{penguin} spent the afternoon lost in thoughts about {interest}",
+     "weights": {"curious": 2, "shy": 2},
+     "requires_other": False, "requires_interest": True, "category": "solo"},
+    {"template": "{penguin} cornered {other} and wouldn't stop talking about {interest}",
+     "weights": {"friendly": 2, "dramatic": 2, "curious": 2},
+     "requires_other": True, "requires_interest": True, "category": "social"},
+    {"template": "{penguin} started a village club for fans of {interest}. Attendance: 1.",
+     "weights": {"friendly": 2, "dramatic": 2, "shy": 0},
+     "requires_other": False, "requires_interest": True, "category": "village"},
+    {"template": "{penguin} wrote a long essay about {interest} and left it on a bench",
+     "weights": {"curious": 3, "dramatic": 2, "musical": 1},
+     "requires_other": False, "requires_interest": True, "category": "solo"},
+    {"template": "{penguin} challenged {other} to settle a debate about {interest}",
+     "weights": {"dramatic": 3, "curious": 2, "friendly": 1},
+     "requires_other": True, "requires_interest": True, "category": "social"},
 ]
 
 
@@ -273,11 +310,15 @@ def pick_autonomous_action(penguin, all_penguins):
     traits      = [penguin.get("trait_social"), penguin.get("trait_interest"), penguin.get("trait_quirk")]
     social_mode = penguin.get("social_mode") or "social"
     others      = [p for p in all_penguins if p["username"] != penguin["username"]]
+    has_interests = bool(penguin.get("interests"))
 
     scored = []
     for action in AUTONOMOUS_ACTIONS:
-        requires_other = action.get("requires_other", False)
+        requires_other    = action.get("requires_other", False)
+        requires_interest = action.get("requires_interest", False)
         if requires_other and not others:
+            continue
+        if requires_interest and not has_interests:
             continue
 
         score = sum(action["weights"].get(t, 0) for t in traits if t) or 1
@@ -325,7 +366,16 @@ def pick_other_penguin(penguin, all_penguins):
 def generate_action_text(action, penguin, other_penguin=None):
     pname = penguin.get("penguin_name") or penguin["username"]
     text = action["template"].replace("{penguin}", pname)
-    if action["requires_other"] and "{other}" in text and other_penguin:
+    if action.get("requires_other") and "{other}" in text and other_penguin:
         oname = other_penguin.get("penguin_name") or other_penguin["username"]
         text = text.replace("{other}", oname)
+    if action.get("requires_interest") and "{interest}" in text:
+        interests = penguin.get("interests") or []
+        if interests:
+            chosen = random.choice(interests)
+            topic  = INTEREST_TOPICS.get(chosen)
+            label  = f"{topic['emoji']} {topic['label']}" if topic else chosen
+        else:
+            label = "something"
+        text = text.replace("{interest}", label)
     return text

@@ -12,6 +12,7 @@ from personality_config import (
     SOCIAL_TRAITS, INTEREST_TRAITS, QUIRK_TRAITS, ALL_TRAITS,
     AUTONOMOUS_ACTIONS, CATEGORY_EMOJIS,
     pick_autonomous_action, pick_other_penguin, generate_action_text,
+    INTEREST_TOPICS, MAX_INTERESTS,
 )
 import math
 import time
@@ -1767,6 +1768,15 @@ def run_autonomous_actions():
             "SELECT username, penguin_name, trait_social, trait_interest, trait_quirk, "
             "social_mode, social_target FROM penguins WHERE character_created=1"
         ).fetchall()]
+        # Attach selected interests to each penguin
+        interest_rows = db.execute(
+            "SELECT username, interest_key FROM penguin_interests"
+        ).fetchall()
+        interest_map = {}
+        for row in interest_rows:
+            interest_map.setdefault(row["username"], []).append(row["interest_key"])
+        for p in all_penguins:
+            p["interests"] = interest_map.get(p["username"], [])
     except Exception as e:
         print(f"[Autonomous] Failed to load penguins: {e}")
         db.close()
@@ -7257,6 +7267,83 @@ def chat_send_message():
     db.execute(
         "INSERT INTO chat_messages (username, message, created_at) VALUES (?,?,?)",
         (username, message, now)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
+
+
+# ── PLAYER INTERESTS ─────────────────────────────────────────────────────────
+
+@app.route("/interests")
+def get_interests():
+    """Return the master topic list and the current player's selections."""
+    username = session.get("username")
+    selected = []
+    if username:
+        db = get_db()
+        rows = db.execute(
+            "SELECT interest_key FROM penguin_interests WHERE username=?", (username,)
+        ).fetchall()
+        db.close()
+        selected = [r["interest_key"] for r in rows]
+    return jsonify({
+        "topics":   [{"key": k, **v} for k, v in INTEREST_TOPICS.items()],
+        "selected": selected,
+        "max":      MAX_INTERESTS,
+    })
+
+
+@app.route("/interests/save", methods=["POST"])
+def save_interests():
+    """Replace a player's interest selections (up to MAX_INTERESTS)."""
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."}), 401
+    data = request.get_json(force=True) or {}
+    keys = data.get("interests", [])
+    if not isinstance(keys, list):
+        return jsonify({"status": "error", "message": "interests must be a list."}), 400
+    valid = [k for k in keys if k in INTEREST_TOPICS][:MAX_INTERESTS]
+    db = get_db()
+    db.execute("DELETE FROM penguin_interests WHERE username=?", (username,))
+    for key in valid:
+        db.execute(
+            "INSERT OR IGNORE INTO penguin_interests (username, interest_key) VALUES (?,?)",
+            (username, key)
+        )
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok", "saved": valid})
+
+
+@app.route("/interests/suggest", methods=["POST"])
+def suggest_topic():
+    """Submit a player suggestion for a new interest topic.
+    Stored for admin review — not auto-added to the live list.
+    Admin view: SELECT * FROM topic_suggestions ORDER BY created_at DESC;
+    """
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."}), 401
+    data       = request.get_json(force=True) or {}
+    suggestion = data.get("suggestion", "").strip()
+    if not suggestion:
+        return jsonify({"status": "error", "message": "Suggestion cannot be empty."}), 400
+    if len(suggestion) > 100:
+        return jsonify({"status": "error", "message": "Suggestion too long (max 100 chars)."}), 400
+    now = int(time.time())
+    db  = get_db()
+    recent = db.execute(
+        "SELECT COUNT(*) as c FROM topic_suggestions WHERE username=? AND suggestion=? AND created_at > ?",
+        (username, suggestion, now - 86400)
+    ).fetchone()
+    if recent and recent["c"] > 0:
+        db.close()
+        return jsonify({"status": "duplicate", "message": "You already suggested that recently."})
+    db.execute(
+        "INSERT INTO topic_suggestions (username, suggestion, created_at) VALUES (?,?,?)",
+        (username, suggestion, now)
     )
     db.commit()
     db.close()
