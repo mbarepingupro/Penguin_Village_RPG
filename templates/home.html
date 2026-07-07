@@ -1715,6 +1715,10 @@
         overscroll-behavior: contain;
       }
 
+      /* ── Fight modal scrollable on mobile ── */
+      .fight-modal-overlay { align-items: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      .fight-modal { margin: 16px auto; }
+
       /* ── Modals ── */
       .inv-box {
         width: 98%; max-width: none; max-height: 90vh; margin: 0; flex-direction: column;
@@ -8733,8 +8737,14 @@
     // ── Step 4 — Stats Tab ───────────────────────────────────────────────────
     _step4: async function() {
       var self = this;
-      self._highlightEl('.sidebar-tab[onclick*="stats"]');
-      await self._sayThen('Let\'s see how you\'re doing! Click on the STATS tab on the left panel.');
+      var isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        self._highlightEl('#mobile-player-btn');
+        await self._sayThen('Let\'s check your stats! Tap the 🐧 button at the top, then the 📊 STATS tab!');
+      } else {
+        self._highlightEl('.sidebar-tab[onclick*="stats"]');
+        await self._sayThen('Let\'s see how you\'re doing! Click on the STATS tab on the left panel.');
+      }
       self._waitForSidebar('stats').then(async function() {
         self._clearHighlights();
         await self._sayThen('Here you can see your resources, missions, and streak. Speaking of which — here\'s a welcome gift from the village!');
@@ -8764,7 +8774,10 @@
       var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
       if (mapBtn) mapBtn.click();
       self._highlightBuilding('barracks');
-      await self._sayThen('Now for the fun part! See the Barracks? That\'s where monsters are fought. Click on it!');
+      var isMobile = window.innerWidth < 768;
+      await self._sayThen(isMobile
+        ? 'Now for the fun part! See the Barracks? That\'s where monsters are fought. Tap on it!'
+        : 'Now for the fun part! See the Barracks? That\'s where monsters are fought. Click on it!');
       self._waitForBuilding('barracks').then(function() {
         self._clearHighlights();
         self._injectTutorialFightButton();
@@ -8857,8 +8870,14 @@
     // ── Step 6 — Equip Gear ──────────────────────────────────────────────────
     _step6: async function() {
       var self = this;
-      self._highlightEl('.inv-open-btn');
-      await self._sayThen('Open your inventory — tap the 🐧 Penguin tab, then hit 📦 INVENTORY — and equip the gear you just found!');
+      var isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        self._highlightEl('#mobile-player-btn');
+        await self._sayThen('Tap the 🐧 button at the top → PENGUIN tab → 📦 INVENTORY — then equip the gear you just found!');
+      } else {
+        self._highlightEl('.inv-open-btn');
+        await self._sayThen('Open your inventory — click 📦 INVENTORY on the left panel — and equip the gear you just found!');
+      }
       self._waitForInventory().then(async function() {
         self._clearHighlights();
         await self._sayThen('Click EQUIP on your new gear to boost your Combat Power. Your penguin just got stronger!');
@@ -9327,6 +9346,7 @@ function _loadMobileTab(tabName) {
   if (src) {
     content.innerHTML = src.innerHTML;
   }
+  if (window.TutorialManager) window.TutorialManager._notifySidebar(tabName);
 }
 
 // Update mobile player name button when player data is available
