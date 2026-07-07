@@ -5943,18 +5943,20 @@ def village_layout():
 
 @app.route("/village/penguins")
 def village_penguins():
-    cutoff = int(time.time()) - 1800
+    now = int(time.time())
+    # Online threshold: seen within 3 minutes (2× the 90s client ping interval)
+    online_cutoff = now - 180
     db = get_db()
     rows = db.execute(
-        """SELECT p.username, p.penguin_name, p.penguin_color, p.penguin_shape, p.job, p.level, p.prestige, p.active_title
+        """SELECT p.username, p.penguin_name, p.penguin_color, p.penguin_shape,
+                  p.job, p.level, p.prestige, p.active_title, p.last_active
            FROM penguins p
-           WHERE p.last_active > ?
+           WHERE p.character_created = 1
            ORDER BY p.last_active DESC
            LIMIT 50""",
-        (cutoff,)
     ).fetchall()
 
-    # Build worn_items map for all active penguins in one query
+    # Build worn_items map for all penguins in one query
     worn_map = {}
     if rows:
         unames = tuple(r["username"] for r in rows)
@@ -5972,12 +5974,12 @@ def village_penguins():
 
     penguins = []
     for r in rows:
-        job    = r["job"]
-        home   = _BUILDING_HOME_TILES.get(job, _DEFAULT_HOME_TILE)
-        pcolor = r["penguin_color"] or "#1a1a1a"
+        job       = r["job"]
+        pcolor    = r["penguin_color"] or "#1a1a1a"
         body_color = _resolve_hex_color(pcolor)
-        pname  = r["penguin_name"]  or r["username"]
-        penguins.append({
+        pname     = r["penguin_name"] or r["username"]
+        is_online = (r["last_active"] or 0) > online_cutoff
+        entry = {
             "username":      r["username"],
             "display_name":  pname,
             "penguin_color": body_color,
@@ -5986,12 +5988,38 @@ def village_penguins():
             "level":         r["level"] or 1,
             "prestige":      r["prestige"] or 0,
             "active_title":  r["active_title"],
-            "startGridX":    home[0],
-            "startGridY":    home[1],
+            "is_online":     is_online,
             "worn_items":    worn_map.get(r["username"], {}),
-        })
+        }
+        # Only working penguins get a home tile — jobless penguins get a
+        # random walkable spawn on the client side via randomWalkableTile()
+        if job and job in _BUILDING_HOME_TILES:
+            home = _BUILDING_HOME_TILES[job]
+            entry["startGridX"] = home[0]
+            entry["startGridY"] = home[1]
+        penguins.append(entry)
 
     return jsonify({"penguins": penguins})
+
+
+# ── PRESENCE PING ─────────────────────────────────────────────────────────────
+# Lightweight heartbeat — client POSTs every 90s to keep last_active fresh.
+# Online detection: last_active > now - 180 (3 min window).
+# Reusable: any feature needing "is player currently online?" queries
+# penguins.last_active against this same threshold.
+
+@app.route("/presence/ping", methods=["POST"])
+def presence_ping():
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "skip"})
+    now = int(time.time())
+    db  = get_db()
+    db.execute("UPDATE penguins SET last_active=? WHERE username=?", (now, username))
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
 
 
 # ── BUFFS/ACTIVE (public endpoint for player buff banner) ────────────────────
