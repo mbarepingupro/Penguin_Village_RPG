@@ -262,3 +262,51 @@ The following bugs were identified while building this checklist. **Do not fix i
 - [ ] `ice_blocks_donated` counter resets to 0 after level-up
 - [ ] Donating when at max level returns an error: "Building is already max level."
 - [ ] Donating ice_blocks to a building that doesn't require them returns an error
+
+### Global Chat (claude/global-chat)
+
+**Rate limit**: 5 seconds between messages per player (`_CHAT_RATE_LIMIT_SECONDS = 5`)
+**Profanity filter**: hardcoded `frozenset` wordlist (word-boundary split on `\w+`; expand the set in `_CHAT_BLOCKED_WORDS` in `app.py` to add terms)
+**24h cleanup**: query-time filter on `/chat/messages` + DELETE piggyback in `run_autonomous_actions` (runs every 30 min)
+
+#### Sending a message
+- [ ] Typing a message and clicking SEND (or pressing Enter) posts the message to `/chat/send`
+- [ ] The new message appears in the chat panel immediately after send (re-poll fires on success)
+- [ ] Messages from other players appear on the next poll cycle (≤4 s lag)
+- [ ] Sender name displays as the logged-in `username`, styled in purple (#A86EFF)
+- [ ] Message text wraps correctly inside the 260 px panel without horizontal overflow
+- [ ] Relative timestamps update on each poll ("just now" → "Xs ago" → "Xm ago" → "Xh ago")
+
+#### Rate-limit rejection
+- [ ] Sending a second message within 5 s of the first shows the status line: "Please wait Xs before sending again."
+- [ ] Waiting 5 s and re-sending succeeds
+- [ ] Rate limit is per-user (different users are not blocked by each other)
+
+#### Profanity filter rejection
+- [ ] Sending a message containing a blocked word shows the status line: "⚠ Message not allowed."
+- [ ] The blocked message is NOT stored in the database
+- [ ] Sending a clean message immediately after works normally
+
+#### Cross-session message visibility
+- [ ] Simulate two sessions (two browsers / incognito tabs): message sent in session A appears in session B within ≤4 s
+- [ ] Messages persist across page refreshes
+
+#### 24h expiry
+- [ ] Insert a test row with `created_at` set to `now - 90000` (>24 h ago) via SQLite CLI
+- [ ] `/chat/messages` does NOT return the expired row
+- [ ] After `run_autonomous_actions` fires, the expired row is deleted from the table
+
+#### No map resize/reflow regression
+- [ ] Opening chat panel does not change the size or position of `#map-area` or `#village-canvas`
+- [ ] Build! button, world-map-btn, and d20 overlay remain at correct positions while chat panel is open
+- [ ] Closing the chat panel leaves all map elements unchanged
+
+#### Chat toggle button
+- [ ] 💬 button appears top-right of the map area (z-index 62, above canvas, below d20 overlay)
+- [ ] Clicking 💬 opens the panel; clicking ✕ or 💬 again closes it
+- [ ] On mobile (≤768 px) the 💬 button and chat panel are hidden (map is too cramped)
+
+#### Polling behavior
+- [ ] Poll runs every 4 s when the chat panel is open AND the map tab is active
+- [ ] Switching to a non-map tab pauses polling; switching back to MAP resumes it
+- [ ] Polling does not fire when the panel is closed

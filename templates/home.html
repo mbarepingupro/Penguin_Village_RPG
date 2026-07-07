@@ -2191,6 +2191,138 @@
       .world-map-btn { width: 44px; height: 44px; }
       .build-btn { width: 64px; height: 64px; font-size: 16px; bottom: 12px; }
     }
+
+    /* ── GLOBAL CHAT PANEL ── */
+    #chat-toggle-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 62;
+      width: 42px;
+      height: 42px;
+      background: #252535;
+      border: 2px solid #4aff9e;
+      color: #4aff9e;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: serif;
+      padding: 0;
+    }
+    #chat-toggle-btn:hover { background: #1a3a2a; }
+    #chat-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 260px;
+      z-index: 61;
+      background: rgba(10, 10, 20, 0.92);
+      border-left: 2px solid #4aff9e;
+      display: none;
+      flex-direction: column;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+    }
+    #chat-panel.open { display: flex; }
+    #chat-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: #12121e;
+      border-bottom: 1px solid #4aff9e;
+      color: #4aff9e;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    #chat-panel-header button {
+      background: none;
+      border: none;
+      color: #8888a8;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    #chat-panel-header button:hover { color: #fff; }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 8px 4px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 0;
+    }
+    .chat-msg {
+      background: #1a1a2e;
+      border-left: 2px solid #4aff9e33;
+      padding: 5px 7px;
+      border-radius: 2px;
+      word-break: break-word;
+    }
+    .chat-msg-author {
+      color: #A86EFF;
+      font-size: 16px;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .chat-msg-text {
+      color: #d8d8f0;
+      font-size: 16px;
+      display: block;
+    }
+    .chat-msg-time {
+      color: #4a4a70;
+      font-size: 16px;
+      display: block;
+      text-align: right;
+      margin-top: 2px;
+    }
+    #chat-input-row {
+      display: flex;
+      gap: 4px;
+      padding: 6px 8px;
+      border-top: 1px solid #2a2a40;
+      flex-shrink: 0;
+    }
+    #chat-input {
+      flex: 1;
+      background: #0e0e1c;
+      border: 1px solid #3a3a58;
+      color: #d8d8f0;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      padding: 5px 7px;
+      outline: none;
+      min-width: 0;
+    }
+    #chat-input:focus { border-color: #4aff9e; }
+    #chat-send-btn {
+      background: #1a3a2a;
+      border: 1px solid #4aff9e;
+      color: #4aff9e;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      padding: 5px 8px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #chat-send-btn:hover { background: #0f2a1c; }
+    #chat-status {
+      color: #6868a0;
+      font-size: 16px;
+      padding: 2px 8px 4px 8px;
+      min-height: 18px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 768px) {
+      #chat-toggle-btn { display: none; }
+      #chat-panel { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -2508,6 +2640,19 @@
         <div class="map-area" id="map-area">
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
+          <button id="chat-toggle-btn" title="Global Chat" onclick="GlobalChat.toggle()">💬</button>
+          <div id="chat-panel">
+            <div id="chat-panel-header">
+              <span>💬 GLOBAL CHAT</span>
+              <button onclick="GlobalChat.toggle()" title="Close">✕</button>
+            </div>
+            <div id="chat-messages"></div>
+            <div id="chat-status"></div>
+            <div id="chat-input-row">
+              <input id="chat-input" type="text" maxlength="200" placeholder="Say something..." autocomplete="off">
+              <button id="chat-send-btn" onclick="GlobalChat.send()">SEND</button>
+            </div>
+          </div>
           <div id="d20-overlay" role="status" aria-live="polite" aria-label="Rolling d20">
             <div id="d20-die">
               <img src="/static/images/d20_placeholder.png" alt="d20" draggable="false">
@@ -3139,6 +3284,140 @@
     _presencePing();
     setInterval(_presencePing, 90000);
   })();
+
+  // ── GLOBAL CHAT ──
+  var GlobalChat = {
+    _open: false,
+    _polling: null,
+    _lastId: 0,
+    _onMapTab: true,
+
+    toggle: function() {
+      this._open = !this._open;
+      var panel = document.getElementById('chat-panel');
+      if (panel) panel.classList.toggle('open', this._open);
+      if (this._open) {
+        this._poll();
+        document.getElementById('chat-input').focus();
+      }
+    },
+
+    _relTime: function(ts) {
+      var diff = Math.floor(Date.now() / 1000) - ts;
+      if (diff < 5)  return 'just now';
+      if (diff < 60) return diff + 's ago';
+      if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+      return Math.floor(diff / 86400) + 'd ago';
+    },
+
+    _renderMessages: function(msgs) {
+      var box = document.getElementById('chat-messages');
+      if (!box) return;
+      var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+      box.innerHTML = '';
+      var self = this;
+      msgs.forEach(function(m) {
+        var div = document.createElement('div');
+        div.className = 'chat-msg';
+        div.innerHTML =
+          '<span class="chat-msg-author">' + self._esc(m.username) + '</span>' +
+          '<span class="chat-msg-text">'   + self._esc(m.message)  + '</span>' +
+          '<span class="chat-msg-time">'   + self._relTime(m.created_at) + '</span>';
+        box.appendChild(div);
+      });
+      if (atBottom || msgs.length <= 10) box.scrollTop = box.scrollHeight;
+    },
+
+    _esc: function(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    },
+
+    _setStatus: function(msg) {
+      var el = document.getElementById('chat-status');
+      if (el) el.textContent = msg;
+    },
+
+    _poll: async function() {
+      if (!this._onMapTab || !this._open) return;
+      try {
+        var res = await fetch('/chat/messages');
+        if (res.ok) {
+          var data = await res.json();
+          this._renderMessages(data.messages || []);
+        }
+      } catch(e) {}
+    },
+
+    startPolling: function() {
+      var self = this;
+      if (self._polling) clearInterval(self._polling);
+      self._polling = setInterval(function() {
+        if (self._onMapTab && self._open) self._poll();
+      }, 4000);
+    },
+
+    stopPolling: function() {
+      if (this._polling) { clearInterval(this._polling); this._polling = null; }
+    },
+
+    onTabChange: function(tabName) {
+      this._onMapTab = (tabName === 'map');
+    },
+
+    send: async function() {
+      var input = document.getElementById('chat-input');
+      if (!input) return;
+      var text = input.value.trim();
+      if (!text) return;
+      this._setStatus('');
+      try {
+        var res = await fetch('/chat/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: CURRENT_USER, message: text })
+        });
+        var data = await res.json();
+        if (data.status === 'ok') {
+          input.value = '';
+          await this._poll();
+        } else if (data.status === 'rate_limited') {
+          this._setStatus(data.message);
+        } else if (data.status === 'filtered') {
+          this._setStatus('⚠ Message not allowed.');
+        } else {
+          this._setStatus(data.message || 'Error sending.');
+        }
+      } catch(e) {
+        this._setStatus('Network error.');
+      }
+    }
+  };
+
+  // Hook tab changes to pause/resume polling
+  (function() {
+    var _origSwitch = switchContentTab;
+    switchContentTab = function(name, btn) {
+      _origSwitch(name, btn);
+      GlobalChat.onTabChange(name);
+    };
+  })();
+
+  // Enter key sends message
+  document.addEventListener('DOMContentLoaded', function() {
+    var inp = document.getElementById('chat-input');
+    if (inp) {
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); GlobalChat.send(); }
+      });
+    }
+  });
+
+  GlobalChat.startPolling();
 
   async function loadLeaderboard() {
     try {
