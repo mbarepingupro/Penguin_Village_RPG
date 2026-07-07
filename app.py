@@ -252,36 +252,36 @@ BUILDING_UPGRADES = {
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit",
         "levels": {
-            2: {"fish": 2500,  "gold": 1250, "benefit": "+15% fish rate for everyone"},
-            3: {"fish": 12500, "gold": 6250, "benefit": "+30% fish rate for everyone"},
+            2: {"fish": 2500,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% fish rate for everyone"},
+            3: {"fish": 12500, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% fish rate for everyone"},
         },
     },
     "club_soda": {
         "name": "Club Soda",
         "levels": {
-            2: {"herbs": 2500,  "gold": 1250, "benefit": "+15% herb rate for everyone"},
-            3: {"herbs": 12500, "gold": 6250, "benefit": "+30% herb rate for everyone"},
+            2: {"herbs": 2500,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% herb rate for everyone"},
+            3: {"herbs": 12500, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% herb rate for everyone"},
         },
     },
     "parkmusement": {
         "name": "Ash's Parkmusement",
         "levels": {
-            2: {"gold": 3750,  "benefit": "+15% gold rate for everyone"},
-            3: {"gold": 18750, "benefit": "+30% gold rate for everyone"},
+            2: {"gold": 3750,  "ice_blocks": 5000,  "benefit": "+15% gold rate for everyone"},
+            3: {"gold": 18750, "ice_blocks": 10000, "benefit": "+30% gold rate for everyone"},
         },
     },
     "cursed_temple": {
         "name": "Cursed Temple",
         "levels": {
-            2: {"spell_fragments": 2000,  "gold": 1250, "benefit": "+15% XP rate for everyone"},
-            3: {"spell_fragments": 10000, "gold": 6250, "benefit": "+30% XP rate for everyone"},
+            2: {"spell_fragments": 2000,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% XP rate for everyone"},
+            3: {"spell_fragments": 10000, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% XP rate for everyone"},
         },
     },
     "guillotine": {
         "name": "Gil the Guillotine",
         "levels": {
-            2: {"blood_gems": 500,  "bones": 500,  "gold": 1250, "benefit": "+15% blood gem and bone rate for everyone"},
-            3: {"blood_gems": 2500, "bones": 2500, "gold": 6250, "benefit": "+30% rate for everyone"},
+            2: {"blood_gems": 500,  "bones": 500,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 2500, "bones": 2500, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% rate for everyone"},
         },
     },
 }
@@ -446,7 +446,7 @@ BARRACKS_SHOP = {
 _RES_COL = {
     "fish": "fish_donated", "herbs": "herbs_donated", "gold": "gold_donated",
     "blood_gems": "blood_gems_donated", "bones": "bones_donated",
-    "spell_fragments": "spell_fragments_donated",
+    "spell_fragments": "spell_fragments_donated", "ice_blocks": "ice_blocks_donated",
 }
 
 # Maps gear slot → visual area (for WEAR system: one item shown per area)
@@ -6903,6 +6903,7 @@ def build_roll():
         new_free_rolls = 0
 
     db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (ice_earned, username))
+    award_xp(db, username, roll)
     r = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
     db.commit()
@@ -6913,6 +6914,7 @@ def build_roll():
         "roll":             roll,
         "ice_blocks_earned": ice_earned,
         "ice_blocks_total": r["ice_blocks"] if r else ice_earned,
+        "xp_earned":        roll,
         "free_rolls_remaining": new_free_rolls,
         "is_crit":          is_crit,
         "normal_return":    normal_return,

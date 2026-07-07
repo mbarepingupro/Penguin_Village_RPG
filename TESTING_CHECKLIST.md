@@ -221,3 +221,44 @@ The following bugs were identified while building this checklist. **Do not fix i
 - [ ] 🧊 ice_blocks item appears in the resource bar
 - [ ] `updateResourceBar()` fetches and populates `count-ice_blocks`
 - [ ] Hovering 🧊 icon shows correct tooltip text
+
+---
+
+## Feature Batch: Building Donations (Ice Blocks), XP on Roll, Block-Collection Animation, PNG Button Sprites
+
+### XP on Every Roll (normal and free)
+- [ ] After clicking Build!, `penguins.xp` increases by exactly the roll value (e.g. a roll of 14 → +14 XP)
+- [ ] This applies on both normal rolls (energy-consuming) and free rolls (no energy cost)
+- [ ] Verify via: `SELECT xp FROM penguins WHERE username='<test_user>';` before and after roll
+- [ ] XP matches the `roll` value in the toast, not a fixed amount
+- [ ] Level-up triggers correctly if XP crosses a threshold (check level field too)
+
+### Block-Collection Animation
+- [ ] After the d20 overlay closes (settle), 🧊 emoji particles burst from the Build! button and fly toward the ice_blocks HUD counter
+- [ ] Particle count scales with the amount earned (roll 1 → 1 emoji, roll 20 → 20 emojis, capped at 20)
+- [ ] ⭐ XP emoji particles also fly toward the XP bar after the same settle event
+- [ ] Animations do not begin during the d20 tumble or hold phase — only after `onSettle` fires (2360 ms)
+- [ ] Animations do not collide visually with d20 overlay (overlay is already hidden when animations start)
+- [ ] HUD counter `count-ice_blocks` flashes `.updated` both immediately (counter text update) and again when emojis land (~800 ms later) — two flashes is correct
+- [ ] On a free roll, both 🧊 and ⭐ animations still fire correctly
+
+### PNG Button Sprites
+- [ ] Build! button visually shows the blue PNG (`build_button_blue.png`) instead of the flat ice-blue circle
+- [ ] Button text ("Build!" / "Build!\n(N free)") is legible on top of the PNG
+- [ ] Clicking Build! when free rolls are active: button turns red and shows the red PNG (`build_button_red.png`)
+- [ ] Reverting from crit (free rolls exhausted): button returns to blue PNG
+- [ ] PNG scales cleanly within the 80×80 px button (no stretching/distortion) — `background-size: contain`
+- [ ] At mobile breakpoint (≤600 px), button shrinks to 64×64 and PNG scales down proportionally
+- [ ] Button bounding box / absolute position is unchanged from before (no map reflow)
+- [ ] If the PNG files are swapped with custom art of a different aspect ratio, the button does not distort (contain preserves proportions)
+- [ ] Fallback: if PNG fails to load (e.g. 404), button falls back to the flat ice-blue / red background color
+
+### Building Ice Block Donations (pending threshold numbers)
+- [ ] *(Blocked — awaiting ice_block donation threshold numbers per building/level from owner)*
+- [ ] Once thresholds are set: donating ice_blocks to a supported building deducts from `resources.ice_blocks`
+- [ ] Partial donation is tracked in `building_upgrades.ice_blocks_donated`
+- [ ] Progress bar / donated counter in the building UI reflects partial donations
+- [ ] Donating enough ice_blocks triggers automatic level-up (same as existing resources)
+- [ ] `ice_blocks_donated` counter resets to 0 after level-up
+- [ ] Donating when at max level returns an error: "Building is already max level."
+- [ ] Donating ice_blocks to a building that doesn't require them returns an error

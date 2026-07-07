@@ -345,6 +345,7 @@ def init_db():
     _add_col(c, "penguins", "discord_id TEXT DEFAULT NULL")
     _add_col(c, "resources", "ice_blocks INTEGER DEFAULT 0")
     _add_col(c, "penguins", "build_free_rolls INTEGER DEFAULT 0")
+    _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:
