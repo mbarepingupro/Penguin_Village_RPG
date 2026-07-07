@@ -26,12 +26,12 @@ var MiniGameManager = {
 
     var hud = document.createElement('div');
     hud.id = 'mg-hud';
-    hud.style.cssText = 'display:flex;gap:16px;align-items:center;margin-bottom:10px;font-family:monospace;font-size:15px;flex-wrap:wrap;justify-content:center;';
+    hud.style.cssText = 'display:flex;gap:16px;align-items:center;margin-bottom:10px;font-family:monospace;font-size:16px;flex-wrap:wrap;justify-content:center;';
     hud.innerHTML =
       '<span id="mg-title" style="color:#4aff6b;font-size:17px;font-weight:bold;"></span>' +
       '<span id="mg-score" style="color:#FFD700;">SCORE: 0</span>' +
       '<span id="mg-timer" style="color:#FF6B6B;">TIME: 15</span>' +
-      '<button onclick="MiniGameManager.close()" style="background:#2a2a3a;color:#B8B8D0;border:1px solid #555;padding:3px 10px;cursor:pointer;font-family:monospace;font-size:13px;">✕ QUIT</button>';
+      '<button onclick="MiniGameManager.close()" style="background:#2a2a3a;color:#B8B8D0;border:1px solid #555;padding:3px 10px;cursor:pointer;font-family:monospace;font-size:16px;">✕ QUIT</button>';
 
     var cw = Math.min(window.innerWidth - 24, 500);
     var ch = Math.min(window.innerHeight - 130, 380);
@@ -44,7 +44,7 @@ var MiniGameManager = {
 
     var inst = document.createElement('div');
     inst.id = 'mg-instruction';
-    inst.style.cssText = 'color:#8888A8;font-size:12px;margin-top:7px;text-align:center;max-width:500px;padding:0 10px;';
+    inst.style.cssText = 'color:#8888A8;font-size:16px;margin-top:7px;text-align:center;max-width:500px;padding:0 10px;';
 
     overlay.appendChild(hud);
     overlay.appendChild(canvas);
@@ -178,7 +178,7 @@ var MiniGameManager = {
       btn.textContent = '✓ COLLECT REWARDS';
       btn.style.cssText = [
         'background:#4aff6b;color:#000;border:none;',
-        'padding:12px 28px;font-size:15px;font-family:monospace;',
+        'padding:12px 28px;font-size:16px;font-family:monospace;',
         'cursor:pointer;border-radius:4px;font-weight:bold;margin-top:12px;',
       ].join('');
       btn.onclick = function() {

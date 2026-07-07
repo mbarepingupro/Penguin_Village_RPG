@@ -318,16 +318,16 @@ var OverworldMap = {
         tooltip.id = 'overworld-tooltip';
         tooltip.style.cssText =
             'position:fixed;' +
-            'left:' + Math.min(x + 12, window.innerWidth - 260) + 'px;' +
+            'left:' + Math.min(x + 12, window.innerWidth - 300) + 'px;' +
             'top:' + Math.max(y - 80, 10) + 'px;' +
             'background:#1C1C2E;border:2px solid #A86EFF;padding:12px 14px;' +
-            'z-index:95000;max-width:240px;font-family:Silkscreen,monospace;' +
+            'z-index:95000;max-width:280px;font-family:Silkscreen,monospace;' +
             'pointer-events:none;';
         tooltip.innerHTML =
-            '<div style="color:#fff;font-size:11px;margin-bottom:5px;">' + area.icon + ' ' + area.name + '</div>' +
-            '<div style="color:#B8B8D0;font-size:9px;margin-bottom:7px;line-height:1.8;">' + area.description + '</div>' +
-            '<div style="color:#A86EFF;font-size:9px;">🔒 ' + (area.unlock_hint || 'Locked') + '</div>' +
-            '<div style="color:#3A3A50;font-size:8px;margin-top:5px;">' + area.era + '</div>';
+            '<div style="color:#fff;font-size:16px;margin-bottom:5px;">' + area.icon + ' ' + area.name + '</div>' +
+            '<div style="color:#B8B8D0;font-size:16px;margin-bottom:7px;line-height:1.8;">' + area.description + '</div>' +
+            '<div style="color:#A86EFF;font-size:16px;">🔒 ' + (area.unlock_hint || 'Locked') + '</div>' +
+            '<div style="color:#3A3A50;font-size:16px;margin-top:5px;">' + area.era + '</div>';
         document.body.appendChild(tooltip);
         setTimeout(() => { if (tooltip.parentNode) tooltip.remove(); }, 3000);
     },
