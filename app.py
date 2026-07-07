@@ -449,6 +449,20 @@ _RES_COL = {
     "spell_fragments": "spell_fragments_donated", "ice_blocks": "ice_blocks_donated",
 }
 
+# ── Global chat ──────────────────────────────────────────────────────────────
+_CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
+# Hardcoded wordlist — expandable; basic bad-word filter applied on send
+_CHAT_BLOCKED_WORDS = frozenset({
+    'fuck', 'shit', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
+    'nigger', 'nigga', 'fag', 'faggot', 'retard', 'whore', 'slut',
+    'kike', 'chink', 'spic',
+})
+
+def _chat_has_profanity(text):
+    import re as _re
+    words = _re.findall(r'\w+', text.lower())
+    return any(w in _CHAT_BLOCKED_WORDS for w in words)
+
 # Maps gear slot → visual area (for WEAR system: one item shown per area)
 _VISUAL_AREA = {
     "helmet": "head",   "hat":       "head",
@@ -1783,6 +1797,10 @@ def run_autonomous_actions():
             generated += 1
         except Exception as e:
             print(f"[Autonomous] Error for {penguin.get('username')}: {e}")
+    db.commit()
+    # Prune chat messages older than 24 h to keep the table bounded
+    cutoff = now - 86400
+    db.execute("DELETE FROM chat_messages WHERE created_at < ?", (cutoff,))
     db.commit()
     db.close()
     print(f"[Autonomous] Generated {generated} actions for {len(all_penguins)} penguins")
@@ -7159,6 +7177,62 @@ def mayor_debug_penguin_fetch():
             "last_login_date":ls["last_login_date"] if ls else "",
         }
     })
+
+
+# ── GLOBAL CHAT ──────────────────────────────────────────────────────────────
+
+@app.route("/chat/messages")
+def chat_get_messages():
+    now    = int(time.time())
+    cutoff = now - 86400          # last 24 hours only
+    db     = get_db()
+    rows   = db.execute(
+        "SELECT username, message, created_at "
+        "FROM chat_messages WHERE created_at > ? "
+        "ORDER BY created_at ASC LIMIT 100",
+        (cutoff,)
+    ).fetchall()
+    db.close()
+    return jsonify({
+        "messages": [
+            {"username": r["username"], "message": r["message"], "created_at": r["created_at"]}
+            for r in rows
+        ]
+    })
+
+
+@app.route("/chat/send", methods=["POST"])
+def chat_send_message():
+    data     = request.get_json(force=True) or {}
+    username = data.get("username", "").strip()
+    message  = data.get("message", "").strip()
+
+    if not username or not message:
+        return jsonify({"status": "error", "message": "Missing username or message."}), 400
+    if len(message) > 200:
+        return jsonify({"status": "error", "message": "Message too long (max 200 chars)."}), 400
+    if _chat_has_profanity(message):
+        return jsonify({"status": "filtered", "message": "Message contains disallowed content."}), 400
+
+    now = int(time.time())
+    db  = get_db()
+
+    last_row = db.execute(
+        "SELECT MAX(created_at) as t FROM chat_messages WHERE username=?", (username,)
+    ).fetchone()
+    last_ts = last_row["t"] if last_row else None
+    if last_ts and (now - last_ts) < _CHAT_RATE_LIMIT_SECONDS:
+        wait = _CHAT_RATE_LIMIT_SECONDS - (now - last_ts)
+        db.close()
+        return jsonify({"status": "rate_limited", "message": f"Please wait {wait}s before sending again."}), 429
+
+    db.execute(
+        "INSERT INTO chat_messages (username, message, created_at) VALUES (?,?,?)",
+        (username, message, now)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
 
 
 if __name__ == "__main__":
