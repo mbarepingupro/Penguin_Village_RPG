@@ -40,16 +40,16 @@
     }
     .mh-title { color: var(--pink); font-size: 23px; flex: 1; }
     .mh-live {
-      font-size: 15px; padding: 5px 10px;
+      font-size: 16px; padding: 5px 10px;
       border: 2px solid var(--red); color: var(--red);
       display: flex; align-items: center; gap: 5px;
     }
     .mh-live.offline { border-color: var(--dim); color: var(--dim); }
     .live-dot { width: 7px; height: 7px; background: var(--red); animation: blink 1s infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.1} }
-    .mh-time { color: var(--dim); font-size: 15px; }
+    .mh-time { color: var(--dim); font-size: 16px; }
     .mh-back {
-      color: var(--purple); font-size: 15px; padding: 6px 12px;
+      color: var(--purple); font-size: 16px; padding: 6px 12px;
       border: 2px solid var(--purple); text-decoration: none;
     }
     .mh-back:hover { background: var(--purple); color: #0f0f14; }
@@ -67,7 +67,7 @@
     }
     .mh-stat-icon { font-size: 30px; margin-bottom: 6px; }
     .mh-stat-val  { color: var(--pink); font-size: 23px; margin-bottom: 4px; }
-    .mh-stat-lbl  { color: var(--dim); font-size: 13px; line-height: 1.6; }
+    .mh-stat-lbl  { color: var(--dim); font-size: 16px; line-height: 1.6; }
 
     /* ── SECTION TITLES ── */
     .mh-section-title {
@@ -84,21 +84,21 @@
     .mh-action-card:hover { border-color: var(--pink); }
     .mh-action-title { color: var(--pink); font-size: 17px; margin-bottom: 10px; }
     .mh-field { margin-bottom: 8px; }
-    .mh-label { color: var(--dim); font-size: 13px; margin-bottom: 4px; display: block; }
+    .mh-label { color: var(--dim); font-size: 16px; margin-bottom: 4px; display: block; }
     .mh-input, .mh-select, .mh-textarea {
       width: 100%;
       background: var(--bg); border: 1px solid #303045345;
       color: var(--white); font-family: 'Pixelify Sans', monospace;
-      font-size: 15px; padding: 6px 8px;
+      font-size: 16px; padding: 6px 8px;
     }
     .mh-input:focus, .mh-select:focus, .mh-textarea:focus {
       outline: none; border-color: var(--pink);
     }
     .mh-textarea { resize: vertical; min-height: 60px; }
-    .mh-charcount { color: var(--dim); font-size: 13px; text-align: right; margin-top: 3px; }
+    .mh-charcount { color: var(--dim); font-size: 16px; text-align: right; margin-top: 3px; }
     .mh-btn {
       width: 100%; padding: 9px;
-      font-family: 'Pixelify Sans', monospace; font-size: 15px;
+      font-family: 'Pixelify Sans', monospace; font-size: 16px;
       border: 2px solid var(--pink); color: var(--pink);
       background: transparent; cursor: pointer; margin-top: 6px;
     }
@@ -109,18 +109,18 @@
     .mh-btn.green  { border-color: var(--green); color: var(--green); }
     .mh-btn.green:hover:not(:disabled) { background: var(--green); color: #0f0f14; }
 
-    .mh-warn { color: var(--red); font-size: 13px; margin-top: 4px; line-height: 1.8; }
+    .mh-warn { color: var(--red); font-size: 16px; margin-top: 4px; line-height: 1.8; }
 
     /* ── ACTIVE BUFFS ── */
     .mh-buff-list { margin-top: 8px; }
     .mh-buff-item {
       background: var(--bg); border: 1px solid var(--purple);
-      padding: 6px 8px; margin-bottom: 4px; font-size: 13px;
+      padding: 6px 8px; margin-bottom: 4px; font-size: 16px;
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
     .mh-buff-name { color: var(--purple); }
     .mh-buff-timer { color: var(--dim); }
-    .mh-no-buffs { color: var(--dim); font-size: 13px; padding: 6px 0; }
+    .mh-no-buffs { color: var(--dim); font-size: 16px; padding: 6px 0; }
 
     /* ── LIVE FEED ── */
     .mh-feed-title {
@@ -128,11 +128,11 @@
       border-bottom: 2px solid #2a2a3a; flex-shrink: 0;
       display: flex; align-items: center; justify-content: space-between;
     }
-    .mh-feed-refresh { color: var(--dim); font-size: 13px; }
+    .mh-feed-refresh { color: var(--dim); font-size: 16px; }
     .mh-feed-list { flex: 1; overflow-y: auto; padding: 8px 10px; }
     .mh-event {
       padding: 6px 8px; border-left: 3px solid #303045;
-      margin-bottom: 5px; font-size: 13px; line-height: 1.8;
+      margin-bottom: 5px; font-size: 16px; line-height: 1.8;
     }
     .mh-event.village     { border-color: var(--purple); }
     .mh-event.job         { border-color: var(--orange); }
@@ -140,14 +140,14 @@
     .mh-event.title       { border-color: var(--pink); }
     .mh-event.mayor       { border-color: var(--pink); background: rgba(255,127,229,0.06); }
     .mh-event-msg  { color: #ccc; }
-    .mh-event-time { color: var(--dim); font-size: 13px; margin-top: 2px; }
+    .mh-event-time { color: var(--dim); font-size: 16px; margin-top: 2px; }
 
     /* ── PLAYER LOOKUP ── */
     .mh-lookup { background: var(--card); border: 2px solid #2a2a3a; padding: 14px; margin-bottom: 16px; }
     .mh-lookup-row { display: flex; gap: 8px; align-items: flex-end; }
     .mh-lookup-row .mh-field { flex: 1; margin: 0; }
     .mh-lookup-btn {
-      padding: 8px 14px; font-family: 'Pixelify Sans', monospace; font-size: 15px;
+      padding: 8px 14px; font-family: 'Pixelify Sans', monospace; font-size: 16px;
       border: 2px solid var(--purple); color: var(--purple); background: transparent; cursor: pointer;
       flex-shrink: 0;
     }
@@ -158,12 +158,12 @@
     }
     .mh-player-name { color: var(--pink); font-size: 17px; margin-bottom: 8px; }
     .mh-player-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
-    .mh-player-stat { font-size: 13px; line-height: 1.8; }
+    .mh-player-stat { font-size: 16px; line-height: 1.8; }
     .mh-player-stat .k { color: var(--dim); }
     .mh-player-stat .v { color: var(--white); }
     .mh-player-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .mh-player-action {
-      font-family: 'Pixelify Sans', monospace; font-size: 13px;
+      font-family: 'Pixelify Sans', monospace; font-size: 16px;
       padding: 5px 10px; border: 1px solid var(--purple); color: var(--purple);
       background: transparent; cursor: pointer;
     }
@@ -173,7 +173,7 @@
     #mh-toast {
       position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
       background: var(--bg); border: 2px solid var(--green);
-      color: var(--green); font-size: 15px; padding: 8px 16px;
+      color: var(--green); font-size: 16px; padding: 8px 16px;
       z-index: 9999; display: none; white-space: nowrap;
       font-family: 'Pixelify Sans', monospace;
     }
@@ -444,7 +444,7 @@
             <input class="mh-input" type="number" id="dbg-energy" min="0"/>
           </div>
         </div>
-        <div style="font-size:13px;color:var(--dim);margin-bottom:4px;">RESOURCES</div>
+        <div style="font-size:16px;color:var(--dim);margin-bottom:4px;">RESOURCES</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
           <div class="mh-field">
             <label class="mh-label">GOLD</label>
@@ -481,7 +481,7 @@
             <input class="mh-input" type="text" id="dbg-last_login_date" maxlength="10" placeholder="2025-01-01"/>
           </div>
         </div>
-        <div style="font-size:13px;color:var(--dim);margin-bottom:4px;">FORCE-EQUIP GEAR (optional)</div>
+        <div style="font-size:16px;color:var(--dim);margin-bottom:4px;">FORCE-EQUIP GEAR (optional)</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
           <div class="mh-field">
             <label class="mh-label">SLOT</label>
@@ -504,22 +504,22 @@
           </div>
         </div>
         <button class="mh-btn" id="dbg-apply-btn" onclick="debugApply()">✅ APPLY CHANGES</button>
-        <div id="dbg-result" style="margin-top:8px;font-size:13px;"></div>
+        <div id="dbg-result" style="margin-top:8px;font-size:16px;"></div>
       </div>
     </div>
 
     <!-- PLAYER MANAGEMENT -->
     <div class="mh-section-title" style="margin-top:20px;">👥 PLAYER MANAGEMENT</div>
     <div class="mh-lookup">
-      <button onclick="loadPlayerList()" style="font-family:'Pixelify Sans',monospace;font-size:13px;padding:8px 16px;background:transparent;border:2px solid var(--purple);color:var(--purple);cursor:pointer;margin-bottom:12px;">LOAD ALL PLAYERS</button>
+      <button onclick="loadPlayerList()" style="font-family:'Pixelify Sans',monospace;font-size:16px;padding:8px 16px;background:transparent;border:2px solid var(--purple);color:var(--purple);cursor:pointer;margin-bottom:12px;">LOAD ALL PLAYERS</button>
       <div id="pm-player-list" style="margin-bottom:12px;"></div>
       <div style="padding:14px;border:2px solid var(--red);margin-top:4px;">
-        <div style="font-family:'Press Start 2P',monospace;font-size:10px;color:var(--red);margin-bottom:10px;">⚠️ DANGER ZONE — DELETE PLAYER</div>
+        <div style="font-family:'Press Start 2P',monospace;font-size:16px;color:var(--red);margin-bottom:10px;">⚠️ DANGER ZONE — DELETE PLAYER</div>
         <div style="display:flex;gap:8px;align-items:center;">
           <input class="mh-input" type="text" id="delete-username" placeholder="Twitch username to delete..." style="flex:1;"/>
-          <button onclick="deletePlayer()" style="font-family:'Pixelify Sans',monospace;font-size:13px;padding:9px 16px;background:var(--red);border:2px solid var(--red);color:#0f0f14;cursor:pointer;white-space:nowrap;">DELETE</button>
+          <button onclick="deletePlayer()" style="font-family:'Pixelify Sans',monospace;font-size:16px;padding:9px 16px;background:var(--red);border:2px solid var(--red);color:#0f0f14;cursor:pointer;white-space:nowrap;">DELETE</button>
         </div>
-        <div id="delete-result" style="margin-top:8px;font-size:13px;"></div>
+        <div id="delete-result" style="margin-top:8px;font-size:16px;"></div>
       </div>
     </div>
 
@@ -885,7 +885,7 @@
     const data   = await res.json();
     const result = document.getElementById('lookup-result');
     if (data.status !== 'ok') {
-      result.innerHTML = `<div style="color:var(--red);font-size:15px;margin-top:8px;">${data.message}</div>`;
+      result.innerHTML = `<div style="color:var(--red);font-size:16px;margin-top:8px;">${data.message}</div>`;
       return;
     }
     const p = data.player;
@@ -917,21 +917,21 @@
       const data = await res.json();
       if (data.status !== 'success') return;
       const container = document.getElementById('pm-player-list');
-      if (!data.players.length) { container.innerHTML = '<div style="color:#8888A8;font-size:13px;">No players found.</div>'; return; }
-      let html = `<div style="color:#B8B8D0;font-size:12px;margin-bottom:6px;">Total: ${data.total} players</div><div style="max-height:260px;overflow-y:auto;border:1px solid #2a2a3a;">`;
+      if (!data.players.length) { container.innerHTML = '<div style="color:#8888A8;font-size:16px;">No players found.</div>'; return; }
+      let html = `<div style="color:#B8B8D0;font-size:16px;margin-bottom:6px;">Total: ${data.total} players</div><div style="max-height:260px;overflow-y:auto;border:1px solid #2a2a3a;">`;
       data.players.forEach(p => {
         const name    = p.penguin_name || p.username;
         const created = p.character_created ? '✅' : '❌';
         html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid #2a2a3a;">
           <div>
-            <span style="color:#fff;font-size:13px;">${name}</span>
-            <span style="color:#8888A8;font-size:11px;"> (${p.username})</span>
-            <span style="color:var(--orange);font-size:11px;"> Lv${p.level}</span>
+            <span style="color:#fff;font-size:16px;">${name}</span>
+            <span style="color:#8888A8;font-size:16px;"> (${p.username})</span>
+            <span style="color:var(--orange);font-size:16px;"> Lv${p.level}</span>
           </div>
           <div style="display:flex;gap:6px;align-items:center;">
-            <span style="font-size:10px;color:#8888A8;">Created:${created}</span>
-            <button onclick="document.getElementById('lookup-username').value='${p.username}';lookupPlayer();document.getElementById('delete-username').value='${p.username}';" style="font-size:11px;color:var(--purple);background:none;border:1px solid var(--purple);padding:2px 6px;cursor:pointer;">INFO</button>
-            <button onclick="document.getElementById('delete-username').value='${p.username}';document.getElementById('delete-username').scrollIntoView({behavior:'smooth'});" style="font-size:11px;color:var(--red);background:none;border:1px solid var(--red);padding:2px 6px;cursor:pointer;">DEL</button>
+            <span style="font-size:16px;color:#8888A8;">Created:${created}</span>
+            <button onclick="document.getElementById('lookup-username').value='${p.username}';lookupPlayer();document.getElementById('delete-username').value='${p.username}';" style="font-size:16px;color:var(--purple);background:none;border:1px solid var(--purple);padding:2px 6px;cursor:pointer;">INFO</button>
+            <button onclick="document.getElementById('delete-username').value='${p.username}';document.getElementById('delete-username').scrollIntoView({behavior:'smooth'});" style="font-size:16px;color:var(--red);background:none;border:1px solid var(--red);padding:2px 6px;cursor:pointer;">DEL</button>
           </div>
         </div>`;
       });
@@ -954,7 +954,7 @@
       const data = await res.json();
       const el   = document.getElementById('delete-result');
       if (data.status === 'success') {
-        el.innerHTML = `<span style="color:var(--green);">✅ ${data.message}</span><br><span style="color:#8888A8;font-size:11px;">Tables: ${data.tables_cleaned.join(', ')}</span>`;
+        el.innerHTML = `<span style="color:var(--green);">✅ ${data.message}</span><br><span style="color:#8888A8;font-size:16px;">Tables: ${data.tables_cleaned.join(', ')}</span>`;
         document.getElementById('delete-username').value = '';
         document.getElementById('lookup-result').innerHTML = '';
         loadPlayerList();
