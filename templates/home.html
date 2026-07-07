@@ -8733,8 +8733,14 @@
     // ── Step 4 — Stats Tab ───────────────────────────────────────────────────
     _step4: async function() {
       var self = this;
-      self._highlightEl('.sidebar-tab[onclick*="stats"]');
-      await self._sayThen('Let\'s see how you\'re doing! Click on the STATS tab on the left panel.');
+      var isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        self._highlightEl('#mobile-player-btn');
+        await self._sayThen('Let\'s see how you\'re doing! Tap the 🐧 button at the top, then the 📊 STATS tab.');
+      } else {
+        self._highlightEl('.sidebar-tab[onclick*="stats"]');
+        await self._sayThen('Let\'s see how you\'re doing! Click on the STATS tab on the left panel.');
+      }
       self._waitForSidebar('stats').then(async function() {
         self._clearHighlights();
         await self._sayThen('Here you can see your resources, missions, and streak. Speaking of which — here\'s a welcome gift from the village!');
@@ -8857,8 +8863,14 @@
     // ── Step 6 — Equip Gear ──────────────────────────────────────────────────
     _step6: async function() {
       var self = this;
-      self._highlightEl('.inv-open-btn');
-      await self._sayThen('Open your inventory — tap the 🐧 Penguin tab, then hit 📦 INVENTORY — and equip the gear you just found!');
+      var isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        self._highlightEl('#mobile-player-btn');
+        await self._sayThen('Time to equip your new gear! Tap the 🐧 button at the top → PENGUIN tab → 📦 INVENTORY, then hit EQUIP!');
+      } else {
+        self._highlightEl('.inv-open-btn');
+        await self._sayThen('Open your inventory — hit 📦 INVENTORY in the left panel — and equip the gear you just found!');
+      }
       self._waitForInventory().then(async function() {
         self._clearHighlights();
         await self._sayThen('Click EQUIP on your new gear to boost your Combat Power. Your penguin just got stronger!');
@@ -9327,6 +9339,7 @@ function _loadMobileTab(tabName) {
   if (src) {
     content.innerHTML = src.innerHTML;
   }
+  if (window.TutorialManager) TutorialManager._notifySidebar(tabName);
 }
 
 // Update mobile player name button when player data is available
