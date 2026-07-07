@@ -2187,6 +2187,93 @@
       .world-map-btn { width: 44px; height: 44px; }
       .build-btn { width: 64px; height: 64px; font-size: 16px; bottom: 12px; }
     }
+
+    /* ── INTERESTS ── */
+    .interests-section {
+      padding: 8px 12px 10px;
+      border-top: 1px solid #2a2a40;
+      margin-top: 4px;
+    }
+    .interests-section-title {
+      font-size: 16px;
+      color: #8888A8;
+      letter-spacing: 1px;
+      margin-bottom: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .interests-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .interest-chip {
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      padding: 4px 8px;
+      border: 1px solid #3a3a58;
+      background: #0e0e1c;
+      color: #8888a8;
+      cursor: pointer;
+      border-radius: 2px;
+      user-select: none;
+      transition: border-color 0.1s, color 0.1s, background 0.1s;
+    }
+    .interest-chip.selected {
+      border-color: #A86EFF;
+      color: #ffffff;
+      background: #1e1030;
+    }
+    .interest-chip:hover:not(.selected) { border-color: #6868a0; color: #b8b8d0; }
+    .interest-chip.disabled { opacity: 0.4; cursor: not-allowed; }
+    .interests-save-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .interests-save-btn {
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      background: #1a1030;
+      border: 1px solid #A86EFF;
+      color: #A86EFF;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .interests-save-btn:hover { background: #100820; }
+    .interests-status { font-size: 16px; color: #6868a0; }
+    .interests-suggest-row {
+      display: flex;
+      gap: 5px;
+      margin-top: 8px;
+      border-top: 1px solid #1e1e30;
+      padding-top: 8px;
+    }
+    .interests-suggest-input {
+      flex: 1;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      background: #0e0e1c;
+      border: 1px solid #3a3a58;
+      color: #d8d8f0;
+      padding: 4px 7px;
+      min-width: 0;
+    }
+    .interests-suggest-input:focus { outline: none; border-color: #6868a0; }
+    .interests-suggest-btn {
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      background: #0e1a0e;
+      border: 1px solid #4aff9e;
+      color: #4aff9e;
+      padding: 4px 8px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .interests-suggest-btn:hover { background: #0a1208; }
   </style>
 </head>
 <body>
@@ -2320,6 +2407,26 @@
         {% endif %}
         <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
 
+        <!-- INTERESTS -->
+        <div class="interests-section" id="interests-section">
+          <div class="interests-section-title">
+            <span>🏷️ INTERESTS</span>
+            <span id="interests-count" style="color:#6868a0;font-size:16px;"></span>
+          </div>
+          <div class="interests-chips" id="interests-chips">
+            <span style="color:#6868a0;font-size:16px;">Loading...</span>
+          </div>
+          <div class="interests-save-row">
+            <button class="interests-save-btn" onclick="saveInterests()">SAVE</button>
+            <span class="interests-status" id="interests-status"></span>
+          </div>
+          <div class="interests-suggest-row">
+            <input class="interests-suggest-input" id="interests-suggest-input"
+                   type="text" maxlength="100"
+                   placeholder="Suggest a new topic...">
+            <button class="interests-suggest-btn" onclick="suggestInterest()">+ SUGGEST</button>
+          </div>
+        </div>
 
       </div>
 
@@ -3118,6 +3225,98 @@
 
   checkActiveBuff();
   setInterval(checkActiveBuff, 60000);
+
+  // ── PLAYER INTERESTS ──
+  var _interestTopics  = [];   // [{key, label, emoji}, ...]
+  var _selectedInterests = new Set();
+  var _maxInterests = 5;
+
+  async function loadInterests() {
+    try {
+      var res  = await fetch('/interests');
+      var data = await res.json();
+      _interestTopics    = data.topics  || [];
+      _selectedInterests = new Set(data.selected || []);
+      _maxInterests      = data.max || 5;
+      renderInterestChips();
+    } catch(e) {}
+  }
+
+  function renderInterestChips() {
+    var box = document.getElementById('interests-chips');
+    var ctr = document.getElementById('interests-count');
+    if (!box) return;
+    box.innerHTML = '';
+    _interestTopics.forEach(function(t) {
+      var chip = document.createElement('button');
+      chip.className = 'interest-chip' +
+        (_selectedInterests.has(t.key) ? ' selected' : '') +
+        (!_selectedInterests.has(t.key) && _selectedInterests.size >= _maxInterests ? ' disabled' : '');
+      chip.textContent = t.emoji + ' ' + t.label;
+      chip.dataset.key = t.key;
+      chip.addEventListener('click', function() {
+        if (_selectedInterests.has(t.key)) {
+          _selectedInterests.delete(t.key);
+        } else {
+          if (_selectedInterests.size >= _maxInterests) return;
+          _selectedInterests.add(t.key);
+        }
+        renderInterestChips();
+        document.getElementById('interests-status').textContent = '';
+      });
+      box.appendChild(chip);
+    });
+    if (ctr) ctr.textContent = _selectedInterests.size + '/' + _maxInterests;
+  }
+
+  async function saveInterests() {
+    var statusEl = document.getElementById('interests-status');
+    try {
+      var res  = await fetch('/interests/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interests: Array.from(_selectedInterests) })
+      });
+      var data = await res.json();
+      if (data.status === 'ok') {
+        if (statusEl) statusEl.textContent = 'Saved!';
+        setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 2000);
+      } else {
+        if (statusEl) statusEl.textContent = data.message || 'Error.';
+      }
+    } catch(e) {
+      if (statusEl) statusEl.textContent = 'Network error.';
+    }
+  }
+
+  async function suggestInterest() {
+    var input    = document.getElementById('interests-suggest-input');
+    var statusEl = document.getElementById('interests-status');
+    if (!input) return;
+    var text = input.value.trim();
+    if (!text) return;
+    try {
+      var res  = await fetch('/interests/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestion: text })
+      });
+      var data = await res.json();
+      if (data.status === 'ok') {
+        input.value = '';
+        if (statusEl) statusEl.textContent = 'Suggestion sent!';
+        setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 2500);
+      } else if (data.status === 'duplicate') {
+        if (statusEl) statusEl.textContent = 'Already suggested recently.';
+      } else {
+        if (statusEl) statusEl.textContent = data.message || 'Error.';
+      }
+    } catch(e) {
+      if (statusEl) statusEl.textContent = 'Network error.';
+    }
+  }
+
+  loadInterests();
 
   async function loadLeaderboard() {
     try {

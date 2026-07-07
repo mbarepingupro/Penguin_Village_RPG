@@ -285,6 +285,23 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS penguin_interests (
+            username     TEXT NOT NULL,
+            interest_key TEXT NOT NULL,
+            PRIMARY KEY (username, interest_key)
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS topic_suggestions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            suggestion TEXT    NOT NULL,
+            created_at INTEGER NOT NULL
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
