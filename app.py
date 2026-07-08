@@ -1968,6 +1968,79 @@ elif not _APSCHEDULER_AVAILABLE:
 
 # ── ROUTES ───────────────────────────────────────────────────────────────────
 
+# Fixed join-window schedule set by the scheduler jobs above: opens Friday
+# 09:00 UTC, closes Saturday 00:00 UTC when start_raid_if_unlocked() flips
+# the raid to 'active'. Not stored on raid_state, so derive it from
+# join_window_start rather than adding a migration for it.
+_RAID_REWARD_PREVIEW = "Top damage dealers win lootboxes + resources"
+
+
+@app.route("/raid/status")
+def raid_status():
+    if not FEATURES.get("weekly_raid", False):
+        return jsonify({"status": "none"})
+
+    db  = get_db()
+    row = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    if not row or row["status"] not in ("join_window", "active"):
+        db.close()
+        return jsonify({"status": "none"})
+
+    participant_count = db.execute(
+        "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (row["id"],)
+    ).fetchone()["cnt"]
+    db.close()
+
+    join_window_end = None
+    if row["join_window_start"]:
+        start_dt = datetime.datetime.utcfromtimestamp(row["join_window_start"])
+        end_dt   = datetime.datetime.combine(start_dt.date() + datetime.timedelta(days=1), datetime.time(0, 0))
+        join_window_end = int(end_dt.replace(tzinfo=datetime.timezone.utc).timestamp())
+
+    return jsonify({
+        "status":             row["status"],
+        "boss_name":          row["boss_name"],
+        "participant_count":  participant_count,
+        "join_window_start":  row["join_window_start"],
+        "join_window_end":    join_window_end,
+        "reward_preview":     _RAID_REWARD_PREVIEW,
+    })
+
+
+@app.route("/raid/join", methods=["POST"])
+def raid_join():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if not FEATURES.get("weekly_raid", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+
+    db  = get_db()
+    row = db.execute(
+        "SELECT id FROM raid_state WHERE status='join_window' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "No raid is open for joining right now."})
+
+    raid_id  = row["id"]
+    existing = db.execute(
+        "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
+    ).fetchone()
+    if not existing:
+        db.execute(
+            "INSERT INTO raid_participants (raid_id, username, joined_at) VALUES (?, ?, ?)",
+            (raid_id, username, int(time.time())),
+        )
+        db.commit()
+
+    participant_count = db.execute(
+        "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (raid_id,)
+    ).fetchone()["cnt"]
+    db.close()
+    return jsonify({"status": "success", "participant_count": participant_count})
+
+
 @app.route("/world/areas")
 def world_areas():
     return jsonify({"areas": WORLD_AREAS})
