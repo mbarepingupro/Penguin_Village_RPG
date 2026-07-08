@@ -14,7 +14,7 @@ from personality_config import (
     pick_autonomous_action, pick_other_penguin, generate_action_text,
     INTEREST_TOPICS, MAX_INTERESTS,
 )
-from raid_config import pick_weekly_metric, pick_boss_name, BOSS_HP_PER_PARTICIPANT
+from raid_config import pick_weekly_metric, pick_boss_name, BOSS_HP_PER_PARTICIPANT, calculate_attack_damage
 import math
 import time
 import requests as http_requests
@@ -1997,14 +1997,18 @@ def raid_status():
         end_dt   = datetime.datetime.combine(start_dt.date() + datetime.timedelta(days=1), datetime.time(0, 0))
         join_window_end = int(end_dt.replace(tzinfo=datetime.timezone.utc).timestamp())
 
-    return jsonify({
+    payload = {
         "status":             row["status"],
         "boss_name":          row["boss_name"],
         "participant_count":  participant_count,
         "join_window_start":  row["join_window_start"],
         "join_window_end":    join_window_end,
         "reward_preview":     _RAID_REWARD_PREVIEW,
-    })
+    }
+    if row["status"] == "active":
+        payload["boss_current_hp"] = row["boss_current_hp"]
+        payload["boss_max_hp"]     = row["boss_max_hp"]
+    return jsonify(payload)
 
 
 @app.route("/raid/join", methods=["POST"])
@@ -2039,6 +2043,90 @@ def raid_join():
     ).fetchone()["cnt"]
     db.close()
     return jsonify({"status": "success", "participant_count": participant_count})
+
+
+@app.route("/raid/attack", methods=["POST"])
+def raid_attack():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if not FEATURES.get("weekly_raid", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+
+    db   = get_db()
+    raid = db.execute(
+        "SELECT * FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if not raid:
+        db.close()
+        return jsonify({"status": "error", "message": "No raid is active right now."}), 409
+
+    raid_id     = raid["id"]
+    participant = db.execute(
+        "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
+    ).fetchone()
+    if not participant:
+        db.close()
+        return jsonify({"status": "error", "message": "You haven't joined this raid."}), 403
+
+    p = db.execute(
+        "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
+    ).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Player not found."})
+
+    energy       = p["energy"] or 0
+    free_rolls   = p["build_free_rolls"] or 0
+    energy_cost  = 5   # same cost as /build/roll
+    is_free_roll = free_rolls > 0
+
+    if not is_free_roll:
+        if energy < energy_cost:
+            db.close()
+            return jsonify({"status": "error", "message": f"Need {energy_cost} energy to attack! Rest at the hotel."})
+        db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (energy_cost, username))
+
+    roll          = random.randint(1, 20)
+    damage        = calculate_attack_damage(roll)
+    is_crit       = (roll == 20 and not is_free_roll)
+    normal_return = False
+
+    # Shares the same build_free_rolls bank as /build/roll — a crit on either
+    # roll type grants 5 free rolls usable on either endpoint.
+    if is_free_roll:
+        new_free_rolls = free_rolls - 1
+        normal_return  = (new_free_rolls == 0)
+        db.execute("UPDATE penguins SET build_free_rolls=? WHERE username=?", (new_free_rolls, username))
+    elif is_crit:
+        new_free_rolls = 5
+        db.execute("UPDATE penguins SET build_free_rolls=5 WHERE username=?", (username,))
+    else:
+        new_free_rolls = 0
+
+    new_boss_hp = max(0, raid["boss_current_hp"] - damage)
+    db.execute("UPDATE raid_state SET boss_current_hp=? WHERE id=?", (new_boss_hp, raid_id))
+    db.execute(
+        "UPDATE raid_participants SET total_damage_dealt=total_damage_dealt+? WHERE raid_id=? AND username=?",
+        (damage, raid_id, username),
+    )
+    award_xp(db, username, roll)
+    p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
+    db.commit()
+    db.close()
+
+    return jsonify({
+        "status":               "success",
+        "roll":                 roll,
+        "damage_dealt":         damage,
+        "boss_current_hp":      new_boss_hp,
+        "boss_max_hp":          raid["boss_max_hp"],
+        "was_crit":             is_crit,
+        "normal_return":        normal_return,
+        "free_rolls_remaining": new_free_rolls,
+        "xp_earned":            roll,
+        "energy_remaining":     (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+    })
 
 
 @app.route("/world/areas")

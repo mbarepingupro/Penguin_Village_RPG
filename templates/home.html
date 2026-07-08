@@ -2087,6 +2087,17 @@
     .build-btn.crit { background: #d94040 url('/static/images/build_button_red.png') center/contain no-repeat; border-color: transparent; }
     .build-btn.crit:hover:not(:disabled) { background-color: #e85555; }
 
+    /* ── ATTACK MODE (Build! button repurposed during an active raid) ──
+       No attack-specific sprite exists yet, so this drops the build_button_*
+       PNG and keeps the same blue/red color-swap the Build button already
+       uses for normal vs. crit/free-roll state. */
+    .build-btn.attack-mode { background: #4ab8d8; }
+    .build-btn.attack-mode:hover:not(:disabled) { background-color: #5ecde8; }
+    .build-btn.attack-mode.crit { background: #d94040; border-color: transparent; }
+    .build-btn.attack-mode.crit:hover:not(:disabled) { background-color: #e85555; }
+    .build-btn.attack-mode.defeated,
+    .build-btn.attack-mode.defeated:hover { background: #303045; color: #8888A8; cursor: not-allowed; }
+
     /* ── D20 ROLL ANIMATION OVERLAY ── */
     #d20-overlay {
       position: absolute; inset: 0; z-index: 65;
@@ -2212,6 +2223,30 @@
     }
     #raid-icon-btn.show { display: flex; }
     #raid-icon-btn:hover { background: #A86EFF; color: #181820; }
+
+    /* ── RAID BOSS HP BAR (map overlay, active raid only) ──
+       Reuses the .boss-hp-bar/.boss-hp-fill/.boss-hp-text classes already
+       defined for the Community Boss banner (combat tab) — same track/fill/
+       text colors, just repositioned as a map overlay strip. */
+    #raid-boss-bar {
+      display: none;
+      position: absolute;
+      top: 8px;
+      left: 58px;
+      right: 58px;
+      z-index: 59;
+      background: #181820;
+      border: 2px solid #FF8C00;
+      padding: 6px 10px;
+      font-family: 'Silkscreen', monospace;
+      pointer-events: none;
+    }
+    #raid-boss-bar.show { display: block; }
+    #raid-boss-name { color: #FF8C00; font-size: 16px; text-align: center; margin-bottom: 4px; }
+    @media (max-width: 600px) {
+      #raid-boss-bar { left: 54px; right: 54px; padding: 4px 6px; }
+      #raid-boss-name { font-size: 16px; }
+    }
 
     #raid-modal-overlay {
       display: none; position: fixed; inset: 0;
@@ -2849,6 +2884,13 @@
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
           <button id="raid-icon-btn" title="Weekly Raid" onclick="RaidJoin.openModal()">⚔️</button>
+          <div id="raid-boss-bar">
+            <div id="raid-boss-name"></div>
+            <div class="boss-hp-bar">
+              <div class="boss-hp-fill" id="raid-boss-hp-fill" style="width:100%"></div>
+              <div class="boss-hp-text" id="raid-boss-hp-text"></div>
+            </div>
+          </div>
           <button id="chat-toggle-btn" title="Global Chat" onclick="GlobalChat.toggle()">💬<span id="chat-badge"></span></button>
           <div id="chat-notif" onclick="GlobalChat.openFromNotif()">
             <div id="chat-notif-author"></div>
@@ -10182,13 +10224,24 @@ function _loadMobileTab(tabName) {
   var faceText = document.getElementById('d20-face-text');
   if (!btn || !overlay || !die || !faceText) return;
 
+  // 'build' (default) or 'attack' (raid active) — same button, same click
+  // handler, same d20 animation; only the endpoint + settle bookkeeping differ.
+  var mode         = 'build';
+  var bossDefeated = false;
+
   function setBtnState(freeRolls) {
+    if (mode === 'attack' && bossDefeated) {
+      btn.disabled = true;
+      btn.textContent = 'Boss defeated — awaiting results';
+      return;
+    }
+    var label = (mode === 'attack') ? 'Attack!' : 'Build!';
     if (freeRolls > 0) {
       btn.classList.add('crit');
-      btn.textContent = 'Build!\n(' + freeRolls + ' free)';
+      btn.textContent = label + '\n(' + freeRolls + ' free)';
     } else {
       btn.classList.remove('crit');
-      btn.textContent = 'Build!';
+      btn.textContent = label;
     }
   }
 
@@ -10266,50 +10319,92 @@ function _loadMobileTab(tabName) {
     // Immediate audio — "throwing" the die
     if (window.GameSounds) GameSounds.ice_roll();
 
+    var endpoint = (mode === 'attack') ? '/raid/attack' : '/build/roll';
+
     // Fetch roll result; hold it until the animation has fully revealed it
     var data;
     try {
-      var res = await fetch('/build/roll', { method: 'POST' });
+      var res = await fetch(endpoint, { method: 'POST' });
       data = await res.json();
     } catch(e) {
-      showToast('Build failed. Try again.', 'err');
+      showToast((mode === 'attack' ? 'Attack' : 'Build') + ' failed. Try again.', 'err');
       btn.disabled = false;
       return;
     }
 
-    if (data.status === 'error') {
-      showToast(data.message || 'Cannot build right now.', 'err');
+    if (data.status === 'error' || data.status === 'disabled') {
+      showToast(data.message || 'Cannot act right now.', 'err');
       btn.disabled = false;
       return;
     }
+
+    var isCrit = (mode === 'attack') ? data.was_crit : data.is_crit;
 
     // Sounds are handled inside showD20; onSettle only does UI bookkeeping
-    showD20(data.roll, data.is_crit, data.normal_return, function() {
-      // Update ice_blocks counter with flash
-      var counter = document.getElementById('count-ice_blocks');
-      if (counter) {
-        var oldVal = parseInt(counter.textContent.replace(/,/g,'')) || 0;
-        counter.textContent = (data.ice_blocks_total || 0).toLocaleString();
-        if (data.ice_blocks_total > oldVal) {
-          counter.classList.add('updated');
-          setTimeout(function() { counter.classList.remove('updated'); }, 500);
+    showD20(data.roll, isCrit, data.normal_return, function() {
+      if (mode === 'attack') {
+        if (window.RaidJoin) RaidJoin.updateBossBar(data.boss_current_hp, data.boss_max_hp);
+        var msg = '⚔️ ' + data.damage_dealt + ' damage! (roll ' + data.roll + ')';
+        if (isCrit)                  msg += ' CRITICAL! 5 free rolls!';
+        else if (data.normal_return) msg += ' Free rolls used up.';
+        showToast(msg, isCrit ? 'ok' : '');
+        if (typeof Effects !== 'undefined' && data.xp_earned) Effects.animateXPGain(data.xp_earned, btn);
+
+        if (data.boss_current_hp <= 0) {
+          bossDefeated = true;
+          btn.classList.add('defeated');
+          // TODO Phase 5: reward distribution + raid-end handling once the
+          // boss dies — for now the button just freezes with a holding message.
         }
+      } else {
+        // Update ice_blocks counter with flash
+        var counter = document.getElementById('count-ice_blocks');
+        if (counter) {
+          var oldVal = parseInt(counter.textContent.replace(/,/g,'')) || 0;
+          counter.textContent = (data.ice_blocks_total || 0).toLocaleString();
+          if (data.ice_blocks_total > oldVal) {
+            counter.classList.add('updated');
+            setTimeout(function() { counter.classList.remove('updated'); }, 500);
+          }
+        }
+        // Flying-emoji collect animations
+        if (typeof Effects !== 'undefined') {
+          Effects.animateResourceCollection('ice_blocks', data.ice_blocks_earned, btn);
+          if (data.xp_earned) Effects.animateXPGain(data.xp_earned, btn);
+        }
+        // Toast — sounds already played at pop time, not here
+        var msg = '🧊 ×' + data.ice_blocks_earned + ' ice blocks! (roll ' + data.roll + ')';
+        if (data.is_crit)         msg += ' CRITICAL! 5 free rolls!';
+        else if (data.normal_return) msg += ' Free rolls used up.';
+        showToast(msg, data.is_crit ? 'ok' : '');
       }
-      // Flying-emoji collect animations
-      if (typeof Effects !== 'undefined') {
-        Effects.animateResourceCollection('ice_blocks', data.ice_blocks_earned, btn);
-        if (data.xp_earned) Effects.animateXPGain(data.xp_earned, btn);
-      }
-      // Toast — sounds already played at pop time, not here
-      var msg = '🧊 ×' + data.ice_blocks_earned + ' ice blocks! (roll ' + data.roll + ')';
-      if (data.is_crit)         msg += ' CRITICAL! 5 free rolls!';
-      else if (data.normal_return) msg += ' Free rolls used up.';
-      showToast(msg, data.is_crit ? 'ok' : '');
       setBtnState(data.free_rolls_remaining || 0);
       if (typeof refreshStats === 'function') refreshStats();
-      btn.disabled = false;   // re-enable only after full animate → hold cycle
+      btn.disabled = bossDefeated;   // stays frozen once the boss is down
     });
   });
+
+  // Exposed so raid.js can swap this button between Build and Attack duty
+  // without duplicating the click handler or the d20 animation.
+  window.BuildAttackButton = {
+    setAttackMode: function(active) {
+      if (active === (mode === 'attack')) return;
+      mode = active ? 'attack' : 'build';
+      bossDefeated = false;
+      btn.classList.toggle('attack-mode', active);
+      btn.classList.toggle('defeated', false);
+      if (!btn.disabled) setBtnState(0);
+    },
+    onBossHpUpdate: function(currentHp) {
+      if (mode !== 'attack' || bossDefeated) return;
+      if (currentHp <= 0) {
+        bossDefeated = true;
+        btn.disabled = true;
+        btn.classList.add('defeated');
+        setBtnState(0);
+      }
+    }
+  };
 })();
 </script>
 <div id="res-tooltip"></div>

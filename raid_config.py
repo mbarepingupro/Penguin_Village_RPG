@@ -65,3 +65,13 @@ def pick_weekly_metric():
 def pick_boss_name():
     """Return a random boss name from BOSS_NAMES."""
     return random.choice(BOSS_NAMES)
+
+
+def calculate_attack_damage(roll):
+    """Return boss damage for a given 1-20 attack roll. Isolated for future multipliers.
+
+    Same linear shape as calculate_ice_blocks_reward (build_roll's calculateIceBlockReward) —
+    a nat 20 free-roll chain here is still bounded by boss_max_hp = participant_count *
+    BOSS_HP_PER_PARTICIPANT, so it's nowhere near trivial and doesn't need a different curve.
+    """
+    return roll

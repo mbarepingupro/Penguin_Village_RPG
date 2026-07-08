@@ -24,10 +24,35 @@ const RaidJoin = {
       var data = await res.json();
       this._latest = data;
       var icon = document.getElementById('raid-icon-btn');
-      if (!icon) return;
-      icon.classList.toggle('show', data.status === 'join_window');
+      if (icon) icon.classList.toggle('show', data.status === 'join_window');
       if (data.status === 'join_window') this._renderModal(data);
+
+      var bar = document.getElementById('raid-boss-bar');
+      if (data.status === 'active') {
+        if (bar) {
+          bar.classList.add('show');
+          var nameEl = document.getElementById('raid-boss-name');
+          if (nameEl) nameEl.textContent = '⚔️ ' + (data.boss_name || 'Raid Boss');
+        }
+        if (window.BuildAttackButton) window.BuildAttackButton.setAttackMode(true);
+        this.updateBossBar(data.boss_current_hp, data.boss_max_hp);
+      } else {
+        if (bar) bar.classList.remove('show');
+        if (window.BuildAttackButton) window.BuildAttackButton.setAttackMode(false);
+      }
     } catch (e) {}
+  },
+
+  // Called on every poll and after a self-attack settles, so the bar reflects
+  // damage from any participant, not just the local player's own rolls.
+  updateBossBar: function(currentHp, maxHp) {
+    if (currentHp == null || maxHp == null) return;
+    var fill = document.getElementById('raid-boss-hp-fill');
+    var text = document.getElementById('raid-boss-hp-text');
+    var pct  = maxHp > 0 ? Math.max(0, Math.min(100, Math.round((currentHp / maxHp) * 100))) : 0;
+    if (fill) fill.style.width = pct + '%';
+    if (text) text.textContent = currentHp.toLocaleString() + ' / ' + maxHp.toLocaleString() + ' HP';
+    if (window.BuildAttackButton) window.BuildAttackButton.onBossHpUpdate(currentHp);
   },
 
   openModal: function() {
