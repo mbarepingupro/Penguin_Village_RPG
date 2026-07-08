@@ -15,6 +15,7 @@ from personality_config import (
     INTEREST_TOPICS, MAX_INTERESTS,
 )
 from raid_config import pick_weekly_metric, pick_boss_name, BOSS_HP_PER_PARTICIPANT, calculate_attack_damage
+from lootbox_config import LOOTBOX_DROP_RATES, GOLD_RANGE, RESOURCE_RANGE, RESOURCE_TYPES
 import math
 import time
 import requests as http_requests
@@ -1531,6 +1532,94 @@ def generate_gear_drop(monster_tier):
         "combat_power": tmpl["combat_power"],
         "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0, "hp_bonus": 0,
     }
+
+
+# ── LOOTBOXES ─────────────────────────────────────────────────────────────────
+# Standalone system (Phase 4) — not yet wired into raid rewards. Phase 5's
+# raid-reward distribution will call grant_lootbox() once the raid ends.
+
+def _roll_lootbox_rarity():
+    """Weighted random rarity roll using LOOTBOX_DROP_RATES (values sum to 100)."""
+    roll       = random.uniform(0, 100)
+    cumulative = 0
+    for rarity, pct in LOOTBOX_DROP_RATES.items():
+        cumulative += pct
+        if roll < cumulative:
+            return rarity
+    return "common"  # float-rounding fallback
+
+
+def _generate_lootbox_gear(rarity):
+    """Random gear item of an exact rarity — reuses GEAR_TEMPLATES, same shape as generate_gear_drop()."""
+    tmpl    = random.choice(GEAR_TEMPLATES[rarity])
+    item_id = f"lootbox_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
+    return {
+        "name": tmpl["name"].upper(),
+        "item_id": item_id,
+        "type": "combat",
+        "slot": tmpl["slot"],
+        "rarity": rarity,
+        "set_name": tmpl["set_name"],
+        "combat_power": tmpl["combat_power"],
+        "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0, "hp_bonus": 0,
+    }
+
+
+def open_lootbox(lootbox_id, username):
+    """Roll + apply a lootbox's rewards (1 gear item + gold + 1 resource).
+
+    Returns the roll result dict for the frontend to animate, or None if the
+    box doesn't exist, isn't owned by username, or was already opened.
+    """
+    db  = get_db()
+    box = db.execute("SELECT * FROM player_lootboxes WHERE id=?", (lootbox_id,)).fetchone()
+    if not box or box["username"] != username or box["opened"]:
+        db.close()
+        return None
+
+    rarity   = _roll_lootbox_rarity()
+    gear     = _generate_lootbox_gear(rarity)
+    gold     = random.randint(*GOLD_RANGE)
+    resource = random.choice(RESOURCE_TYPES)
+    amount   = random.randint(*RESOURCE_RANGE)
+
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
+        "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?)",
+        (username, gear["item_id"], gear["name"], gear["set_name"], gear["type"], gear["slot"],
+         gear["rarity"], gear["attack_bonus"], gear["defense_bonus"], gear["speed_bonus"],
+         gear["hp_bonus"], gear["combat_power"], int(time.time()))
+    )
+    add_gold(db, username, gold)
+    ensure_resources(db, username)
+    db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
+    db.execute("UPDATE player_lootboxes SET opened=1 WHERE id=?", (lootbox_id,))
+    db.commit()
+    db.close()
+
+    return {
+        "gear":     {"name": gear["name"], "rarity": gear["rarity"], "slot": gear["slot"], "set_name": gear["set_name"]},
+        "gold":     gold,
+        "resource": {"type": resource, "amount": amount},
+    }
+
+
+def grant_lootbox(username, count, source):
+    """Insert `count` unopened lootboxes for username.
+
+    Stable signature — Phase 5's raid-reward distribution calls this directly,
+    e.g. grant_lootbox(username, 3, "raid_reward").
+    """
+    db  = get_db()
+    now = int(time.time())
+    for _ in range(count):
+        db.execute(
+            "INSERT INTO player_lootboxes (username, source, opened, created_at) VALUES (?,?,0,?)",
+            (username, source, now)
+        )
+    db.commit()
+    db.close()
 
 
 def apply_level_rewards(db, username, reward):
@@ -3745,6 +3834,42 @@ def gear_unwear():
     db.commit()
     db.close()
     return jsonify({"status": "success", "worn": False, "message": f"{item['name']} unworn."})
+
+
+# ── LOOTBOXES ────────────────────────────────────────────────────────────────
+
+@app.route("/lootbox/inventory/<username>")
+def lootbox_inventory(username):
+    session_user = session.get("username")
+    if not session_user or (session_user != username and not _is_mayor_authed()):
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    db   = get_db()
+    rows = db.execute(
+        "SELECT * FROM player_lootboxes WHERE username=? ORDER BY id DESC", (username,)
+    ).fetchall()
+    db.close()
+    return jsonify({"status": "success", "lootboxes": [dict(r) for r in rows]})
+
+
+@app.route("/lootbox/open/<int:lootbox_id>", methods=["POST"])
+def lootbox_open_route(lootbox_id):
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db  = get_db()
+    box = db.execute("SELECT username FROM player_lootboxes WHERE id=?", (lootbox_id,)).fetchone()
+    db.close()
+    if not box:
+        return jsonify({"status": "error", "message": "Lootbox not found."}), 404
+    if box["username"] != username:
+        return jsonify({"status": "error", "message": "Not your lootbox."}), 403
+
+    result = open_lootbox(lootbox_id, username)
+    if result is None:
+        return jsonify({"status": "error", "message": "Already opened or invalid."})
+    return jsonify({"status": "success", **result})
 
 
 # ── MISSIONS ─────────────────────────────────────────────────────────────────

@@ -711,6 +711,50 @@
       background: #181820; cursor: pointer; text-align: center;
     }
     .inv-open-btn:hover { background: #A86EFF; color: #181820; }
+    /* 🎁 OPEN button (lootboxes) — reuses the equip/wear pair layout */
+    .inv-btn.open-action        { border-color: #A86EFF; color: #A86EFF; }
+    .inv-btn.open-action:hover  { background: #A86EFF; color: #181820; }
+
+    /* ── LOOTBOX REVEAL MODAL ── */
+    #lootbox-reveal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 90010;
+      align-items: center; justify-content: center;
+    }
+    #lootbox-reveal-overlay.show { display: flex; }
+    #lootbox-reveal-modal {
+      background: #252535; border: 3px solid #303045;
+      padding: 24px; max-width: 340px; width: 90%;
+      font-family: 'C&C Red Alert', monospace;
+      text-align: center;
+    }
+    #lootbox-reveal-gift {
+      font-size: 64px; display: inline-block;
+      animation: lootboxPop 0.5s ease;
+    }
+    @keyframes lootboxPop {
+      0%   { transform: scale(0.3); opacity: 0; }
+      60%  { transform: scale(1.25); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    #lootbox-reveal-gift.exploding { animation: lootboxExplode 0.4s ease forwards; }
+    @keyframes lootboxExplode {
+      0%   { transform: scale(1);   opacity: 1; }
+      100% { transform: scale(1.8); opacity: 0; }
+    }
+    #lootbox-reveal-title { color: #A86EFF; font-size: 18px; margin: 12px 0; }
+    #lootbox-reveal-results { display: none; }
+    .lb-reveal-row {
+      color: #B8B8D0; font-size: 16px; margin-bottom: 8px;
+      padding: 6px 8px; border: 1px solid #303045; background: #181820;
+      text-align: left;
+    }
+    #lootbox-reveal-close {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 8px 14px; border: 2px solid #A86EFF; background: transparent;
+      color: #A86EFF; cursor: pointer; margin-top: 8px; width: 100%;
+    }
+    #lootbox-reveal-close:hover { background: #A86EFF; color: #181820; }
 
     .bp-info { font-size: 16px; color: #B8B8D0; line-height: 2; }
 
@@ -3247,9 +3291,24 @@
         <div class="inv-tabs">
           <button class="inv-tab active" id="inv-tab-cosmetics" onclick="switchInvTab('cosmetics')">✨ COSMETICS</button>
           <button class="inv-tab" id="inv-tab-gear" onclick="switchInvTab('gear')" style="display:none;">⚔️ COMBAT</button>
+          <button class="inv-tab" id="inv-tab-lootboxes" onclick="switchInvTab('lootboxes')" style="display:none;">🎁 LOOTBOXES</button>
         </div>
       </div>
       <div class="inv-body" id="inv-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOOTBOX REVEAL MODAL -->
+<div id="lootbox-reveal-overlay">
+  <div id="lootbox-reveal-modal">
+    <div id="lootbox-reveal-gift">🎁</div>
+    <div id="lootbox-reveal-results">
+      <div id="lootbox-reveal-title">LOOTBOX OPENED!</div>
+      <div class="lb-reveal-row" id="lb-reveal-gear"></div>
+      <div class="lb-reveal-row" id="lb-reveal-gold"></div>
+      <div class="lb-reveal-row" id="lb-reveal-resource"></div>
+      <button id="lootbox-reveal-close" onclick="closeLootboxReveal()">CLOSE</button>
     </div>
   </div>
 </div>
@@ -6029,6 +6088,7 @@
   let _invTab = 'cosmetics';
   let _invCosmeticData = [];
   let _invGearData = [];
+  let _invLootboxData = [];
   let _activeSetBonuses = { combat: [], cosmetic: [] };
 
   function renderSetBonusPanel() {
@@ -6079,9 +6139,18 @@
       _activeSetBonuses.combat = (data.set_bonuses || {}).active_bonuses || [];
     } catch(e) { _invGearData = []; _activeSetBonuses.combat = []; }
 
+    try {
+      const res = await fetch(`/lootbox/inventory/${CURRENT_USER}`);
+      const data = await res.json();
+      _invLootboxData = data.lootboxes || [];
+    } catch(e) { _invLootboxData = []; }
+
     const hasCombatGear = _invGearData.some(g => g.type === 'combat');
     const gearTab = document.getElementById('inv-tab-gear');
     if (gearTab) gearTab.style.display = (FEATURES.gear_equip || hasCombatGear) ? '' : 'none';
+
+    const lootboxTab = document.getElementById('inv-tab-lootboxes');
+    if (lootboxTab) lootboxTab.style.display = _invLootboxData.length ? '' : 'none';
 
     _invTab = 'cosmetics';
     document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
@@ -6111,7 +6180,9 @@
   function renderInventory() {
     const body = document.getElementById('inv-body');
     if (!body) return;
-    body.innerHTML = _invTab === 'cosmetics' ? renderCosmeticsTab() : renderCombatGearTab();
+    if (_invTab === 'cosmetics')      body.innerHTML = renderCosmeticsTab();
+    else if (_invTab === 'lootboxes') body.innerHTML = renderLootboxesTab();
+    else                              body.innerHTML = renderCombatGearTab();
   }
 
   function _invRarityClass(item) {
@@ -6216,6 +6287,93 @@
     }
     if (!html) html = '<div class="inv-empty">No combat gear owned yet.</div>';
     return html;
+  }
+
+  function renderLootboxesTab() {
+    const unopened    = _invLootboxData.filter(lb => !lb.opened);
+    const openedCount = _invLootboxData.length - unopened.length;
+    let html = '<div class="inv-slot-group"><div class="inv-slot-title">🎁 LOOTBOXES</div>';
+    if (unopened.length === 0) {
+      html += '<div class="inv-empty">No lootboxes to open right now.</div>';
+    } else {
+      for (const lb of unopened) {
+        html += `<div class="inv-item">
+          <div class="inv-item-info">
+            <div class="inv-item-name">🎁 MYSTERY LOOTBOX</div>
+            <div class="inv-item-source">${(lb.source || '').replace(/_/g, ' ')}</div>
+          </div>
+          <div class="inv-btn-pair"><button class="inv-btn open-action" onclick="invOpenLootbox(${lb.id})">OPEN</button></div>
+        </div>`;
+      }
+    }
+    html += '</div>';
+    if (openedCount > 0) {
+      html += `<div class="inv-empty" style="text-align:left;">${openedCount} lootbox${openedCount === 1 ? '' : 'es'} already opened.</div>`;
+    }
+    return html;
+  }
+
+  async function invOpenLootbox(lootboxId) {
+    try {
+      const res  = await fetch(`/lootbox/open/${lootboxId}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status !== 'success') {
+        showToast(data.message || 'Could not open lootbox.', 'err');
+        return;
+      }
+      const target = _invLootboxData.find(lb => lb.id === lootboxId);
+      if (target) target.opened = 1;
+      renderInventory();
+      showLootboxReveal(data);
+    } catch (e) {
+      showToast('Lootbox open failed. Try again.', 'err');
+    }
+  }
+
+  const _LOOTBOX_RARITY_COLOR = {
+    legendary: '#FF8C00', epic: '#A86EFF', rare: '#4488FF', uncommon: '#4aff6b', common: '#B8B8D0',
+  };
+  const _LOOTBOX_RESOURCE_META = {
+    fish: ['🐟', 'Fish'], herbs: ['🌿', 'Herbs'], blood_gems: ['💎', 'Blood Gems'],
+    bones: ['🦴', 'Bones'], spell_fragments: ['✨', 'Spell Fragments'], ice_blocks: ['🧊', 'Ice Blocks'],
+  };
+
+  // gift pop -> explode + confetti -> reveal rewards; mirrors the d20 tumble->
+  // pop->reveal cadence used by Build/Attack, just with a simpler two-stage animation.
+  function showLootboxReveal(data) {
+    const overlay = document.getElementById('lootbox-reveal-overlay');
+    const gift    = document.getElementById('lootbox-reveal-gift');
+    const results = document.getElementById('lootbox-reveal-results');
+    if (!overlay || !gift || !results) return;
+
+    gift.classList.remove('exploding');
+    results.style.display = 'none';
+    overlay.classList.add('show');
+    if (window.GameSounds) GameSounds.modalOpen();
+
+    // Force reflow so the pop animation replays cleanly on repeated opens
+    void gift.offsetWidth;
+
+    setTimeout(function() {
+      gift.classList.add('exploding');
+      if (window.Effects && Effects.confettiBurst) Effects.confettiBurst(gift, 24);
+
+      setTimeout(function() {
+        const rc = _LOOTBOX_RARITY_COLOR[data.gear.rarity] || '#B8B8D0';
+        const resMeta = _LOOTBOX_RESOURCE_META[data.resource.type] || ['🎁', data.resource.type];
+        document.getElementById('lb-reveal-gear').innerHTML =
+          `⚔️ <span style="color:${rc}">${data.gear.name} (${data.gear.rarity.toUpperCase()})</span>`;
+        document.getElementById('lb-reveal-gold').textContent = `🪙 +${data.gold} Gold`;
+        document.getElementById('lb-reveal-resource').textContent = `${resMeta[0]} +${data.resource.amount} ${resMeta[1]}`;
+        results.style.display = 'block';
+      }, 400);
+    }, 500);
+  }
+
+  function closeLootboxReveal() {
+    document.getElementById('lootbox-reveal-overlay').classList.remove('show');
+    if (window.GameSounds) GameSounds.modalClose();
+    if (typeof refreshStats === 'function') refreshStats();
   }
 
   async function invCosmeticEquipAction(gearId, action) {
