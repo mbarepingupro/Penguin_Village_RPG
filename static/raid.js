@@ -75,7 +75,7 @@ const RaidJoin = {
     var pct = data.threshold > 0
       ? Math.max(0, Math.min(100, Math.round((data.current_progress / data.threshold) * 100)))
       : 0;
-    if (label) label.textContent = '🏆 Weekly Challenge';
+    if (label) label.textContent = '🏆 Weekly Challenge — Unlocks Weekend Raid';
     if (fill)  fill.style.width = pct + '%';
     if (text) {
       text.textContent = (data.metric_label || data.metric_type || 'Progress') + ': ' +
