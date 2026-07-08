@@ -14,11 +14,9 @@ from personality_config import (
     pick_autonomous_action, pick_other_penguin, generate_action_text,
     INTEREST_TOPICS, MAX_INTERESTS,
 )
-from raid_config import (
-    pick_weekly_metric, pick_boss_name, BOSS_HP_PER_PARTICIPANT, calculate_attack_damage,
-    WEEKLY_METRIC_TYPES,
-)
-from lootbox_config import LOOTBOX_DROP_RATES, GOLD_RANGE, RESOURCE_RANGE, RESOURCE_TYPES
+from raid_config import pick_weekly_metric, pick_boss_name, calculate_attack_damage, WEEKLY_METRIC_TYPES
+from lootbox_config import RESOURCE_TYPES
+import raid_settings
 import math
 import time
 import requests as http_requests
@@ -1542,10 +1540,11 @@ def generate_gear_drop(monster_tier):
 # raid-reward distribution will call grant_lootbox() once the raid ends.
 
 def _roll_lootbox_rarity():
-    """Weighted random rarity roll using LOOTBOX_DROP_RATES (values sum to 100)."""
+    """Weighted random rarity roll using the live lootbox_drop_rates setting (sums to 100)."""
+    rates      = raid_settings.get_setting("lootbox_drop_rates")
     roll       = random.uniform(0, 100)
     cumulative = 0
-    for rarity, pct in LOOTBOX_DROP_RATES.items():
+    for rarity, pct in rates.items():
         cumulative += pct
         if roll < cumulative:
             return rarity
@@ -1582,9 +1581,11 @@ def open_lootbox(lootbox_id, username):
 
     rarity   = _roll_lootbox_rarity()
     gear     = _generate_lootbox_gear(rarity)
-    gold     = random.randint(*GOLD_RANGE)
+    gold_range     = raid_settings.get_setting("gold_range")
+    resource_range = raid_settings.get_setting("resource_range")
+    gold     = random.randint(gold_range[0], gold_range[1])
     resource = random.choice(RESOURCE_TYPES)
-    amount   = random.randint(*RESOURCE_RANGE)
+    amount   = random.randint(resource_range[0], resource_range[1])
 
     db.execute(
         "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
@@ -1630,19 +1631,25 @@ def grant_lootbox(username, count, source):
 # instantly from /raid/attack on boss defeat, and from the Monday timeout sweep.
 
 def calculate_rank_reward(rank, total_participants):
-    """Resource amount for non-podium ranks (4th place and below).
+    """Resource amount for non-podium ranks (below rank_reward_podium_size).
 
-    Placeholder curve, tune during balance-pass. Linearly scales from
-    RESOURCE_RANGE's ceiling (rank 4, i.e. just below the lootbox tiers) down
-    to its floor (last place), so it neither dwarfs nor trivializes the
-    lootbox rewards ranks 1-3 receive.
+    Placeholder curve, tune during balance-pass — live inputs are the
+    resource_range and rank_reward_podium_size raid_settings. Linearly scales
+    from the range's ceiling (the rank just below the podium) down to its
+    floor (last place), so it neither dwarfs nor trivializes the lootbox
+    rewards the podium ranks receive.
     """
-    if total_participants <= 4:
-        return RESOURCE_RANGE[1]
-    span     = total_participants - 4
-    position = (rank - 4) / span
-    reward   = RESOURCE_RANGE[1] - position * (RESOURCE_RANGE[1] - RESOURCE_RANGE[0])
-    return max(RESOURCE_RANGE[0], round(reward))
+    resource_range = raid_settings.get_setting("resource_range")
+    podium_size    = raid_settings.get_setting("rank_reward_podium_size")
+    lo, hi = resource_range[0], resource_range[1]
+    first_scaled_rank = podium_size + 1
+
+    if total_participants <= first_scaled_rank:
+        return hi
+    span     = total_participants - first_scaled_rank
+    position = (rank - first_scaled_rank) / span
+    reward   = hi - position * (hi - lo)
+    return max(lo, round(reward))
 
 
 def resolve_raid(raid_id, reason):
@@ -1668,19 +1675,15 @@ def resolve_raid(raid_id, reason):
         "ORDER BY total_damage_dealt DESC", (raid_id,)
     ).fetchall()
     total_participants = len(participants)
+    podium_size        = raid_settings.get_setting("rank_reward_podium_size")
 
     leaderboard = []
     for rank, p in enumerate(participants, start=1):
         username = p["username"]
-        if rank == 1:
-            grant_lootbox(username, 3, "raid_reward")
-            reward = {"lootboxes": 3}
-        elif rank == 2:
-            grant_lootbox(username, 2, "raid_reward")
-            reward = {"lootboxes": 2}
-        elif rank == 3:
-            grant_lootbox(username, 1, "raid_reward")
-            reward = {"lootboxes": 1}
+        if rank <= podium_size:
+            lootbox_count = podium_size - rank + 1
+            grant_lootbox(username, lootbox_count, "raid_reward")
+            reward = {"lootboxes": lootbox_count}
         else:
             resource = random.choice(RESOURCE_TYPES)
             amount   = calculate_rank_reward(rank, total_participants)
@@ -2121,7 +2124,7 @@ def start_raid_if_unlocked():
 
         # At least 1 so HP is never 0 even with no sign-ups yet
         effective_count = max(1, participant_count)
-        boss_max_hp = effective_count * BOSS_HP_PER_PARTICIPANT
+        boss_max_hp = effective_count * raid_settings.get_setting("boss_hp_per_participant")
 
         db.execute(
             "UPDATE raid_state SET status='active', boss_max_hp=?, boss_current_hp=?, raid_start=? "
@@ -2144,9 +2147,13 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
     _scheduler.add_job(run_autonomous_actions, "interval", minutes=30, id="autonomous_actions",
                        misfire_grace_time=60)
     # Weekly challenge + raid lifecycle (all UTC)
+    # end_raid_if_timeout MUST complete before start_new_weekly_challenge — both
+    # used to be registered at the identical Mon 00:00:00 trigger time, which
+    # APScheduler does not guarantee an execution order for. Staggered by one
+    # minute so ordering is enforced by distinct next_run_time values instead.
     _scheduler.add_job(end_raid_if_timeout,        "cron", day_of_week="mon", hour=0, minute=0,
                        id="end_raid_timeout",       misfire_grace_time=300)
-    _scheduler.add_job(start_new_weekly_challenge,  "cron", day_of_week="mon", hour=0, minute=0,
+    _scheduler.add_job(start_new_weekly_challenge,  "cron", day_of_week="mon", hour=0, minute=1,
                        id="start_weekly_challenge",  misfire_grace_time=300)
     _scheduler.add_job(evaluate_weekly_challenge,   "cron", day_of_week="fri", hour=9, minute=0,
                        id="evaluate_weekly_challenge", misfire_grace_time=300)
@@ -2154,7 +2161,7 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
                        id="start_raid",              misfire_grace_time=300)
     _scheduler.start()
     print("[Scheduler] Autonomous actions scheduler started — runs every 30 minutes")
-    print("[Scheduler] Weekly challenge/raid jobs registered (Mon 00:00, Fri 09:00, Sat 00:00)")
+    print("[Scheduler] Weekly challenge/raid jobs registered (Mon 00:00 timeout, Mon 00:01 new challenge, Fri 09:00, Sat 00:00)")
 elif not _APSCHEDULER_AVAILABLE:
     print("[Scheduler] WARNING: apscheduler not available — autonomous actions disabled")
 
@@ -6680,7 +6687,19 @@ def mayor_dashboard():
     for bid in BUILDING_UPGRADES:
         row = db.execute("SELECT current_level FROM building_upgrades WHERE building_id=?", (bid,)).fetchone()
         building_levels[bid] = row["current_level"] if row else 1
+
+    # ── Raid Debug: current cycle status (read-only, refreshed on page load) ──
+    current_challenge = db.execute(
+        "SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    current_raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    raid_participant_count = 0
+    if current_raid:
+        raid_participant_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (current_raid["id"],)
+        ).fetchone()["cnt"]
     db.close()
+
     is_live = _stream_is_live()
     return render_template(
         "mayor.html",
@@ -6696,6 +6715,11 @@ def mayor_dashboard():
         mayor_key=MAYOR_KEY,
         gear_catalog=GEAR_CATALOG,
         cosmetic_slots=COSMETIC_SLOTS,
+        current_challenge=dict(current_challenge) if current_challenge else None,
+        current_raid=dict(current_raid) if current_raid else None,
+        raid_participant_count=raid_participant_count,
+        weekly_metric_types=WEEKLY_METRIC_TYPES,
+        raid_settings_all=raid_settings.get_all_settings(),
     )
 
 
@@ -7166,6 +7190,201 @@ def mayor_delete_player():
     db.close()
     print(f"[Mayor] Player '{username_to_delete}' deleted by {session.get('username') or 'key auth'}. Tables: {tables_cleaned}")
     return jsonify({"status": "success", "message": f"Player '{username_to_delete}' has been completely deleted.", "tables_cleaned": tables_cleaned})
+
+
+# ── MAYOR RAID DEBUG ──────────────────────────────────────────────────────────
+# Force-action routes call the real scheduler-job / resolution functions
+# directly (no duplicated logic). Every action is mayor-authed and logged to
+# event_log under "admin_debug" (excluded from the public news ticker) so
+# there's a trail of manual overrides vs. natural cycle events.
+
+def _raid_debug_flag_check():
+    if not FEATURES.get("weekly_raid", False):
+        return jsonify({"status": "error", "message": "weekly_raid flag is off — enable it first."})
+    return None
+
+
+@app.route("/mayor/raid-debug/settings/<key>", methods=["POST"])
+def raid_debug_save_setting(key):
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    if key not in raid_settings.DEFAULTS:
+        return jsonify({"status": "error", "message": "Unknown setting."}), 404
+
+    data  = request.get_json(silent=True) or {}
+    value = data.get("value")
+
+    try:
+        if key == "weekly_metric_thresholds":
+            value = {k: int(v) for k, v in value.items()}
+            if any(v <= 0 for v in value.values()):
+                raise ValueError("Thresholds must be positive.")
+            valid_ids = {m["id"] for m in WEEKLY_METRIC_TYPES}
+            if set(value.keys()) != valid_ids:
+                raise ValueError("Must supply a threshold for every metric: " + ", ".join(sorted(valid_ids)))
+        elif key == "boss_hp_per_participant":
+            value = int(value)
+            if value <= 0:
+                raise ValueError("Must be positive.")
+        elif key == "lootbox_drop_rates":
+            value = {k: float(v) for k, v in value.items()}
+            valid_rarities = {"legendary", "rare", "epic", "uncommon", "common"}
+            if set(value.keys()) != valid_rarities:
+                raise ValueError("Must supply all 5 rarities: " + ", ".join(sorted(valid_rarities)))
+            total = sum(value.values())
+            if abs(total - 100) > 0.01:
+                raise ValueError(f"Rates must sum to 100 (got {total}).")
+        elif key in ("gold_range", "resource_range"):
+            value = [int(value[0]), int(value[1])]
+            if value[0] < 0 or value[1] < value[0]:
+                raise ValueError("Range must be [min, max] with 0 <= min <= max.")
+        elif key == "rank_reward_podium_size":
+            value = int(value)
+            if value < 1 or value > 20:
+                raise ValueError("Podium size must be between 1 and 20.")
+    except (ValueError, TypeError, KeyError, AttributeError) as e:
+        return jsonify({"status": "error", "message": str(e) or "Invalid value."})
+
+    raid_settings.set_setting(key, value)
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    log_event(db, "admin_debug", f"👑 [RAID DEBUG] {mayor} updated raid setting '{key}' → {value}", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "key": key, "value": value})
+
+
+@app.route("/mayor/raid-debug/force-new-challenge", methods=["POST"])
+def raid_debug_force_new_challenge():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    cancelled = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
+    db.commit()
+    db.close()
+
+    start_new_weekly_challenge()  # the real Monday scheduler job — not duplicated
+
+    db  = get_db()
+    row = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
+    log_event(db, "admin_debug",
+              f"👑 [RAID DEBUG] {mayor} force-started a new weekly challenge"
+              + (f" (cancelled {cancelled} active challenge)" if cancelled else ""),
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "challenge": dict(row) if row else None})
+
+
+@app.route("/mayor/raid-debug/force-succeed-challenge", methods=["POST"])
+def raid_debug_force_succeed_challenge():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    challenge = db.execute(
+        "SELECT id, threshold FROM weekly_challenges WHERE status='active' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if not challenge:
+        db.close()
+        return jsonify({"status": "error", "message": "No active challenge to force-succeed."})
+    db.execute("UPDATE weekly_challenges SET current_progress=? WHERE id=?", (challenge["threshold"], challenge["id"]))
+    db.commit()
+    db.close()
+
+    evaluate_weekly_challenge()  # the real Friday scheduler job — not duplicated
+
+    db   = get_db()
+    raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    log_event(db, "admin_debug", f"👑 [RAID DEBUG] {mayor} force-succeeded the active weekly challenge", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "raid": dict(raid) if raid else None})
+
+
+@app.route("/mayor/raid-debug/force-start-raid", methods=["POST"])
+def raid_debug_force_start_raid():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    mayor = session.get("username") or "key-auth"
+    start_raid_if_unlocked()  # the real Saturday scheduler job — not duplicated;
+                              # no-ops (with a printed message) if no raid is in join_window
+
+    db   = get_db()
+    raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    log_event(db, "admin_debug", f"👑 [RAID DEBUG] {mayor} force-started the raid", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "raid": dict(raid) if raid else None})
+
+
+@app.route("/mayor/raid-debug/force-resolve", methods=["POST"])
+def raid_debug_force_resolve():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    data   = request.get_json(silent=True) or {}
+    reason = data.get("reason", "")
+    if reason not in ("defeated", "timeout"):
+        return jsonify({"status": "error", "message": "reason must be 'defeated' or 'timeout'."})
+
+    db   = get_db()
+    raid = db.execute("SELECT id FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1").fetchone()
+    db.close()
+    if not raid:
+        return jsonify({"status": "error", "message": "No active raid to resolve."})
+
+    result = resolve_raid(raid["id"], reason)  # the real resolution function — not duplicated
+    if result is None:
+        return jsonify({"status": "error", "message": "Raid was already resolved (lost a race)."})
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    log_event(db, "admin_debug", f"👑 [RAID DEBUG] {mayor} force-resolved raid #{raid['id']} as {reason}", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "result": result})
+
+
+@app.route("/mayor/raid-debug/cancel-cycle", methods=["POST"])
+def raid_debug_cancel_cycle():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    challenges_cancelled = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
+    raids_cancelled = db.execute(
+        "UPDATE raid_state SET status='cancelled' WHERE status IN ('join_window', 'active')"
+    ).rowcount
+    log_event(db, "admin_debug",
+              f"👑 [RAID DEBUG] {mayor} cancelled the current cycle "
+              f"({challenges_cancelled} challenge(s), {raids_cancelled} raid(s)) — no rewards distributed",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status": "success",
+        "challenges_cancelled": challenges_cancelled,
+        "raids_cancelled": raids_cancelled,
+    })
 
 
 # ── PENGUIN BANK ─────────────────────────────────────────────────────────────
