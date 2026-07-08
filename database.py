@@ -314,6 +314,44 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_challenges (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            metric_type      TEXT    NOT NULL,
+            threshold        INTEGER NOT NULL,
+            current_progress INTEGER NOT NULL DEFAULT 0,
+            week_start       TEXT    NOT NULL,
+            status           TEXT    NOT NULL DEFAULT 'active',
+            created_at       INTEGER NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS raid_state (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            challenge_id      INTEGER NOT NULL REFERENCES weekly_challenges(id),
+            boss_name         TEXT    NOT NULL,
+            boss_max_hp       INTEGER NOT NULL DEFAULT 0,
+            boss_current_hp   INTEGER NOT NULL DEFAULT 0,
+            status            TEXT    NOT NULL DEFAULT 'inactive',
+            join_window_start INTEGER DEFAULT NULL,
+            raid_start        INTEGER DEFAULT NULL,
+            raid_end          INTEGER DEFAULT NULL,
+            created_at        INTEGER NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS raid_participants (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            raid_id            INTEGER NOT NULL REFERENCES raid_state(id),
+            username           TEXT    NOT NULL,
+            joined_at          INTEGER NOT NULL,
+            total_damage_dealt INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(raid_id, username)
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -575,6 +613,27 @@ def get_db():
     conn = sqlite3.connect(DATABASE, timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def record_challenge_progress(metric_type, amount):
+    """Increment current_progress on the active weekly_challenges row if metric matches.
+
+    Safe to call from any reward-granting code path — silently no-ops when there
+    is no active challenge, or when the active challenge has a different metric_type.
+    """
+    if amount <= 0:
+        return
+    try:
+        conn = sqlite3.connect(DATABASE, timeout=10)
+        conn.execute(
+            "UPDATE weekly_challenges SET current_progress = current_progress + ? "
+            "WHERE status = 'active' AND metric_type = ?",
+            (amount, metric_type),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass  # never raise from an instrumentation helper
 
 
 def backfill_cosmetics(LEVEL_DATA, COSMETIC_SLOTS):

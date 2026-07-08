@@ -5,7 +5,7 @@ import re
 import datetime
 import random
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
-from database import init_db, get_db, backfill_cosmetics
+from database import init_db, get_db, backfill_cosmetics, record_challenge_progress
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
 from personality_config import (
@@ -14,6 +14,7 @@ from personality_config import (
     pick_autonomous_action, pick_other_penguin, generate_action_text,
     INTEREST_TOPICS, MAX_INTERESTS,
 )
+from raid_config import pick_weekly_metric, pick_boss_name, BOSS_HP_PER_PARTICIPANT
 import math
 import time
 import requests as http_requests
@@ -1181,6 +1182,9 @@ def get_gold(db, username):
 def add_gold(db, username, amount):
     ensure_resources(db, username)
     db.execute("UPDATE resources SET gold=gold+? WHERE username=?", (amount, username))
+    if amount > 0:
+        record_challenge_progress("gold_earned", amount)
+
 
 
 def log_event(db, event_type, message, username=None):
@@ -1821,12 +1825,143 @@ def _record_auto_interaction(db, user_a, user_b, action, now):
     db.execute("INSERT OR IGNORE INTO relationships (username1, username2) VALUES (?,?)", (u1, u2))
 
 
+# ── WEEKLY CHALLENGE / RAID SCHEDULER JOBS ───────────────────────────────────
+
+def start_new_weekly_challenge():
+    """Monday 00:00 — pick a metric (no back-to-back repeat), open a new challenge."""
+    metric = pick_weekly_metric()
+    week_start = datetime.date.today().isoformat()
+    now = int(time.time())
+    db = get_db()
+    try:
+        db.execute(
+            "INSERT INTO weekly_challenges (metric_type, threshold, current_progress, week_start, status, created_at) "
+            "VALUES (?, ?, 0, ?, 'active', ?)",
+            (metric["id"], metric["threshold"], week_start, now),
+        )
+        db.commit()
+        print(f"[WeeklyChallenge] New challenge started: {metric['label']} (threshold {metric['threshold']})")
+    except Exception as e:
+        print(f"[WeeklyChallenge] ERROR starting challenge: {e}")
+    finally:
+        db.close()
+
+
+def end_raid_if_timeout():
+    """Monday 00:00 (runs before start_new_weekly_challenge) — expire any active raid."""
+    now = int(time.time())
+    db = get_db()
+    try:
+        db.execute(
+            "UPDATE raid_state SET status='failed', raid_end=? WHERE status='active'",
+            (now,),
+        )
+        db.commit()
+        # TODO Phase 5: trigger reward distribution for participants with damage_dealt > 0
+        print("[WeeklyChallenge] Raid timeout sweep complete")
+    except Exception as e:
+        print(f"[WeeklyChallenge] ERROR in end_raid_if_timeout: {e}")
+    finally:
+        db.close()
+
+
+def evaluate_weekly_challenge():
+    """Friday 09:00 — check if the active challenge was met; create raid_state if so."""
+    now = int(time.time())
+    db = get_db()
+    try:
+        row = db.execute(
+            "SELECT id, metric_type, threshold, current_progress "
+            "FROM weekly_challenges WHERE status='active' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if not row:
+            print("[WeeklyChallenge] No active challenge to evaluate")
+            return
+
+        challenge_id = row["id"]
+        succeeded = row["current_progress"] >= row["threshold"]
+        new_status = "succeeded" if succeeded else "failed"
+
+        db.execute(
+            "UPDATE weekly_challenges SET status=? WHERE id=?",
+            (new_status, challenge_id),
+        )
+
+        if succeeded:
+            boss_name = pick_boss_name()
+            db.execute(
+                "INSERT INTO raid_state "
+                "(challenge_id, boss_name, boss_max_hp, boss_current_hp, status, join_window_start, created_at) "
+                "VALUES (?, ?, 0, 0, 'join_window', ?, ?)",
+                (challenge_id, boss_name, now, now),
+            )
+            print(f"[WeeklyChallenge] Challenge succeeded! Raid unlocked: {boss_name}")
+        else:
+            print(
+                f"[WeeklyChallenge] Challenge failed "
+                f"({row['current_progress']}/{row['threshold']} {row['metric_type']})"
+            )
+
+        db.commit()
+    except Exception as e:
+        print(f"[WeeklyChallenge] ERROR in evaluate_weekly_challenge: {e}")
+    finally:
+        db.close()
+
+
+def start_raid_if_unlocked():
+    """Saturday 00:00 — close join window; set boss HP from participant count; open raid."""
+    now = int(time.time())
+    db = get_db()
+    try:
+        raid = db.execute(
+            "SELECT id FROM raid_state WHERE status='join_window' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if not raid:
+            print("[WeeklyChallenge] No raid in join_window — nothing to start")
+            return
+
+        raid_id = raid["id"]
+        participant_count = db.execute(
+            "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (raid_id,)
+        ).fetchone()["cnt"]
+
+        # At least 1 so HP is never 0 even with no sign-ups yet
+        effective_count = max(1, participant_count)
+        boss_max_hp = effective_count * BOSS_HP_PER_PARTICIPANT
+
+        db.execute(
+            "UPDATE raid_state SET status='active', boss_max_hp=?, boss_current_hp=?, raid_start=? "
+            "WHERE id=?",
+            (boss_max_hp, boss_max_hp, now, raid_id),
+        )
+        db.commit()
+        print(
+            f"[WeeklyChallenge] Raid {raid_id} started — "
+            f"{participant_count} participants, boss HP {boss_max_hp}"
+        )
+    except Exception as e:
+        print(f"[WeeklyChallenge] ERROR in start_raid_if_unlocked: {e}")
+    finally:
+        db.close()
+
+
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
     _scheduler = BackgroundScheduler(daemon=True)
     _scheduler.add_job(run_autonomous_actions, "interval", minutes=30, id="autonomous_actions",
                        misfire_grace_time=60)
+    # Weekly challenge + raid lifecycle (all UTC)
+    _scheduler.add_job(end_raid_if_timeout,        "cron", day_of_week="mon", hour=0, minute=0,
+                       id="end_raid_timeout",       misfire_grace_time=300)
+    _scheduler.add_job(start_new_weekly_challenge,  "cron", day_of_week="mon", hour=0, minute=0,
+                       id="start_weekly_challenge",  misfire_grace_time=300)
+    _scheduler.add_job(evaluate_weekly_challenge,   "cron", day_of_week="fri", hour=9, minute=0,
+                       id="evaluate_weekly_challenge", misfire_grace_time=300)
+    _scheduler.add_job(start_raid_if_unlocked,      "cron", day_of_week="sat", hour=0, minute=0,
+                       id="start_raid",              misfire_grace_time=300)
     _scheduler.start()
     print("[Scheduler] Autonomous actions scheduler started — runs every 30 minutes")
+    print("[Scheduler] Weekly challenge/raid jobs registered (Mon 00:00, Fri 09:00, Sat 00:00)")
 elif not _APSCHEDULER_AVAILABLE:
     print("[Scheduler] WARNING: apscheduler not available — autonomous actions disabled")
 
@@ -2690,6 +2825,8 @@ def work_collect():
 
     _track_res = sum(v for k, v in earned.items() if k not in ("gold", "xp") and v > 0)
     _track_gold = earned.get("gold", 0)
+    if _track_res > 0:
+        record_challenge_progress("resources_gathered", _track_res)
     if _track_res > 0 or _track_gold > 0:
         db.execute(
             "UPDATE penguins SET total_resources_collected=total_resources_collected+?, "
@@ -3092,6 +3229,7 @@ def combat_fight():
                 "total_gold_collected=total_gold_collected+? WHERE username=?",
                 (gold, username)
             )
+            record_challenge_progress("monsters_killed", 1)
             _check_lb_achievements(db, username)
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
