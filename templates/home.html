@@ -2192,6 +2192,58 @@
       .build-btn { width: 64px; height: 64px; font-size: 16px; bottom: 12px; }
     }
 
+    /* ── RAID JOIN ICON ── */
+    #raid-icon-btn {
+      display: none;
+      position: absolute;
+      top: 58px;
+      right: 8px;
+      z-index: 62;
+      width: 42px;
+      height: 42px;
+      background: #252535;
+      border: 2px solid #A86EFF;
+      color: #A86EFF;
+      font-size: 20px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    #raid-icon-btn.show { display: flex; }
+    #raid-icon-btn:hover { background: #A86EFF; color: #181820; }
+
+    #raid-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 90000;
+      align-items: center; justify-content: center;
+    }
+    #raid-modal-overlay.show { display: flex; }
+    #raid-modal {
+      background: #252535; border: 3px solid #A86EFF;
+      padding: 20px; max-width: 380px; width: 90%;
+      font-family: 'C&C Red Alert', monospace;
+      animation: popIn 0.2s ease;
+    }
+    #raid-modal-title { color: #A86EFF; font-size: 19px; margin-bottom: 12px; }
+    #raid-modal-body { color: #B8B8D0; font-size: 16px; line-height: 1.6; margin-bottom: 8px; }
+    #raid-modal-count { color: #fff; font-size: 16px; margin-bottom: 14px; }
+    #raid-modal-reward { color: #FF7FE5; font-size: 16px; margin-bottom: 16px; border-top: 1px solid #303045; padding-top: 10px; }
+    #raid-join-btn {
+      width: 100%; padding: 11px; font-size: 17px;
+      font-family: 'C&C Red Alert', monospace;
+      border: 2px solid #A86EFF; background: transparent;
+      color: #A86EFF; cursor: pointer;
+    }
+    #raid-join-btn:hover:not(:disabled) { background: #A86EFF; color: #181820; }
+    #raid-join-btn:disabled { opacity: 0.6; cursor: not-allowed; border-color: #4aff6b; color: #4aff6b; }
+    #raid-modal-close {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 6px 14px; border: 2px solid #8888A8; background: transparent;
+      color: #B8B8D0; cursor: pointer; margin-top: 12px; display: block; width: 100%;
+    }
+    #raid-modal-close:hover { border-color: #A86EFF; color: #A86EFF; }
+
     /* ── GLOBAL CHAT PANEL ── */
     #chat-toggle-btn {
       position: absolute;
@@ -2796,6 +2848,7 @@
         <div class="map-area" id="map-area">
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
+          <button id="raid-icon-btn" title="Weekly Raid" onclick="RaidJoin.openModal()">⚔️</button>
           <button id="chat-toggle-btn" title="Global Chat" onclick="GlobalChat.toggle()">💬<span id="chat-badge"></span></button>
           <div id="chat-notif" onclick="GlobalChat.openFromNotif()">
             <div id="chat-notif-author"></div>
@@ -3268,6 +3321,18 @@
   <div id="bq-preview"></div>
 </div>
 
+<!-- RAID JOIN MODAL -->
+<div id="raid-modal-overlay" onclick="if (event.target === this) RaidJoin.closeModal()">
+  <div id="raid-modal">
+    <div id="raid-modal-title">⚔️ WEEKLY RAID</div>
+    <div id="raid-modal-body"><span id="raid-modal-boss"></span></div>
+    <div id="raid-modal-count"><span id="raid-modal-participants"></span> players have joined</div>
+    <div id="raid-modal-reward"></div>
+    <button id="raid-join-btn" onclick="RaidJoin.join()">Join Raid</button>
+    <button id="raid-modal-close" onclick="RaidJoin.closeModal()">CLOSE</button>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast"></div>
 
@@ -3278,6 +3343,7 @@
 <script src="/static/overworld_map.js"></script>
   <script src="/static/minigames.js"></script>
   <script src="/static/igloo_renderer.js"></script>
+  <script src="/static/raid.js"></script>
 <script>
   function switchSidebarTab(name, btn) {
     document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
