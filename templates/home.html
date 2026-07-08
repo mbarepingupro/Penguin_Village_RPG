@@ -3382,10 +3382,13 @@
   // query penguins.last_active against that threshold (no separate table needed).
   (function() {
     function _presencePing() {
+      var _u;
+      try { _u = CURRENT_USER; } catch(e) { return; }
+      if (!_u) return;
       fetch('/presence/ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER })
+        body: JSON.stringify({ username: _u })
       }).catch(function() {});
     }
     _presencePing();
