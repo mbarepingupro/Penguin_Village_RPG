@@ -2324,6 +2324,55 @@
       #chat-panel { display: none !important; }
     }
 
+    /* ── CHAT UNREAD BADGE + POPUP ── */
+    #chat-badge {
+      display: none;
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: #ff4444;
+      color: #fff;
+      font-family: 'Silkscreen', monospace;
+      font-size: 13px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      line-height: 18px;
+      text-align: center;
+      padding: 0 4px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #chat-notif {
+      display: none;
+      position: absolute;
+      top: 58px;
+      right: 8px;
+      width: 230px;
+      background: rgba(10, 10, 20, 0.96);
+      border: 1px solid #4aff9e;
+      padding: 7px 10px;
+      z-index: 63;
+      cursor: pointer;
+      font-family: 'Silkscreen', monospace;
+    }
+    #chat-notif.show {
+      display: block;
+      animation: chatNotifIn 0.18s ease-out;
+    }
+    #chat-notif-author { color: #A86EFF; font-size: 14px; margin-bottom: 3px; }
+    #chat-notif-text {
+      color: #d8d8f0;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    @keyframes chatNotifIn {
+      from { opacity: 0; transform: translateX(16px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
     /* ── INTERESTS ── */
     .interests-section {
       padding: 8px 12px 10px;
@@ -2747,7 +2796,11 @@
         <div class="map-area" id="map-area">
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
-          <button id="chat-toggle-btn" title="Global Chat" onclick="GlobalChat.toggle()">💬</button>
+          <button id="chat-toggle-btn" title="Global Chat" onclick="GlobalChat.toggle()">💬<span id="chat-badge"></span></button>
+          <div id="chat-notif" onclick="GlobalChat.openFromNotif()">
+            <div id="chat-notif-author"></div>
+            <div id="chat-notif-text"></div>
+          </div>
           <div id="chat-panel">
             <div id="chat-panel-header">
               <span>💬 GLOBAL CHAT</span>
@@ -3401,15 +3454,63 @@
     _polling: null,
     _lastId: 0,
     _onMapTab: true,
+    _highestTs: 0,   // highest created_at seen across any poll
+    _unread: 0,      // messages received while panel was closed
+    _notifTimer: null,
 
     toggle: function() {
       this._open = !this._open;
       var panel = document.getElementById('chat-panel');
       if (panel) panel.classList.toggle('open', this._open);
       if (this._open) {
+        this._clearUnread();
         this._poll();
         document.getElementById('chat-input').focus();
       }
+    },
+
+    openFromNotif: function() {
+      this._hideNotif();
+      if (!this._open) this.toggle();
+    },
+
+    _clearUnread: function() {
+      this._unread = 0;
+      this._hideNotif();
+      var badge = document.getElementById('chat-badge');
+      if (badge) badge.style.display = 'none';
+    },
+
+    _updateBadge: function() {
+      var badge = document.getElementById('chat-badge');
+      if (!badge) return;
+      if (this._unread > 0) {
+        badge.textContent = this._unread > 99 ? '99+' : this._unread;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+    },
+
+    _showNotif: function(msg) {
+      var notif  = document.getElementById('chat-notif');
+      var author = document.getElementById('chat-notif-author');
+      var text   = document.getElementById('chat-notif-text');
+      if (!notif || !author || !text) return;
+      author.textContent = '💬 ' + msg.username;
+      text.textContent   = msg.message;
+      notif.classList.remove('show');
+      void notif.offsetWidth; // force reflow to restart animation
+      notif.classList.add('show');
+      if (this._notifTimer) clearTimeout(this._notifTimer);
+      var self = this;
+      this._notifTimer = setTimeout(function() { self._hideNotif(); }, 4000);
+    },
+
+    _hideNotif: function() {
+      if (this._notifTimer) { clearTimeout(this._notifTimer); this._notifTimer = null; }
+      var notif = document.getElementById('chat-notif');
+      if (notif) notif.classList.remove('show');
     },
 
     _relTime: function(ts) {
@@ -3439,6 +3540,31 @@
       if (atBottom || msgs.length <= 10) box.scrollTop = box.scrollHeight;
     },
 
+    _processUnread: function(msgs) {
+      // On the very first poll, just establish the baseline — don't count existing history as unread
+      if (this._highestTs === 0) {
+        msgs.forEach(function(m) {
+          if (m.created_at > this._highestTs) this._highestTs = m.created_at;
+        }, this);
+        return;
+      }
+      var newest = null;
+      var newCount = 0;
+      var self = this;
+      msgs.forEach(function(m) {
+        if (m.created_at > self._highestTs) {
+          newCount++;
+          newest = m;
+          self._highestTs = m.created_at;
+        }
+      });
+      if (newCount > 0 && !this._open) {
+        this._unread += newCount;
+        this._updateBadge();
+        this._showNotif(newest);
+      }
+    },
+
     _esc: function(s) {
       return String(s)
         .replace(/&/g, '&amp;')
@@ -3453,12 +3579,14 @@
     },
 
     _poll: async function() {
-      if (!this._onMapTab || !this._open) return;
+      if (!this._onMapTab) return;
       try {
         var res = await fetch('/chat/messages');
         if (res.ok) {
           var data = await res.json();
-          this._renderMessages(data.messages || []);
+          var msgs = data.messages || [];
+          this._processUnread(msgs);
+          if (this._open) this._renderMessages(msgs);
         }
       } catch(e) {}
     },
@@ -3466,8 +3594,9 @@
     startPolling: function() {
       var self = this;
       if (self._polling) clearInterval(self._polling);
+      // Poll even when closed so we can detect unread messages
       self._polling = setInterval(function() {
-        if (self._onMapTab && self._open) self._poll();
+        if (self._onMapTab) self._poll();
       }, 4000);
     },
 
@@ -3477,6 +3606,7 @@
 
     onTabChange: function(tabName) {
       this._onMapTab = (tabName === 'map');
+      if (!this._onMapTab) this._hideNotif();
     },
 
     send: async function() {
