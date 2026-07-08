@@ -116,6 +116,16 @@ def init_db():
     """)
 
     c.execute("""
+        CREATE TABLE IF NOT EXISTS player_lootboxes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            source     TEXT    NOT NULL,
+            opened     INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )
+    """)
+
+    c.execute("""
         CREATE TABLE IF NOT EXISTS monster_kills (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
