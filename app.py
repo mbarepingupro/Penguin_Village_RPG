@@ -1185,7 +1185,7 @@ def add_gold(db, username, amount):
     ensure_resources(db, username)
     db.execute("UPDATE resources SET gold=gold+? WHERE username=?", (amount, username))
     if amount > 0:
-        record_challenge_progress("gold_earned", amount)
+        record_challenge_progress(db, "gold_earned", amount)
 
 
 
@@ -3250,7 +3250,7 @@ def work_collect():
     _track_res = sum(v for k, v in earned.items() if k not in ("gold", "xp") and v > 0)
     _track_gold = earned.get("gold", 0)
     if _track_res > 0:
-        record_challenge_progress("resources_gathered", _track_res)
+        record_challenge_progress(db, "resources_gathered", _track_res)
     if _track_res > 0 or _track_gold > 0:
         db.execute(
             "UPDATE penguins SET total_resources_collected=total_resources_collected+?, "
@@ -3653,7 +3653,7 @@ def combat_fight():
                 "total_gold_collected=total_gold_collected+? WHERE username=?",
                 (gold, username)
             )
-            record_challenge_progress("monsters_killed", 1)
+            record_challenge_progress(db, "monsters_killed", 1)
             _check_lb_achievements(db, username)
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
