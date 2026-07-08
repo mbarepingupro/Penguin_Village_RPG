@@ -30,10 +30,15 @@ const RaidJoin = {
       if (icon) icon.classList.toggle('show', data.status === 'join_window');
       if (data.status === 'join_window') this._renderModal(data);
 
-      var bar = document.getElementById('raid-boss-bar');
+      // The boss HP bar and the weekly challenge bar share the same overlay
+      // slot — exactly one of them is ever shown, matching the status value.
+      var bossBar = document.getElementById('raid-boss-bar');
+      var wcBar   = document.getElementById('weekly-challenge-bar');
+
       if (data.status === 'active') {
-        if (bar) {
-          bar.classList.add('show');
+        if (wcBar) wcBar.classList.remove('show');
+        if (bossBar) {
+          bossBar.classList.add('show');
           var nameEl = document.getElementById('raid-boss-name');
           if (nameEl) nameEl.textContent = '⚔️ ' + (data.boss_name || 'Raid Boss');
         }
@@ -41,7 +46,7 @@ const RaidJoin = {
         this.updateBossBar(data.boss_current_hp, data.boss_max_hp);
         this._lastRaidId = data.raid_id;
       } else {
-        if (bar) bar.classList.remove('show');
+        if (bossBar) bossBar.classList.remove('show');
         if (window.BuildAttackButton) window.BuildAttackButton.setAttackMode(false);
         // Bystanders (didn't land the killing blow) find out the raid ended
         // here, up to 30s later — whoever attacked last already saw the
@@ -49,9 +54,33 @@ const RaidJoin = {
         if (this._lastStatus === 'active' && this._lastRaidId) {
           this._fetchAndShowResults(this._lastRaidId);
         }
+
+        if (data.status === 'challenge_active') {
+          this.updateChallengeBar(data);
+        } else if (wcBar) {
+          wcBar.classList.remove('show');
+        }
       }
       this._lastStatus = data.status;
     } catch (e) {}
+  },
+
+  updateChallengeBar: function(data) {
+    var wcBar = document.getElementById('weekly-challenge-bar');
+    var label = document.getElementById('weekly-challenge-label');
+    var fill  = document.getElementById('weekly-challenge-fill');
+    var text  = document.getElementById('weekly-challenge-text');
+    if (!wcBar) return;
+    wcBar.classList.add('show');
+    var pct = data.threshold > 0
+      ? Math.max(0, Math.min(100, Math.round((data.current_progress / data.threshold) * 100)))
+      : 0;
+    if (label) label.textContent = '🏆 Weekly Challenge';
+    if (fill)  fill.style.width = pct + '%';
+    if (text) {
+      text.textContent = (data.metric_label || data.metric_type || 'Progress') + ': ' +
+        (data.current_progress || 0).toLocaleString() + ' / ' + (data.threshold || 0).toLocaleString();
+    }
   },
 
   _fetchAndShowResults: async function(raidId) {

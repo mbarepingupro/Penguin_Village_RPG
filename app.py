@@ -14,7 +14,10 @@ from personality_config import (
     pick_autonomous_action, pick_other_penguin, generate_action_text,
     INTEREST_TOPICS, MAX_INTERESTS,
 )
-from raid_config import pick_weekly_metric, pick_boss_name, BOSS_HP_PER_PARTICIPANT, calculate_attack_damage
+from raid_config import (
+    pick_weekly_metric, pick_boss_name, BOSS_HP_PER_PARTICIPANT, calculate_attack_damage,
+    WEEKLY_METRIC_TYPES,
+)
 from lootbox_config import LOOTBOX_DROP_RATES, GOLD_RANGE, RESOURCE_RANGE, RESOURCE_TYPES
 import math
 import time
@@ -2016,6 +2019,8 @@ def _record_auto_interaction(db, user_a, user_b, action, now):
 
 def start_new_weekly_challenge():
     """Monday 00:00 — pick a metric (no back-to-back repeat), open a new challenge."""
+    if not FEATURES.get("weekly_raid", False):
+        return
     metric = pick_weekly_metric()
     week_start = datetime.date.today().isoformat()
     now = int(time.time())
@@ -2036,6 +2041,8 @@ def start_new_weekly_challenge():
 
 def end_raid_if_timeout():
     """Monday 00:00 (runs before start_new_weekly_challenge) — force-resolve any still-active raid."""
+    if not FEATURES.get("weekly_raid", False):
+        return
     try:
         db = get_db()
         active_raids = db.execute("SELECT id FROM raid_state WHERE status='active'").fetchall()
@@ -2049,6 +2056,8 @@ def end_raid_if_timeout():
 
 def evaluate_weekly_challenge():
     """Friday 09:00 — check if the active challenge was met; create raid_state if so."""
+    if not FEATURES.get("weekly_raid", False):
+        return
     now = int(time.time())
     db = get_db()
     try:
@@ -2093,6 +2102,8 @@ def evaluate_weekly_challenge():
 
 def start_raid_if_unlocked():
     """Saturday 00:00 — close join window; set boss HP from participant count; open raid."""
+    if not FEATURES.get("weekly_raid", False):
+        return
     now = int(time.time())
     db = get_db()
     try:
@@ -2157,6 +2168,9 @@ elif not _APSCHEDULER_AVAILABLE:
 _RAID_REWARD_PREVIEW = "Top damage dealers win lootboxes + resources"
 
 
+_METRIC_LABELS = {m["id"]: m["label"] for m in WEEKLY_METRIC_TYPES}
+
+
 @app.route("/raid/status")
 def raid_status():
     if not FEATURES.get("weekly_raid", False):
@@ -2165,8 +2179,23 @@ def raid_status():
     db  = get_db()
     row = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
     if not row or row["status"] not in ("join_window", "active"):
+        # No raid pending — surface the Mon-Fri weekly challenge progress instead,
+        # so the map overlay can show its progress bar in the same slot the
+        # join icon / boss HP bar occupy once a raid exists.
+        challenge = db.execute(
+            "SELECT metric_type, current_progress, threshold FROM weekly_challenges "
+            "WHERE status='active' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
         db.close()
-        return jsonify({"status": "none"})
+        if not challenge:
+            return jsonify({"status": "none"})
+        return jsonify({
+            "status":            "challenge_active",
+            "metric_type":       challenge["metric_type"],
+            "metric_label":      _METRIC_LABELS.get(challenge["metric_type"], challenge["metric_type"]),
+            "current_progress":  challenge["current_progress"],
+            "threshold":         challenge["threshold"],
+        })
 
     participant_count = db.execute(
         "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (row["id"],)

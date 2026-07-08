@@ -2292,6 +2292,35 @@
       #raid-boss-name { font-size: 16px; }
     }
 
+    /* ── WEEKLY CHALLENGE PROGRESS BAR (map overlay, Mon-Fri window only) ──
+       Same overlay slot/position as #raid-boss-bar — mutually exclusive by
+       construction, toggled by raid.js based on /raid/status. Mirrors the
+       boss-hp-bar's track/fill/text structure but in the purple palette
+       (fill #A86EFF) rather than reusing that class directly, since its
+       fill color is hardcoded orange. */
+    #weekly-challenge-bar {
+      display: none;
+      position: absolute;
+      top: 8px;
+      left: 58px;
+      right: 58px;
+      z-index: 59;
+      background: #252535;
+      border: 2px solid #303045;
+      padding: 6px 10px;
+      font-family: 'Silkscreen', monospace;
+      pointer-events: none;
+    }
+    #weekly-challenge-bar.show { display: block; }
+    #weekly-challenge-label { color: #A86EFF; font-size: 16px; text-align: center; margin-bottom: 4px; }
+    .wc-bar-track { height: 20px; background: #303045; position: relative; }
+    .wc-bar-fill  { height: 100%; background: #A86EFF; transition: width 0.5s; }
+    .wc-bar-text  { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; }
+    @media (max-width: 600px) {
+      #weekly-challenge-bar { left: 54px; right: 54px; padding: 4px 6px; }
+      #weekly-challenge-label { font-size: 16px; }
+    }
+
     #raid-modal-overlay {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.7); z-index: 90000;
@@ -2966,6 +2995,13 @@
             <div class="boss-hp-bar">
               <div class="boss-hp-fill" id="raid-boss-hp-fill" style="width:100%"></div>
               <div class="boss-hp-text" id="raid-boss-hp-text"></div>
+            </div>
+          </div>
+          <div id="weekly-challenge-bar">
+            <div id="weekly-challenge-label"></div>
+            <div class="wc-bar-track">
+              <div class="wc-bar-fill" id="weekly-challenge-fill" style="width:0%"></div>
+              <div class="wc-bar-text" id="weekly-challenge-text"></div>
             </div>
           </div>
           <button id="chat-toggle-btn" title="Global Chat" onclick="GlobalChat.toggle()">💬<span id="chat-badge"></span></button>
