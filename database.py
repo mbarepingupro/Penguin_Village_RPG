@@ -633,23 +633,30 @@ def get_db():
     return conn
 
 
-def record_challenge_progress(metric_type, amount):
+def record_challenge_progress(db, metric_type, amount):
     """Increment current_progress on the active weekly_challenges row if metric matches.
 
-    Safe to call from any reward-granting code path — silently no-ops when there
-    is no active challenge, or when the active challenge has a different metric_type.
+    Executes on the caller's own db connection instead of opening a separate
+    one — a second connection here would contend for the write lock against
+    whatever transaction the caller already has open (add_gold, combat fight,
+    job collect, etc. all call this mid-transaction), blocking for the full
+    busy-timeout and then silently failing to record anything. That was
+    exactly the cause of a ~10s delay on every monster fight (and every
+    gold/resource gain) while a matching weekly challenge was active, with
+    progress never actually incrementing.
+
+    Safe to call from any reward-granting code path — silently no-ops when
+    there is no active challenge, or when the active challenge has a
+    different metric_type. Caller owns the transaction/commit.
     """
     if amount <= 0:
         return
     try:
-        conn = sqlite3.connect(DATABASE, timeout=10)
-        conn.execute(
+        db.execute(
             "UPDATE weekly_challenges SET current_progress = current_progress + ? "
             "WHERE status = 'active' AND metric_type = ?",
             (amount, metric_type),
         )
-        conn.commit()
-        conn.close()
     except Exception:
         pass  # never raise from an instrumentation helper
 
