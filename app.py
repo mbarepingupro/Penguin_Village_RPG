@@ -1622,6 +1622,104 @@ def grant_lootbox(username, count, source):
     db.close()
 
 
+# ── RAID RESOLUTION ───────────────────────────────────────────────────────────
+# Phase 5 — the single place a raid transitions to a terminal status. Called
+# instantly from /raid/attack on boss defeat, and from the Monday timeout sweep.
+
+def calculate_rank_reward(rank, total_participants):
+    """Resource amount for non-podium ranks (4th place and below).
+
+    Placeholder curve, tune during balance-pass. Linearly scales from
+    RESOURCE_RANGE's ceiling (rank 4, i.e. just below the lootbox tiers) down
+    to its floor (last place), so it neither dwarfs nor trivializes the
+    lootbox rewards ranks 1-3 receive.
+    """
+    if total_participants <= 4:
+        return RESOURCE_RANGE[1]
+    span     = total_participants - 4
+    position = (rank - 4) / span
+    reward   = RESOURCE_RANGE[1] - position * (RESOURCE_RANGE[1] - RESOURCE_RANGE[0])
+    return max(RESOURCE_RANGE[0], round(reward))
+
+
+def resolve_raid(raid_id, reason):
+    """End a raid: terminal status, damage leaderboard, rewards, chat announcement.
+
+    reason is "defeated" (boss HP hit 0) or "timeout" (still active at the
+    Monday sweep). Returns the leaderboard payload, or None if the raid was
+    already resolved (e.g. a defeat and the timeout sweep raced each other).
+    """
+    db   = get_db()
+    raid = db.execute("SELECT * FROM raid_state WHERE id=?", (raid_id,)).fetchone()
+    if not raid or raid["status"] != "active":
+        db.close()
+        return None
+
+    now        = int(time.time())
+    new_status = "succeeded" if reason == "defeated" else "failed"
+    db.execute("UPDATE raid_state SET status=?, raid_end=? WHERE id=?", (new_status, now, raid_id))
+    db.commit()   # release the write lock before grant_lootbox() opens its own connection below
+
+    participants = db.execute(
+        "SELECT username, total_damage_dealt FROM raid_participants WHERE raid_id=? "
+        "ORDER BY total_damage_dealt DESC", (raid_id,)
+    ).fetchall()
+    total_participants = len(participants)
+
+    leaderboard = []
+    for rank, p in enumerate(participants, start=1):
+        username = p["username"]
+        if rank == 1:
+            grant_lootbox(username, 3, "raid_reward")
+            reward = {"lootboxes": 3}
+        elif rank == 2:
+            grant_lootbox(username, 2, "raid_reward")
+            reward = {"lootboxes": 2}
+        elif rank == 3:
+            grant_lootbox(username, 1, "raid_reward")
+            reward = {"lootboxes": 1}
+        else:
+            resource = random.choice(RESOURCE_TYPES)
+            amount   = calculate_rank_reward(rank, total_participants)
+            ensure_resources(db, username)
+            db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
+            reward = {"resource_type": resource, "resource_amount": amount}
+
+        # Persisted so GET /raid/results can redisplay the exact reward later
+        # without re-rolling (the resource type above is random per participant).
+        db.execute(
+            "UPDATE raid_participants SET reward_summary=? WHERE raid_id=? AND username=?",
+            (json.dumps(reward), raid_id, username)
+        )
+        db.commit()   # same reason as above — grant_lootbox() on the next iteration needs the lock free
+        leaderboard.append({
+            "rank": rank, "username": username,
+            "total_damage_dealt": p["total_damage_dealt"], "reward": reward,
+        })
+
+    top3 = [entry["username"] for entry in leaderboard[:3]]
+    if reason == "defeated":
+        outcome = f"{raid['boss_name']} has been DEFEATED!"
+    else:
+        outcome = f"{raid['boss_name']} escaped — the village ran out of time."
+    if top3:
+        outcome += " Top fighters: " + ", ".join(top3)
+    else:
+        outcome += " No one joined the fight this time."
+    post_chat_message(db, MAYOR_USERNAME, f"📢 {outcome}", now)
+
+    db.commit()
+    db.close()
+
+    return {
+        "raid_id":     raid_id,
+        "boss_name":   raid["boss_name"],
+        "raid_status": new_status,
+        "reason":      reason,
+        "leaderboard": leaderboard,
+    }
+
+
 def apply_level_rewards(db, username, reward):
     now = int(time.time())
     if reward.get("gold"):
@@ -1937,21 +2035,16 @@ def start_new_weekly_challenge():
 
 
 def end_raid_if_timeout():
-    """Monday 00:00 (runs before start_new_weekly_challenge) — expire any active raid."""
-    now = int(time.time())
-    db = get_db()
+    """Monday 00:00 (runs before start_new_weekly_challenge) — force-resolve any still-active raid."""
     try:
-        db.execute(
-            "UPDATE raid_state SET status='failed', raid_end=? WHERE status='active'",
-            (now,),
-        )
-        db.commit()
-        # TODO Phase 5: trigger reward distribution for participants with damage_dealt > 0
-        print("[WeeklyChallenge] Raid timeout sweep complete")
+        db = get_db()
+        active_raids = db.execute("SELECT id FROM raid_state WHERE status='active'").fetchall()
+        db.close()
+        for row in active_raids:
+            resolve_raid(row["id"], "timeout")
+        print(f"[WeeklyChallenge] Raid timeout sweep complete ({len(active_raids)} raid(s) resolved)")
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in end_raid_if_timeout: {e}")
-    finally:
-        db.close()
 
 
 def evaluate_weekly_challenge():
@@ -2088,6 +2181,7 @@ def raid_status():
 
     payload = {
         "status":             row["status"],
+        "raid_id":            row["id"],
         "boss_name":          row["boss_name"],
         "participant_count":  participant_count,
         "join_window_start":  row["join_window_start"],
@@ -2204,7 +2298,7 @@ def raid_attack():
     db.commit()
     db.close()
 
-    return jsonify({
+    payload = {
         "status":               "success",
         "roll":                 roll,
         "damage_dealt":         damage,
@@ -2215,6 +2309,50 @@ def raid_attack():
         "free_rolls_remaining": new_free_rolls,
         "xp_earned":            roll,
         "energy_remaining":     (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+    }
+
+    if new_boss_hp <= 0:
+        # Resolve instantly for responsive UX rather than waiting on a scheduler
+        # tick — resolve_raid re-opens its own db handle after the commit above
+        # so it sees this attack's damage in the final ranking.
+        resolution = resolve_raid(raid_id, "defeated")
+        if resolution:
+            payload["resolution"] = resolution
+
+    return jsonify(payload)
+
+
+@app.route("/raid/results/<int:raid_id>")
+def raid_results(raid_id):
+    if not session.get("username"):
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db   = get_db()
+    raid = db.execute("SELECT * FROM raid_state WHERE id=?", (raid_id,)).fetchone()
+    if not raid or raid["status"] not in ("succeeded", "failed"):
+        db.close()
+        return jsonify({"status": "error", "message": "No results available for this raid."})
+
+    rows = db.execute(
+        "SELECT username, total_damage_dealt, reward_summary FROM raid_participants "
+        "WHERE raid_id=? ORDER BY total_damage_dealt DESC", (raid_id,)
+    ).fetchall()
+    db.close()
+
+    leaderboard = []
+    for rank, r in enumerate(rows, start=1):
+        reward = json.loads(r["reward_summary"]) if r["reward_summary"] else {}
+        leaderboard.append({
+            "rank": rank, "username": r["username"],
+            "total_damage_dealt": r["total_damage_dealt"], "reward": reward,
+        })
+
+    return jsonify({
+        "status":      "success",
+        "raid_id":     raid_id,
+        "boss_name":   raid["boss_name"],
+        "raid_status": raid["status"],
+        "leaderboard": leaderboard,
     })
 
 
@@ -7663,6 +7801,16 @@ def chat_get_messages():
     })
 
 
+def post_chat_message(db, username, message, now=None):
+    """Insert a chat message on an existing db handle. Shared by the player-facing
+    /chat/send route (below) and system announcements like raid resolution —
+    system callers skip the rate-limit/profanity checks since they're trusted."""
+    db.execute(
+        "INSERT INTO chat_messages (username, message, created_at) VALUES (?,?,?)",
+        (username, message, now if now is not None else int(time.time()))
+    )
+
+
 @app.route("/chat/send", methods=["POST"])
 def chat_send_message():
     data     = request.get_json(force=True) or {}
@@ -7688,10 +7836,7 @@ def chat_send_message():
         db.close()
         return jsonify({"status": "rate_limited", "message": f"Please wait {wait}s before sending again."}), 429
 
-    db.execute(
-        "INSERT INTO chat_messages (username, message, created_at) VALUES (?,?,?)",
-        (username, message, now)
-    )
+    post_chat_message(db, username, message, now)
     db.commit()
     db.close()
     return jsonify({"status": "ok"})

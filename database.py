@@ -423,6 +423,7 @@ def init_db():
     _add_col(c, "resources", "ice_blocks INTEGER DEFAULT 0")
     _add_col(c, "penguins", "build_free_rolls INTEGER DEFAULT 0")
     _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")
+    _add_col(c, "raid_participants", "reward_summary TEXT DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:

@@ -2323,6 +2323,39 @@
     }
     #raid-modal-close:hover { border-color: #A86EFF; color: #A86EFF; }
 
+    /* ── RAID RESULTS MODAL (Phase 5) ── */
+    #raid-results-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85); z-index: 90020;
+      align-items: center; justify-content: center;
+    }
+    #raid-results-overlay.show { display: flex; }
+    #raid-results-modal {
+      background: #252535; border: 3px solid #303045;
+      padding: 20px; max-width: 420px; width: 92%; max-height: 80vh; overflow-y: auto;
+      font-family: 'C&C Red Alert', monospace;
+      animation: popIn 0.2s ease;
+    }
+    #raid-results-title { color: #FF8C00; font-size: 18px; margin-bottom: 14px; text-align: center; }
+    .raid-results-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      padding: 6px 8px; margin-bottom: 4px; border: 1px solid #303045; background: #181820;
+      font-size: 16px; color: #B8B8D0;
+    }
+    .raid-results-row.top3 { border-color: #FF8C00; }
+    .raid-results-row.self { border-color: #A86EFF; background: #20203a; }
+    .raid-results-rank   { color: #8888A8; width: 28px; flex-shrink: 0; }
+    .raid-results-name   { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .raid-results-reward { color: #4aff6b; font-size: 16px; white-space: nowrap; flex-shrink: 0; }
+    #raid-results-lootbox-prompt { display: none; margin-top: 10px; padding: 10px; border: 1px dashed #A86EFF; text-align: center; }
+    #raid-results-lootbox-text { color: #A86EFF; font-size: 16px; margin-bottom: 8px; }
+    #raid-results-open-now-btn, #raid-results-close {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 8px 14px; border: 2px solid #A86EFF; background: transparent;
+      color: #A86EFF; cursor: pointer; width: 100%; margin-top: 8px;
+    }
+    #raid-results-open-now-btn:hover, #raid-results-close:hover { background: #A86EFF; color: #181820; }
+
     /* ── GLOBAL CHAT PANEL ── */
     #chat-toggle-btn {
       position: absolute;
@@ -3310,6 +3343,19 @@
       <div class="lb-reveal-row" id="lb-reveal-resource"></div>
       <button id="lootbox-reveal-close" onclick="closeLootboxReveal()">CLOSE</button>
     </div>
+  </div>
+</div>
+
+<!-- RAID RESULTS MODAL (Phase 5) -->
+<div id="raid-results-overlay">
+  <div id="raid-results-modal">
+    <div id="raid-results-title"></div>
+    <div id="raid-results-list"></div>
+    <div id="raid-results-lootbox-prompt">
+      <div id="raid-results-lootbox-text"></div>
+      <button id="raid-results-open-now-btn" onclick="RaidJoin.openLootboxesNow()">OPEN NOW</button>
+    </div>
+    <button id="raid-results-close" onclick="RaidJoin.closeResults()">NICE!</button>
   </div>
 </div>
 
@@ -10511,8 +10557,10 @@ function _loadMobileTab(tabName) {
         if (data.boss_current_hp <= 0) {
           bossDefeated = true;
           btn.classList.add('defeated');
-          // TODO Phase 5: reward distribution + raid-end handling once the
-          // boss dies — for now the button just freezes with a holding message.
+          // resolve_raid() ran synchronously inside /raid/attack, so the
+          // killing blow gets the results modal immediately — no waiting on
+          // the next poll. Bystanders get it via RaidJoin's own polling.
+          if (data.resolution && window.RaidJoin) RaidJoin.showResults(data.resolution);
         }
       } else {
         // Update ice_blocks counter with flash
