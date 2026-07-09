@@ -12,7 +12,7 @@ from personality_config import (
     SOCIAL_TRAITS, INTEREST_TRAITS, QUIRK_TRAITS, ALL_TRAITS,
     AUTONOMOUS_ACTIONS, CATEGORY_EMOJIS,
     pick_autonomous_action, pick_other_penguin, generate_action_text,
-    INTEREST_TOPICS, MAX_INTERESTS,
+    INTEREST_TOPICS, MAX_INTERESTS, highlight_name,
 )
 from raid_config import pick_weekly_metric, pick_boss_name, calculate_attack_damage, WEEKLY_METRIC_TYPES
 from lootbox_config import RESOURCE_TYPES
@@ -1188,6 +1188,13 @@ def add_gold(db, username, amount):
 
 
 def log_event(db, event_type, message, username=None):
+    # Highlight the acting player's name wherever it literally appears in the
+    # message text, so it stands out in the event log tab / welcome-back
+    # popup / news ticker (all render this same message field as HTML).
+    # Skipped when the caller already pre-highlighted a display name (e.g.
+    # igloo visits) to avoid nesting the span twice.
+    if username and username in message and "pname-hl" not in message:
+        message = re.sub(re.escape(username), highlight_name(username), message)
     db.execute(
         "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
         (event_type, message, username, int(time.time()))
@@ -1972,6 +1979,15 @@ def run_autonomous_actions():
             interest_map.setdefault(row["username"], []).append(row["interest_key"])
         for p in all_penguins:
             p["interests"] = interest_map.get(p["username"], [])
+        # ── social_modes flag gate ──────────────────────────────────────────
+        # When off, ignore whatever social_mode/social_target is stored per
+        # player and make action selection behave as if everyone is on the
+        # default "social" mode. The DB column/values are left untouched —
+        # remove this override to re-enable per-player mode weighting.
+        if not FEATURES.get("social_modes", False):
+            for p in all_penguins:
+                p["social_mode"]   = "social"
+                p["social_target"] = None
     except Exception as e:
         print(f"[Autonomous] Failed to load penguins: {e}")
         db.close()
@@ -2142,7 +2158,7 @@ def start_raid_if_unlocked():
 
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
     _scheduler = BackgroundScheduler(daemon=True)
-    _scheduler.add_job(run_autonomous_actions, "interval", minutes=30, id="autonomous_actions",
+    _scheduler.add_job(run_autonomous_actions, "interval", minutes=60, id="autonomous_actions",
                        misfire_grace_time=60)
     # Weekly challenge + raid lifecycle (all UTC)
     # end_raid_if_timeout MUST complete before start_new_weekly_challenge — both
@@ -2158,7 +2174,7 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
     _scheduler.add_job(start_raid_if_unlocked,      "cron", day_of_week="sat", hour=0, minute=0,
                        id="start_raid",              misfire_grace_time=300)
     _scheduler.start()
-    print("[Scheduler] Autonomous actions scheduler started — runs every 30 minutes")
+    print("[Scheduler] Autonomous actions scheduler started — runs every 60 minutes")
     print("[Scheduler] Weekly challenge/raid jobs registered (Mon 00:00 timeout, Mon 00:01 new challenge, Fri 09:00, Sat 00:00)")
 elif not _APSCHEDULER_AVAILABLE:
     print("[Scheduler] WARNING: apscheduler not available — autonomous actions disabled")
@@ -4232,7 +4248,7 @@ def igloo_visit():
     host_name    = host_row["penguin_name"] or host
     res_emojis   = {"fish": "🐟", "herbs": "🌿", "bones": "🦴", "spell_fragments": "✨"}
     log_event(db, "social",
-        f"🏠 {visitor_name} visited {host_name}'s igloo and found "
+        f"🏠 {highlight_name(visitor_name)} visited {highlight_name(host_name)}'s igloo and found "
         f"{res_emojis.get(res_type,'📦')} {res_amount} {res_type} and 🪙 {gold_reward} gold!", visitor)
 
     # Fetch host igloo data for frontend rendering

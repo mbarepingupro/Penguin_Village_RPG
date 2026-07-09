@@ -1640,6 +1640,9 @@
     .event-row.autonomous .event-msg { color: #B8B8D0; }
     .event-time { color: #8888A8; flex-shrink: 0; width: 48px; }
     .event-msg  { color: #ccc; flex: 1; }
+    /* Player/penguin name emphasis — shared by event log tab, welcome-back
+       popup, and news ticker (all render the same event_log.message text). */
+    .pname-hl, .event-msg .pname-hl { color: #A86EFF; font-weight: 700; }
 
     /* ── GEAR RARITY BORDERS ── */
     .gear-card.common    { border-color: #3A3A50; }
@@ -2952,6 +2955,11 @@
       <div class="sidebar-panel" id="sidebar-friends">
 
         <!-- SOCIAL MODE (moved here from penguin tab) -->
+        <!-- social_modes feature flag gate: set FEATURES["social_modes"] = True in
+             feature_flags.py to bring this selector back for desktop + mobile
+             (the mobile Friends tab clones #sidebar-friends's innerHTML, so gating
+             it here alone covers both surfaces). -->
+        {% if features.get("social_modes", False) %}
         <div class="social-mode-section">
           <div class="social-mode-title">SOCIAL MODE</div>
           <div class="social-mode-btns">
@@ -2974,6 +2982,7 @@
             <div id="social-target-label" class="social-target-none">No target set</div>
           </div>
         </div>
+        {% endif %}
 
         <!-- IGLOO VISITS (moved here from stats tab) -->
         <div class="sb-section">
