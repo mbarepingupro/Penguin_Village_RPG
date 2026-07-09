@@ -2365,7 +2365,10 @@ def raid_results(raid_id):
 
     db   = get_db()
     raid = db.execute("SELECT * FROM raid_state WHERE id=?", (raid_id,)).fetchone()
-    if not raid or raid["status"] not in ("succeeded", "failed"):
+    # 'active' is included so the leaderboard can be viewed live, mid-raid —
+    # reward_summary is only populated at resolution time, so in-progress
+    # entries just come back with reward: {} (nothing decided yet).
+    if not raid or raid["status"] not in ("succeeded", "failed", "active"):
         db.close()
         return jsonify({"status": "error", "message": "No results available for this raid."})
 
