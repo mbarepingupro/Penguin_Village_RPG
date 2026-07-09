@@ -363,12 +363,20 @@ def pick_other_penguin(penguin, all_penguins):
     return random.choice(others)
 
 
+def highlight_name(name):
+    """Wraps a player/penguin display name for visual emphasis wherever an
+    event log message or autonomous action gets rendered (event log tab,
+    welcome-back popup, news ticker — all share the same event_log.message
+    text). Purple #A86EFF, consistent with the existing palette."""
+    return f'<span class="pname-hl">{name}</span>'
+
+
 def generate_action_text(action, penguin, other_penguin=None):
     pname = penguin.get("penguin_name") or penguin["username"]
-    text = action["template"].replace("{penguin}", pname)
+    text = action["template"].replace("{penguin}", highlight_name(pname))
     if action.get("requires_other") and "{other}" in text and other_penguin:
         oname = other_penguin.get("penguin_name") or other_penguin["username"]
-        text = text.replace("{other}", oname)
+        text = text.replace("{other}", highlight_name(oname))
     if action.get("requires_interest") and "{interest}" in text:
         interests = penguin.get("interests") or []
         if interests:
