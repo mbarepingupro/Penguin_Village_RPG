@@ -2030,12 +2030,14 @@ def run_autonomous_actions():
                     topic_to_players.setdefault(topic_key, []).append((p["username"], display_name))
             result = pick_group_event(topic_to_players)
             if result:
-                topic_key, entry, participant_names = result
-                text   = format_group_event_text(entry, participant_names)
-                prefix = CATEGORY_EMOJIS.get(entry.get("category", "village"), "🏘️")
+                topic_key, entry, participants = result
+                text         = format_group_event_text(entry, participants)
+                prefix       = CATEGORY_EMOJIS.get(entry.get("category", "village"), "🏘️")
+                participant_usernames = json.dumps([u for (u, _) in participants])
                 db.execute(
-                    "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
-                    ("village", f"{prefix} {text}", None, now)
+                    "INSERT INTO event_log (event_type, message, username, created_at, participants) "
+                    "VALUES (?,?,?,?,?)",
+                    ("village", f"{prefix} {text}", None, now, participant_usernames)
                 )
     except Exception as e:
         print(f"[Autonomous] Group event error: {e}")
@@ -4994,24 +4996,45 @@ def welcome_back(username):
         if milestone and not session.get("streak_reward"):
             session["streak_reward"] = milestone
 
-    # ── Autonomous activities while away ─────────────────────────────────────
+    # ── Autonomous activities & group events while away ───────────────────────
     penguin_activities = []
     try:
+        combined = []
+
         auto_rows = db.execute(
             "SELECT message, created_at FROM event_log "
             "WHERE username=? AND event_type='autonomous' AND created_at > ? "
-            "ORDER BY created_at DESC LIMIT 5",
+            "ORDER BY created_at DESC LIMIT 10",
             (username, last_active)
         ).fetchall()
-        for row in auto_rows:
-            ago_secs = now - (row["created_at"] or 0)
+        combined.extend({"message": r["message"], "created_at": r["created_at"]} for r in auto_rows)
+
+        # Group events don't have a single acting username -- they store the
+        # participant list as a JSON array in `participants` instead.
+        group_rows = db.execute(
+            "SELECT message, created_at, participants FROM event_log "
+            "WHERE event_type='village' AND participants IS NOT NULL AND created_at > ? "
+            "ORDER BY created_at DESC LIMIT 20",
+            (last_active,)
+        ).fetchall()
+        for row in group_rows:
+            try:
+                participant_usernames = json.loads(row["participants"])
+            except (TypeError, ValueError):
+                continue
+            if username in participant_usernames:
+                combined.append({"message": row["message"], "created_at": row["created_at"]})
+
+        combined.sort(key=lambda item: item["created_at"] or 0, reverse=True)
+        for item in combined[:5]:
+            ago_secs = now - (item["created_at"] or 0)
             if ago_secs < 3600:
                 ago_str = f"{max(1, ago_secs // 60)}m ago"
             elif ago_secs < 86400:
                 ago_str = f"{ago_secs // 3600}h ago"
             else:
                 ago_str = f"{ago_secs // 86400}d ago"
-            penguin_activities.append({"message": row["message"], "time_ago": ago_str})
+            penguin_activities.append({"message": item["message"], "time_ago": ago_str})
     except Exception:
         pass
 

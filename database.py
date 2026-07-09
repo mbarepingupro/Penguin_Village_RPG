@@ -150,7 +150,8 @@ def init_db():
             event_type TEXT NOT NULL,
             message TEXT NOT NULL,
             username TEXT DEFAULT NULL,
-            created_at INTEGER NOT NULL
+            created_at INTEGER NOT NULL,
+            participants TEXT DEFAULT NULL
         )
     """)
 
@@ -444,6 +445,9 @@ def init_db():
     _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")
     _add_col(c, "raid_participants", "reward_summary TEXT DEFAULT NULL")
     _add_col(c, "topic_suggestions", "status TEXT DEFAULT 'pending'")
+    # JSON array of usernames for group events (see personality_config.GROUP_EVENT_TEMPLATES);
+    # NULL for every other event_log row. Lets welcome-back find events a given player took part in.
+    _add_col(c, "event_log", "participants TEXT DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:

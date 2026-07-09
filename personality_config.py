@@ -3658,8 +3658,8 @@ def pick_group_event(topic_to_players):
 
     Picks one topic that has >=2 interested players, then one matching
     GROUP_EVENT_TEMPLATES entry for it. Returns (topic_key, template_entry,
-    [display_name, ...]) or None if no topic currently qualifies -- callers
-    should skip silently in that case (no error, no fallback)."""
+    [(username, display_name), ...]) or None if no topic currently qualifies --
+    callers should skip silently in that case (no error, no fallback)."""
     eligible = {k: v for k, v in topic_to_players.items() if len(v) >= 2}
     if not eligible:
         return None
@@ -3668,16 +3668,15 @@ def pick_group_event(topic_to_players):
     if not matching:
         return None
     entry = random.choice(matching)
-    participant_names = [name for (_, name) in eligible[topic_key]]
-    return topic_key, entry, participant_names
+    return topic_key, entry, eligible[topic_key]
 
 
-def format_group_event_text(entry, participant_names):
+def format_group_event_text(entry, participants):
     """Group event templates describe a village-wide happening with no
     {penguin}/{other} slots (see GROUP_EVENT_TEMPLATES) -- the participant
     list is appended and highlighted separately so the event still credits
-    everyone who took part."""
-    highlighted = [highlight_name(n) for n in participant_names]
+    everyone who took part. participants: [(username, display_name), ...]."""
+    highlighted = [highlight_name(display_name) for (_, display_name) in participants]
     if len(highlighted) == 1:
         names_str = highlighted[0]
     else:
