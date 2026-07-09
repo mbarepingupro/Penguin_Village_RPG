@@ -2211,7 +2211,7 @@
     }
     #d20-die.popping { animation: d20Pop 210ms ease-out forwards; }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       #d20-die { width: 120px; height: 120px; }
       #d20-face-text { font-size: 28px; }
     }
@@ -2242,7 +2242,7 @@
       cursor: pointer;
     }
     .back-to-village-btn:hover { background: #4aff6b; color: #181820; }
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .world-map-btn { width: 44px; height: 44px; }
       .build-btn { width: 64px; height: 64px; font-size: 16px; bottom: 12px; }
     }
@@ -2320,7 +2320,7 @@
     }
     #raid-leaderboard-btn.show { display: block; }
     #raid-leaderboard-btn:hover { background: #FF8C00; color: #181820; }
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       #raid-boss-bar { left: 54px; right: 54px; padding: 4px 6px; }
       #raid-boss-name { font-size: 16px; }
       #raid-leaderboard-btn { left: 54px; top: 62px; font-size: 13px; padding: 3px 6px; }
@@ -2350,7 +2350,7 @@
     .wc-bar-track { height: 20px; background: #303045; position: relative; }
     .wc-bar-fill  { height: 100%; background: #A86EFF; transition: width 0.5s; }
     .wc-bar-text  { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; }
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       #weekly-challenge-bar { left: 54px; right: 54px; padding: 4px 6px; }
       #weekly-challenge-label { font-size: 16px; }
     }
@@ -2592,6 +2592,7 @@
     @media (max-width: 768px) {
       #chat-toggle-btn { display: none; }
       #chat-panel { display: none !important; }
+      #chat-notif { display: none !important; }
     }
 
     /* ── CHAT UNREAD BADGE + POPUP ── */
@@ -10390,7 +10391,8 @@ function openMobilePlayerPanel() {
   tabBar.style.cssText = 'display:flex;flex-shrink:0;border-bottom:2px solid #252535;';
   tabBar.innerHTML =
     '<button data-mp-tab="penguin" style="flex:1;padding:12px 8px;font-family:\'C&C Red Alert\',monospace;font-size:16px;color:#A86EFF;background:#252535;border:none;border-bottom:2px solid #A86EFF;cursor:pointer;touch-action:manipulation;">🐧 PENGUIN</button>' +
-    '<button data-mp-tab="stats"   style="flex:1;padding:12px 8px;font-family:\'C&C Red Alert\',monospace;font-size:16px;color:#8888A8;background:transparent;border:none;cursor:pointer;touch-action:manipulation;">📊 STATS</button>';
+    '<button data-mp-tab="stats"   style="flex:1;padding:12px 8px;font-family:\'C&C Red Alert\',monospace;font-size:16px;color:#8888A8;background:transparent;border:none;cursor:pointer;touch-action:manipulation;">📊 STATS</button>' +
+    '<button data-mp-tab="friends" style="flex:1;padding:12px 8px;font-family:\'C&C Red Alert\',monospace;font-size:16px;color:#8888A8;background:transparent;border:none;cursor:pointer;touch-action:manipulation;">👥 FRIENDS</button>';
   overlay.appendChild(tabBar);
 
   var content = document.createElement('div');
@@ -10412,9 +10414,23 @@ function openMobilePlayerPanel() {
   });
 }
 
-function _loadMobileTab(tabName) {
+var _mobileTabToken = 0;
+
+async function _loadMobileTab(tabName) {
   var content = document.getElementById('mobile-sidebar-content');
   if (!content) return;
+  var token = ++_mobileTabToken;
+
+  if (tabName === 'friends') {
+    // Unlike Penguin/Stats (already populated by the time this overlay can
+    // open), Friends data is only ever fetched on demand — clone the static
+    // #sidebar-friends markup only after these resolve, or the tab would
+    // show whatever empty/stale placeholder was baked in at page load.
+    content.innerHTML = '<div style="color:#8888A8;font-size:16px;text-align:center;padding:20px;">LOADING...</div>';
+    await Promise.all([loadIglooVisits(), loadFriendsList()]);
+    if (token !== _mobileTabToken) return; // user switched tabs while this was loading
+  }
+
   var src = document.getElementById('sidebar-' + tabName);
   if (src) {
     content.innerHTML = src.innerHTML;
