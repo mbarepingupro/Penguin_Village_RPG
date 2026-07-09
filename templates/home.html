@@ -2287,9 +2287,43 @@
     }
     #raid-boss-bar.show { display: block; }
     #raid-boss-name { color: #FF8C00; font-size: 16px; text-align: center; margin-bottom: 4px; }
+    /* Sits inside the (pointer-events:none) boss bar, so it needs its own
+       pointer-events override to stay clickable. */
+    #raid-loot-info-btn {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      pointer-events: auto;
+      background: transparent;
+      border: 1px solid #FF8C00;
+      color: #FF8C00;
+      font-family: 'Silkscreen', monospace;
+      font-size: 14px;
+      padding: 2px 6px;
+      cursor: pointer;
+    }
+    #raid-loot-info-btn:hover { background: #FF8C00; color: #181820; }
+    /* Separate element from the bar itself — sits just below it. */
+    #raid-leaderboard-btn {
+      display: none;
+      position: absolute;
+      top: 72px;
+      left: 58px;
+      z-index: 59;
+      background: #181820;
+      border: 2px solid #FF8C00;
+      color: #FF8C00;
+      font-family: 'Silkscreen', monospace;
+      font-size: 14px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    #raid-leaderboard-btn.show { display: block; }
+    #raid-leaderboard-btn:hover { background: #FF8C00; color: #181820; }
     @media (max-width: 600px) {
       #raid-boss-bar { left: 54px; right: 54px; padding: 4px 6px; }
       #raid-boss-name { font-size: 16px; }
+      #raid-leaderboard-btn { left: 54px; top: 62px; font-size: 13px; padding: 3px 6px; }
     }
 
     /* ── WEEKLY CHALLENGE PROGRESS BAR (map overlay, Mon-Fri window only) ──
@@ -2384,6 +2418,49 @@
       color: #A86EFF; cursor: pointer; width: 100%; margin-top: 8px;
     }
     #raid-results-open-now-btn:hover, #raid-results-close:hover { background: #A86EFF; color: #181820; }
+
+    /* ── RAID LOOT INFO POPUP (active-raid boss bar) ── */
+    #raid-loot-info-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 90021;
+      align-items: center; justify-content: center;
+    }
+    #raid-loot-info-overlay.show { display: flex; }
+    #raid-loot-info-modal {
+      background: #252535; border: 3px solid #303045;
+      padding: 20px; max-width: 380px; width: 90%;
+      font-family: 'C&C Red Alert', monospace;
+      animation: popIn 0.2s ease;
+    }
+    #raid-loot-info-text { color: #B8B8D0; font-size: 16px; line-height: 1.7; white-space: pre-line; margin-bottom: 16px; }
+    #raid-loot-info-close {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 6px 14px; border: 2px solid #8888A8; background: transparent;
+      color: #B8B8D0; cursor: pointer; display: block; width: 100%;
+    }
+    #raid-loot-info-close:hover { border-color: #FF8C00; color: #FF8C00; }
+
+    /* ── RAID LIVE LEADERBOARD POPUP (active-raid, reuses .raid-results-row) ── */
+    #raid-leaderboard-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 90021;
+      align-items: center; justify-content: center;
+    }
+    #raid-leaderboard-overlay.show { display: flex; }
+    #raid-leaderboard-modal {
+      background: #252535; border: 3px solid #303045;
+      padding: 20px; max-width: 420px; width: 92%; max-height: 80vh; overflow-y: auto;
+      font-family: 'C&C Red Alert', monospace;
+      animation: popIn 0.2s ease;
+    }
+    #raid-leaderboard-title { color: #FF8C00; font-size: 18px; margin-bottom: 14px; text-align: center; }
+    #raid-leaderboard-list { margin-bottom: 4px; }
+    #raid-leaderboard-close {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 6px 14px; border: 2px solid #8888A8; background: transparent;
+      color: #B8B8D0; cursor: pointer; display: block; width: 100%; margin-top: 8px;
+    }
+    #raid-leaderboard-close:hover { border-color: #FF8C00; color: #FF8C00; }
 
     /* ── GLOBAL CHAT PANEL ── */
     #chat-toggle-btn {
@@ -2991,12 +3068,14 @@
           <button class="build-btn" id="build-btn">Build!</button>
           <button id="raid-icon-btn" title="Weekly Raid" onclick="RaidJoin.openModal()">⚔️</button>
           <div id="raid-boss-bar">
+            <button id="raid-loot-info-btn" title="Reward Info" onclick="RaidJoin.openLootInfo()">🎁</button>
             <div id="raid-boss-name"></div>
             <div class="boss-hp-bar">
               <div class="boss-hp-fill" id="raid-boss-hp-fill" style="width:100%"></div>
               <div class="boss-hp-text" id="raid-boss-hp-text"></div>
             </div>
           </div>
+          <button id="raid-leaderboard-btn" onclick="RaidJoin.openLeaderboard()">🏆 Leaderboard</button>
           <div id="weekly-challenge-bar">
             <div id="weekly-challenge-label"></div>
             <div class="wc-bar-track">
@@ -3392,6 +3471,24 @@
       <button id="raid-results-open-now-btn" onclick="RaidJoin.openLootboxesNow()">OPEN NOW</button>
     </div>
     <button id="raid-results-close" onclick="RaidJoin.closeResults()">NICE!</button>
+  </div>
+</div>
+
+<!-- RAID LOOT INFO POPUP -->
+<div id="raid-loot-info-overlay">
+  <div id="raid-loot-info-modal">
+    <div id="raid-loot-info-text">If defeated, loot boxes and resources are awarded to all participants.
+Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes and resources!</div>
+    <button id="raid-loot-info-close" onclick="RaidJoin.closeLootInfo()">CLOSE</button>
+  </div>
+</div>
+
+<!-- RAID LIVE LEADERBOARD POPUP -->
+<div id="raid-leaderboard-overlay">
+  <div id="raid-leaderboard-modal">
+    <div id="raid-leaderboard-title">⚔️ DAMAGE LEADERBOARD</div>
+    <div id="raid-leaderboard-list"></div>
+    <button id="raid-leaderboard-close" onclick="RaidJoin.closeLeaderboard()">CLOSE</button>
   </div>
 </div>
 

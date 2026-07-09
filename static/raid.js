@@ -32,8 +32,11 @@ const RaidJoin = {
 
       // The boss HP bar and the weekly challenge bar share the same overlay
       // slot — exactly one of them is ever shown, matching the status value.
+      // The leaderboard button is a separate element, but only ever visible
+      // alongside the boss bar (same condition, not inside it).
       var bossBar = document.getElementById('raid-boss-bar');
       var wcBar   = document.getElementById('weekly-challenge-bar');
+      var lbBtn   = document.getElementById('raid-leaderboard-btn');
 
       if (data.status === 'active') {
         if (wcBar) wcBar.classList.remove('show');
@@ -42,11 +45,13 @@ const RaidJoin = {
           var nameEl = document.getElementById('raid-boss-name');
           if (nameEl) nameEl.textContent = '⚔️ ' + (data.boss_name || 'Raid Boss');
         }
+        if (lbBtn) lbBtn.classList.add('show');
         if (window.BuildAttackButton) window.BuildAttackButton.setAttackMode(true);
         this.updateBossBar(data.boss_current_hp, data.boss_max_hp);
         this._lastRaidId = data.raid_id;
       } else {
         if (bossBar) bossBar.classList.remove('show');
+        if (lbBtn) lbBtn.classList.remove('show');
         if (window.BuildAttackButton) window.BuildAttackButton.setAttackMode(false);
         // Bystanders (didn't land the killing blow) find out the raid ended
         // here, up to 30s later — whoever attacked last already saw the
@@ -101,6 +106,60 @@ const RaidJoin = {
     if (fill) fill.style.width = pct + '%';
     if (text) text.textContent = currentHp.toLocaleString() + ' / ' + maxHp.toLocaleString() + ' HP';
     if (window.BuildAttackButton) window.BuildAttackButton.onBossHpUpdate(currentHp);
+  },
+
+  openLootInfo: function() {
+    var overlay = document.getElementById('raid-loot-info-overlay');
+    if (overlay) overlay.classList.add('show');
+    if (window.GameSounds) GameSounds.modalOpen();
+  },
+
+  closeLootInfo: function() {
+    var overlay = document.getElementById('raid-loot-info-overlay');
+    if (overlay) overlay.classList.remove('show');
+    if (window.GameSounds) GameSounds.modalClose();
+  },
+
+  // Live, in-progress leaderboard — reuses GET /raid/results (Phase 5), which
+  // now also accepts an 'active' raid instead of only resolved ones. Rewards
+  // come back empty ({}) since nothing's been decided yet; we only show rank/
+  // username/damage here.
+  openLeaderboard: async function() {
+    var raidId = this._lastRaidId || (this._latest && this._latest.raid_id);
+    if (!raidId) return;
+    var overlay = document.getElementById('raid-leaderboard-overlay');
+    var list    = document.getElementById('raid-leaderboard-list');
+    if (!overlay || !list) return;
+    list.innerHTML = '<div class="inv-empty">Loading…</div>';
+    overlay.classList.add('show');
+    if (window.GameSounds) GameSounds.modalOpen();
+    try {
+      var res  = await fetch('/raid/results/' + raidId);
+      var data = await res.json();
+      if (data.status !== 'success' || !data.leaderboard) {
+        list.innerHTML = '<div class="inv-empty">Leaderboard unavailable.</div>';
+        return;
+      }
+      var html = '';
+      data.leaderboard.forEach(function(entry) {
+        var isSelf = typeof CURRENT_USER !== 'undefined' && entry.username === CURRENT_USER;
+        var cls = 'raid-results-row' + (entry.rank <= 3 ? ' top3' : '') + (isSelf ? ' self' : '');
+        html += '<div class="' + cls + '">' +
+          '<span class="raid-results-rank">#' + entry.rank + '</span>' +
+          '<span class="raid-results-name">' + entry.username + (isSelf ? ' (you)' : '') + '</span>' +
+          '<span class="raid-results-reward" style="color:#FF8C00;">' + entry.total_damage_dealt.toLocaleString() + ' dmg</span>' +
+          '</div>';
+      });
+      list.innerHTML = html || '<div class="inv-empty">No one has joined the fight yet.</div>';
+    } catch (e) {
+      list.innerHTML = '<div class="inv-empty">Leaderboard unavailable.</div>';
+    }
+  },
+
+  closeLeaderboard: function() {
+    var overlay = document.getElementById('raid-leaderboard-overlay');
+    if (overlay) overlay.classList.remove('show');
+    if (window.GameSounds) GameSounds.modalClose();
   },
 
   openModal: function() {
