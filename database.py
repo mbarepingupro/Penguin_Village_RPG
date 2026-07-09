@@ -320,6 +320,18 @@ def init_db():
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
             username   TEXT    NOT NULL,
             suggestion TEXT    NOT NULL,
+            created_at INTEGER NOT NULL,
+            status     TEXT    NOT NULL DEFAULT 'pending'
+        )
+    """)
+
+    # Mayor-approved topics (accepted suggestions + directly-added ones), merged
+    # with the hardcoded INTEREST_TOPICS at read time in app.py's get_all_topics().
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS custom_topics (
+            key        TEXT PRIMARY KEY,
+            label      TEXT NOT NULL,
+            emoji      TEXT NOT NULL DEFAULT '🏷️',
             created_at INTEGER NOT NULL
         )
     """)
@@ -431,6 +443,7 @@ def init_db():
     _add_col(c, "penguins", "build_free_rolls INTEGER DEFAULT 0")
     _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")
     _add_col(c, "raid_participants", "reward_summary TEXT DEFAULT NULL")
+    _add_col(c, "topic_suggestions", "status TEXT DEFAULT 'pending'")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:

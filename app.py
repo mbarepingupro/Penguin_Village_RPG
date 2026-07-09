@@ -8099,20 +8099,35 @@ def chat_send_message():
 
 # ── PLAYER INTERESTS ─────────────────────────────────────────────────────────
 
+def get_all_topics(db):
+    """Hardcoded INTEREST_TOPICS plus mayor-approved custom_topics, merged.
+    Custom topics never override a built-in key of the same name."""
+    topics = dict(INTEREST_TOPICS)
+    for row in db.execute("SELECT key, label, emoji FROM custom_topics").fetchall():
+        topics.setdefault(row["key"], {"label": row["label"], "emoji": row["emoji"]})
+    return topics
+
+
+def _slugify_topic_key(text):
+    slug = re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_")
+    return slug[:40] or f"topic_{int(time.time())}"
+
+
 @app.route("/interests")
 def get_interests():
     """Return the master topic list and the current player's selections."""
     username = session.get("username")
     selected = []
+    db = get_db()
     if username:
-        db = get_db()
         rows = db.execute(
             "SELECT interest_key FROM penguin_interests WHERE username=?", (username,)
         ).fetchall()
-        db.close()
         selected = [r["interest_key"] for r in rows]
+    topics = get_all_topics(db)
+    db.close()
     return jsonify({
-        "topics":   [{"key": k, **v} for k, v in INTEREST_TOPICS.items()],
+        "topics":   [{"key": k, **v} for k, v in topics.items()],
         "selected": selected,
         "max":      MAX_INTERESTS,
     })
@@ -8128,8 +8143,9 @@ def save_interests():
     keys = data.get("interests", [])
     if not isinstance(keys, list):
         return jsonify({"status": "error", "message": "interests must be a list."}), 400
-    valid = [k for k in keys if k in INTEREST_TOPICS][:MAX_INTERESTS]
     db = get_db()
+    all_topics = get_all_topics(db)
+    valid = [k for k in keys if k in all_topics][:MAX_INTERESTS]
     db.execute("DELETE FROM penguin_interests WHERE username=?", (username,))
     for key in valid:
         db.execute(
@@ -8172,6 +8188,87 @@ def suggest_topic():
     db.commit()
     db.close()
     return jsonify({"status": "ok"})
+
+
+# ── MAYOR: TOPIC SUGGESTIONS ─────────────────────────────────────────────────
+
+@app.route("/mayor/topic-suggestions")
+def mayor_topic_suggestions():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db   = get_db()
+    rows = db.execute(
+        "SELECT * FROM topic_suggestions WHERE status='pending' OR status IS NULL "
+        "ORDER BY created_at DESC"
+    ).fetchall()
+    db.close()
+    return jsonify({"status": "success", "suggestions": [dict(r) for r in rows]})
+
+
+@app.route("/mayor/topic-suggestions/accept", methods=["POST"])
+def mayor_accept_topic_suggestion():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data = request.get_json(force=True) or {}
+    sid  = data.get("id")
+    db   = get_db()
+    row  = db.execute("SELECT * FROM topic_suggestions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "Suggestion not found."}), 404
+    key = _slugify_topic_key(row["suggestion"])
+    if key not in get_all_topics(db):
+        db.execute(
+            "INSERT OR IGNORE INTO custom_topics (key, label, emoji, created_at) VALUES (?,?,?,?)",
+            (key, row["suggestion"], "🏷️", int(time.time()))
+        )
+    db.execute("UPDATE topic_suggestions SET status='accepted' WHERE id=?", (sid,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "key": key})
+
+
+@app.route("/mayor/topic-suggestions/reject", methods=["POST"])
+def mayor_reject_topic_suggestion():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data = request.get_json(force=True) or {}
+    sid  = data.get("id")
+    db   = get_db()
+    if not db.execute("SELECT 1 FROM topic_suggestions WHERE id=?", (sid,)).fetchone():
+        db.close()
+        return jsonify({"status": "error", "message": "Suggestion not found."}), 404
+    # Marked dismissed, not deleted — keeps a full history of past suggestions.
+    db.execute("UPDATE topic_suggestions SET status='rejected' WHERE id=?", (sid,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
+
+
+@app.route("/mayor/topics/add", methods=["POST"])
+def mayor_add_topic():
+    """Let the mayor add a topic directly to the live list, bypassing suggestions."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data  = request.get_json(force=True) or {}
+    label = (data.get("label") or "").strip()
+    emoji = (data.get("emoji") or "🏷️").strip() or "🏷️"
+    if not label:
+        return jsonify({"status": "error", "message": "Label cannot be empty."}), 400
+    if len(label) > 40:
+        return jsonify({"status": "error", "message": "Label too long (max 40 chars)."}), 400
+    db  = get_db()
+    key = _slugify_topic_key(label)
+    if key in get_all_topics(db):
+        db.close()
+        return jsonify({"status": "error", "message": f"Topic '{label}' already exists."}), 400
+    db.execute(
+        "INSERT INTO custom_topics (key, label, emoji, created_at) VALUES (?,?,?,?)",
+        (key, label, emoji, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "key": key, "label": label, "emoji": emoji})
 
 
 if __name__ == "__main__":

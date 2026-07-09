@@ -1796,6 +1796,7 @@
       .seal-shop-box { width: 95%; max-width: none; max-height: 85vh; }
       .streak-modal-box { width: 95%; max-width: none; max-height: 85vh; overflow-y: auto; }
       .title-modal-box { width: 95%; max-width: none; }
+      .interests-modal-box { width: 95%; max-width: none; max-height: 85vh; }
       .card-modal-box { width: 95%; max-width: none; max-height: 85vh; overflow-y: auto; }
 
       /* ── Modal close buttons ── */
@@ -2689,15 +2690,7 @@
       color: #ffffff;
       background: #1e1030;
     }
-    .interest-chip:hover:not(.selected) { border-color: #6868a0; color: #b8b8d0; }
-    .interest-chip.disabled { opacity: 0.4; cursor: not-allowed; }
-    .interests-save-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 4px;
-    }
-    .interests-save-btn {
+    .interests-modify-btn {
       font-family: 'Silkscreen', monospace;
       font-size: 16px;
       background: #1a1030;
@@ -2705,8 +2698,10 @@
       color: #A86EFF;
       padding: 5px 10px;
       cursor: pointer;
+      margin-top: 4px;
+      width: 100%;
     }
-    .interests-save-btn:hover { background: #100820; }
+    .interests-modify-btn:hover { background: #100820; }
     .interests-status { font-size: 16px; color: #6868a0; }
     .interests-suggest-row {
       display: flex;
@@ -2737,6 +2732,46 @@
       flex-shrink: 0;
     }
     .interests-suggest-btn:hover { background: #0a1208; }
+
+    /* ── MODIFY INTERESTS MODAL ── */
+    #interests-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
+    #interests-modal.show { display: flex; }
+    .interests-modal-box {
+      background: #252535; border: 3px solid #A86EFF; padding: 16px;
+      max-width: 420px; width: 90%; max-height: 82vh;
+      display: flex; flex-direction: column;
+      font-family: 'C&C Red Alert', monospace; animation: popIn 0.2s ease;
+    }
+    .interests-modal-header { color: #A86EFF; font-size: 19px; margin-bottom: 12px; }
+    .interests-modal-search {
+      font-family: 'Silkscreen', monospace; font-size: 16px;
+      background: #0e0e1c; border: 1px solid #303045; color: #d8d8f0;
+      padding: 6px 8px; margin-bottom: 8px; width: 100%;
+    }
+    .interests-modal-search:focus { outline: none; border-color: #A86EFF; }
+    .interests-modal-count { color: #6868a0; font-size: 16px; margin-bottom: 6px; }
+    .interests-modal-list { overflow-y: auto; flex: 1; min-height: 120px; border-top: 1px solid #303045; padding-top: 6px; }
+    .interests-modal-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 4px; border-bottom: 1px solid #1e1e30;
+      font-size: 16px; color: #d8d8f0; cursor: pointer; user-select: none;
+    }
+    .interests-modal-row.selected { color: #ffffff; background: #1e1030; }
+    .interests-modal-row.disabled { opacity: 0.4; cursor: not-allowed; }
+    .interests-modal-row input[type="checkbox"] { flex-shrink: 0; cursor: pointer; }
+    .interests-modal-row.disabled input[type="checkbox"] { cursor: not-allowed; }
+    .interests-modal-empty { color: #6868a0; font-size: 16px; text-align: center; padding: 20px; }
+    .interests-modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .interests-modal-save-btn {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px; padding: 6px 14px;
+      border: 2px solid #A86EFF; background: transparent; color: #A86EFF; cursor: pointer;
+    }
+    .interests-modal-save-btn:hover { background: #A86EFF; color: #181820; }
+    .interests-modal-close {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px; padding: 6px 14px;
+      border: 2px solid #8888A8; background: transparent; color: #B8B8D0; cursor: pointer;
+    }
+    .interests-modal-close:hover { border-color: #A86EFF; color: #A86EFF; }
   </style>
 </head>
 <body>
@@ -2870,7 +2905,7 @@
         {% endif %}
         <button class="inv-open-btn" onclick="openInventory()">📦 INVENTORY</button>
 
-        <!-- INTERESTS -->
+        <!-- INTERESTS (read-only display; selection happens in the Modify Interests popup) -->
         <div class="interests-section" id="interests-section">
           <div class="interests-section-title">
             <span>🏷️ INTERESTS</span>
@@ -2879,16 +2914,14 @@
           <div class="interests-chips" id="interests-chips">
             <span style="color:#6868a0;font-size:16px;">Loading...</span>
           </div>
-          <div class="interests-save-row">
-            <button class="interests-save-btn" onclick="saveInterests()">SAVE</button>
-            <span class="interests-status" id="interests-status"></span>
-          </div>
+          <button class="interests-modify-btn" onclick="openInterestsModal()">✏️ MODIFY INTERESTS</button>
           <div class="interests-suggest-row">
             <input class="interests-suggest-input" id="interests-suggest-input"
                    type="text" maxlength="100"
                    placeholder="Suggest a new topic...">
             <button class="interests-suggest-btn" onclick="suggestInterest()">+ SUGGEST</button>
           </div>
+          <span class="interests-status" id="interests-status"></span>
         </div>
 
       </div>
@@ -3375,6 +3408,21 @@
     <div class="title-modal-header">🏅 YOUR TITLES</div>
     <div id="title-modal-list"></div>
     <button class="title-modal-close" onclick="closeTitleModal()">CLOSE</button>
+  </div>
+</div>
+<!-- MODIFY INTERESTS MODAL -->
+<div id="interests-modal">
+  <div class="interests-modal-box">
+    <div class="interests-modal-header">🏷️ MODIFY INTERESTS</div>
+    <input class="interests-modal-search" id="interests-modal-search" type="text"
+           placeholder="Search topics..." oninput="renderInterestsModalList()">
+    <div class="interests-modal-count" id="interests-modal-count"></div>
+    <div class="interests-modal-list" id="interests-modal-list"></div>
+    <div class="interests-modal-actions">
+      <button class="interests-modal-save-btn" onclick="saveInterestsModal()">SAVE</button>
+      <button class="interests-modal-close" onclick="closeInterestsModal()">CLOSE</button>
+    </div>
+    <div class="interests-status" id="interests-modal-status"></div>
   </div>
 </div>
 <!-- SEAL SHOP MODAL -->
@@ -4031,49 +4079,107 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
       _interestTopics    = data.topics  || [];
       _selectedInterests = new Set(data.selected || []);
       _maxInterests      = data.max || 5;
-      renderInterestChips();
+      renderInterestsDisplay();
     } catch(e) {}
   }
 
-  function renderInterestChips() {
+  // Read-only display of the player's current selections (selection itself
+  // happens in the Modify Interests popup — see openInterestsModal below).
+  function renderInterestsDisplay() {
     var box = document.getElementById('interests-chips');
     var ctr = document.getElementById('interests-count');
     if (!box) return;
     box.innerHTML = '';
-    _interestTopics.forEach(function(t) {
-      var chip = document.createElement('button');
-      chip.className = 'interest-chip' +
-        (_selectedInterests.has(t.key) ? ' selected' : '') +
-        (!_selectedInterests.has(t.key) && _selectedInterests.size >= _maxInterests ? ' disabled' : '');
-      chip.textContent = t.emoji + ' ' + t.label;
-      chip.dataset.key = t.key;
-      chip.addEventListener('click', function() {
-        if (_selectedInterests.has(t.key)) {
-          _selectedInterests.delete(t.key);
-        } else {
-          if (_selectedInterests.size >= _maxInterests) return;
-          _selectedInterests.add(t.key);
-        }
-        renderInterestChips();
-        document.getElementById('interests-status').textContent = '';
+    var byKey = {};
+    _interestTopics.forEach(function(t) { byKey[t.key] = t; });
+    if (_selectedInterests.size === 0) {
+      box.innerHTML = '<span style="color:#6868a0;font-size:16px;">No interests selected yet.</span>';
+    } else {
+      Array.from(_selectedInterests).forEach(function(key) {
+        var t = byKey[key];
+        if (!t) return;
+        var chip = document.createElement('span');
+        chip.className = 'interest-chip selected';
+        chip.textContent = t.emoji + ' ' + t.label;
+        box.appendChild(chip);
       });
-      box.appendChild(chip);
-    });
+    }
     if (ctr) ctr.textContent = _selectedInterests.size + '/' + _maxInterests;
   }
 
-  async function saveInterests() {
-    var statusEl = document.getElementById('interests-status');
+  // ── MODIFY INTERESTS POPUP ──
+  var _modalSelectedInterests = new Set();
+
+  function openInterestsModal() {
+    if (window.GameSounds) GameSounds.modalOpen();
+    _modalSelectedInterests = new Set(_selectedInterests);
+    var search = document.getElementById('interests-modal-search');
+    if (search) search.value = '';
+    var statusEl = document.getElementById('interests-modal-status');
+    if (statusEl) statusEl.textContent = '';
+    document.getElementById('interests-modal').classList.add('show');
+    renderInterestsModalList();
+  }
+
+  function closeInterestsModal() {
+    if (window.GameSounds) GameSounds.modalClose();
+    document.getElementById('interests-modal').classList.remove('show');
+  }
+
+  function renderInterestsModalList() {
+    var box    = document.getElementById('interests-modal-list');
+    var ctr    = document.getElementById('interests-modal-count');
+    var search = document.getElementById('interests-modal-search');
+    if (!box) return;
+    var q = (search && search.value ? search.value : '').trim().toLowerCase();
+    var filtered = _interestTopics.filter(function(t) {
+      return !q || t.label.toLowerCase().indexOf(q) !== -1;
+    });
+    box.innerHTML = '';
+    if (filtered.length === 0) {
+      box.innerHTML = '<div class="interests-modal-empty">No topics match your search.</div>';
+    }
+    filtered.forEach(function(t) {
+      var selected = _modalSelectedInterests.has(t.key);
+      var atCap    = !selected && _modalSelectedInterests.size >= _maxInterests;
+      var row = document.createElement('label');
+      row.className = 'interests-modal-row' + (selected ? ' selected' : '') + (atCap ? ' disabled' : '');
+      var cb = document.createElement('input');
+      cb.type    = 'checkbox';
+      cb.checked = selected;
+      cb.disabled = atCap;
+      cb.addEventListener('change', function() {
+        if (cb.checked) {
+          if (_modalSelectedInterests.size >= _maxInterests) { cb.checked = false; return; }
+          _modalSelectedInterests.add(t.key);
+        } else {
+          _modalSelectedInterests.delete(t.key);
+        }
+        renderInterestsModalList();
+      });
+      row.appendChild(cb);
+      var lbl = document.createElement('span');
+      lbl.textContent = t.emoji + ' ' + t.label;
+      row.appendChild(lbl);
+      box.appendChild(row);
+    });
+    if (ctr) ctr.textContent = _modalSelectedInterests.size + '/' + _maxInterests + ' selected';
+  }
+
+  async function saveInterestsModal() {
+    var statusEl = document.getElementById('interests-modal-status');
     try {
       var res  = await fetch('/interests/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interests: Array.from(_selectedInterests) })
+        body: JSON.stringify({ interests: Array.from(_modalSelectedInterests) })
       });
       var data = await res.json();
       if (data.status === 'ok') {
+        _selectedInterests = new Set(data.saved || Array.from(_modalSelectedInterests));
+        renderInterestsDisplay();
         if (statusEl) statusEl.textContent = 'Saved!';
-        setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 2000);
+        setTimeout(function() { closeInterestsModal(); }, 500);
       } else {
         if (statusEl) statusEl.textContent = data.message || 'Error.';
       }
