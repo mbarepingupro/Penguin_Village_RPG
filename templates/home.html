@@ -292,7 +292,8 @@
     @keyframes buffpulse { 0%,100%{border-color:#FF7FE5} 50%{border-color:#A86EFF} }
 
     /* ── SEAL SHOP MODAL ── */
-    #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
+    /* z-index 90033: reachable from #mobile-player-overlay's (80000) Stats tab. */
+    #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 90033; align-items: center; justify-content: center; }
     #seal-shop-modal.show { display: flex; }
     .seal-shop-box { background: #252535; border: 3px solid #FF7FE5; padding: 16px; max-width: 360px; width: 90%; font-family: 'C&C Red Alert', monospace; max-height: 80vh; overflow-y: auto; animation: popIn 0.2s ease; }
     .seal-shop-header { color: #FF7FE5; font-size: 19px; margin-bottom: 4px; }
@@ -321,7 +322,8 @@
     .view-card-btn:hover { background: #A86EFF; color: #181820; }
 
     /* ── CARD MODAL ── */
-    #card-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 9999; align-items: center; justify-content: center; }
+    /* z-index 90032: reachable from #mobile-player-overlay's (80000) Penguin tab. */
+    #card-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 90032; align-items: center; justify-content: center; }
     #card-modal.show { display: flex; }
     .card-modal-box { background: #181820; border: 3px solid #A86EFF; padding: 16px; max-width: 420px; width: 90%; font-family: 'C&C Red Alert', monospace; animation: popIn 0.2s ease; }
     .card-modal-title { color: #A86EFF; font-size: 17px; margin-bottom: 12px; }
@@ -349,7 +351,8 @@
     .card-modal-close:hover { border-color:#B8B8D0; }
 
     /* ── TITLE SELECTION MODAL ── */
-    #title-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
+    /* z-index 90031: reachable from #mobile-player-overlay's (80000) Penguin tab. */
+    #title-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 90031; align-items: center; justify-content: center; }
     #title-modal.show { display: flex; }
     .title-modal-box { background: #252535; border: 3px solid #A86EFF; padding: 16px; max-width: 380px; width: 90%; font-family: 'C&C Red Alert', monospace; max-height: 82vh; overflow-y: auto; animation: popIn 0.2s ease; }
     .title-modal-header { color: #A86EFF; font-size: 19px; margin-bottom: 12px; }
@@ -1023,9 +1026,12 @@
     .streak-next.ready { color: #4aff6b; }
 
     /* ── STREAK REWARD MODAL ── */
+    /* z-index 90036: auto-triggered (not click-opened), but can still appear
+       while #mobile-player-overlay (80000) is open -- same fix as the other
+       mobile-popup-stacking bugs above. */
     #streak-modal {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.88); z-index: 9990;
+      background: rgba(0,0,0,0.88); z-index: 90036;
       align-items: center; justify-content: center;
     }
     #streak-modal.show { display: flex; }
@@ -1059,9 +1065,11 @@
     .job-timer-complete { color: #4aff6b; font-size: 17px; animation: collectpulse 1.2s infinite; }
 
     /* ── WELCOME BACK MODAL ── */
+    /* z-index 90037: auto-triggered, but can still appear while
+       #mobile-player-overlay (80000) is open. */
     #wb-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.88); z-index: 9999;
+      background: rgba(0,0,0,0.88); z-index: 90037;
       align-items: center; justify-content: center;
     }
     #wb-overlay.show { display: flex; }
@@ -1189,9 +1197,10 @@
     .rel-progress-fill { background: #A86EFF; height: 3px; }
 
     /* ── RELATIONSHIP MODAL ── */
+    /* z-index 90034: reachable from #mobile-player-overlay's (80000) Friends tab. */
     #rel-modal-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7); z-index: 9998;
+      background: rgba(0,0,0,0.7); z-index: 90034;
     }
     #rel-modal-overlay.show { display: flex; align-items: center; justify-content: center; }
     #rel-modal {
@@ -1223,9 +1232,11 @@
     .rel-empty { color: #8888A8; font-size: 16px; padding: 20px; text-align: center; }
 
     /* ── IGLOO VISIT RESULT POPUP ── */
+    /* z-index 90035: reachable from #mobile-player-overlay's (80000) Friends tab
+       (the friend-list's VISIT button, populated by loadFriendsList()). */
     #igloo-result-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.6); z-index: 10000;
+      background: rgba(0,0,0,0.6); z-index: 90035;
     }
     #igloo-result-overlay.show { display: flex; align-items: center; justify-content: center; }
     #igloo-result-box {
@@ -1245,9 +1256,11 @@
     .igloo-result-ok:hover { background: #4aff6b; color: #181820; }
 
     /* ── LEVEL-UP MODAL ── */
+    /* z-index 90038: auto-triggered, but can still appear while
+       #mobile-player-overlay (80000) is open. */
     #lvup-overlay {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.92); z-index: 9999;
+      background: rgba(0,0,0,0.92); z-index: 90038;
       align-items: center; justify-content: center;
     }
     #lvup-overlay.show { display: flex; }
@@ -2734,7 +2747,10 @@
     .interests-suggest-btn:hover { background: #0a1208; }
 
     /* ── MODIFY INTERESTS MODAL ── */
-    #interests-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; align-items: center; justify-content: center; }
+    /* z-index 90030: must render above #mobile-player-overlay (80000) since it's
+       reachable from that overlay's Penguin tab — see the mobile-popup-stacking
+       fix pass alongside title-modal/card-modal/seal-shop-modal/etc. below. */
+    #interests-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 90030; align-items: center; justify-content: center; }
     #interests-modal.show { display: flex; }
     .interests-modal-box {
       background: #252535; border: 3px solid #A86EFF; padding: 16px;
@@ -5266,7 +5282,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
         html += `Elapsed: <span id="bp-elapsed" class="job-timer"></span><br>`;
         html += `Earned: <span id="bp-earned" class="job-timer"></span><br>`;
         html += capLine + `</div>`;
-        html += `<button class="bp-btn collect${complete?' pulsing':''}" id="bp-collect-btn" onclick="bpCollect()">`;
+        html += `<button class="bp-btn collect${complete?' pulsing':''}" id="bp-collect-btn" onclick="bpCollect()" ontouchend="event.preventDefault();bpCollect()">`;
         html += complete ? '✓ COLLECT' : 'COLLECT';
         html += `</button>`;
       } else if (data.player_job && data.player_job !== data.building_id) {
@@ -6518,13 +6534,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
         ].filter(Boolean).join(' ');
 
         const equipBtn = isEquipped
-          ? `<button class="inv-btn equip-action active" onclick="invCosmeticEquipAction(${item.id},'unequip')">⚡ UNEQUIP</button>`
-          : `<button class="inv-btn equip-action"        onclick="invCosmeticEquipAction(${item.id},'equip')">⚡ EQUIP</button>`;
+          ? `<button class="inv-btn equip-action active" onclick="invCosmeticEquipAction(${item.id},'unequip')" ontouchend="event.preventDefault();invCosmeticEquipAction(${item.id},'unequip')">⚡ UNEQUIP</button>`
+          : `<button class="inv-btn equip-action"        onclick="invCosmeticEquipAction(${item.id},'equip')" ontouchend="event.preventDefault();invCosmeticEquipAction(${item.id},'equip')">⚡ EQUIP</button>`;
 
         const wearBtn = slot.hasArea
           ? (isWorn
-            ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})">👁 UNWEAR</button>`
-            : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})">👁 WEAR</button>`)
+            ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})" ontouchend="event.preventDefault();invUnwearAction(${item.id})">👁 UNWEAR</button>`
+            : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`)
           : '';
 
         html += `<div class="inv-item ${rc}">
@@ -6566,12 +6582,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
         ].filter(Boolean).join(' ');
 
         const equipBtn = isEquipped
-          ? `<button class="inv-btn equip-action active" onclick="invGearEquipAction(${item.id})">⚡ UNEQUIP</button>`
-          : `<button class="inv-btn equip-action"        onclick="invGearEquipAction(${item.id})">⚡ EQUIP</button>`;
+          ? `<button class="inv-btn equip-action active" onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ UNEQUIP</button>`
+          : `<button class="inv-btn equip-action"        onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ EQUIP</button>`;
 
         const wearBtn = isWorn
-          ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})">👁 UNWEAR</button>`
-          : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})">👁 WEAR</button>`;
+          ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})" ontouchend="event.preventDefault();invUnwearAction(${item.id})">👁 UNWEAR</button>`
+          : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`;
 
         html += `<div class="inv-item ${rc}">
           <div class="inv-item-info">
@@ -10546,6 +10562,15 @@ async function _loadMobileTab(tabName) {
   var src = document.getElementById('sidebar-' + tabName);
   if (src) {
     content.innerHTML = src.innerHTML;
+  }
+  if (tabName === 'penguin') {
+    // innerHTML cloning above copies the <canvas> element itself but never
+    // whatever was drawn on it -- canvas pixel content doesn't survive an
+    // innerHTML clone, so the cloned copy renders blank until redrawn here.
+    var clonedCanvas = content.querySelector('#sidebar-penguin-canvas');
+    if (clonedCanvas) {
+      _drawPenguinOnCanvas(clonedCanvas, PLAYER_COLOR, null, () => _drawSidebarWornItems(clonedCanvas));
+    }
   }
   if (window.TutorialManager) window.TutorialManager._notifySidebar(tabName);
 }
