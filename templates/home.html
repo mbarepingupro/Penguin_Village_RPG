@@ -1659,7 +1659,11 @@
       position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
       background: var(--dark); border: 2px solid var(--purple);
       color: var(--white); font-size: 17px; padding: 8px 16px;
-      z-index: 9998; display: none; white-space: nowrap;
+      /* Must always be visible above every other overlay in the app —
+         higher than the highest existing z-index (99999, level-up/celebration
+         overlays and #res-tooltip) so action confirmations are never hidden
+         behind a modal, popup, or the mobile fullscreen overlays. */
+      z-index: 100000; display: none; white-space: nowrap;
       font-family: 'C&C Red Alert', monospace;
     }
     #toast.ok  { border-color: #4aff6b; color: #4aff6b; }
@@ -8965,12 +8969,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
 
       const countEl = document.getElementById('sb-visits-count');
       if (countEl) {
-        const remaining = data.visits_remaining || 0;
-        if (remaining === 0) {
-          countEl.innerHTML = '<span style="color:#B8B8D0;">All visits used! Come back tomorrow 🏠</span>';
-        } else {
-          countEl.textContent = `Visits today: ${data.visits_today} / ${data.max_visits_per_day}`;
-        }
+        const visitedCount = (data.visited_today || []).length;
+        countEl.textContent = `Visits today: ${visitedCount}`;
       }
 
       const listEl = document.getElementById('sb-visits-list');
@@ -9071,11 +9071,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
         fetch(`/igloo/visits-today/${CURRENT_USER}`).then(r => r.json()).then(d => {
           const vis = new Set((d.visited_today || []).map(v => v.username));
           VillageMap.setVisitedToday([...vis]);
-          const remaining = d.visits_remaining || 0;
           if (countEl) {
-            countEl.textContent = remaining === 0
-              ? 'All visits used! Come back tomorrow 🏠'
-              : `Visits today: ${d.visits_today} / ${d.max_visits_per_day}`;
+            countEl.textContent = `Visits today: ${(d.visited_today || []).length}`;
           }
         }).catch(() => {});
       }

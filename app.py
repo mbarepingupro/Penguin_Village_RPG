@@ -616,8 +616,6 @@ IGLOO_VISIT_REWARDS = {
     "penguin_mbare":    {"gold_min": 20, "gold_max": 35, "res_min": 4, "res_max": 7, "xp": 15},
 }
 
-MAX_IGLOO_VISITS_PER_DAY = 5
-
 # ── MONSTERS ──────────────────────────────────────────────────────────────────
 _MONSTER_ICONS = {
     "crab":               "🦀",
@@ -4191,12 +4189,6 @@ def igloo_visit():
         return jsonify({"status": "error", "message": "Host penguin not found."})
 
     today = get_today()
-    visits_today = db.execute(
-        "SELECT COUNT(*) as c FROM igloo_visits WHERE visitor=? AND visited_date=?", (visitor, today)
-    ).fetchone()["c"]
-    if visits_today >= MAX_IGLOO_VISITS_PER_DAY:
-        db.close()
-        return jsonify({"status": "error", "message": f"You've used all {MAX_IGLOO_VISITS_PER_DAY} visits today! Come back tomorrow."})
 
     if db.execute(
         "SELECT 1 FROM igloo_visits WHERE visitor=? AND host=? AND visited_date=?", (visitor, host, today)
@@ -4291,7 +4283,6 @@ def igloo_visit():
             "next_level": next_level_name, "interactions_needed": interactions_needed,
         },
         "new_achievements": new_ach,
-        "visits_remaining": MAX_IGLOO_VISITS_PER_DAY - (visits_today + 1),
         "host_igloo": host_igloo,
         "level_ups": igloo_level_ups,
     })
@@ -4361,9 +4352,6 @@ def igloo_visits_today(username):
     return jsonify({
         "visited_today": visited_today,
         "suggestions": suggestions[:5],
-        "visits_today": len(visited_today),
-        "max_visits_per_day": MAX_IGLOO_VISITS_PER_DAY,
-        "visits_remaining": MAX_IGLOO_VISITS_PER_DAY - len(visited_today),
     })
 
 
