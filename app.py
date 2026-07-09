@@ -13,6 +13,7 @@ from personality_config import (
     AUTONOMOUS_ACTIONS, CATEGORY_EMOJIS,
     pick_autonomous_action, pick_other_penguin, generate_action_text,
     INTEREST_TOPICS, MAX_INTERESTS, highlight_name,
+    GROUP_EVENT_CHANCE_PER_TICK, pick_group_event, format_group_event_text,
 )
 from raid_config import pick_weekly_metric, pick_boss_name, calculate_attack_damage, WEEKLY_METRIC_TYPES
 from lootbox_config import RESOURCE_TYPES
@@ -2018,6 +2019,27 @@ def run_autonomous_actions():
             generated += 1
         except Exception as e:
             print(f"[Autonomous] Error for {penguin.get('username')}: {e}")
+
+    # ── Group event roll (independent of per-player action selection above) ──
+    try:
+        if random.random() < GROUP_EVENT_CHANCE_PER_TICK:
+            topic_to_players = {}
+            for p in all_penguins:
+                display_name = p.get("penguin_name") or p["username"]
+                for topic_key in p.get("interests", []):
+                    topic_to_players.setdefault(topic_key, []).append((p["username"], display_name))
+            result = pick_group_event(topic_to_players)
+            if result:
+                topic_key, entry, participant_names = result
+                text   = format_group_event_text(entry, participant_names)
+                prefix = CATEGORY_EMOJIS.get(entry.get("category", "village"), "🏘️")
+                db.execute(
+                    "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
+                    ("village", f"{prefix} {text}", None, now)
+                )
+    except Exception as e:
+        print(f"[Autonomous] Group event error: {e}")
+
     db.commit()
     # Prune chat messages older than 24 h to keep the table bounded
     cutoff = now - 86400
