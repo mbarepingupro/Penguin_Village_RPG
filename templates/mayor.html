@@ -122,6 +122,24 @@
     .mh-buff-timer { color: var(--dim); }
     .mh-no-buffs { color: var(--dim); font-size: 16px; padding: 6px 0; }
 
+    /* ── TOPIC SUGGESTIONS ── */
+    .mh-topic-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 10px; border-bottom: 1px solid #2a2a3a; flex-wrap: wrap;
+    }
+    .mh-topic-text { color: var(--white); font-size: 16px; }
+    .mh-topic-meta { color: var(--dim); font-size: 16px; }
+    .mh-topic-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .mh-topic-btn {
+      font-family: 'Pixelify Sans', monospace; font-size: 16px;
+      padding: 5px 10px; border: 1px solid var(--purple); color: var(--purple);
+      background: transparent; cursor: pointer;
+    }
+    .mh-topic-btn.accept { border-color: var(--green); color: var(--green); }
+    .mh-topic-btn.accept:hover { background: var(--green); color: #0f0f14; }
+    .mh-topic-btn.reject { border-color: var(--red); color: var(--red); }
+    .mh-topic-btn.reject:hover { background: var(--red); color: #0f0f14; }
+
     /* ── LIVE FEED ── */
     .mh-feed-title {
       padding: 12px 14px; color: var(--pink); font-size: 17px;
@@ -654,6 +672,30 @@
         <button class="mh-btn danger" onclick="rdCancelCycle()">🛑 CANCEL/RESET CURRENT CYCLE</button>
       </div>
       <div id="rd-force-result" style="margin-top:8px;font-size:16px;"></div>
+    </div>
+
+    <!-- TOPIC SUGGESTIONS -->
+    <div class="mh-section-title" style="margin-top:20px;">🏷️ TOPIC SUGGESTIONS</div>
+    <div class="mh-lookup">
+      <div id="topic-suggestions-list">
+        <div class="mh-no-buffs">Loading...</div>
+      </div>
+    </div>
+
+    <div class="mh-lookup" style="margin-top:12px;">
+      <div class="mh-action-title" style="margin-bottom:10px;">➕ ADD NEW TOPIC</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="mh-field" style="flex:1;min-width:180px;margin:0;">
+          <label class="mh-label">TOPIC NAME</label>
+          <input class="mh-input" type="text" id="topic-add-label" maxlength="40" placeholder="e.g. Astronomy"/>
+        </div>
+        <div class="mh-field" style="width:80px;margin:0;">
+          <label class="mh-label">EMOJI</label>
+          <input class="mh-input" type="text" id="topic-add-emoji" maxlength="4" placeholder="🏷️"/>
+        </div>
+        <button class="mh-btn" style="width:auto;padding:9px 16px;" onclick="addTopicDirect()">ADD</button>
+      </div>
+      <div id="topic-add-result" style="margin-top:8px;font-size:16px;"></div>
     </div>
 
   </div><!-- /main -->
@@ -1218,6 +1260,66 @@
         ? `Cancelled ${data.challenges_cancelled} challenge(s), ${data.raids_cancelled} raid(s).`
         : (data.message || 'Error.'));
   }
+
+  // ── TOPIC SUGGESTIONS ──
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  async function loadTopicSuggestions() {
+    const list = document.getElementById('topic-suggestions-list');
+    try {
+      const res  = await fetch('/mayor/topic-suggestions' + KEY_PARAM);
+      const data = await res.json();
+      if (data.status !== 'success') { list.innerHTML = '<div class="mh-no-buffs">Error loading suggestions.</div>'; return; }
+      if (!data.suggestions.length) { list.innerHTML = '<div class="mh-no-buffs">No pending suggestions.</div>'; return; }
+      list.innerHTML = data.suggestions.map(s => `
+        <div class="mh-topic-row" data-id="${s.id}">
+          <div>
+            <div class="mh-topic-text">${escapeHtml(s.suggestion)}</div>
+            <div class="mh-topic-meta">suggested by ${escapeHtml(s.username)} · ${relativeTime(s.created_at)}</div>
+          </div>
+          <div class="mh-topic-actions">
+            <button class="mh-topic-btn accept" onclick="acceptTopicSuggestion(${s.id})">✅ ACCEPT</button>
+            <button class="mh-topic-btn reject" onclick="rejectTopicSuggestion(${s.id})">❌ REJECT</button>
+          </div>
+        </div>`).join('');
+    } catch(e) { list.innerHTML = '<div class="mh-no-buffs">Error loading suggestions.</div>'; }
+  }
+
+  async function acceptTopicSuggestion(id) {
+    const btn  = event.target;
+    const data = await api('/mayor/topic-suggestions/accept', { id }, btn);
+    if (data.status === 'success') { toast(`✅ Topic added: ${data.key}`); loadTopicSuggestions(); }
+    else { toast('❌ ' + (data.message || 'Error.'), false); }
+  }
+
+  async function rejectTopicSuggestion(id) {
+    const btn  = event.target;
+    const data = await api('/mayor/topic-suggestions/reject', { id }, btn);
+    if (data.status === 'success') { toast('Suggestion rejected.'); loadTopicSuggestions(); }
+    else { toast('❌ ' + (data.message || 'Error.'), false); }
+  }
+
+  async function addTopicDirect() {
+    const btn   = event.target;
+    const label = document.getElementById('topic-add-label').value.trim();
+    const emoji = document.getElementById('topic-add-emoji').value.trim();
+    const el    = document.getElementById('topic-add-result');
+    if (!label) { el.innerHTML = '<span style="color:var(--red);">Enter a topic name.</span>'; return; }
+    const data = await api('/mayor/topics/add', { label, emoji }, btn);
+    if (data.status === 'success') {
+      el.innerHTML = `<span style="color:var(--green);">✅ Added "${escapeHtml(data.label)}" (${data.key})</span>`;
+      document.getElementById('topic-add-label').value = '';
+      document.getElementById('topic-add-emoji').value = '';
+    } else {
+      el.innerHTML = `<span style="color:var(--red);">❌ ${escapeHtml(data.message || 'Error.')}</span>`;
+    }
+  }
+
+  loadTopicSuggestions();
 </script>
 </body>
 </html>
