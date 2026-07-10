@@ -6,6 +6,8 @@ const RaidJoin = {
   _lastStatus: null,
   _lastRaidId: null,
   _resultsShownFor: null,   // raid_id we've already popped the results modal for
+  _countdownTimer: null,    // 1s local tick between /raid/status polls
+  _joinWindowEnd: null,     // epoch seconds, re-synced from the server each poll
 
   startPolling: function() {
     var self = this;
@@ -28,7 +30,12 @@ const RaidJoin = {
       this._latest = data;
       var icon = document.getElementById('raid-icon-btn');
       if (icon) icon.classList.toggle('show', data.status === 'join_window');
-      if (data.status === 'join_window') this._renderModal(data);
+      if (data.status === 'join_window') {
+        this._renderModal(data);
+        if (data.join_window_end) this._startCountdown(data.join_window_end);
+      } else {
+        this._stopCountdown();
+      }
 
       // The boss HP bar and the weekly challenge bar share the same overlay
       // slot — exactly one of them is ever shown, matching the status value.
@@ -86,6 +93,51 @@ const RaidJoin = {
       text.textContent = (data.metric_label || data.metric_type || 'Progress') + ': ' +
         (data.current_progress || 0).toLocaleString() + ' / ' + (data.threshold || 0).toLocaleString();
     }
+  },
+
+  // Re-synced from the server's join_window_end on every /raid/status poll
+  // (every 30s); ticks down locally every second in between so the display
+  // doesn't need to hit the server once per second.
+  _startCountdown: function(endTs) {
+    this._joinWindowEnd = endTs;
+    this._tickCountdown();
+    if (this._countdownTimer) return;
+    var self = this;
+    this._countdownTimer = setInterval(function() { self._tickCountdown(); }, 1000);
+  },
+
+  _stopCountdown: function() {
+    if (this._countdownTimer) {
+      clearInterval(this._countdownTimer);
+      this._countdownTimer = null;
+    }
+    this._joinWindowEnd = null;
+    var el = document.getElementById('raid-join-countdown');
+    if (el) el.textContent = '';
+  },
+
+  _tickCountdown: function() {
+    var el = document.getElementById('raid-join-countdown');
+    if (!el || !this._joinWindowEnd) return;
+    var remaining = Math.floor(this._joinWindowEnd - Date.now() / 1000);
+    if (remaining <= 0) {
+      // Clamp at zero rather than counting negative -- the icon itself
+      // disappears on the next /raid/status poll (up to 30s later), same
+      // as every other status-driven overlay element.
+      el.textContent = 'Starts in: 0:00';
+      if (this._countdownTimer) { clearInterval(this._countdownTimer); this._countdownTimer = null; }
+      return;
+    }
+    el.textContent = 'Starts in: ' + this._formatCountdown(remaining);
+  },
+
+  _formatCountdown: function(totalSeconds) {
+    var h = Math.floor(totalSeconds / 3600);
+    var m = Math.floor((totalSeconds % 3600) / 60);
+    var s = totalSeconds % 60;
+    if (h > 0) return h + 'h ' + m + 'm';
+    if (m > 0) return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
+    return s + 's';
   },
 
   _fetchAndShowResults: async function(raidId) {

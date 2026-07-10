@@ -2276,26 +2276,37 @@
       .build-btn { width: 64px; height: 64px; font-size: 16px; bottom: 12px; }
     }
 
-    /* ── RAID JOIN ICON ── */
+    /* ── RAID JOIN BANNER (map overlay, join_window only) ──
+       Same top-center overlay slot as #raid-boss-bar/#weekly-challenge-bar
+       (top:8px, left:58px, right:58px) -- confirmed mutually exclusive with
+       both in raid.js's _poll(), so reusing the slot can never overlap. */
     #raid-icon-btn {
       display: none;
       position: absolute;
-      top: 58px;
-      right: 8px;
-      z-index: 62;
-      width: 42px;
-      height: 42px;
+      top: 8px;
+      left: 58px;
+      right: 58px;
+      z-index: 59;
       background: #252535;
       border: 2px solid #A86EFF;
       color: #A86EFF;
-      font-size: 20px;
+      font-family: 'Silkscreen', monospace;
       cursor: pointer;
       align-items: center;
       justify-content: center;
-      padding: 0;
+      flex-wrap: wrap;
+      gap: 4px 12px;
+      padding: 8px 10px;
     }
     #raid-icon-btn.show { display: flex; }
     #raid-icon-btn:hover { background: #A86EFF; color: #181820; }
+    #raid-join-label { font-size: 16px; white-space: nowrap; }
+    #raid-join-countdown { font-size: 15px; white-space: nowrap; }
+    @media (max-width: 768px) {
+      #raid-icon-btn { left: 54px; right: 54px; padding: 6px 8px; }
+      #raid-join-label { font-size: 14px; }
+      #raid-join-countdown { font-size: 13px; }
+    }
 
     /* ── RAID BOSS HP BAR (map overlay, active raid only) ──
        Reuses the .boss-hp-bar/.boss-hp-fill/.boss-hp-text classes already
@@ -3137,7 +3148,10 @@
         <div class="map-area" id="map-area">
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
-          <button id="raid-icon-btn" title="Weekly Raid" onclick="RaidJoin.openModal()">⚔️</button>
+          <button id="raid-icon-btn" title="Weekly Raid" onclick="RaidJoin.openModal()">
+            <span id="raid-join-label">⚔️ JOIN RAID! ⚔️</span>
+            <span id="raid-join-countdown"></span>
+          </button>
           <div id="raid-boss-bar">
             <button id="raid-loot-info-btn" title="Reward Info" onclick="RaidJoin.openLootInfo()">🎁</button>
             <div id="raid-boss-name"></div>
