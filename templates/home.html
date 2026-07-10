@@ -546,7 +546,7 @@
     .bq-tab:hover:not(.active) { color: #ccc; }
     .bq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     @media (max-width: 420px) { .bq-grid { grid-template-columns: 1fr; } }
-    .bq-card { background: #181820; border: 2px solid #303045; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .bq-card { background: #181820; border: 2px solid #303045; padding: 10px; display: flex; flex-direction: column; gap: 6px; position: relative; }
     .bq-card.expensive { border-color: #FF8C00; background: linear-gradient(135deg, #181820 60%, #1a0d00 100%); position: relative; overflow: hidden; }
     .bq-card.expensive::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 40%, rgba(255,140,0,0.05) 60%, transparent 80%); animation: bq-shimmer 3s ease-in-out infinite; pointer-events: none; }
     .bq-card.dragon { border-color: #FF8C00; animation: bq-glow 1.5s ease-in-out infinite; }
@@ -555,6 +555,14 @@
     .bq-item-name { font-size: 17px; color: #fff; }
     .bq-item-name.expensive { font-size: 17px; }
     .bq-legendary-tag { position: absolute; top: 5px; right: 5px; font-size: 16px; color: #FF8C00; font-family: 'C&C Red Alert', monospace; }
+    /* "Cannot be obtained elsewhere" tag for event_exclusive items -- shown in the
+       Boutique grid, Inventory (cosmetics/sell-to-bank), and the sell preview. */
+    .event-item-badge {
+      display: inline-block; font-size: 15px; font-family: 'C&C Red Alert', monospace;
+      color: #FF7FE5; border: 1px solid #FF7FE5; padding: 1px 6px; margin-left: 6px;
+      vertical-align: middle; white-space: nowrap;
+    }
+    .event-item-tag { position: absolute; top: 5px; left: 5px; font-size: 15px; color: #FF7FE5; font-family: 'C&C Red Alert', monospace; }
     .bq-price { font-size: 16px; }
     .bq-price.expensive { font-size: 17px; }
     .bq-btn-row { display: flex; gap: 5px; margin-top: 2px; }
@@ -4972,6 +4980,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
 
       html += `<div class="${cardClass}">`;
       if (isDragon) html += `<span class="bq-legendary-tag">👑 LEGENDARY</span>`;
+      if (item.event_exclusive) html += `<span class="event-item-tag" title="Cannot be obtained elsewhere">🎪 EVENT</span>`;
       html += `<img src="/static/items/${_slotFolder(item.slot)}/${item.id}.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display='none'">`;
       html += `<div class="bq-item-name${isExpensive ? ' expensive' : ''}">${item.name}</div>`;
       html += `<div class="bq-price${isExpensive ? ' expensive' : ''}" style="color:${tierColor};">🪙 ${item.price.toLocaleString()}</div>`;
@@ -6543,9 +6552,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
             : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`)
           : '';
 
+        const eventBadge = item.event_exclusive
+          ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
         html += `<div class="inv-item ${rc}">
           <div class="inv-item-info">
-            <div class="inv-item-name">${item.name}</div>
+            <div class="inv-item-name">${item.name}${eventBadge}</div>
             <div class="inv-item-source">${item.source || ''}</div>
             ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
           </div>
@@ -6589,9 +6600,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
           ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})" ontouchend="event.preventDefault();invUnwearAction(${item.id})">👁 UNWEAR</button>`
           : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`;
 
+        const eventBadge = item.event_exclusive
+          ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
         html += `<div class="inv-item ${rc}">
           <div class="inv-item-info">
-            <div class="inv-item-name">${item.name}</div>
+            <div class="inv-item-name">${item.name}${eventBadge}</div>
             ${statsLine}${setLine}
             ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
           </div>
@@ -8153,7 +8166,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
   // ── BANK ──
   let _bkGearCache     = [];
   let _bkBankSellCache = [];
-  const _BANK_SELL_PRICES = {common: 30, uncommon: 100, rare: 300, epic: 800, legendary: 2500};
 
   const BANK_RES_ICONS = {
     gold: '🪙', fish: '🐟', herbs: '🌿',
@@ -8360,7 +8372,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
     try {
       const r    = await fetch(`/gear/inventory?username=${encodeURIComponent(CURRENT_USER)}`);
       const data = await r.json();
-      const gear = (data.gear || []).filter(g => !g.equipped && !g.worn && !g.listed && g.type === 'combat');
+      // Titles/card frames/card backgrounds are excluded server-side via
+      // bank_sellable; everything else (cosmetics + combat gear) is sellable,
+      // including currently equipped/worn items -- selling auto-unequips them.
+      const gear = (data.gear || []).filter(g => !g.listed && g.bank_sellable);
       _bkBankSellCache = gear;
       if (!gear.length) {
         sel.innerHTML = '<option value="">No gear available to sell</option>';
@@ -8369,8 +8384,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
       }
       sel.innerHTML = '<option value="">-- choose an item --</option>' +
         gear.map(g => {
-          const sp = _BANK_SELL_PRICES[g.rarity || 'common'] || 30;
-          return `<option value="${g.id}">${g.name} (${g.rarity || 'common'}) — ${sp} 🪙</option>`;
+          const tag = g.event_exclusive ? ' ⭐' : '';
+          return `<option value="${g.id}">${g.name}${tag} (${g.rarity || 'common'}) — ${g.bank_sell_value} 🪙</option>`;
         }).join('');
     } catch(e) {}
   }
@@ -8380,11 +8395,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
     if (!preview) return;
     const g = _bkBankSellCache.find(x => x.id === gearId);
     if (!g) { preview.style.display = 'none'; return; }
-    const sp = _BANK_SELL_PRICES[g.rarity || 'common'] || 30;
+    const sp = g.bank_sell_value;
     const bp = Math.ceil(sp * 1.2);
     const rc = bankRarityClass(g.rarity);
+    const eventBadge = g.event_exclusive ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
     preview.style.display = '';
-    preview.innerHTML = `<span class="${rc}">${g.name}</span><span style="color:#B8B8D0"> · CP ${g.combat_power || 0}${g.set_name ? ' · ' + g.set_name : ''}</span><br><span style="color:#4aff6b">Bank pays: ${sp} 🪙</span> <span style="color:#B8B8D0">· Listed at: ${bp} 🪙</span>`;
+    preview.innerHTML = `<span class="${rc}">${g.name}</span>${eventBadge}<span style="color:#B8B8D0"> · CP ${g.combat_power || 0}${g.set_name ? ' · ' + g.set_name : ''}</span><br><span style="color:#4aff6b">Bank pays: ${sp} 🪙</span> <span style="color:#B8B8D0">· Listed at: ${bp} 🪙</span>`;
   }
 
   async function bankSellToBank() {
@@ -8401,7 +8417,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
         if (window.GameSounds) GameSounds.purchase();
         document.getElementById('bk-bank-sell-preview').style.display = 'none';
         bankLoadBankSell();
-        refreshStats();
+        await refreshStats();
+        if (data.was_equipped_or_worn) await refreshPenguinDisplay();
       } else { showToast(data.message || 'Error.', 'err'); }
     } catch(e) { showToast('Error.', 'err'); }
   }

@@ -385,7 +385,7 @@ BOUTIQUE_ITEMS = {
     "hats": [
         {"id": "baseball_cap",  "name": "Baseball Cap",  "slot": "hat", "price": 200,  "tier": "cheap"},
         {"id": "beanie",        "name": "Beanie",         "slot": "hat", "price": 350,  "tier": "cheap"},
-        {"id": "party_hat",     "name": "Party Hat",      "slot": "hat", "price": 400,  "tier": "mid"},
+        {"id": "party_hat",     "name": "Party Hat",      "slot": "hat", "price": 400,  "tier": "mid", "event_exclusive": True},
         {"id": "beret",         "name": "Beret",          "slot": "hat", "price": 450,  "tier": "mid"},
         {"id": "chefs_hat",     "name": "Chef's Hat",     "slot": "hat", "price": 500,  "tier": "mid"},
         {"id": "cowboy_hat",    "name": "Cowboy Hat",     "slot": "hat", "price": 600,  "tier": "mid"},
@@ -3430,6 +3430,8 @@ def gear_cosmetics(username):
             d["source"] = "Achievement"
         else:
             d["source"] = "Gear Shop"
+        _, event_exclusive = _find_shop_definition(d.get("item_id"), "cosmetic")
+        d["event_exclusive"] = event_exclusive
         cosmetics.append(d)
     active = check_cosmetic_sets(username, db)
     db.close()
@@ -3910,8 +3912,16 @@ def gear_inventory():
     sb      = calculate_set_bonuses(db, username)
     db.close()
     player_cp = get_combat_power(username)
+    gear_list = []
+    for g in rows:
+        gd = dict(g)
+        gold_cost, event_exclusive = _find_shop_definition(gd["item_id"], gd["type"])
+        gd["event_exclusive"]  = event_exclusive
+        gd["bank_sellable"]    = (gd["slot"] or "") not in _BANK_UNSELLABLE_SLOTS
+        gd["bank_sell_value"]  = calculate_bank_sell_price(gd) if gd["bank_sellable"] else 0
+        gear_list.append(gd)
     return jsonify({
-        "gear":        [dict(g) for g in rows],
+        "gear":        gear_list,
         "catalog":     GEAR_CATALOG,
         "gold":        gold,
         "resources":   dict(r) if r else {},
@@ -5193,14 +5203,10 @@ def _building_upgrade_info(db, building_id):
     levels_cfg    = cfg["levels"]
     next_level    = current_level + 1 if current_level < max_level else None
     next_req      = levels_cfg.get(next_level, {}) if next_level else {}
-    donated       = {
-        "fish":            row["fish_donated"]            if row else 0,
-        "herbs":           row["herbs_donated"]           if row else 0,
-        "gold":            row["gold_donated"]            if row else 0,
-        "blood_gems":      row["blood_gems_donated"]      if row else 0,
-        "bones":           row["bones_donated"]           if row else 0,
-        "spell_fragments": row["spell_fragments_donated"] if row else 0,
-    }
+    # Derived from _RES_COL (the same map /building/donate uses to pick the
+    # column to write) so every donatable resource — including ice_blocks —
+    # is covered here without needing to be hand-added to a second list.
+    donated       = {res: ((row[col] if row else 0) or 0) for res, col in _RES_COL.items()}
     progress = {}
     for res, need in next_req.items():
         if res == "benefit":
@@ -5251,11 +5257,10 @@ def building_upgrade_info(building_id):
         ensure_resources(db, username)
         r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
         if r:
-            player_resources = {
-                "fish": r["fish"] or 0, "herbs": r["herbs"] or 0,
-                "gold": r["gold"] or 0, "blood_gems": r["blood_gems"] or 0,
-                "bones": r["bones"] or 0, "spell_fragments": r["spell_fragments"] or 0,
-            }
+            # Same _RES_COL keys as `donated` above, read from `resources`
+            # instead of `building_upgrades` -- keeps every donatable
+            # resource (incl. ice_blocks) in sync with the donate route.
+            player_resources = {res: (r[res] or 0) for res in _RES_COL}
         g = get_gold(db, username)
         player_resources["gold"] = g
 
@@ -7443,7 +7448,9 @@ def raid_debug_cancel_cycle():
 
 _BANK_RESOURCES = {"gold", "fish", "herbs", "blood_gems", "bones", "spell_fragments"}
 
-# Gold the bank pays per rarity; buyback = ceil(sell_price * 1.2)
+# Fallback flat price by rarity, used only when an item has no catalog entry to
+# read a real gold cost from (milestone/tutorial rewards, Seal Shop exclusives --
+# items never sold for gold in the first place). Buyback = ceil(sell_price * 1.2).
 _BANK_SELL_PRICES = {
     "common":    30,
     "uncommon":  100,
@@ -7451,6 +7458,52 @@ _BANK_SELL_PRICES = {
     "epic":      800,
     "legendary": 2500,
 }
+
+BANK_SELL_DISCOUNT               = 0.5  # standard resale: 50% of the item's original gold cost
+BANK_EVENT_ITEM_SELL_MULTIPLIER  = 1.5  # event-exclusive items sell above cost instead of at a discount -- tune during balance-pass
+
+# Slots that must never be sellable regardless of item type (titles aren't gear
+# rows at all, so they need no exclusion here).
+_BANK_UNSELLABLE_SLOTS = {"card_frame", "card_background"}
+
+
+def _find_shop_definition(item_id, item_type):
+    """Look up an item's original shop listing across every catalog it could
+    have come from, keyed by the item type recorded on the player's gear row.
+    Returns (gold_cost, event_exclusive), or (None, False) if the item was
+    never sold for gold anywhere (milestone/tutorial rewards, Seal Shop
+    exclusives, etc.) -- callers should fall back to a flat price in that case."""
+    if item_type == "combat":
+        defn = GEAR_CATALOG.get(item_id)
+        if defn and defn.get("type") == "combat":
+            return defn["cost"].get("gold", 0), bool(defn.get("event_exclusive"))
+        for items in BARRACKS_SHOP.values():
+            for item in items:
+                if item["id"] == item_id:
+                    return item["cost"].get("gold", 0), bool(item.get("event_exclusive"))
+    else:
+        defn = GEAR_CATALOG.get(item_id)
+        if defn and defn.get("type") == "cosmetic":
+            return defn["cost"].get("gold", 0), bool(defn.get("event_exclusive"))
+        for items in BOUTIQUE_ITEMS.values():
+            for item in items:
+                if item["id"] == item_id:
+                    return item["price"], bool(item.get("event_exclusive"))
+    return None, False
+
+
+def calculate_bank_sell_price(gear_row):
+    """Gold the bank pays for a player's item. Standard items sell at
+    BANK_SELL_DISCOUNT of their real shop cost (gold portion only); event-
+    exclusive items sell at BANK_EVENT_ITEM_SELL_MULTIPLIER instead. Items with
+    no shop listing (rewards, Seal Shop exclusives) fall back to the flat
+    rarity-based _BANK_SELL_PRICES."""
+    gold_cost, event_exclusive = _find_shop_definition(gear_row["item_id"], gear_row["type"])
+    if gold_cost is None:
+        return _BANK_SELL_PRICES.get(gear_row["rarity"] or "common", 30)
+    if event_exclusive:
+        return math.ceil(gold_cost * BANK_EVENT_ITEM_SELL_MULTIPLIER)
+    return math.floor(gold_cost * BANK_SELL_DISCOUNT)
 
 
 @app.route("/bank/listings")
@@ -7679,21 +7732,22 @@ def bank_sell_to_bank():
     if not g:
         db.close()
         return jsonify({"status": "error", "message": "Item not found."})
-    if g["equipped"]:
+    if (g["slot"] or "") in _BANK_UNSELLABLE_SLOTS:
         db.close()
-        return jsonify({"status": "error", "message": "Unequip the item before selling it."})
-    if g["worn"]:
-        db.close()
-        return jsonify({"status": "error", "message": "Remove the item before selling it."})
+        return jsonify({"status": "error", "message": "This item can't be sold."})
     if g["listed"]:
         db.close()
         return jsonify({"status": "error", "message": "Cancel your listing before selling to the bank."})
 
-    sell_price = _BANK_SELL_PRICES.get(g["rarity"] or "common", 30)
+    was_equipped_or_worn = bool(g["equipped"] or g["worn"])
+    sell_price = calculate_bank_sell_price(g)
     buy_price  = math.ceil(sell_price * 1.2)
     now        = int(time.time())
 
     add_gold(db, username, sell_price)
+    # Auto-unequip/un-wear as part of the sale rather than rejecting it --
+    # there's no "dangling equipped-but-not-owned" state once username flips
+    # to '__bank__' below, since these flags are cleared in the same update.
     db.execute(
         "UPDATE gear SET username='__bank__', bank_sell_price=?, bank_listed_at=?, "
         "equipped=0, worn=0, listed=0 WHERE id=?",
@@ -7703,7 +7757,11 @@ def bank_sell_to_bank():
         f"🏦 {username} sold {g['name']} to the Penguin Bank for {sell_price} gold!", username)
     db.commit()
     db.close()
-    return jsonify({"status": "success", "message": f"Sold for {sell_price} 🪙 gold!"})
+    return jsonify({
+        "status": "success",
+        "message": f"Sold for {sell_price} 🪙 gold!",
+        "was_equipped_or_worn": was_equipped_or_worn,
+    })
 
 
 @app.route("/bank/shop")
