@@ -15,4 +15,9 @@ FEATURES = {
                               # templates/home.html (hides the social-mode-section UI).
                               # /penguin/social-mode and the DB columns are untouched/ungated so
                               # re-enabling is just flipping this flag back to True.
+    "minigame_leaderboard": False,  # Weekly combined minigame leaderboard + Saturday 00:00 reward
+                                    # resolution job. Raw score persistence (minigame_scores table)
+                                    # and the Award Hall's all-time records tab are NOT gated by
+                                    # this — only the live weekly rankings + rank rewards + chat
+                                    # announcement. Flip to True to go live.
 }
