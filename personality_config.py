@@ -1,4 +1,5 @@
 import random
+import re
 
 # ── PLAYER INTERESTS ──────────────────────────────────────────────────────────
 # Structure: { key: {"label": str, "emoji": str} }
@@ -3634,6 +3635,14 @@ def highlight_name(name):
     return f'<span class="pname-hl">{name}</span>'
 
 
+def highlight_interest(label):
+    """Wraps an interest/topic label for visual emphasis, mirroring
+    highlight_name() above but in the palette orange (#FF8C00). Applied at
+    template-fill time so newly generated events carry the highlight baked
+    in; pre-existing plain-text rows in event_log are left as-is."""
+    return f'<span class="topic-hl">{label}</span>'
+
+
 def generate_action_text(action, penguin, other_penguin=None):
     pname = penguin.get("penguin_name") or penguin["username"]
     text = action["template"].replace("{penguin}", highlight_name(pname))
@@ -3648,7 +3657,7 @@ def generate_action_text(action, penguin, other_penguin=None):
             label  = f"{topic['emoji']} {topic['label']}" if topic else chosen
         else:
             label = "something"
-        text = text.replace("{interest}", label)
+        text = text.replace("{interest}", highlight_interest(label))
     return text
 
 
@@ -3671,14 +3680,28 @@ def pick_group_event(topic_to_players):
     return topic_key, entry, eligible[topic_key]
 
 
-def format_group_event_text(entry, participants):
+def format_group_event_text(entry, participants, topic_key=None):
     """Group event templates describe a village-wide happening with no
     {penguin}/{other} slots (see GROUP_EVENT_TEMPLATES) -- the participant
     list is appended and highlighted separately so the event still credits
-    everyone who took part. participants: [(username, display_name), ...]."""
+    everyone who took part. participants: [(username, display_name), ...].
+
+    Unlike the autonomous-action templates, the topic label here is baked
+    directly into the template prose (often repeated) rather than exposed
+    as a {interest} slot, so it's highlighted by substring replacement
+    against the topic's own label/emoji instead of a placeholder swap."""
+    template = entry["template"]
+    topic = INTEREST_TOPICS.get(topic_key) if topic_key else None
+    if topic:
+        label   = topic["label"]
+        # Matches "Cooking 🍳" as one unit where the emoji immediately follows
+        # (the first mention in every template), and bare "Cooking" everywhere
+        # else -- single pass so neither occurrence gets wrapped twice.
+        pattern = re.escape(label) + r"(?: " + re.escape(topic["emoji"]) + r")?"
+        template = re.sub(pattern, lambda m: highlight_interest(m.group(0)), template)
     highlighted = [highlight_name(display_name) for (_, display_name) in participants]
     if len(highlighted) == 1:
         names_str = highlighted[0]
     else:
         names_str = ", ".join(highlighted[:-1]) + " and " + highlighted[-1]
-    return f"{entry['template']} — {names_str}"
+    return f"{template} — {names_str}"
