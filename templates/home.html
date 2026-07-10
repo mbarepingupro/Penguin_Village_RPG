@@ -6934,6 +6934,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         });
         const cData = await cRes.json();
         if (cData.status === 'success') {
+          // The "GAME OVER" screen already played GameSounds.minigameComplete()
+          // when the round timer hit zero (MiniGameManager._showResults()) --
+          // this is a separate moment, the actual reward grant confirmed by
+          // the server, and previously had no sound of its own (unlike every
+          // other collect-rewards flow, e.g. bpCollect() -> jobCollect()).
+          if (window.GameSounds) GameSounds.jobCollect();
           const r = cData.rewards || {};
           const parts = [];
           if (r.fish)            parts.push('+' + r.fish + ' 🐟');
