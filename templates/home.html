@@ -1652,10 +1652,15 @@
 
     /* ── EVENT LOG ── */
     .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-    .event-row { display: flex; gap: 8px; padding: 6px 10px; border-left: 3px solid; font-size: 17px; line-height: 1.8; }
+    .event-row { display: flex; gap: 8px; padding: 6px 10px; border-left: 3px solid; font-size: 17px; line-height: 1.8; align-items: baseline; }
     .event-row.job         { border-color: var(--orange); }
     .event-row.combat      { border-color: var(--pink); }
     .event-row.village     { border-color: var(--purple); }
+    .event-row.group       { border-color: var(--purple); }
+    .event-row.donation    { border-color: #FF8C00; }
+    .event-row.milestone   { border-color: #FF8C00; }
+    .event-row.level_up,
+    .event-row.building_levelup { border-color: #4aff6b; }
     .event-row.achievement { border-color: #4aff6b; }
     .event-row.autonomous  { border-color: #3A3A50; }
     .event-row.autonomous .event-msg { color: #B8B8D0; }
@@ -1664,6 +1669,33 @@
     /* Player/penguin name emphasis — shared by event log tab, welcome-back
        popup, and news ticker (all render the same event_log.message text). */
     .pname-hl, .event-msg .pname-hl { color: #A86EFF; font-weight: 700; }
+    /* Interest/topic label emphasis — same layer as .pname-hl above, orange
+       instead of purple. Baked in at template-fill time (see
+       personality_config.highlight_interest); pre-existing plain-text rows
+       already in event_log are not retroactively highlighted. */
+    .topic-hl, .event-msg .topic-hl { color: #FF8C00; font-weight: 700; }
+
+    .eventlog-subtabs { display: flex; border-bottom: 2px solid #3A3A50; flex-shrink: 0; overflow-x: auto; }
+    .eventlog-subtab {
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 8px 10px; border: none; background: none;
+      color: #8888A8; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .eventlog-subtab.active { color: #A86EFF; border-bottom-color: #A86EFF; }
+    .eventlog-subtab:hover:not(.active) { color: #B8B8D0; }
+    .eventlog-filter-row { display: flex; justify-content: flex-end; padding: 6px 12px 0; flex-shrink: 0; }
+    .eventlog-mine-toggle {
+      font-family: 'C&C Red Alert', monospace; font-size: 14px;
+      padding: 5px 10px; border: 1px solid #3A3A50; background: none;
+      color: #8888A8; cursor: pointer;
+    }
+    .eventlog-mine-toggle.active { color: #FF8C00; border-color: #FF8C00; }
+    .event-share-btn {
+      background: none; border: none; color: #8888A8; cursor: pointer;
+      font-size: 15px; flex-shrink: 0; padding: 0 2px; line-height: 1;
+    }
+    .event-share-btn:hover { color: #FF8C00; }
 
     /* ── GEAR RARITY BORDERS ── */
     .gear-card.common    { border-color: #3A3A50; }
@@ -3293,6 +3325,15 @@
 
       <!-- EVENT LOG TAB -->
       <div class="content-panel" id="panel-eventlog">
+        <div class="eventlog-subtabs">
+          <button class="eventlog-subtab active" data-bucket="activities" onclick="switchEventSubTab('activities', this)">ACTIVITIES</button>
+          <button class="eventlog-subtab"        data-bucket="donations"  onclick="switchEventSubTab('donations', this)">DONATIONS</button>
+          <button class="eventlog-subtab"        data-bucket="combat"     onclick="switchEventSubTab('combat', this)">COMBAT</button>
+          <button class="eventlog-subtab"        data-bucket="levelups"   onclick="switchEventSubTab('levelups', this)">LEVEL-UPS</button>
+        </div>
+        <div class="eventlog-filter-row">
+          <button class="eventlog-mine-toggle" id="eventlog-mine-toggle" onclick="toggleEventMineFilter()">👤 ONLY MY PENGUIN</button>
+        </div>
         <div class="eventlog-panel" id="eventlog-list">
           <div style="color:#8888A8;font-size:16px;text-align:center;padding:20px;">LOADING...</div>
         </div>
@@ -7800,30 +7841,90 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   // ── EVENT LOG ──
+  // _eventLogData is cached from the last /events fetch so switching sub-tabs
+  // or the "only mine" filter re-renders instantly with no re-fetch. Both the
+  // active bucket and the filter are persisted in sessionStorage -- reset on
+  // browser close, kept for the rest of the session per the task's ask.
+  let _eventLogData    = [];
+  let _eventLogBucket  = sessionStorage.getItem('eventLogBucket') || 'activities';
+  let _eventLogOnlyMine = sessionStorage.getItem('eventLogOnlyMine') === '1';
+
+  function _eventInvolvesMe(e) {
+    if (e.username && e.username === CURRENT_USER) return true;
+    if (e.participants) {
+      try {
+        const parts = JSON.parse(e.participants);
+        if (Array.isArray(parts) && parts.includes(CURRENT_USER)) return true;
+      } catch (err) {}
+    }
+    return false;
+  }
+
+  function switchEventSubTab(bucket, btn) {
+    _eventLogBucket = bucket;
+    sessionStorage.setItem('eventLogBucket', bucket);
+    document.querySelectorAll('.eventlog-subtab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    _renderEventLog();
+  }
+
+  function toggleEventMineFilter() {
+    _eventLogOnlyMine = !_eventLogOnlyMine;
+    sessionStorage.setItem('eventLogOnlyMine', _eventLogOnlyMine ? '1' : '0');
+    const btn = document.getElementById('eventlog-mine-toggle');
+    if (btn) btn.classList.toggle('active', _eventLogOnlyMine);
+    _renderEventLog();
+  }
+
+  async function shareEventToTwitch(eventId) {
+    // TODO StreamerBot: this is a stub -- the real integration is a future
+    // session. For now just tell the backend and show a "coming soon" toast.
+    try {
+      await fetch(`/events/share/${eventId}`, { method: 'POST' });
+    } catch (e) {}
+    showToast('Coming soon — Twitch sharing');
+  }
+
+  function _renderEventLog() {
+    const container = document.getElementById('eventlog-list');
+    if (!container) return;
+    let events = _eventLogData.filter(e => (e.bucket || 'activities') === _eventLogBucket);
+    if (_eventLogOnlyMine) events = events.filter(_eventInvolvesMe);
+    if (events.length === 0) {
+      container.innerHTML = '<div style="color:#8888A8;font-size:17px;text-align:center;padding:20px;">NO EVENTS YET</div>';
+      return;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    let html = '';
+    events.forEach(e => {
+      const agoSecs = now - (e.created_at || 0);
+      const timeStr = agoSecs < 3600
+        ? `${Math.floor(agoSecs / 60)}m ago`
+        : `${Math.floor(agoSecs / 3600)}h ago`;
+      html += `<div class="event-row ${e.event_type || 'village'}">
+        <span class="event-time">${timeStr}</span>
+        <span class="event-msg">${e.message}</span>
+        <button class="event-share-btn" title="Share to Twitch" onclick="shareEventToTwitch(${e.id})">📤</button>
+      </div>`;
+    });
+    container.innerHTML = html;
+  }
+
   async function loadEventLog() {
     const container = document.getElementById('eventlog-list');
     if (!container) return;
     container.innerHTML = '<div style="color:#8888A8;font-size:16px;text-align:center;padding:20px;">LOADING...</div>';
+    // Reflect persisted sub-tab/filter state on the controls before rendering.
+    document.querySelectorAll('.eventlog-subtab').forEach(t => {
+      t.classList.toggle('active', t.dataset.bucket === _eventLogBucket);
+    });
+    const mineBtn = document.getElementById('eventlog-mine-toggle');
+    if (mineBtn) mineBtn.classList.toggle('active', _eventLogOnlyMine);
     try {
       const res  = await fetch('/events');
       const data = await res.json();
-      if (!data.events || data.events.length === 0) {
-        container.innerHTML = '<div style="color:#8888A8;font-size:17px;text-align:center;padding:20px;">NO EVENTS YET</div>';
-        return;
-      }
-      const now = Math.floor(Date.now() / 1000);
-      let html = '';
-      data.events.forEach(e => {
-        const agoSecs = now - (e.created_at || 0);
-        const timeStr = agoSecs < 3600
-          ? `${Math.floor(agoSecs / 60)}m ago`
-          : `${Math.floor(agoSecs / 3600)}h ago`;
-        html += `<div class="event-row ${e.event_type || 'village'}">
-          <span class="event-time">${timeStr}</span>
-          <span class="event-msg">${e.message}</span>
-        </div>`;
-      });
-      container.innerHTML = html;
+      _eventLogData = data.events || [];
+      _renderEventLog();
     } catch(e) {
       container.innerHTML = '<div style="color:#ff6b6b;font-size:17px;text-align:center;padding:20px;">ERROR LOADING EVENTS</div>';
     }
@@ -10489,6 +10590,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     shop: '#FF7FE5', seal_shop: '#FF7FE5', igloo: '#A86EFF',
     social: '#4a9eff', milestone: '#FF8C00', title: '#FF8C00',
     gear_purchase: '#A86EFF', reshape: '#4a9eff', character_created: '#4aff6b',
+    // Split out of "village" for the Events-tab sub-tab rework (see app.py
+    // log_event call sites for donation/building_levelup, and the group-event
+    // insert in run_autonomous_actions) -- colored to match their old bucket.
+    donation: '#FF8C00', building_levelup: '#4aff6b', group: '#4aff6b',
   };
 
   async function loadNewsTicker() {

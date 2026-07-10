@@ -464,6 +464,32 @@ _RESOURCE_DISPLAY_NAMES = {"ice_blocks": "Ice Blocks"}
 def _resource_display_name(resource_type):
     return _RESOURCE_DISPLAY_NAMES.get(resource_type, resource_type)
 
+
+# ── Events tab sub-tab mapping ────────────────────────────────────────────────
+# Maps every event_type currently written to event_log onto one of the four
+# Events-tab buckets. "donation" and "building_levelup" were split out of the
+# old catch-all "village" type (which also covered joins, streaks, mayor
+# gifts, etc.) specifically so donations and building level-ups could be
+# told apart from everything else -- see log_event call sites for "donation",
+# "level_up" and "building_levelup". "milestone" (card background/frame
+# unlocks for cumulative donation totals) is an approximation: it's donation-
+# adjacent but not a donation itself, mapped to Donations as the closest fit.
+# Anything not listed here (including any future event_type) falls back to
+# Activities via _EVENT_BUCKET_DEFAULT rather than raising or disappearing.
+_EVENT_BUCKET_DEFAULT = "activities"
+_EVENT_TYPE_BUCKETS = {
+    "donation":         "donations",
+    "milestone":        "donations",   # approximate -- see comment above
+    "combat":           "combat",
+    "level_up":         "levelups",
+    "building_levelup": "levelups",
+}
+
+
+def _event_bucket(event_type):
+    return _EVENT_TYPE_BUCKETS.get(event_type, _EVENT_BUCKET_DEFAULT)
+
+
 # ── Global chat ──────────────────────────────────────────────────────────────
 _CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
 # Hardcoded wordlist — expandable; basic bad-word filter applied on send
@@ -1776,7 +1802,7 @@ def award_xp(db, username, amount):
     db.execute("UPDATE penguins SET xp=?, level=? WHERE username=?", (new_xp, new_level, username))
     rewards_list = []
     if leveled:
-        log_event(db, "village", f"{username} reached level {new_level}! 🎉", username)
+        log_event(db, "level_up", f"{username} reached level {new_level}! 🎉", username)
         for lvl in range(old_level + 1, new_level + 1):
             lv_data = LEVEL_DATA.get(lvl, {})
             reward  = lv_data.get("reward")
@@ -2041,13 +2067,16 @@ def run_autonomous_actions():
             result = pick_group_event(topic_to_players)
             if result:
                 topic_key, entry, participants = result
-                text         = format_group_event_text(entry, participants)
+                text         = format_group_event_text(entry, participants, topic_key)
                 prefix       = CATEGORY_EMOJIS.get(entry.get("category", "village"), "🏘️")
                 participant_usernames = json.dumps([u for (u, _) in participants])
+                # entry["event_type"] is "group" for every GROUP_EVENT_TEMPLATES
+                # entry (was previously hardcoded to "village" here even though
+                # the field already existed on the template dict, unused).
                 db.execute(
                     "INSERT INTO event_log (event_type, message, username, created_at, participants) "
                     "VALUES (?,?,?,?,?)",
-                    ("village", f"{prefix} {text}", None, now, participant_usernames)
+                    (entry.get("event_type", "village"), f"{prefix} {text}", None, now, participant_usernames)
                 )
     except Exception as e:
         print(f"[Autonomous] Group event error: {e}")
@@ -4486,7 +4515,22 @@ def get_events():
         (cutoff,)
     ).fetchall()
     db.close()
-    return jsonify({"events": [dict(r) for r in rows]})
+    events = []
+    for r in rows:
+        e = dict(r)
+        e["bucket"] = _event_bucket(e["event_type"])
+        events.append(e)
+    return jsonify({"events": events})
+
+
+@app.route("/events/share/<int:event_id>", methods=["POST"])
+def share_event_to_twitch(event_id):
+    # TODO StreamerBot: wire this up to the real StreamerBot integration —
+    # no StreamerBot endpoints exist in this codebase yet, so this only logs
+    # the request and returns a not-implemented response for now.
+    username = session.get("username")
+    print(f"[EventShare] {username or 'anonymous'} requested Twitch share for event_id={event_id}")
+    return jsonify({"status": "not_implemented", "message": "Twitch sharing is coming soon."}), 501
 
 
 @app.route("/events/recent")
@@ -4982,7 +5026,12 @@ def welcome_back(username):
             leveled_passive = True
 
     # ── Village news (notable events since last_active) ───────────────────────
-    notable_types = ("village", "prestige", "mayor", "milestone")
+    # "donation", "level_up" and "building_levelup" used to be logged as
+    # "village" (see log_event call sites) before the Events-tab rework split
+    # them out for sub-tab bucketing -- kept here too so they don't silently
+    # disappear from this feed. "group" is deliberately excluded: those are
+    # surfaced per-participant via the penguin_activities section below instead.
+    notable_types = ("village", "prestige", "mayor", "milestone", "donation", "level_up", "building_levelup")
     news_rows = db.execute(
         f"SELECT message FROM event_log WHERE event_type IN ({','.join('?'*len(notable_types))})"
         " AND created_at > ? AND username != ? ORDER BY created_at DESC LIMIT 5",
@@ -5033,7 +5082,7 @@ def welcome_back(username):
         # participant list as a JSON array in `participants` instead.
         group_rows = db.execute(
             "SELECT message, created_at, participants FROM event_log "
-            "WHERE event_type='village' AND participants IS NOT NULL AND created_at > ? "
+            "WHERE event_type='group' AND participants IS NOT NULL AND created_at > ? "
             "ORDER BY created_at DESC LIMIT 20",
             (last_active,)
         ).fetchall()
@@ -5374,7 +5423,7 @@ def building_donate():
         (building_id, username, resource_type, amount, int(time.time()))
     )
 
-    log_event(db, "village",
+    log_event(db, "donation",
               f"{username} donated {amount} {_resource_display_name(resource_type)} to {cfg['name']}",
               username)
 
@@ -5479,7 +5528,7 @@ def building_donate():
             (new_level, building_id)
         )
         benefit = cfg["levels"][new_level].get("benefit", "")
-        log_event(db, "village",
+        log_event(db, "building_levelup",
                   f"🏗️ {cfg['name']} has been upgraded to Level {new_level}! {benefit} Thanks to the village!",
                   None)
         leveled_up = True
@@ -7110,7 +7159,7 @@ def mayor_building_boost():
         if all(donated[k] >= reqs[k] for k in reqs):
             db.execute("UPDATE building_upgrades SET current_level=? WHERE building_id=?",
                        (next_level, building_id))
-            log_event(db, "village",
+            log_event(db, "building_levelup",
                       f"🏗️ {cfg['name']} has been upgraded to level {next_level}!",
                       MAYOR_USERNAME)
             current_level = next_level
