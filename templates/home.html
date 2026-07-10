@@ -5435,6 +5435,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       html += `<div class="bm-tab-bar" style="display:flex;gap:4px;margin-bottom:10px;">
         <button class="bm-tab active" id="ah-tab-achievements" onclick="switchAwardHallTab('achievements')" style="flex:1;font-size:16px;padding:6px 4px;background:#1a1a1a;border:1px solid #4aff6b;color:#4aff6b;cursor:pointer;font-family:inherit;">🏆 ACHIEVEMENTS</button>
         <button class="bm-tab" id="ah-tab-leaderboard" onclick="switchAwardHallTab('leaderboard')" style="flex:1;font-size:16px;padding:6px 4px;background:#1a1a1a;border:1px solid #3A3A50;color:#8888A8;cursor:pointer;font-family:inherit;">📊 LEADERBOARDS</button>
+        <button class="bm-tab" id="ah-tab-minigames" onclick="switchAwardHallTab('minigames')" style="flex:1;font-size:16px;padding:6px 4px;background:#1a1a1a;border:1px solid #3A3A50;color:#8888A8;cursor:pointer;font-family:inherit;">🎮 MINIGAMES</button>
       </div>`;
       html += `<div id="ah-pane-achievements">
         <div style="color:#B8B8D0;font-size:16px;margin-bottom:10px;line-height:1.8;">Check your completed achievements and track progress toward new ones.</div>
@@ -5455,6 +5456,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         </div>
         <div id="lb-table-container" style="min-height:60px;"></div>
         <div id="lb-player-rank" style="margin-top:8px;"></div>
+      </div>`;
+      html += `<div id="ah-pane-minigames" style="display:none;">
+        <div style="color:#FF8C00;font-size:17px;margin-bottom:4px;">🎮 MINIGAME RECORDS</div>
+        <div style="color:#B8B8D0;font-size:16px;margin-bottom:10px;">All-time top score per mini-game.</div>
+        <div id="mg-records-container" style="min-height:60px;"></div>
+        <hr class="bm-divider-thin" style="margin:12px 0;">
+        <div id="mg-weekly-section"></div>
       </div>`;
     } else if (btype === 'placeholder') {
       if (data.building_id === 'horny_jail')
@@ -7047,7 +7055,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   let _lbOverviewLoaded = false;
 
   function switchAwardHallTab(tab) {
-    ['achievements', 'leaderboard'].forEach(t => {
+    ['achievements', 'leaderboard', 'minigames'].forEach(t => {
       const pane = document.getElementById(`ah-pane-${t}`);
       const btn  = document.getElementById(`ah-tab-${t}`);
       if (pane) pane.style.display = t === tab ? '' : 'none';
@@ -7060,6 +7068,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (window.GameSounds) GameSounds.tabSwitch();
       if (!_lbOverviewLoaded) { _lbOverviewLoaded = true; loadLbOverview(); }
       loadLeaderboard(_lbCurrentCat);
+    } else if (tab === 'minigames') {
+      if (window.GameSounds) GameSounds.tabSwitch();
+      loadMinigameRecords();
+      loadMinigameWeeklyLeaderboard();
     }
   }
 
@@ -7181,6 +7193,90 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       btn.classList.toggle('active', active);
     });
     loadLeaderboard(cat);
+  }
+
+  // ── AWARD HALL / MINIGAMES TAB ────────────────────────────────────────────
+  const MINIGAME_LABELS = {
+    sea_lion_pit:  '🎣 Fish Catch',
+    club_soda:     '🌿 Herb Garden',
+    parkmusement:  '🎪 Juggle Master',
+    cursed_temple: '🔮 Rune Memory',
+    guillotine:    '💀 Whack-a-Target',
+  };
+
+  async function loadMinigameRecords() {
+    const el = document.getElementById('mg-records-container');
+    if (!el) return;
+    el.innerHTML = '<div style="color:#8888A8;font-size:16px;text-align:center;padding:16px;">LOADING...</div>';
+    try {
+      const res  = await fetch('/award-hall/minigame-records');
+      const data = await res.json();
+      if (data.status !== 'success') {
+        el.innerHTML = '<div style="color:#ff6b6b;font-size:16px;text-align:center;padding:10px;">Error loading records.</div>';
+        return;
+      }
+      let html = '';
+      for (const [buildingId, label] of Object.entries(MINIGAME_LABELS)) {
+        const rec = data.records[buildingId];
+        html += `<div class="lb-row" style="justify-content:space-between;">
+          <div style="flex:1;">${label}</div>`;
+        if (rec) {
+          const dateStr = new Date(rec.played_at * 1000).toLocaleDateString();
+          html += `<div style="text-align:right;">
+            <span style="color:#FF8C00;font-size:16px;">${rec.score.toLocaleString()}</span>
+            — <span class="pname-hl">${rec.penguin_name}</span>
+            <span style="color:#8888A8;font-size:16px;"> (${dateStr})</span>
+          </div>`;
+        } else {
+          html += `<div style="color:#8888A8;font-size:16px;">No plays yet</div>`;
+        }
+        html += `</div>`;
+      }
+      el.innerHTML = html;
+    } catch(e) {
+      el.innerHTML = '<div style="color:#ff6b6b;font-size:16px;text-align:center;padding:10px;">Error loading records.</div>';
+    }
+  }
+
+  async function loadMinigameWeeklyLeaderboard() {
+    const el = document.getElementById('mg-weekly-section');
+    if (!el) return;
+    if (!FEATURES.minigame_leaderboard) {
+      el.innerHTML = `<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">🔒 Weekly Mini-Game Leaderboard coming soon!</div>`;
+      return;
+    }
+    el.innerHTML = `<div style="color:#FF8C00;font-size:17px;margin-bottom:4px;">📅 WEEKLY MINI-GAME LEADERBOARD</div>
+      <div style="color:#B8B8D0;font-size:16px;margin-bottom:8px;">Combined score across all 5 mini-games (each game's best score, normalized against that game's weekly top). Resets Monday, rewards Saturday.</div>
+      <div id="mg-weekly-table" style="min-height:40px;"><div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">LOADING...</div></div>`;
+    try {
+      const res  = await fetch(`/minigame/leaderboard?username=${encodeURIComponent(CURRENT_USER)}`);
+      const data = await res.json();
+      const tableEl = document.getElementById('mg-weekly-table');
+      if (!tableEl) return;
+      if (data.status !== 'success' || !data.entries || !data.entries.length) {
+        tableEl.innerHTML = '<div style="color:#B8B8D0;font-size:16px;text-align:center;padding:10px;">No mini-game scores yet this week!</div>';
+        return;
+      }
+      const medals = ['🥇','🥈','🥉'];
+      let html = '';
+      for (const e of data.entries) {
+        const isMe   = e.username === CURRENT_USER;
+        const medal  = e.rank <= 3 ? medals[e.rank - 1] : null;
+        const rowCls = isMe ? 'lb-row me' : (e.rank <= 3 ? `lb-row rank${e.rank}` : 'lb-row');
+        const nameHtml = isMe
+          ? `<span style="color:#FF7FE5;">${e.penguin_name} ◀</span>`
+          : `<span class="pname-hl">${e.penguin_name}</span>`;
+        html += `<div class="${rowCls}">
+          <div style="width:30px;">${medal || '#' + e.rank}</div>
+          <div style="flex:1;">${nameHtml}</div>
+          <div style="color:#FF8C00;">${e.score}</div>
+        </div>`;
+      }
+      tableEl.innerHTML = html;
+    } catch(e) {
+      const tableEl = document.getElementById('mg-weekly-table');
+      if (tableEl) tableEl.innerHTML = '<div style="color:#ff6b6b;font-size:16px;text-align:center;">Error loading leaderboard.</div>';
+    }
   }
 
   const _RESOURCE_ICONS = { gold: '🪙', bones: '🦴', blood_gems: '💎', spell_fragments: '✨', fish: '🐟', herbs: '🌿' };

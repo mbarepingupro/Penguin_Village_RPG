@@ -189,6 +189,22 @@ def init_db():
         )
     """)
 
+    # One row per minigame attempt (raw score, not normalized -- see
+    # app.py's minigame_complete()). This single per-attempt ledger is the
+    # minimal schema that serves both the Award Hall's all-time records
+    # (MAX(score) per building_id) and the weekly combined leaderboard
+    # (MAX(score) per username+building_id within the week's time range) --
+    # no separate per-week rollup table needed.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS minigame_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            building_id TEXT NOT NULL,
+            score INTEGER NOT NULL,
+            played_at INTEGER NOT NULL
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS active_buffs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

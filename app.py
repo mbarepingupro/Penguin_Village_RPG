@@ -7875,6 +7875,9 @@ def bank_shop_buy(gear_id):
     return jsonify({"status": "success", "message": f"Bought {g['name']}!"})
 
 
+MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine")
+
+
 def calculate_minigame_rewards(building_id, score, player_level):
     base = {
         "sea_lion_pit":  {"fish": 15, "gold": 5, "xp": 10},
@@ -7883,7 +7886,15 @@ def calculate_minigame_rewards(building_id, score, player_level):
         "cursed_temple": {"spell_fragments": 12, "gold": 5, "xp": 10},
         "guillotine":    {"blood_gems": 6, "bones": 6, "gold": 5, "xp": 10},
     }
-    multiplier = max(0.2, min(2.0, score / 50.0))
+    # `score` is now the player's raw, uncapped score (see minigame_complete --
+    # scores used to be clamped to 0-100 before storage/display; now only the
+    # reward multiplier below still works on that old 0-100 scale, so it's
+    # reproduced here internally rather than changing the payout curve.
+    # Capping at 100 for this calculation only replicates the exact old
+    # multiplier behavior (which maxed out at score=100 either way), so
+    # reward amounts are unaffected by the raw-score change.
+    reward_score = min(100, score)
+    multiplier = max(0.2, min(2.0, reward_score / 50.0))
     gather_bonus = 1 + (player_level or 1) * 0.05
     rewards = {}
     for resource, amount in base.get(building_id, {}).items():
@@ -7966,10 +7977,9 @@ def minigame_start():
     building_id = data.get("building_id", "")
     is_tutorial = bool(data.get("tutorial", False))
 
-    MINIGAME_BUILDINGS = {"sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine"}
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
-    if building_id not in MINIGAME_BUILDINGS:
+    if building_id not in MINIGAME_BUILDING_IDS:
         return jsonify({"status": "error", "message": "No mini-game at this building."})
 
     db = get_db()
@@ -8000,7 +8010,11 @@ def minigame_complete():
     data        = request.get_json(silent=True) or {}
     username    = session.get("username", "")
     building_id = data.get("building_id", "")
-    score       = max(0, min(100, round(float(data.get("score", 0)))))
+    # Raw score, no upper clamp — each game keeps its own natural scale now
+    # (fish caught, combo points, etc). Used to be clamped to 0-100 here; see
+    # calculate_minigame_rewards() for where that old scale is preserved
+    # internally so reward payouts are unaffected by this change.
+    score = max(0, round(float(data.get("score", 0))))
 
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
@@ -8032,10 +8046,202 @@ def minigame_complete():
                 (amount, username)
             )
 
+    now = int(time.time())
+    if building_id in MINIGAME_BUILDING_IDS:
+        db.execute(
+            "INSERT INTO minigame_scores (username, building_id, score, played_at) VALUES (?,?,?,?)",
+            (username, building_id, score, now)
+        )
+
     log_event(db, "work", f"{username} played the {building_id} mini-game! Score: {score}", username)
     db.commit()
     db.close()
     return jsonify({"status": "success", "rewards": rewards, "level_up": level_up_info})
+
+
+@app.route("/award-hall/minigame-records")
+def minigame_records():
+    """All-time top score per minigame, for the Award Hall's Minigames tab.
+    Always available -- unlike the weekly leaderboard, this isn't gated
+    behind minigame_leaderboard since it's just a records display."""
+    db = get_db()
+    records = {}
+    for building_id in MINIGAME_BUILDING_IDS:
+        row = db.execute(
+            "SELECT ms.username, ms.score, ms.played_at, p.penguin_name FROM minigame_scores ms "
+            "LEFT JOIN penguins p ON p.username = ms.username "
+            "WHERE ms.building_id=? ORDER BY ms.score DESC, ms.played_at ASC LIMIT 1",
+            (building_id,)
+        ).fetchone()
+        records[building_id] = {
+            "username":      row["username"],
+            "penguin_name":  row["penguin_name"] or row["username"],
+            "score":         row["score"],
+            "played_at":     row["played_at"],
+        } if row else None
+    db.close()
+    return jsonify({"status": "success", "records": records})
+
+
+# ── WEEKLY MINIGAME LEADERBOARD ───────────────────────────────────────────────
+# Monday 00:00 UTC -> Saturday 00:00 UTC, mirroring the raid/challenge week but
+# deliberately ending before the weekend raid window (raids run Sat->Mon) so
+# the two reward systems never compete for the same moment.
+
+def _minigame_week_bounds(reference_ts=None):
+    """(week_start_ts, week_end_ts) for the Mon 00:00 -> Sat 00:00 UTC window
+    containing reference_ts (default: now)."""
+    ref = datetime.datetime.utcfromtimestamp(reference_ts if reference_ts is not None else time.time())
+    monday   = ref.date() - datetime.timedelta(days=ref.weekday())
+    saturday = monday + datetime.timedelta(days=5)
+    week_start = datetime.datetime.combine(monday,   datetime.time(0, 0)).replace(tzinfo=datetime.timezone.utc)
+    week_end   = datetime.datetime.combine(saturday, datetime.time(0, 0)).replace(tzinfo=datetime.timezone.utc)
+    return int(week_start.timestamp()), int(week_end.timestamp())
+
+
+def _compute_weekly_minigame_leaderboard(week_start, week_end):
+    """Combined weekly ranking across all 5 minigames.
+
+    Raw scores aren't comparable across games (each has its own natural scale
+    -- fish caught vs combo points vs memory rounds), so a player's
+    contribution from a given game is normalized against THAT GAME's own top
+    score for the week: contribution = player_best_in_game / week_top_in_game
+    * 100. That guarantees whoever tops any single game this week always
+    contributes exactly 100 points for it, and a player who skips a game
+    contributes 0 for it. The combined score is the sum of all 5 games'
+    contributions (max possible: 500, from placing #1 in every game).
+
+    Returns [(username, total_score), ...] sorted best-first.
+    """
+    db = get_db()
+    rows = db.execute(
+        "SELECT username, building_id, MAX(score) as best FROM minigame_scores "
+        "WHERE played_at >= ? AND played_at < ? GROUP BY username, building_id",
+        (week_start, week_end)
+    ).fetchall()
+    db.close()
+
+    game_top    = {}
+    player_best = {}
+    for r in rows:
+        player_best[(r["username"], r["building_id"])] = r["best"]
+        game_top[r["building_id"]] = max(game_top.get(r["building_id"], 0), r["best"])
+
+    totals = {}
+    for (username, building_id), best in player_best.items():
+        top = game_top.get(building_id, 0)
+        contribution = (best / top * 100) if top > 0 else 0
+        totals[username] = totals.get(username, 0) + contribution
+
+    return sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
+
+
+@app.route("/minigame/leaderboard")
+def minigame_leaderboard_route():
+    if not FEATURES.get("minigame_leaderboard", False):
+        return jsonify({"status": "error", "message": "The weekly mini-game leaderboard isn't live yet."})
+    username = request.args.get("username", "")
+    week_start, week_end = _minigame_week_bounds()
+    ranked = _compute_weekly_minigame_leaderboard(week_start, week_end)
+
+    db = get_db()
+    entries = []
+    for i, (uname, total) in enumerate(ranked[:20], start=1):
+        p = db.execute("SELECT penguin_name FROM penguins WHERE username=?", (uname,)).fetchone()
+        entries.append({
+            "rank":         i,
+            "username":     uname,
+            "penguin_name": (p["penguin_name"] if p else None) or uname,
+            "score":        round(total, 1),
+        })
+    db.close()
+
+    all_names   = [u for u, _ in ranked]
+    player_rank = (all_names.index(username) + 1) if username in all_names else None
+    return jsonify({
+        "status":      "success",
+        "entries":     entries,
+        "player_rank": player_rank,
+        "week_start":  week_start,
+        "week_end":    week_end,
+    })
+
+
+# Tunable: linear reward curve for non-podium weekly-minigame ranks, mirroring
+# calculate_rank_reward()'s raid curve but with its own podium size/resource
+# range so retuning raid rewards can never silently retune this system too.
+MINIGAME_WEEKLY_PODIUM_SIZE    = 3
+MINIGAME_WEEKLY_RESOURCE_RANGE = (20, 200)  # (floor, ceiling) -- adjust freely
+
+
+def calculate_minigame_rank_reward(rank, total_participants):
+    lo, hi = MINIGAME_WEEKLY_RESOURCE_RANGE
+    first_scaled_rank = MINIGAME_WEEKLY_PODIUM_SIZE + 1
+    if total_participants <= first_scaled_rank:
+        return hi
+    span     = total_participants - first_scaled_rank
+    position = (rank - first_scaled_rank) / span
+    reward   = hi - position * (hi - lo)
+    return max(lo, round(reward))
+
+
+def resolve_weekly_minigame_leaderboard():
+    """Saturday 00:00 UTC -- resolves the just-ended Mon->Sat minigame week.
+    Rank 1/2/3 get 3/2/1 N00Tboxes (grant_lootbox, source "minigame_weekly"),
+    ranks 4+ get a resource via the linear curve above, and the top 3 are
+    announced in chat -- mirrors resolve_raid()'s reward pattern."""
+    if not FEATURES.get("minigame_leaderboard", False):
+        return
+    try:
+        now = int(time.time())
+        # A minute before this exact midnight still falls inside the week
+        # that's ending right now, so the boundaries computed from it are
+        # the just-finished Mon->Sat window rather than the new one starting.
+        week_start, week_end = _minigame_week_bounds(now - 60)
+        ranked = _compute_weekly_minigame_leaderboard(week_start, week_end)
+        if not ranked:
+            print("[MinigameWeekly] No scores this week -- nothing to resolve.")
+            return
+
+        db = get_db()
+        top3 = []
+        for rank, (username, total) in enumerate(ranked, start=1):
+            if rank <= MINIGAME_WEEKLY_PODIUM_SIZE:
+                lootbox_count = MINIGAME_WEEKLY_PODIUM_SIZE - rank + 1
+                db.commit()   # release the write lock -- grant_lootbox() opens its own connection
+                grant_lootbox(username, lootbox_count, "minigame_weekly")
+                top3.append(username)
+            else:
+                resource = random.choice(RESOURCE_TYPES)
+                amount   = calculate_minigame_rank_reward(rank, len(ranked))
+                ensure_resources(db, username)
+                db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
+                db.commit()   # same reason as above -- keep the lock free between iterations
+
+        if top3:
+            post_chat_message(
+                db, MAYOR_USERNAME,
+                f"🎮 Weekly Mini-Game Champions: {', '.join(top3)}! N00Tboxes awarded to the top 3!",
+                now
+            )
+            db.commit()
+        db.close()
+        print(f"[MinigameWeekly] Resolved week {week_start}-{week_end}: {len(ranked)} player(s) ranked, top3={top3}")
+    except Exception as e:
+        print(f"[MinigameWeekly] ERROR resolving weekly leaderboard: {e}")
+
+
+# Registered here (rather than alongside the raid/challenge jobs above) since
+# resolve_weekly_minigame_leaderboard is defined much later in this file than
+# that block — _scheduler is already running by this point, and add_job() on
+# a live BackgroundScheduler is the documented way to add jobs after start().
+# Saturday 00:00 UTC, same trigger time as start_raid ("start_raid" job,
+# registered above) -- staggered by 2 minutes (rather than colliding with it
+# or the 1-minute stagger already used between the Monday jobs) so the two
+# unrelated reward systems never race for the same instant.
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(resolve_weekly_minigame_leaderboard, "cron", day_of_week="sat", hour=0, minute=2,
+                       id="resolve_minigame_weekly", misfire_grace_time=300)
 
 
 @app.route("/mayor/debug/penguin", methods=["POST"])

@@ -139,7 +139,14 @@ var MiniGameManager = {
 
   _showResults: function() {
     var self = this;
-    var finalScore = Math.min(100, this._score);
+    // Raw, uncapped score -- stored/displayed as-is now so real records and
+    // leaderboards aren't artificially ceilinged (see app.py's
+    // minigame_complete/calculate_minigame_rewards for the backend side of
+    // this). Used to be hard-clamped to 100 here; the S/A/B/C/D grade below
+    // still grades against that old 0-100 scale so the lettering keeps
+    // meaning what it always did.
+    var finalScore = this._score;
+    var gradeScore = Math.min(100, finalScore);
     if (window.GameSounds) GameSounds.minigameComplete();
 
     var canvas = this._canvas;
@@ -160,10 +167,10 @@ var MiniGameManager = {
     ctx.fillText('Final Score: ' + finalScore, canvas.width / 2, canvas.height / 2 - 10);
 
     var grade, gradeColor;
-    if (finalScore >= 80) { grade = 'S'; gradeColor = '#FFD700'; }
-    else if (finalScore >= 60) { grade = 'A'; gradeColor = '#4aff6b'; }
-    else if (finalScore >= 40) { grade = 'B'; gradeColor = '#4aafff'; }
-    else if (finalScore >= 20) { grade = 'C'; gradeColor = '#FF8C00'; }
+    if (gradeScore >= 80) { grade = 'S'; gradeColor = '#FFD700'; }
+    else if (gradeScore >= 60) { grade = 'A'; gradeColor = '#4aff6b'; }
+    else if (gradeScore >= 40) { grade = 'B'; gradeColor = '#4aafff'; }
+    else if (gradeScore >= 20) { grade = 'C'; gradeColor = '#FF8C00'; }
     else { grade = 'D'; gradeColor = '#B8B8D0'; }
 
     ctx.fillStyle = gradeColor;
