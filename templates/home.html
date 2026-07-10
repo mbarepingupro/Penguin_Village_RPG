@@ -3539,7 +3539,7 @@
         <div class="inv-tabs">
           <button class="inv-tab active" id="inv-tab-cosmetics" onclick="switchInvTab('cosmetics')">✨ COSMETICS</button>
           <button class="inv-tab" id="inv-tab-gear" onclick="switchInvTab('gear')" style="display:none;">⚔️ COMBAT</button>
-          <button class="inv-tab" id="inv-tab-lootboxes" onclick="switchInvTab('lootboxes')" style="display:none;">🎁 LOOTBOXES</button>
+          <button class="inv-tab" id="inv-tab-lootboxes" onclick="switchInvTab('lootboxes')" style="display:none;">🎁 N00TBOXES</button>
         </div>
       </div>
       <div class="inv-body" id="inv-body"></div>
@@ -3552,7 +3552,7 @@
   <div id="lootbox-reveal-modal">
     <div id="lootbox-reveal-gift">🎁</div>
     <div id="lootbox-reveal-results">
-      <div id="lootbox-reveal-title">LOOTBOX OPENED!</div>
+      <div id="lootbox-reveal-title">N00TBOX OPENED!</div>
       <div class="lb-reveal-row" id="lb-reveal-gear"></div>
       <div class="lb-reveal-row" id="lb-reveal-gold"></div>
       <div class="lb-reveal-row" id="lb-reveal-resource"></div>
@@ -3577,8 +3577,8 @@
 <!-- RAID LOOT INFO POPUP -->
 <div id="raid-loot-info-overlay">
   <div id="raid-loot-info-modal">
-    <div id="raid-loot-info-text">If defeated, loot boxes and resources are awarded to all participants.
-Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes and resources!</div>
+    <div id="raid-loot-info-text">If defeated, N00Tboxes and resources are awarded to all participants.
+Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes and resources!</div>
     <button id="raid-loot-info-close" onclick="RaidJoin.closeLootInfo()">CLOSE</button>
   </div>
 </div>
@@ -4859,6 +4859,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
   let _currentDonateBuilding = null;
   let _currentDonateResource = null;
   let _currentDonatePlayerHave = 0;
+  let _currentUpgData = null; // cached /building/upgrade/<id> response, reused by
+                              // bpSelectResource() so switching the donate resource
+                              // never needs a full re-fetch/re-render of #bm-content.
 
   const _BM_RES_COLORS = {
     fish: '#4a9eff', herbs: '#4aff6b', gold: '#FF8C00',
@@ -4866,8 +4869,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
   };
   const _BM_RES_ICONS = {
     fish: '🐟', herbs: '🌿', gold: '🪙',
-    blood_gems: '💎', bones: '🦴', spell_fragments: '✨'
+    blood_gems: '💎', bones: '🦴', spell_fragments: '✨', ice_blocks: '🧊'
   };
+  // Display-name overrides for resource keys whose raw key doesn't read
+  // naturally as a label (currently only ice_blocks). Internal keys/DB
+  // columns are untouched -- this only affects text shown to players.
+  const _RES_DISPLAY_NAMES = { ice_blocks: 'Ice Blocks' };
+  function _resDisplayName(res) { return _RES_DISPLAY_NAMES[res] || res.replace(/_/g,' '); }
   const _BM_LV_COLORS = { 1: '#8888A8', 2: '#4a9eff', 3: '#FF8C00' };
 
   async function openBuilding(buildingId) {
@@ -4897,6 +4905,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
           _buildingLevels[buildingId] = uJson.current_level;
         }
       }
+      _currentUpgData = upgData;
       _renderModalContent(bData, upgData);
       // Notify tutorial AFTER content is fully rendered so injection finds the right DOM
       if (window.TutorialManager) window.TutorialManager._notifyBuilding(buildingId);
@@ -5692,6 +5701,47 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
     }
   }
 
+  // Renders just the resource-picker + amount input + DONATE button. Pulled
+  // out of _renderContributionHtml so bpSelectResource() can re-render only
+  // this piece (see #bm-donate-controls below) instead of the whole modal.
+  function _renderDonateControls(upgData, preserveAmount) {
+    const donateResources = Object.keys(upgData.next_req || {});
+    if (!donateResources.length) return '';
+    let html = '';
+    const pr = upgData.player_resources || {};
+    if (!_currentDonateResource || !donateResources.includes(_currentDonateResource))
+      _currentDonateResource = donateResources[0];
+    _currentDonatePlayerHave = pr[_currentDonateResource] || 0;
+
+    if (donateResources.length > 1) {
+      html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;">`;
+      donateResources.forEach(r => {
+        const sel = r === _currentDonateResource;
+        const icon = _BM_RES_ICONS[r] || '📦';
+        html += `<button onclick="bpSelectResource('${r}',${pr[r]||0})" style="font-family:'C&C Red Alert',monospace;font-size:16px;padding:5px 8px;border:2px solid ${sel?'#A86EFF':'#8888A8'};background:transparent;color:${sel?'#A86EFF':'#B8B8D0'};cursor:pointer;">${icon} ${_resDisplayName(r)} (${(pr[r]||0).toLocaleString()})</button>`;
+      });
+      html += `</div>`;
+    } else {
+      const r = donateResources[0];
+      html += `<div style="font-size:16px;color:#B8B8D0;margin-bottom:8px;">${_BM_RES_ICONS[r]||'📦'} ${_resDisplayName(r)}: <span style="color:#fff;">${(_currentDonatePlayerHave).toLocaleString()}</span> available</div>`;
+    }
+
+    const defaultAmt = Math.min(preserveAmount || 10, _currentDonatePlayerHave || (preserveAmount || 10)) || 10;
+    html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">`;
+    html += `<input type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="${defaultAmt}" oninput="updateXpPreview()" style="font-family:'C&C Red Alert',monospace;font-size:16px;background:#181820;border:1px solid #8888A8;color:#fff;padding:5px 8px;width:70px;">`;
+    [10, 50, 100, 500].forEach(q => {
+      if (q <= _currentDonatePlayerHave)
+        html += `<button onclick="document.getElementById('bp-donate-amount').value=${q};updateXpPreview()" style="font-family:'C&C Red Alert',monospace;font-size:16px;padding:4px 6px;border:1px solid #8888A8;background:transparent;color:#B8B8D0;cursor:pointer;">${q}</button>`;
+    });
+    if (_currentDonatePlayerHave > 0)
+      html += `<button onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave};updateXpPreview()" style="font-family:'C&C Red Alert',monospace;font-size:16px;padding:4px 6px;border:1px solid #8888A8;background:transparent;color:#B8B8D0;cursor:pointer;">ALL</button>`;
+    html += `</div>`;
+    html += `<div id="bp-xp-preview" style="color:#A86EFF;font-size:16px;margin-bottom:10px;min-height:14px;"></div>`;
+    const hasRes = _currentDonatePlayerHave > 0;
+    html += `<button id="bm-donate-btn" onclick="bpDonate()" ${hasRes?'':'disabled'} style="width:100%;font-family:'C&C Red Alert',monospace;font-size:17px;padding:12px;background:#181820;border:3px solid #4aff6b;color:#4aff6b;cursor:${hasRes?'pointer':'not-allowed'};opacity:${hasRes?1:0.4};">DONATE ${_resDisplayName(_currentDonateResource||'').toUpperCase()}</button>`;
+    return html;
+  }
+
   function _renderContributionHtml(buildingId, upgData) {
     const lvl  = upgData.current_level || 1;
     const maxLvl = upgData.max_level || 3;
@@ -5714,7 +5764,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
         totalPct += pct;
         html += `<div class="bm-prog-wrap">
           <div class="bm-prog-header">
-            <span style="color:#fff;font-size:17px;">${icon} ${res.replace(/_/g,' ')}</span>
+            <span style="color:#fff;font-size:17px;">${icon} ${_resDisplayName(res)}</span>
             <span style="color:#fff;font-size:17px;">${p.donated.toLocaleString()} / ${p.needed.toLocaleString()}</span>
           </div>
           <div class="bm-prog-track" style="border:2px solid ${color}55;">
@@ -5733,40 +5783,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
         </div>
       </div>`;
 
-      // Donation input
-      const donateResources = Object.keys(upgData.next_req || {});
-      if (donateResources.length) {
-        const pr = upgData.player_resources || {};
-        if (!_currentDonateResource || !donateResources.includes(_currentDonateResource))
-          _currentDonateResource = donateResources[0];
-        _currentDonatePlayerHave = pr[_currentDonateResource] || 0;
-
-        if (donateResources.length > 1) {
-          html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;">`;
-          donateResources.forEach(r => {
-            const sel = r === _currentDonateResource;
-            const icon = _BM_RES_ICONS[r] || '📦';
-            html += `<button onclick="bpSelectResource('${r}',${pr[r]||0})" style="font-family:'C&C Red Alert',monospace;font-size:16px;padding:5px 8px;border:2px solid ${sel?'#A86EFF':'#8888A8'};background:transparent;color:${sel?'#A86EFF':'#B8B8D0'};cursor:pointer;">${icon} ${r.replace(/_/g,' ')} (${(pr[r]||0).toLocaleString()})</button>`;
-          });
-          html += `</div>`;
-        } else {
-          const r = donateResources[0];
-          html += `<div style="font-size:16px;color:#B8B8D0;margin-bottom:8px;">${_BM_RES_ICONS[r]||'📦'} ${r.replace(/_/g,' ')}: <span style="color:#fff;">${(_currentDonatePlayerHave).toLocaleString()}</span> available</div>`;
-        }
-
-        html += `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">`;
-        html += `<input type="number" id="bp-donate-amount" min="1" max="${_currentDonatePlayerHave}" value="10" oninput="updateXpPreview()" style="font-family:'C&C Red Alert',monospace;font-size:16px;background:#181820;border:1px solid #8888A8;color:#fff;padding:5px 8px;width:70px;">`;
-        [10, 50, 100, 500].forEach(q => {
-          if (q <= _currentDonatePlayerHave)
-            html += `<button onclick="document.getElementById('bp-donate-amount').value=${q};updateXpPreview()" style="font-family:'C&C Red Alert',monospace;font-size:16px;padding:4px 6px;border:1px solid #8888A8;background:transparent;color:#B8B8D0;cursor:pointer;">${q}</button>`;
-        });
-        if (_currentDonatePlayerHave > 0)
-          html += `<button onclick="document.getElementById('bp-donate-amount').value=${_currentDonatePlayerHave};updateXpPreview()" style="font-family:'C&C Red Alert',monospace;font-size:16px;padding:4px 6px;border:1px solid #8888A8;background:transparent;color:#B8B8D0;cursor:pointer;">ALL</button>`;
-        html += `</div>`;
-        html += `<div id="bp-xp-preview" style="color:#A86EFF;font-size:16px;margin-bottom:10px;min-height:14px;"></div>`;
-        const hasRes = _currentDonatePlayerHave > 0;
-        html += `<button id="bm-donate-btn" onclick="bpDonate()" ${hasRes?'':'disabled'} style="width:100%;font-family:'C&C Red Alert',monospace;font-size:17px;padding:12px;background:#181820;border:3px solid #4aff6b;color:#4aff6b;cursor:${hasRes?'pointer':'not-allowed'};opacity:${hasRes?1:0.4};">DONATE ${(_currentDonateResource||'').replace(/_/g,' ').toUpperCase()}</button>`;
-      }
+      // Donation input -- its own container so bpSelectResource() can swap
+      // just this subtree without rebuilding #bm-content (which would reset
+      // the modal's scroll position every time the resource picker is used).
+      html += `<div id="bm-donate-controls">${_renderDonateControls(upgData)}</div>`;
     }
 
     // Top contributors
@@ -5822,9 +5842,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
   }
 
   function bpSelectResource(res, have) {
+    // Re-render only #bm-donate-controls from the cached upgData -- no
+    // fetch, no #bm-content rebuild, so the modal's scroll position is
+    // left completely alone (see _renderDonateControls above).
+    const amtEl = document.getElementById('bp-donate-amount');
+    const preserveAmount = amtEl ? parseInt(amtEl.value, 10) : 10;
     _currentDonateResource = res;
     _currentDonatePlayerHave = have;
-    if (_currentDonateBuilding) openBuilding(_currentDonateBuilding);
+    const container = document.getElementById('bm-donate-controls');
+    if (container && _currentUpgData) {
+      container.innerHTML = _renderDonateControls(_currentUpgData, preserveAmount);
+      updateXpPreview();
+    } else if (_currentDonateBuilding) {
+      openBuilding(_currentDonateBuilding); // fallback if the cache is somehow empty
+    }
   }
 
   function updateXpPreview() {
@@ -5835,6 +5866,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
     let xp = 0;
     if (_currentDonateResource === 'gold') xp = Math.floor(amount / 4);
     else if (['blood_gems', 'bones'].includes(_currentDonateResource)) xp = amount;
+    else if (_currentDonateResource === 'ice_blocks') xp = amount > 0 ? Math.max(1, Math.floor(amount / 2)) : 0;
     else xp = Math.floor(amount / 2);
     previewEl.textContent = xp > 0 ? `This will earn you ⭐ ${xp} XP` : '';
   }
@@ -6634,14 +6666,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
   function renderLootboxesTab() {
     const unopened    = _invLootboxData.filter(lb => !lb.opened);
     const openedCount = _invLootboxData.length - unopened.length;
-    let html = '<div class="inv-slot-group"><div class="inv-slot-title">🎁 LOOTBOXES</div>';
+    let html = '<div class="inv-slot-group"><div class="inv-slot-title">🎁 N00TBOXES</div>';
     if (unopened.length === 0) {
-      html += '<div class="inv-empty">No lootboxes to open right now.</div>';
+      html += '<div class="inv-empty">No N00Tboxes to open right now.</div>';
     } else {
       for (const lb of unopened) {
         html += `<div class="inv-item">
           <div class="inv-item-info">
-            <div class="inv-item-name">🎁 MYSTERY LOOTBOX</div>
+            <div class="inv-item-name">🎁 MYSTERY N00TBOX</div>
             <div class="inv-item-source">${(lb.source || '').replace(/_/g, ' ')}</div>
           </div>
           <div class="inv-btn-pair"><button class="inv-btn open-action" onclick="invOpenLootbox(${lb.id})">OPEN</button></div>
@@ -6650,7 +6682,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
     }
     html += '</div>';
     if (openedCount > 0) {
-      html += `<div class="inv-empty" style="text-align:left;">${openedCount} lootbox${openedCount === 1 ? '' : 'es'} already opened.</div>`;
+      html += `<div class="inv-empty" style="text-align:left;">${openedCount} N00Tbox${openedCount === 1 ? '' : 'es'} already opened.</div>`;
     }
     return html;
   }
@@ -6660,7 +6692,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
       const res  = await fetch(`/lootbox/open/${lootboxId}`, { method: 'POST' });
       const data = await res.json();
       if (data.status !== 'success') {
-        showToast(data.message || 'Could not open lootbox.', 'err');
+        showToast(data.message || 'Could not open N00Tbox.', 'err');
         return;
       }
       const target = _invLootboxData.find(lb => lb.id === lootboxId);
@@ -6668,7 +6700,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra lootboxes 
       renderInventory();
       showLootboxReveal(data);
     } catch (e) {
-      showToast('Lootbox open failed. Try again.', 'err');
+      showToast('N00Tbox open failed. Try again.', 'err');
     }
   }
 
@@ -10896,7 +10928,7 @@ async function _loadMobileTab(tabName) {
           if (data.xp_earned) Effects.animateXPGain(data.xp_earned, btn);
         }
         // Toast — sounds already played at pop time, not here
-        var msg = '🧊 ×' + data.ice_blocks_earned + ' ice blocks! (roll ' + data.roll + ')';
+        var msg = '🧊 ×' + data.ice_blocks_earned + ' Ice Blocks! (roll ' + data.roll + ')';
         if (data.is_crit)         msg += ' CRITICAL! 5 free rolls!';
         else if (data.normal_return) msg += ' Free rolls used up.';
         showToast(msg, data.is_crit ? 'ok' : '');

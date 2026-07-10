@@ -287,7 +287,7 @@ const RaidJoin = {
       const cls = 'raid-results-row' + (entry.rank <= 3 ? ' top3' : '') + (isSelf ? ' self' : '');
       let rewardText = '';
       if (entry.reward && entry.reward.lootboxes) {
-        rewardText = `🎁 x${entry.reward.lootboxes} Lootbox${entry.reward.lootboxes === 1 ? '' : 'es'}`;
+        rewardText = `🎁 x${entry.reward.lootboxes} N00Tbox${entry.reward.lootboxes === 1 ? '' : 'es'}`;
         if (isSelf) ownLootboxes = entry.reward.lootboxes;
       } else if (entry.reward && entry.reward.resource_type) {
         const meta = self._RESOURCE_META[entry.reward.resource_type] || ['🎁', entry.reward.resource_type];
@@ -303,7 +303,7 @@ const RaidJoin = {
 
     if (prompt) prompt.style.display = ownLootboxes > 0 ? 'block' : 'none';
     const promptText = document.getElementById('raid-results-lootbox-text');
-    if (promptText) promptText.textContent = `You won ${ownLootboxes} lootbox${ownLootboxes === 1 ? '' : 'es'}!`;
+    if (promptText) promptText.textContent = `You won ${ownLootboxes} N00Tbox${ownLootboxes === 1 ? '' : 'es'}!`;
 
     overlay.classList.add('show');
     if (window.GameSounds) GameSounds.modalOpen();

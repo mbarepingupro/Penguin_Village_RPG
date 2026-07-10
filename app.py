@@ -454,6 +454,16 @@ _RES_COL = {
     "spell_fragments": "spell_fragments_donated", "ice_blocks": "ice_blocks_donated",
 }
 
+# Player-facing display names for resource keys whose raw internal key doesn't
+# read naturally (currently only ice_blocks -- other resource keys already
+# read fine as-is). Internal identifiers (DB columns, _RES_COL, event types)
+# are untouched; this only affects text shown to players.
+_RESOURCE_DISPLAY_NAMES = {"ice_blocks": "Ice Blocks"}
+
+
+def _resource_display_name(resource_type):
+    return _RESOURCE_DISPLAY_NAMES.get(resource_type, resource_type)
+
 # ── Global chat ──────────────────────────────────────────────────────────────
 _CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
 # Hardcoded wordlist — expandable; basic bad-word filter applied on send
@@ -2210,7 +2220,7 @@ elif not _APSCHEDULER_AVAILABLE:
 # 09:00 UTC, closes Saturday 00:00 UTC when start_raid_if_unlocked() flips
 # the raid to 'active'. Not stored on raid_state, so derive it from
 # join_window_start rather than adding a migration for it.
-_RAID_REWARD_PREVIEW = "Top damage dealers win lootboxes + resources"
+_RAID_REWARD_PREVIEW = "Top damage dealers win N00Tboxes + resources"
 
 
 _METRIC_LABELS = {m["id"]: m["label"] for m in WEEKLY_METRIC_TYPES}
@@ -5334,7 +5344,7 @@ def building_donate():
     next_req   = {k: v for k, v in cfg["levels"][next_level].items() if k != "benefit"}
     if resource_type not in next_req:
         db.close()
-        return jsonify({"status": "error", "message": f"{resource_type} is not needed for the next upgrade."})
+        return jsonify({"status": "error", "message": f"{_resource_display_name(resource_type)} is not needed for the next upgrade."})
 
     # Check player has enough
     ensure_resources(db, username)
@@ -5346,7 +5356,7 @@ def building_donate():
 
     if player_have < amount:
         db.close()
-        return jsonify({"status": "error", "message": f"Not enough {resource_type}. Have {player_have}, need {amount}."})
+        return jsonify({"status": "error", "message": f"Not enough {_resource_display_name(resource_type)}. Have {player_have}, need {amount}."})
 
     # Deduct resource
     if resource_type == "gold":
@@ -5365,7 +5375,7 @@ def building_donate():
     )
 
     log_event(db, "village",
-              f"{username} donated {amount} {resource_type} to {cfg['name']}",
+              f"{username} donated {amount} {_resource_display_name(resource_type)} to {cfg['name']}",
               username)
 
     # XP reward for donor
@@ -5373,6 +5383,8 @@ def building_donate():
         xp_earned = amount // 4
     elif resource_type in ("blood_gems", "bones"):
         xp_earned = amount
+    elif resource_type == "ice_blocks":
+        xp_earned = max(1, amount // 2)  # 50% of donated, minimum 1 XP
     else:
         xp_earned = amount // 2
 
@@ -7107,7 +7119,7 @@ def mayor_building_boost():
             break
 
     log_event(db, "village",
-              f"👑 The Mayor boosted {cfg['name']} with {amount} {resource_type}!",
+              f"👑 The Mayor boosted {cfg['name']} with {amount} {_resource_display_name(resource_type)}!",
               MAYOR_USERNAME)
     db.commit()
     db.close()
