@@ -969,17 +969,18 @@ function showPenguinPopup(penguin, sx, sy) {
 
     let visitBtnHtml = '';
     if (!isSelf) {
-        if (visited) {
-            visitBtnHtml = '<div style="margin-top:6px;color:#4aff6b;font-size:16px;">VISITED TODAY ✅</div>';
-        } else {
-            visitBtnHtml = '<button id="map-visit-btn" style="margin-top:6px;display:block;width:100%;'
-                + "font-family:'C&C Red Alert',monospace;font-size:16px;padding:4px 6px;"
-                + 'background:#181820;color:#A86EFF;border:1px solid #A86EFF;cursor:pointer;" '
-                + 'onmouseenter="this.style.background=\'#A86EFF\';this.style.color=\'#181820\'" '
-                + 'onmouseleave="this.style.background=\'#181820\';this.style.color=\'#A86EFF\'" '
-                + 'onclick="window._mapVisitIgloo && window._mapVisitIgloo(\'' + penguin.username + '\')">'
-                + '🏠 VISIT IGLOO</button>';
-        }
+        // Igloos can be entered as many times as a player likes -- rewards
+        // are capped to once per day, but the button stays clickable so
+        // they can still walk in (see /igloo/visit's already_visited path).
+        const label = visited ? '🏠 VISITED TODAY ✅' : '🏠 VISIT IGLOO';
+        const color = visited ? '#4aff6b' : '#A86EFF';
+        visitBtnHtml = '<button id="map-visit-btn" style="margin-top:6px;display:block;width:100%;'
+            + "font-family:'C&C Red Alert',monospace;font-size:16px;padding:4px 6px;"
+            + 'background:#181820;color:' + color + ';border:1px solid ' + color + ';cursor:pointer;" '
+            + 'onmouseenter="this.style.background=\'' + color + '\';this.style.color=\'#181820\'" '
+            + 'onmouseleave="this.style.background=\'#181820\';this.style.color=\'' + color + '\'" '
+            + 'onclick="window._mapVisitIgloo && window._mapVisitIgloo(\'' + penguin.username + '\')">'
+            + label + '</button>';
     }
 
     el.innerHTML = [

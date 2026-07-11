@@ -1142,7 +1142,9 @@
       padding:3px 8px; cursor:pointer; flex-shrink:0;
     }
     .frl-visit-btn:hover:not(:disabled) { background:#4aafff; color:#000; }
-    .frl-visit-btn:disabled, .frl-visit-btn.visited { border-color:#3a3a3a; color:#3a3a3a; cursor:default; }
+    .frl-visit-btn:disabled { border-color:#3a3a3a; color:#3a3a3a; cursor:default; }
+    .frl-visit-btn.visited { border-color:#4aff6b; color:#4aff6b; }
+    .frl-visit-btn.visited:hover { background:#4aff6b; color:#000; }
     #friends-list { overflow-y:auto; max-height:320px; }
 
     /* ── SOCIAL MODE SELECTOR ── */
@@ -1198,7 +1200,8 @@
       padding: 3px 5px; cursor: pointer; flex-shrink: 0;
     }
     .sb-visit-btn:hover { background: #A86EFF; color: #181820; }
-    .sb-visit-btn.visited { color: #4aff6b; border-color: #4aff6b; cursor: default; pointer-events: none; }
+    .sb-visit-btn.visited { color: #4aff6b; border-color: #4aff6b; }
+    .sb-visit-btn.visited:hover { background: #4aff6b; color: #181820; }
 
     /* ── RELATIONSHIP PROGRESS BAR ── */
     .rel-progress-wrap { background: #2a2a2a; height: 3px; margin-top: 2px; }
@@ -1236,7 +1239,8 @@
       padding: 3px 5px; cursor: pointer;
     }
     .rel-modal-visit-btn:hover { background: #A86EFF; color: #181820; }
-    .rel-modal-visit-btn.visited { color: #4aff6b; border-color: #4aff6b; cursor: default; pointer-events: none; }
+    .rel-modal-visit-btn.visited { color: #4aff6b; border-color: #4aff6b; }
+    .rel-modal-visit-btn.visited:hover { background: #4aff6b; color: #181820; }
     .rel-empty { color: #8888A8; font-size: 16px; padding: 20px; text-align: center; }
 
     /* ── IGLOO VISIT RESULT POPUP ── */
@@ -1764,6 +1768,16 @@
         overflow: hidden;
         overscroll-behavior: none;
         height: 100%;
+      }
+      /* #app defaults to a raw 100vh (see base rule above), which on mobile
+         browsers with a collapsible address bar (Android Chrome included,
+         not just iOS Safari) can resolve taller than the real visible
+         viewport -- overflowing past html/body's overflow:hidden and
+         silently clipping whatever sits at the bottom of this flex column
+         (the news bar, and the lower half of the map area's Build/Attack
+         button). Use the same --vh custom property already relied on below. */
+      #app {
+        height: calc(var(--vh, 1vh) * 100);
       }
       /* Prevent rubber-band scroll on the game container instead */
       .main {
@@ -2981,7 +2995,7 @@
         <!-- COLLECT SECTION (shown when working) -->
         <div id="sidebar-collect-section" style="display:none; padding:0 10px 8px;">
           <div id="sidebar-job-info" style="color:#B8B8D0; font-size:16px; margin-bottom:5px; line-height:2;"></div>
-          <button class="collect-btn" id="sidebar-collect-btn" onclick="sidebarCollect()" ontouchend="event.preventDefault();sidebarCollect()">COLLECT</button>
+          <button class="collect-btn" id="sidebar-collect-btn" onclick="sidebarCollect(this)" ontouchend="event.preventDefault();sidebarCollect(this)">COLLECT</button>
         </div>
 
         <div class="work-msg" id="work-msg"></div>
@@ -4588,6 +4602,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   let _currentJob   = {{ penguin['job'] | tojson }};
   let _sidebarPollTimer = null;
 
+  // The mobile Penguin-tab overlay clones the desktop sidebar's innerHTML
+  // (see _loadMobileTab), which duplicates ids like #stat-status and
+  // #sidebar-collect-btn elsewhere in the DOM. document.getElementById only
+  // ever returns the first match (the original, possibly-hidden desktop
+  // copy), so job/resting-state updates must touch every matching element
+  // or the visible mobile clone is left stuck showing stale state.
+  function _allById(id) {
+    return document.querySelectorAll('[id="' + id + '"]');
+  }
+
   async function refreshStats() {
     try {
       const [pRes, rRes, gRes] = await Promise.all([
@@ -4648,16 +4672,19 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         if (p.stream_tier !== undefined) updateStreamBonusUI(p.stream_tier);
         if (p.active_title !== undefined) updateSidebarTitle(p.active_title);
 
-        const statusEl = document.getElementById('stat-status');
         if (_currentJob) {
-          statusEl.textContent = _currentJob.replace(/_/g,' ').toUpperCase();
-          statusEl.className = 'stat-val status-working';
-          document.getElementById('sidebar-collect-section').style.display = '';
+          _allById('stat-status').forEach(el => {
+            el.textContent = _currentJob.replace(/_/g,' ').toUpperCase();
+            el.className = 'stat-val status-working';
+          });
+          _allById('sidebar-collect-section').forEach(el => { el.style.display = ''; });
           startSidebarPoll();
         } else {
-          statusEl.textContent = 'RESTING';
-          statusEl.className = 'stat-val status-resting';
-          document.getElementById('sidebar-collect-section').style.display = 'none';
+          _allById('stat-status').forEach(el => {
+            el.textContent = 'RESTING';
+            el.className = 'stat-val status-resting';
+          });
+          _allById('sidebar-collect-section').forEach(el => { el.style.display = 'none'; });
           stopSidebarPoll();
         }
         updateSidebarJobInfo();
@@ -4731,13 +4758,15 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const data = await res.json();
 
       if (!data.working) {
-        document.getElementById('sidebar-collect-section').style.display = 'none';
+        _allById('sidebar-collect-section').forEach(el => { el.style.display = 'none'; });
         ['sidebar-job-elapsed', 'sidebar-job-countdown', 'sidebar-job-earned'].forEach(id => {
           if (_countdownTimers[id]) { clearInterval(_countdownTimers[id]); delete _countdownTimers[id]; }
         });
         stopSidebarPoll(); _currentJob = null;
-        document.getElementById('stat-status').textContent = 'RESTING';
-        document.getElementById('stat-status').className   = 'stat-val status-resting';
+        _allById('stat-status').forEach(el => {
+          el.textContent = 'RESTING';
+          el.className   = 'stat-val status-resting';
+        });
         return;
       }
 
@@ -4751,12 +4780,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         ? `<span class="job-timer-complete">✓ JOB COMPLETE!</span>`
         : `CAP IN: <span id="sidebar-job-countdown" class="job-timer"></span>`;
 
-      const infoEl = document.getElementById('sidebar-job-info');
-      infoEl.innerHTML =
+      const infoHtml =
         `<span style="color:var(--purple);">${data.job_label || data.building_name}</span><br>` +
         `TIME: <span id="sidebar-job-elapsed" class="job-timer"></span><br>` +
         `EARNED: <span id="sidebar-job-earned" class="job-timer"></span><br>` +
         capLabel;
+      _allById('sidebar-job-info').forEach(el => { el.innerHTML = infoHtml; });
 
       if (startTs) startCountUp('sidebar-job-elapsed', startTs, capSecs);
 
@@ -4785,18 +4814,17 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (!complete && capTs) {
         startCountdown('sidebar-job-countdown', capTs, (el) => {
           el.outerHTML = '<span class="job-timer-complete">✓ JOB COMPLETE!</span>';
-          const btn = document.getElementById('sidebar-collect-btn');
-          if (btn) { btn.textContent = '✓ COLLECT'; btn.classList.add('pulsing'); }
+          _allById('sidebar-collect-btn').forEach(btn => { btn.textContent = '✓ COLLECT'; btn.classList.add('pulsing'); });
         });
       }
 
-      const btn = document.getElementById('sidebar-collect-btn');
-      if (btn) {
+      _allById('sidebar-collect-btn').forEach(btn => {
+        btn.disabled = false;
         btn.textContent = complete ? '✓ COLLECT' : 'COLLECT';
         if (complete) btn.classList.add('pulsing');
         else btn.classList.remove('pulsing');
-      }
-      document.getElementById('sidebar-collect-section').style.display = '';
+      });
+      _allById('sidebar-collect-section').forEach(el => { el.style.display = ''; });
     } catch(e) {}
   }
 
@@ -4873,9 +4901,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     });
   }
 
-  async function sidebarCollect() {
-    const btn = document.getElementById('sidebar-collect-btn');
-    btn.disabled = true;
+  async function sidebarCollect(triggerBtn) {
+    const btns = _allById('sidebar-collect-btn');
+    btns.forEach(b => { b.disabled = true; });
+    const btn = triggerBtn || btns[0];
     try {
       const res = await fetch('/work/collect', {
         method: 'POST',
@@ -4915,11 +4944,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         if (document.getElementById('panel-missions').classList.contains('active')) loadMissions();
       } else {
         showToast(data.message, 'err');
-        btn.disabled = false;
+        btns.forEach(b => { b.disabled = false; });
       }
     } catch(e) {
       showToast('Connection error.', 'err');
-      btn.disabled = false;
+      btns.forEach(b => { b.disabled = false; });
     }
   }
 
@@ -9010,6 +9039,36 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "Incredible contribution! This place is really coming together.",
         "Without citizens like you, this village would be a snowdrift. Literally.",
       ],
+      challenge_start: [
+        "A new challenge, penguins! Let\'s show the world what this village can do!",
+        "Fresh goals on the board! I know you\'ve got this in you.",
+        "New week, new challenge! Let\'s get to work, citizens!",
+      ],
+      challenge_result_success: [
+        "You did it! The village pulled together and crushed this week\'s goal!",
+        "Outstanding! A raid boss just showed up because of YOU lot.",
+        "The whole village worked as one this week. I couldn\'t be prouder.",
+      ],
+      challenge_result_fail: [
+        "We came up short this week. No shame in it — there\'s always next week.",
+        "Not every week is a win. Rest up, regroup, and we\'ll get \'em next time.",
+        "The goal got away from us. The village presses on regardless.",
+      ],
+      raid_start: [
+        "The raid weekend is here! Rally up and take that boss down!",
+        "A boss has appeared! This is what all that hard work was for!",
+        "Suit up, penguins — it\'s raid weekend! Glory awaits!",
+      ],
+      raid_result_success: [
+        "VICTORY! The boss never stood a chance against this village!",
+        "We did it! Go collect your spoils, champions!",
+        "Another beast falls to Penguin Village. Legendary work out there!",
+      ],
+      raid_result_fail: [
+        "The boss got the better of us this time. We\'ll be back stronger.",
+        "A tough loss, but the village doesn\'t give up. Next time, penguins.",
+        "Not this time. Lick your wounds and get ready for the next fight.",
+      ],
     };
     var pool = quotes[type] || quotes.level_up;
     var hash = 0;
@@ -9024,6 +9083,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     else if (type === 'achievement' || type === 'title') GameSounds.achievement();
     else if (type === 'first_kill')                 GameSounds.firstKill();
     else if (type === 'milestone')                  GameSounds.buildingLevelUp();
+    else if (type === 'challenge_start' || type === 'raid_start') GameSounds.mayorAppears();
+    else if (type === 'challenge_result_success')   GameSounds.achievement();
+    else if (type === 'challenge_result_fail')      GameSounds.error();
+    else if (type === 'raid_result_success')        GameSounds.combatVictory();
+    else if (type === 'raid_result_fail')           GameSounds.combatDefeat();
   }
 
   function showCelebration(config, onDismiss) {
@@ -9341,6 +9405,36 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('wb-overlay').classList.remove('show');
   }
 
+  // ── WEEKLY CHALLENGE / RAID LIFECYCLE POPUPS ────────────────────────────────
+  // Reuses the existing celebration overlay (mayor logo + quote bubble) for
+  // one-shot notices when a weekly challenge starts/resolves or a raid
+  // weekend opens/resolves. The server only ever hands back notices this
+  // player hasn't been shown yet (see /lifecycle-notices).
+  const _LIFECYCLE_ICONS = {
+    challenge_start:          '📜',
+    challenge_result_success: '🏆',
+    challenge_result_fail:    '📉',
+    raid_start:               '⚔️',
+    raid_result_success:      '🎉',
+    raid_result_fail:         '💀',
+  };
+
+  async function checkLifecycleNotices() {
+    try {
+      const res  = await fetch(`/lifecycle-notices/${CURRENT_USER}`);
+      const data = await res.json();
+      (data.notices || []).forEach(n => {
+        queueCelebration({
+          type: n.type,
+          icon: _LIFECYCLE_ICONS[n.type] || '📯',
+          title: n.title,
+          subtitle: n.subtitle,
+          description: n.description || '',
+        });
+      });
+    } catch(e) {}
+  }
+
   // ── TRAIT POPUP ──────────────────────────────────────────────────────────
   const _tpSelected = { social: null, interest: null, quirk: null };
 
@@ -9534,7 +9628,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           <span class="sb-visit-name">${name}${targetMark}</span>
           <span class="sb-visit-rel">${relEmoji}</span>
           ${isVisited
-            ? '<span class="sb-visit-btn visited">VISITED ✅</span>'
+            ? `<button class="sb-visit-btn visited" onclick="visitIgloo('${s.username}')">VISITED ✅</button>`
             : `<button class="sb-visit-btn" onclick="visitIgloo('${s.username}')">VISIT</button>`
           }
         </div>`;
@@ -9565,9 +9659,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const R = data.rewards;
       const resEmojis = { fish:'🐟', herbs:'🌿', bones:'🦴', spell_fragments:'✨' };
       document.getElementById('igloo-result-title').textContent = hostUsername + "'s Igloo";
-      document.getElementById('igloo-result-sub').textContent   = 'Welcome in! 🍪';
-      document.getElementById('igloo-result-rewards').innerHTML =
-        `🪙 +${R.gold} gold | ${resEmojis[R.resource_type]||'📦'} +${R.resource_amount} ${R.resource_type.replace(/_/g,' ')} | ⭐ +${R.xp} XP`;
+      document.getElementById('igloo-result-sub').textContent   = data.already_visited ? 'Welcome back! 🍪' : 'Welcome in! 🍪';
+      document.getElementById('igloo-result-rewards').innerHTML = data.already_visited
+        ? `Already claimed today's rewards — come back tomorrow for more!`
+        : `🪙 +${R.gold} gold | ${resEmojis[R.resource_type]||'📦'} +${R.resource_amount} ${R.resource_type.replace(/_/g,' ')} | ⭐ +${R.xp} XP`;
 
       const relEl = document.getElementById('igloo-result-rel');
       const rel   = data.relationship;
@@ -9575,7 +9670,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         relEl.textContent = `Relationship: ${rel.old_level} → ${rel.level}!`;
         relEl.style.display = '';
         if (window.GameSounds) GameSounds.achievement();
-      } else if (rel) {
+      } else if (rel && !data.already_visited) {
         relEl.textContent = `Relationship with ${hostUsername}: ${rel.level}`;
         relEl.style.display = '';
       } else {
@@ -9623,6 +9718,15 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   var _pendingVisitUsername = null;
+  var _visitedIglooDoorbellFreqs = null;
+
+  function ringDoorbell() {
+    if (_visitedIglooDoorbellFreqs && window.GameSounds) {
+      GameSounds.playDoorbellTune(_visitedIglooDoorbellFreqs);
+    } else {
+      showToast("This penguin hasn't set up a doorbell tune.", '#8888A8');
+    }
+  }
 
   function closeIglooResult() {
     document.getElementById('igloo-result-overlay').classList.remove('show');
@@ -9663,10 +9767,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       showVisitingHeader(username);
 
       // Play the host's custom doorbell chiptune, if they've set one -- no
-      // default/fallback sound plays when they haven't (per spec).
-      if (window.GameSounds && data.host_doorbell_tune && Array.isArray(data.host_doorbell_tune)) {
-        const freqs = data.host_doorbell_tune.map(v => (v === null || v === undefined) ? null : DOORBELL_NOTE_FREQS[v]);
-        GameSounds.playDoorbellTune(freqs);
+      // default/fallback sound plays when they haven't (per spec). Stash it
+      // so the "ring doorbell" button can replay it on demand too.
+      _visitedIglooDoorbellFreqs = (data.host_doorbell_tune && Array.isArray(data.host_doorbell_tune))
+        ? data.host_doorbell_tune.map(v => (v === null || v === undefined) ? null : DOORBELL_NOTE_FREQS[v])
+        : null;
+      if (window.GameSounds && _visitedIglooDoorbellFreqs) {
+        GameSounds.playDoorbellTune(_visitedIglooDoorbellFreqs);
       }
     } catch(e) {}
   }
@@ -9712,10 +9819,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
     const header = document.createElement('div');
     header.id = 'igloo-visiting-header';
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#252535;border-bottom:2px solid #A86EFF;flex-shrink:0;';
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#252535;border-bottom:2px solid #A86EFF;flex-shrink:0;gap:8px;';
     header.innerHTML =
       '<div style="font-family:Silkscreen,monospace;font-size:16px;color:#A86EFF;">🏠 Visiting <span style="color:#FFFFFF;">' + username + '</span>\'s Igloo</div>' +
-      '<button id="igloo-back-own-btn" style="font-family:Silkscreen,monospace;font-size:16px;color:#4aff6b;background:transparent;border:2px solid #4aff6b;padding:4px 12px;cursor:pointer;">← MY IGLOO</button>';
+      '<div style="display:flex;gap:8px;flex-shrink:0;">' +
+      '<button id="igloo-ring-doorbell-btn" onclick="ringDoorbell()" style="font-family:Silkscreen,monospace;font-size:16px;color:#FF7FE5;background:transparent;border:2px solid #FF7FE5;padding:4px 12px;cursor:pointer;">🔔 RING DOORBELL</button>' +
+      '<button id="igloo-back-own-btn" style="font-family:Silkscreen,monospace;font-size:16px;color:#4aff6b;background:transparent;border:2px solid #4aff6b;padding:4px 12px;cursor:pointer;">← MY IGLOO</button>' +
+      '</div>';
     panel.insertBefore(header, panel.firstChild);
 
     document.getElementById('igloo-back-own-btn').addEventListener('click', function() {
@@ -9725,6 +9835,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       // Restore edit controls and reload own igloo
       document.getElementById('igloo-edit-btn').style.display = '';
       document.getElementById('igloo-doorbell-btn').style.display = '';
+      _visitedIglooDoorbellFreqs = null;
       _iglooLoaded = false;
       loadIgloo();
     });
@@ -9781,7 +9892,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         `<span class="fp-pip${s >= i ? (isTop ? ' fill-top' : ' fill') : ''}"></span>`
       ).join('');
       const visitBtn = r.visited_today
-        ? `<button class="frl-visit-btn visited" id="frl-visit-${r.username}" disabled>VISITED ✅</button>`
+        ? `<button class="frl-visit-btn visited" id="frl-visit-${r.username}" onclick="visitIgloo('${r.username}')">VISITED ✅</button>`
         : `<button class="frl-visit-btn" id="frl-visit-${r.username}" onclick="visitIgloo('${r.username}')">VISIT</button>`;
       return `<div class="frl-row">
         <div class="frl-name" title="${r.username}">${name}</div>
@@ -9839,7 +9950,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           <span class="rel-modal-level">${r.level_name}</span>
           ${!r.visited_today
             ? `<button class="rel-modal-visit-btn" onclick="visitIglooFromModal('${r.username}', this)">VISIT</button>`
-            : '<span class="rel-modal-visit-btn visited">✅</span>'
+            : `<button class="rel-modal-visit-btn visited" onclick="visitIglooFromModal('${r.username}', this)">✅</button>`
           }
         </div>`).join('');
     } catch(e) {
@@ -9850,7 +9961,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   async function visitIglooFromModal(hostUsername, btn) {
     if (btn) { btn.disabled = true; btn.textContent = '...'; }
     await visitIgloo(hostUsername);
-    if (btn) { btn.className = 'rel-modal-visit-btn visited'; btn.textContent = '✅'; }
+    if (btn) { btn.className = 'rel-modal-visit-btn visited'; btn.textContent = '✅'; btn.disabled = false; }
   }
 
   // Declared here (ahead of the INIT block below) rather than down in the
@@ -9873,9 +9984,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   loadStatsAchievements();
   startMidnightCountdowns();
   checkWelcomeBack();
+  checkLifecycleNotices();
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
   setInterval(loadBuildingLevels, 300000);
+  setInterval(checkLifecycleNotices, 60000);
   loadSocialMode();
   loadIglooVisits();
   loadFriendsList();
