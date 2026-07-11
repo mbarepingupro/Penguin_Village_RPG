@@ -9,6 +9,7 @@ const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 
 
 // Maps visual area names (from worn_items API) to sprite folder names on disk
 const _AREA_FOLDER = { head: 'hats', body: 'outfits', feet: 'footwear', hand: 'accessories' };
+window._AREA_FOLDER = _AREA_FOLDER;
 
 const SHAPE_CONFIG = {
     "normal": { frameWidth: 32, frameHeight: 40, stripFile: "penguin_normal.png", staticFile: "penguin_normal_static.png" },
@@ -924,6 +925,18 @@ function initCamera() {
     cameraY = 50;
 }
 
+// Recenters the camera on the current player's own penguin, honoring
+// whatever zoom level is already set (no reset) -- reuses gridToScreen(),
+// the same grid->world-space conversion movePlayerTo() already uses,
+// rather than duplicating that math.
+function centerCameraOnPlayer() {
+    const player = penguins.find(function(p) { return p.isCurrentUser; });
+    if (!player) return;
+    const wpos = gridToScreen(player.gridX, player.gridY);
+    cameraX = canvas.width  / 2 - wpos.x * zoomLevel;
+    cameraY = canvas.height / 2 - wpos.y * zoomLevel;
+}
+
 function showPenguinPopup(penguin, sx, sy) {
     if (_popupEl && _popupEl.parentElement) {
         _popupEl.parentElement.removeChild(_popupEl);
@@ -1469,6 +1482,6 @@ function updatePlayerWornItems(wornItems) {
     if (player) player.worn_items = wornItems || {};
 }
 
-window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday, highlightBuilding, clearBuildingHighlight, updatePlayerWornItems };
+window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday, highlightBuilding, clearBuildingHighlight, updatePlayerWornItems, centerOnPlayer: centerCameraOnPlayer };
 
 })();

@@ -4583,9 +4583,28 @@ def get_igloo(username):
     db = get_db()
     _ensure_igloo(db, username)
     igloo = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
-    p = db.execute("SELECT penguin_color, penguin_shape FROM penguins WHERE username=?", (username,)).fetchone()
+    p = db.execute("SELECT penguin_color, penguin_shape, doorbell_tune FROM penguins WHERE username=?", (username,)).fetchone()
     host_color = _resolve_hex_color((p["penguin_color"] if p else None) or "#1a1a1a")
     host_shape = (p["penguin_shape"] if p else None) or "normal"
+    host_doorbell_tune = None
+    if p and p["doorbell_tune"]:
+        try:
+            host_doorbell_tune = json.loads(p["doorbell_tune"])
+        except (TypeError, ValueError):
+            host_doorbell_tune = None
+
+    # Same {area: item_id} shape /village/penguins already builds for the map
+    # renderer -- the igloo-visit host sprite reuses that renderer's worn-item
+    # drawing rather than a separate query shape.
+    host_worn_items = {}
+    worn_rows = db.execute(
+        "SELECT slot, item_id FROM gear WHERE worn=1 AND username=?", (username,)
+    ).fetchall()
+    for w in worn_rows:
+        area = _VISUAL_AREA.get(w["slot"])
+        if area and w["item_id"]:
+            host_worn_items[area] = w["item_id"]
+
     room_level = igloo["room_level"]
     room_size  = IGLOO_LEVELS[room_level]["size"]
     placed = db.execute(
@@ -4631,7 +4650,40 @@ def get_igloo(username):
         "wall_cells":       wall_cells,
         "host_color":       host_color,
         "host_shape":       host_shape,
+        "host_worn_items":  host_worn_items,
+        "host_doorbell_tune": host_doorbell_tune,
     })
+
+
+# One octave, fixed pitch set for the igloo doorbell chiptune creator --
+# slot values are indices into this list (or null for a rest). Reused by
+# the frontend for both the creator UI's picker and the playback frequency.
+DOORBELL_NOTE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]  # C4..C5 major scale
+
+
+@app.route("/igloo/doorbell", methods=["POST"])
+def save_doorbell_tune():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    data = request.get_json(silent=True) or {}
+    tune = data.get("tune")
+
+    if tune is not None:
+        if not isinstance(tune, list) or len(tune) != 12:
+            return jsonify({"status": "error", "message": "Tune must be exactly 12 slots."})
+        for slot in tune:
+            if slot is not None and (not isinstance(slot, int) or not (0 <= slot < len(DOORBELL_NOTE_FREQS))):
+                return jsonify({"status": "error", "message": "Each slot must be null or 0-7."})
+
+    db = get_db()
+    db.execute(
+        "UPDATE penguins SET doorbell_tune=? WHERE username=?",
+        (json.dumps(tune) if tune is not None else None, username)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
 
 
 @app.route("/igloo/shop")
