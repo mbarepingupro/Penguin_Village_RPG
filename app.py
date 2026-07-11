@@ -4,6 +4,7 @@ import os
 import re
 import datetime
 import random
+import sqlite3
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db, backfill_cosmetics, record_challenge_progress
 from feature_flags import FEATURES
@@ -2284,6 +2285,16 @@ def raid_status():
     participant_count = db.execute(
         "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (row["id"],)
     ).fetchone()["cnt"]
+
+    # Server-verified join state (not the client's session-local flag) --
+    # lets a second device/session correctly show "Joined ✓" on load instead
+    # of only after that specific browser has clicked Join itself.
+    username = session.get("username")
+    already_joined = False
+    if username:
+        already_joined = db.execute(
+            "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (row["id"], username)
+        ).fetchone() is not None
     db.close()
 
     join_window_end = None
@@ -2297,6 +2308,7 @@ def raid_status():
         "raid_id":            row["id"],
         "boss_name":          row["boss_name"],
         "participant_count":  participant_count,
+        "joined":             already_joined,
         "join_window_start":  row["join_window_start"],
         "join_window_end":    join_window_end,
         "reward_preview":     _RAID_REWARD_PREVIEW,
@@ -2328,11 +2340,20 @@ def raid_join():
         "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
     ).fetchone()
     if not existing:
-        db.execute(
-            "INSERT INTO raid_participants (raid_id, username, joined_at) VALUES (?, ?, ?)",
-            (raid_id, username, int(time.time())),
-        )
-        db.commit()
+        try:
+            db.execute(
+                "INSERT INTO raid_participants (raid_id, username, joined_at) VALUES (?, ?, ?)",
+                (raid_id, username, int(time.time())),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            # Two near-simultaneous requests for the same account (e.g. a
+            # second device/session) can both pass the SELECT above before
+            # either INSERT commits. raid_participants' UNIQUE(raid_id,
+            # username) constraint rejects the loser here instead of ever
+            # persisting a duplicate row -- treat that exactly like the
+            # pre-check already found them, not an error.
+            db.rollback()
 
     participant_count = db.execute(
         "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (raid_id,)

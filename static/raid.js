@@ -234,9 +234,18 @@ const RaidJoin = {
     if (boss)   boss.textContent = data.boss_name || '';
     if (count)  count.textContent = data.participant_count != null ? data.participant_count : 0;
     if (reward) reward.textContent = data.reward_preview || '';
-    if (btn && this._joined) {
-      btn.disabled = true;
-      btn.textContent = 'Joined ✓';
+    // /raid/status's "joined" field is the server-verified source of truth --
+    // covers a second device/session that already joined elsewhere, not just
+    // this browser's own local _joined flag from a prior click here.
+    if (data.joined) this._joined = true;
+    if (btn) {
+      if (this._joined) {
+        btn.disabled = true;
+        btn.textContent = 'Joined ✓';
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Join Raid';
+      }
     }
   },
 
