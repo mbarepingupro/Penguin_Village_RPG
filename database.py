@@ -468,6 +468,14 @@ def init_db():
     # 0-7 indexing into the fixed one-octave note set (see app.py's
     # DOORBELL_NOTE_FREQS). NULL means no custom doorbell tune set.
     _add_col(c, "penguins", "doorbell_tune TEXT DEFAULT NULL")
+    # Per-player "last delivered" markers for the weekly-challenge/raid
+    # lifecycle popups -- store the weekly_challenges/raid_state row id the
+    # notice was already shown for, so /lifecycle-notices only ever surfaces
+    # each transition to a given player once, no matter how often they poll.
+    _add_col(c, "penguins", "notice_challenge_start_id INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "notice_challenge_result_id INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "notice_raid_start_id INTEGER DEFAULT 0")
+    _add_col(c, "penguins", "notice_raid_result_id INTEGER DEFAULT 0")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:

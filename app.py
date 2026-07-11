@@ -2319,6 +2319,94 @@ def raid_status():
     return jsonify(payload)
 
 
+_CHALLENGE_START_FLAVOR = {
+    "gold_earned":        "Let's make some money!",
+    "resources_gathered": "Let's gather some resources!",
+    "monsters_killed":    "Let's hunt some monsters!",
+}
+
+
+@app.route("/lifecycle-notices/<username>")
+def lifecycle_notices(username):
+    """One-shot popup notices for weekly-challenge/raid lifecycle transitions.
+
+    Compares the latest weekly_challenges/raid_state rows against the
+    per-player "last delivered" markers and returns only what this specific
+    player hasn't seen yet, then advances those markers -- so a transition
+    (challenge started, challenge resolved, raid weekend opened, raid
+    resolved) is surfaced to each player exactly once, however often they
+    poll. Only looks at the single latest row of each table (not a full
+    history), matching how far back the existing welcome-back summary looks.
+    """
+    if not FEATURES.get("weekly_raid", False):
+        return jsonify({"notices": []})
+
+    db = get_db()
+    p = db.execute(
+        "SELECT notice_challenge_start_id, notice_challenge_result_id, "
+        "notice_raid_start_id, notice_raid_result_id FROM penguins WHERE username=?",
+        (username,)
+    ).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"notices": []})
+
+    notices = []
+    updates = {}
+
+    challenge = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
+    if challenge:
+        cid = challenge["id"]
+        metric_label = _METRIC_LABELS.get(challenge["metric_type"], challenge["metric_type"])
+        if cid > (p["notice_challenge_start_id"] or 0):
+            notices.append({
+                "type": "challenge_start",
+                "title": "NEW WEEKLY CHALLENGE!",
+                "subtitle": _CHALLENGE_START_FLAVOR.get(challenge["metric_type"], "Let's take on this week's challenge!"),
+                "description": f"Goal: {challenge['threshold']} {metric_label}",
+            })
+            updates["notice_challenge_start_id"] = cid
+        if challenge["status"] in ("succeeded", "failed") and cid > (p["notice_challenge_result_id"] or 0):
+            won = challenge["status"] == "succeeded"
+            notices.append({
+                "type": "challenge_result_success" if won else "challenge_result_fail",
+                "title": "CHALLENGE COMPLETE!" if won else "CHALLENGE FAILED!",
+                "subtitle": "The village hit the goal! A raid is now joinable." if won
+                            else "We came up short this week. Better luck next time!",
+                "description": f"{challenge['current_progress']}/{challenge['threshold']} {metric_label}",
+            })
+            updates["notice_challenge_result_id"] = cid
+
+    raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    if raid:
+        rid = raid["id"]
+        if rid > (p["notice_raid_start_id"] or 0):
+            notices.append({
+                "type": "raid_start",
+                "title": "RAID WEEKEND!",
+                "subtitle": f"The {raid['boss_name']} has awoken! Join the raid before the weekend ends!",
+                "description": "",
+            })
+            updates["notice_raid_start_id"] = rid
+        if raid["status"] in ("succeeded", "failed") and rid > (p["notice_raid_result_id"] or 0):
+            won = raid["status"] == "succeeded"
+            notices.append({
+                "type": "raid_result_success" if won else "raid_result_fail",
+                "title": "RAID VICTORY!" if won else "RAID DEFEATED...",
+                "subtitle": f"{raid['boss_name']} has been vanquished! Check your rewards." if won
+                            else f"{raid['boss_name']} proved too strong this time. The village regroups.",
+                "description": "",
+            })
+            updates["notice_raid_result_id"] = rid
+
+    if updates:
+        set_clause = ", ".join(f"{k}=?" for k in updates)
+        db.execute(f"UPDATE penguins SET {set_clause} WHERE username=?", (*updates.values(), username))
+        db.commit()
+    db.close()
+    return jsonify({"notices": notices})
+
+
 @app.route("/raid/join", methods=["POST"])
 def raid_join():
     username = session.get("username")
@@ -4303,9 +4391,30 @@ def igloo_visit():
     if db.execute(
         "SELECT 1 FROM igloo_visits WHERE visitor=? AND host=? AND visited_date=?", (visitor, host, today)
     ).fetchone():
+        # Igloos can be entered as many times as a player likes -- rewards
+        # are just capped to once per host per day. Still let them in
+        # (loadVisitedIgloo runs regardless of this response's rewards), but
+        # skip re-granting gold/resources/xp/relationship/achievements.
         host_name = host_row["penguin_name"] or host
+        rel = get_or_create_relationship(db, visitor, host)
+        db.commit()
         db.close()
-        return jsonify({"status": "error", "message": f"You already visited {host_name} today! Come back tomorrow."})
+        rel_level = rel["relationship_level"] if rel else "stranger"
+        level_name = RELATIONSHIP_DISPLAY.get(rel_level, {}).get("name", rel_level.replace("_"," ").title())
+        return jsonify({
+            "status": "success",
+            "already_visited": True,
+            "message": f"Welcome back to {host_name}'s igloo! (Rewards already claimed today.)",
+            "rewards": {"gold": 0, "resource_type": None, "resource_amount": 0, "xp": 0},
+            "relationship": {
+                "level": level_name, "old_level": level_name,
+                "level_changed": False,
+                "interaction_count": rel["interaction_count"] if rel else 0,
+                "next_level": None, "interactions_needed": 0,
+            },
+            "new_achievements": [],
+            "level_ups": [],
+        })
 
     rel = get_or_create_relationship(db, visitor, host)
     rel_level = rel["relationship_level"] if rel else "stranger"
