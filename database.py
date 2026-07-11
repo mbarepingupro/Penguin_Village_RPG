@@ -464,6 +464,10 @@ def init_db():
     # JSON array of usernames for group events (see personality_config.GROUP_EVENT_TEMPLATES);
     # NULL for every other event_log row. Lets welcome-back find events a given player took part in.
     _add_col(c, "event_log", "participants TEXT DEFAULT NULL")
+    # JSON array of exactly 12 slots -- each either null (rest) or an int
+    # 0-7 indexing into the fixed one-octave note set (see app.py's
+    # DOORBELL_NOTE_FREQS). NULL means no custom doorbell tune set.
+    _add_col(c, "penguins", "doorbell_tune TEXT DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:

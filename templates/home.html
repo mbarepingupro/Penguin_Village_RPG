@@ -2192,6 +2192,32 @@
     .build-btn.crit { background: #d94040 url('/static/images/build_button_red.png') center/contain no-repeat; border-color: transparent; }
     .build-btn.crit:hover:not(:disabled) { background-color: #e85555; }
 
+    /* ── RECENTER MAP BUTTON ── */
+    #recenter-map-btn {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 60;
+      background: #181820;
+      border: 2px solid #A86EFF;
+      color: #A86EFF;
+      font-family: 'Silkscreen', monospace;
+      font-size: 20px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #recenter-map-btn:hover { background: #A86EFF; color: #181820; }
+    @media (max-width: 768px) {
+      #recenter-map-btn { bottom: 12px; right: 12px; width: 36px; height: 36px; font-size: 18px; }
+    }
+
     /* ── ATTACK MODE (Build! button repurposed during an active raid) ──
        No attack-specific sprite exists yet, so this drops the build_button_*
        PNG and keeps the same blue/red color-swap the Build button already
@@ -3224,6 +3250,7 @@
             </div>
           </div>
           <canvas id="village-canvas"></canvas>
+          <button id="recenter-map-btn" title="Recenter on my penguin" onclick="recenterMapOnPlayer()">🎯</button>
           <div class="igloo-ghost" id="igloo-ghost"></div>
         </div>
         <!-- Building modal -->
@@ -3274,6 +3301,7 @@
         <div class="igloo-header-bar">
           <span id="igloo-room-title">MY IGLOO</span>
           <div class="igloo-header-btns">
+            <button id="igloo-doorbell-btn" class="igloo-hdr-btn"    onclick="openDoorbellCreator()">🔔 DOORBELL</button>
             <button id="igloo-edit-btn"  class="igloo-hdr-btn"      onclick="iglooStartEdit()">✏️ EDIT</button>
             <button id="igloo-done-btn"  class="igloo-hdr-btn done" onclick="iglooFinishEdit()" style="display:none">✅ DONE</button>
           </div>
@@ -3295,6 +3323,20 @@
         <div id="igloo-status-bar" class="igloo-status-bar">
           <span id="igloo-status-text">CLICK A GRID CELL TO PLACE</span>
           <button class="igloo-hdr-btn" onclick="iglooCancelPlace()">✕ CANCEL</button>
+        </div>
+      </div>
+
+      <!-- IGLOO DOORBELL CREATOR -->
+      <div id="doorbell-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:var(--dark);border:2px solid var(--purple);padding:20px 24px;max-width:340px;font-family:'C&C Red Alert',monospace;">
+          <div style="font-size:20px;color:var(--purple);text-align:center;margin-bottom:8px;">🔔 IGLOO DOORBELL</div>
+          <div style="color:#B8B8D0;font-size:16px;text-align:center;margin-bottom:14px;">Click a slot to cycle through notes (leave blank for a rest). Plays when someone visits your igloo.</div>
+          <div id="doorbell-slots" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:14px;"></div>
+          <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+            <button class="igloo-hdr-btn" onclick="doorbellPlayPreview()">▶ PREVIEW</button>
+            <button class="igloo-hdr-btn done" onclick="doorbellSave()">💾 SAVE</button>
+            <button class="igloo-hdr-btn" onclick="closeDoorbellCreator()">✕ CLOSE</button>
+          </div>
         </div>
       </div>
 
@@ -5602,12 +5644,23 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         spriteToDraw = recolorPenguin(img, bodyColor);
       }
       const cfg  = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: shape === 'tall' ? 50 : 40 };
-      const srcW = Math.min(cfg.frameWidth,  img.naturalWidth);
-      const srcH = Math.min(cfg.frameHeight, img.naturalHeight);
-      const scale = Math.min(canvas.width / srcW, canvas.height / srcH) * 0.85;
+      // Scale/center against the shape's nominal frame box (same box
+      // _drawSidebarWornItems and bqPreview use for hats/outfits), not the
+      // static image's own dimensions -- penguin_normal_static.png is only
+      // 32px tall (vs the walk-strip/wearable convention of 40px, which
+      // reserves ~8px of headroom above the head for hats), so scaling to
+      // its own height centered it a few px higher than where a hat drawn
+      // against the full 40px frame expects the head to be. Only "normal"
+      // is actually affected -- penguin_tall_static.png already matches its
+      // nominal 50px exactly, so srcH === cfg.frameHeight there and the
+      // bottom-anchor offset below is 0 (no behavior change for tall).
+      const srcW  = img.naturalWidth;
+      const srcH  = img.naturalHeight;
+      const scale = Math.min(canvas.width / cfg.frameWidth, canvas.height / cfg.frameHeight) * 0.85;
       const dw = srcW * scale, dh = srcH * scale;
-      ctx.drawImage(spriteToDraw, 0, 0, srcW, srcH,
-        (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+      const dx = (canvas.width  - cfg.frameWidth  * scale) / 2;
+      const dy = (canvas.height - cfg.frameHeight * scale) / 2 + (cfg.frameHeight - srcH) * scale;
+      ctx.drawImage(spriteToDraw, 0, 0, srcW, srcH, dx, dy, dw, dh);
       if (onDrawn) onDrawn();
     }
     const cached = _penguinSpriteCache[src];
@@ -5621,27 +5674,41 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   // Layer worn cosmetics on top of the base penguin in a canvas preview.
   // Uses frame 0 of each walk strip — same pixel area as the static sprite.
-  function _drawSidebarWornItems(canvas) {
-    if (!_cosmeticCache || !_cosmeticCache.length) return;
-    const shape = (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
+  //
+  // shape and wornByArea are optional -- omit both (as every pre-existing
+  // caller does) to draw the CURRENT player's own worn items on PLAYER_SHAPE,
+  // built from _cosmeticCache same as always. Pass them explicitly to draw
+  // ANY player's worn items instead (e.g. an igloo-visit host): wornByArea
+  // is then a plain {area: item_id} map, same shape /village/penguins
+  // already returns for the map renderer, so area→folder uses that same
+  // _AREA_FOLDER lookup (exposed on window by village_map.js) rather than
+  // the slot-keyed _cosmeticCache/_SLOT_TO_AREA path below.
+  function _drawSidebarWornItems(canvas, shape, wornByArea) {
+    shape = shape || (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
+    let itemIdByArea = wornByArea;
+    if (!itemIdByArea) {
+      if (!_cosmeticCache || !_cosmeticCache.length) return;
+      itemIdByArea = {};
+      _cosmeticCache.forEach(c => {
+        if (!c.worn) return;
+        const area = _SLOT_TO_AREA[c.slot];
+        if (area) itemIdByArea[area] = c.item_id;
+      });
+    }
     const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: shape === 'tall' ? 50 : 40 };
     const scale = Math.min(canvas.width / cfg.frameWidth, canvas.height / cfg.frameHeight) * 0.85;
     const dw = cfg.frameWidth * scale, dh = cfg.frameHeight * scale;
     const dx = (canvas.width - dw) / 2, dy = (canvas.height - dh) / 2;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
-    const wornByArea = {};
-    _cosmeticCache.forEach(c => {
-      if (!c.worn) return;
-      const area = _SLOT_TO_AREA[c.slot];
-      if (area) wornByArea[area] = c;
-    });
+    const areaFolder = (typeof window._AREA_FOLDER !== 'undefined' && window._AREA_FOLDER)
+      || { head: 'hats', body: 'outfits', feet: 'footwear', hand: 'accessories' };
     // Draw in layer order: footwear → outfit → hat → accessory
     for (const area of ['feet', 'body', 'head', 'hand']) {
-      const item = wornByArea[area];
-      if (!item) continue;
-      const folder = _slotFolder(item.slot);
-      const src = `/static/penguin_wearing/${shape}/${folder}/${item.item_id}.png`;
+      const itemId = itemIdByArea[area];
+      if (!itemId) continue;
+      const folder = areaFolder[area] || area;
+      const src = `/static/penguin_wearing/${shape}/${folder}/${itemId}.png`;
       const cached = _penguinSpriteCache[src];
       if (cached && cached.complete && cached.naturalWidth > 0) {
         ctx.drawImage(cached, 0, 0, cfg.frameWidth, cfg.frameHeight, dx, dy, dw, dh);
@@ -8082,6 +8149,83 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch(e) { showToast('Error loading igloo.', 'err'); }
   }
 
+  // ── IGLOO DOORBELL CREATOR ──────────────────────────────────────────────
+  // One octave, fixed pitch set -- indices must match app.py's
+  // DOORBELL_NOTE_FREQS exactly (frequencies are the source of truth;
+  // names are display-only).
+  const DOORBELL_NOTE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+  const DOORBELL_NOTE_NAMES = ['C','D','E','F','G','A','B','C'];
+  let _doorbellTune = new Array(12).fill(null);
+
+  async function openDoorbellCreator() {
+    try {
+      const res  = await fetch(`/igloo/${CURRENT_USER}`);
+      const data = await res.json();
+      _doorbellTune = (Array.isArray(data.host_doorbell_tune) && data.host_doorbell_tune.length === 12)
+        ? data.host_doorbell_tune.slice()
+        : new Array(12).fill(null);
+    } catch(e) {
+      _doorbellTune = new Array(12).fill(null);
+    }
+    _renderDoorbellSlots();
+    document.getElementById('doorbell-overlay').style.display = 'flex';
+    if (window.GameSounds) GameSounds.modalOpen();
+  }
+
+  function closeDoorbellCreator() {
+    document.getElementById('doorbell-overlay').style.display = 'none';
+    if (window.GameSounds) GameSounds.modalClose();
+  }
+
+  function _renderDoorbellSlots() {
+    const container = document.getElementById('doorbell-slots');
+    if (!container) return;
+    let html = '';
+    for (let i = 0; i < 12; i++) {
+      const val   = _doorbellTune[i];
+      const label = (val === null || val === undefined) ? '—' : DOORBELL_NOTE_NAMES[val];
+      html += `<button class="igloo-hdr-btn" style="padding:8px 0;" onclick="doorbellCycleSlot(${i})">${label}</button>`;
+    }
+    container.innerHTML = html;
+  }
+
+  // Cycles a slot through rest -> C -> D -> ... -> B -> C(high) -> rest.
+  function doorbellCycleSlot(i) {
+    const cur = _doorbellTune[i];
+    if (cur === null || cur === undefined) _doorbellTune[i] = 0;
+    else if (cur >= DOORBELL_NOTE_FREQS.length - 1) _doorbellTune[i] = null;
+    else _doorbellTune[i] = cur + 1;
+    _renderDoorbellSlots();
+    const val = _doorbellTune[i];
+    if (val !== null && val !== undefined && window.GameSounds) {
+      GameSounds.playDoorbellTune([DOORBELL_NOTE_FREQS[val]]);
+    }
+  }
+
+  function doorbellPlayPreview() {
+    if (!window.GameSounds) return;
+    const freqs = _doorbellTune.map(v => (v === null || v === undefined) ? null : DOORBELL_NOTE_FREQS[v]);
+    GameSounds.playDoorbellTune(freqs);
+  }
+
+  async function doorbellSave() {
+    try {
+      const hasAnyNote = _doorbellTune.some(v => v !== null && v !== undefined);
+      const res  = await fetch('/igloo/doorbell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tune: hasAnyNote ? _doorbellTune : null })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast('Doorbell tune saved!', 'ok');
+        closeDoorbellCreator();
+      } else {
+        showToast(data.message || 'Could not save tune.', 'err');
+      }
+    } catch(e) { showToast('Error saving tune.', 'err'); }
+  }
+
   function iglooStartEdit() {
     if (!_iglooData) return;
     _iglooEditMode = true;
@@ -9512,14 +9656,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (titleEl) titleEl.textContent = username.toUpperCase() + "'S IGLOO";
 
       document.getElementById('igloo-edit-btn').style.display    = 'none';
+      document.getElementById('igloo-doorbell-btn').style.display = 'none';
       document.getElementById('igloo-edit-panel').classList.remove('visible');
 
-      _showIglooHostSprite(username, data.host_color, data.host_shape);
+      _showIglooHostSprite(username, data.host_color, data.host_shape, data.host_worn_items);
       showVisitingHeader(username);
+
+      // Play the host's custom doorbell chiptune, if they've set one -- no
+      // default/fallback sound plays when they haven't (per spec).
+      if (window.GameSounds && data.host_doorbell_tune && Array.isArray(data.host_doorbell_tune)) {
+        const freqs = data.host_doorbell_tune.map(v => (v === null || v === undefined) ? null : DOORBELL_NOTE_FREQS[v]);
+        GameSounds.playDoorbellTune(freqs);
+      }
     } catch(e) {}
   }
 
-  function _showIglooHostSprite(username, color, shape) {
+  function _showIglooHostSprite(username, color, shape, wornItems) {
     const existing = document.getElementById('igloo-host-sprite');
     if (existing) existing.remove();
 
@@ -9543,7 +9695,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
     // Insert directly after #igloo-canvas inside .igloo-canvas-wrap (same flex row)
     anchor.insertAdjacentElement('afterend', wrap);
-    _drawPenguinOnCanvas(canvas, color || '#1a1a1a', shape || 'normal');
+    // Layer the host's worn items on top, same as the sidebar/inventory
+    // preview and the map renderer -- this used to just draw the bare
+    // recolored body with no onDrawn callback at all, so visited igloos
+    // never showed the host's hat/outfit/etc.
+    _drawPenguinOnCanvas(canvas, color || '#1a1a1a', shape || 'normal',
+      () => _drawSidebarWornItems(canvas, shape || 'normal', wornItems || {}));
   }
 
   function showVisitingHeader(username) {
@@ -9567,6 +9724,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (hostSprite) hostSprite.remove();
       // Restore edit controls and reload own igloo
       document.getElementById('igloo-edit-btn').style.display = '';
+      document.getElementById('igloo-doorbell-btn').style.display = '';
       _iglooLoaded = false;
       loadIgloo();
     });
@@ -9576,6 +9734,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   window._mapVisitIgloo = function(hostUsername) {
     visitIgloo(hostUsername);
   };
+
+  function recenterMapOnPlayer() {
+    if (window.VillageMap && VillageMap.centerOnPlayer) VillageMap.centerOnPlayer();
+    if (window.GameSounds) GameSounds.mapZoom();
+  }
 
   // ── RELATIONSHIPS ─────────────────────────────────────────────────────────
 
@@ -9689,6 +9852,18 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     await visitIgloo(hostUsername);
     if (btn) { btn.className = 'rel-modal-visit-btn visited'; btn.textContent = '✅'; }
   }
+
+  // Declared here (ahead of the INIT block below) rather than down in the
+  // HELP BANNERS section where they're used. switchContentTab('map', null)
+  // just below calls into showHelpBanner() synchronously; function
+  // declarations are hoisted, so showHelpBanner itself is already callable,
+  // but these are `var` -- only their assignment (not just the name) makes
+  // them usable, and that only happens once execution reaches this line.
+  // Declaring them down in the HELP BANNERS section (later in this same
+  // script) meant they were still unassigned the first time this ran.
+  var dismissedHelp       = new Set();
+  var helpLoaded          = false;
+  var _pendingHelpBanners = [];
 
   // ── INIT ──
   checkLiveStatus();
@@ -10591,8 +10766,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // ═══════════════════════════════════════════════════════════════
   // HELP BANNERS
   // ═══════════════════════════════════════════════════════════════
-  var dismissedHelp = new Set();
-  var helpLoaded    = false;
+  // dismissedHelp / helpLoaded / _pendingHelpBanners are declared up near
+  // the INIT block above (see the comment there) so they're assigned
+  // before switchContentTab('map', null) can call into showHelpBanner().
 
   async function loadDismissedHelp() {
     if (!CURRENT_USER) { helpLoaded = true; return; }
@@ -10602,10 +10778,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       dismissedHelp = new Set(data.dismissed || []);
     } catch(e) {}
     helpLoaded = true;
+    var pending = _pendingHelpBanners;
+    _pendingHelpBanners = [];
+    pending.forEach(function(args) { showHelpBanner(args[0], args[1], args[2]); });
   }
 
   function showHelpBanner(helpKey, containerSelector, message) {
-    if (typeof helpLoaded === 'undefined' || !helpLoaded) return;
+    if (typeof helpLoaded === 'undefined' || !helpLoaded) {
+      _pendingHelpBanners.push([helpKey, containerSelector, message]);
+      return;
+    }
     if (!dismissedHelp || dismissedHelp.has(helpKey)) return;
     if (document.getElementById('help-' + helpKey)) return;
     const container = document.querySelector(containerSelector);

@@ -93,6 +93,24 @@ const GameSounds = {
     forge()   { this._play({notes: [{freq:150, dur:0.10, type:'sawtooth', vol:0.10}, {freq:200, dur:0.08, type:'square', vol:0.12, time:0.10}, {freq:800, dur:0.05, type:'sine', vol:0.10, time:0.18}, {freq:1200, dur:0.10, type:'sine', vol:0.08, time:0.22}]}); },
 
     iglooVisit()      { this._play({notes: [{freq:523, dur:0.15, type:'sine', vol:0.10}, {freq:659, dur:0.20, type:'sine', vol:0.10, time:0.12}]}); },
+
+    // Igloo doorbell chiptune -- freqs is a 12-slot array (from the igloo
+    // creator UI), each either null (rest) or a frequency in Hz. Fixed-tempo
+    // grid (not variable timing, matching the creator's simple 12-step
+    // sequencer). Reuses _play()'s existing notes-list scheduling exactly
+    // like every other sound here rather than a separate oscillator path --
+    // just builds its `notes` from user-authored slots instead of a
+    // hardcoded tune.
+    playDoorbellTune(freqs) {
+        if (!freqs || !Array.isArray(freqs)) return;
+        const STEP = 0.16;
+        const notes = [];
+        freqs.forEach((freq, i) => {
+            if (freq === null || freq === undefined) return;
+            notes.push({ freq, dur: STEP * 0.85, type: 'square', vol: 0.12, time: i * STEP });
+        });
+        if (notes.length) this._play({ notes });
+    },
     socialModeChange(){ this._play({notes: [{freq:500, dur:0.06, type:'triangle', vol:0.08}, {freq:650, dur:0.08, type:'triangle', vol:0.08, time:0.05}]}); },
 
     hotelRest() { this._play({notes: [{freq:400, dur:0.10, type:'sine', vol:0.10}, {freq:500, dur:0.10, type:'sine', vol:0.10, time:0.08}, {freq:600, dur:0.10, type:'sine', vol:0.10, time:0.16}, {freq:800, dur:0.20, type:'sine', vol:0.08, time:0.24}]}); },
