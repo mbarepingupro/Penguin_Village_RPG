@@ -2107,6 +2107,15 @@ def start_new_weekly_challenge():
     now = int(time.time())
     db = get_db()
     try:
+        # Defensive: a debug action (Set Progress, etc.) can leave a stray
+        # 'active' challenge behind if the mayor never explicitly resolved or
+        # cancelled it before Monday. weekly_challenges has no constraint
+        # enforcing "at most one active" the way raid_state effectively does
+        # below -- without this, this job would insert a SECOND active
+        # challenge on top of the leftover one.
+        stray = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
+        if stray:
+            print(f"[WeeklyChallenge] Cancelled {stray} stray active challenge(s) left over before starting a new one")
         db.execute(
             "INSERT INTO weekly_challenges (metric_type, threshold, current_progress, week_start, status, created_at) "
             "VALUES (?, ?, 0, ?, 'active', ?)",
@@ -2154,6 +2163,18 @@ def evaluate_weekly_challenge():
         succeeded = row["current_progress"] >= row["threshold"]
         new_status = "succeeded" if succeeded else "failed"
 
+        # Guard against double-spawning a boss: a debug "Start Raid Now" (or a
+        # previous cycle's raid that was never resolved) can already have a
+        # pending/active raid_state row sitting around when this runs. Check
+        # BEFORE picking a boss name, so we don't waste a raid_settings round
+        # trip on a name that'll never be used.
+        existing_raid = None
+        if succeeded:
+            existing_raid = db.execute(
+                "SELECT id FROM raid_state WHERE status IN ('join_window', 'awaiting_raid', 'active') "
+                "ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+
         # pick_boss_name() reads raid_settings.boss_names, which opens its own
         # separate sqlite3 connection (and, the first time that key is read,
         # its own commit to seed the default). Must run BEFORE this
@@ -2164,14 +2185,19 @@ def evaluate_weekly_challenge():
         # fails against it ("database is locked"). Computing it here doesn't
         # depend on the UPDATE having happened yet, so there's no reason not
         # to just do it first.
-        boss_name = pick_boss_name() if succeeded else None
+        boss_name = pick_boss_name() if (succeeded and not existing_raid) else None
 
         db.execute(
             "UPDATE weekly_challenges SET status=? WHERE id=?",
             (new_status, challenge_id),
         )
 
-        if succeeded:
+        if succeeded and existing_raid:
+            print(
+                f"[WeeklyChallenge] Challenge succeeded, but raid #{existing_raid['id']} is already "
+                f"pending/active -- skipping a new raid to avoid a double-spawn."
+            )
+        elif succeeded:
             # raid_join_window on: legacy join-window phase (players sign up here,
             # raid opens Saturday). raid_join_window off (default): skip straight to
             # "won, raid pending" -- no signup, the overlay just shows the challenge
@@ -2207,17 +2233,31 @@ def start_raid_if_unlocked():
     function at all. If the week's challenge failed, no such row exists and
     this is a no-op, same as before.
 
+    This is the REAL automatic job and its precondition (a challenge must
+    have succeeded to produce a pending row in the first place) is
+    intentionally untouched -- the Mayor debug panel's "Start Raid Now" no
+    longer calls this function at all, precisely so it can spawn a raid with
+    no such precondition; see raid_debug_force_start_raid.
+
     Returns True if a raid actually transitioned to active, False otherwise
-    (feature off, or nothing pending) -- the real cron job ignores this, but
-    the Mayor debug route uses it to tell a real state change apart from a
-    no-op instead of reporting "success" either way (see
-    raid_debug_force_start_raid).
+    (feature off, nothing pending, or one's already active) -- the real cron
+    job ignores this; used by callers that need to tell a real change apart
+    from a no-op.
     """
     if not FEATURES.get("weekly_raid", False):
         return False
     now = int(time.time())
     db = get_db()
     try:
+        # Defensive: don't spawn a second boss on top of one a debug action
+        # (or a previous cycle) already left active and unresolved.
+        already_active = db.execute(
+            "SELECT id FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if already_active:
+            print(f"[WeeklyChallenge] Raid #{already_active['id']} is already active — skipping (won't start a second one)")
+            return False
+
         raid = db.execute(
             "SELECT id FROM raid_state WHERE status IN ('join_window', 'awaiting_raid') "
             "ORDER BY id DESC LIMIT 1"
@@ -7581,6 +7621,25 @@ def _raid_debug_flag_check():
     return None
 
 
+def _debug_raid_challenge_anchor(db):
+    """Return a weekly_challenges.id to satisfy raid_state.challenge_id's NOT
+    NULL foreign key for a debug-triggered raid that may have no real weekly
+    challenge behind it at all. Reuses the latest existing challenge row
+    (whatever its status) if one exists; otherwise inserts a minimal
+    placeholder (status='cancelled', so it's invisible to every real query —
+    all of them only ever look for status='active') purely to anchor the FK.
+    """
+    row = db.execute("SELECT id FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
+    if row:
+        return row["id"]
+    cur = db.execute(
+        "INSERT INTO weekly_challenges (metric_type, threshold, current_progress, week_start, status, created_at) "
+        "VALUES (?, 0, 0, ?, 'cancelled', ?)",
+        (WEEKLY_METRIC_TYPES[0]["id"], datetime.date.today().isoformat(), int(time.time())),
+    )
+    return cur.lastrowid
+
+
 @app.route("/mayor/raid-debug/settings/<key>", methods=["POST"])
 def raid_debug_save_setting(key):
     if not _is_mayor_authed():
@@ -7644,19 +7703,57 @@ def raid_debug_save_setting(key):
 
 @app.route("/mayor/raid-debug/force-new-challenge", methods=["POST"])
 def raid_debug_force_new_challenge():
+    """Start a fresh weekly challenge immediately. With no metric_type in the
+    body, picks randomly via the real scheduler job (unchanged default
+    behavior). With one, opens that exact metric at its current live
+    threshold instead -- mayor-selectable for testing, while the automatic
+    Monday cycle keeps picking randomly."""
     if not _is_mayor_authed():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     flag_err = _raid_debug_flag_check()
     if flag_err:
         return flag_err
 
-    mayor = session.get("username") or "key-auth"
+    data        = request.get_json(silent=True) or {}
+    metric_type = (data.get("metric_type") or "").strip()
+    mayor       = session.get("username") or "key-auth"
+
+    if metric_type:
+        valid_ids = {m["id"] for m in WEEKLY_METRIC_TYPES}
+        if metric_type not in valid_ids:
+            return jsonify({"status": "error", "message": f"Unknown metric '{metric_type}'."})
+        # Read the live threshold BEFORE this connection issues any write
+        # below -- raid_settings.get_setting() opens its own connection and,
+        # on a cold key, its own commit; doing that after a write here would
+        # hit the same locking class of bug fixed for pick_boss_name() earlier.
+        thresholds = raid_settings.get_setting("weekly_metric_thresholds")
+        threshold  = thresholds.get(metric_type, 0)
+        week_start = datetime.date.today().isoformat()
+        now        = int(time.time())
+
+        db = get_db()
+        cancelled = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
+        db.execute(
+            "INSERT INTO weekly_challenges (metric_type, threshold, current_progress, week_start, status, created_at) "
+            "VALUES (?, ?, 0, ?, 'active', ?)",
+            (metric_type, threshold, week_start, now),
+        )
+        row = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
+        log_event(db, "admin_debug",
+                  f"👑 [RAID DEBUG] {mayor} force-started a new weekly challenge "
+                  f"(metric: {metric_type}, mayor-selected, threshold {threshold})"
+                  + (f" (cancelled {cancelled} active challenge)" if cancelled else ""),
+                  mayor)
+        db.commit()
+        db.close()
+        return jsonify({"status": "success", "challenge": dict(row) if row else None})
+
     db = get_db()
     cancelled = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
     db.commit()
     db.close()
 
-    start_new_weekly_challenge()  # the real Monday scheduler job — not duplicated
+    start_new_weekly_challenge()  # the real Monday scheduler job — not duplicated (random metric)
 
     db  = get_db()
     row = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
@@ -7667,6 +7764,97 @@ def raid_debug_force_new_challenge():
     db.commit()
     db.close()
     return jsonify({"status": "success", "challenge": dict(row) if row else None})
+
+
+@app.route("/mayor/raid-debug/set-progress", methods=["POST"])
+def raid_debug_set_progress():
+    """Directly set the active challenge's current_progress -- for nudging it
+    to any state (near-threshold, wildly over, etc.) without only having a
+    snap-to-threshold force-succeed available."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    data = request.get_json(silent=True) or {}
+    try:
+        value = int(data.get("value"))
+        if value < 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "Progress must be a non-negative integer."})
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    challenge = db.execute(
+        "SELECT id, threshold FROM weekly_challenges WHERE status='active' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if not challenge:
+        db.close()
+        return jsonify({"status": "error", "message": "No active challenge to set progress on."})
+
+    db.execute("UPDATE weekly_challenges SET current_progress=? WHERE id=?", (value, challenge["id"]))
+    log_event(db, "admin_debug",
+              f"👑 [RAID DEBUG] {mayor} set weekly challenge progress to {value} (threshold {challenge['threshold']})",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "current_progress": value, "threshold": challenge["threshold"]})
+
+
+@app.route("/mayor/raid-debug/force-fail-challenge", methods=["POST"])
+def raid_debug_force_fail_challenge():
+    """Force the active challenge to evaluate as failed right now, regardless
+    of its current progress -- the counterpart to force-succeed."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    challenge = db.execute(
+        "SELECT id FROM weekly_challenges WHERE status='active' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if not challenge:
+        db.close()
+        return jsonify({"status": "error", "message": "No active challenge to force-fail."})
+    # Guarantees it evaluates as failed regardless of current progress.
+    db.execute("UPDATE weekly_challenges SET current_progress=0 WHERE id=?", (challenge["id"],))
+    db.commit()
+    db.close()
+
+    evaluate_weekly_challenge()  # the real Friday scheduler job — not duplicated
+
+    db  = get_db()
+    row = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
+    log_event(db, "admin_debug", f"👑 [RAID DEBUG] {mayor} force-failed the active weekly challenge", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "challenge": dict(row) if row else None})
+
+
+@app.route("/mayor/raid-debug/cancel-challenge", methods=["POST"])
+def raid_debug_cancel_challenge():
+    """True abort: mark the active challenge cancelled directly, bypassing
+    evaluate_weekly_challenge() entirely -- no succeeded/failed status is
+    ever recorded and no lifecycle-notice popup fires (that route only
+    triggers on status succeeded/failed), and the raid system is untouched."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    cancelled = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
+    log_event(db, "admin_debug",
+              f"👑 [RAID DEBUG] {mayor} cancelled the current weekly challenge ({cancelled} row(s)) "
+              f"— no outcome recorded, raid untouched",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "challenges_cancelled": cancelled})
 
 
 @app.route("/mayor/raid-debug/force-succeed-challenge", methods=["POST"])
@@ -7701,33 +7889,123 @@ def raid_debug_force_succeed_challenge():
 
 @app.route("/mayor/raid-debug/force-start-raid", methods=["POST"])
 def raid_debug_force_start_raid():
+    """Spawn a raid boss immediately -- fully decoupled from weekly-challenge
+    state. Works whether a challenge succeeded, is still active, failed, was
+    cancelled, or doesn't exist at all. This deliberately does NOT call
+    start_raid_if_unlocked() (the real automatic Saturday job, which keeps
+    its existing precondition of a succeeded challenge unchanged) -- it
+    inserts a fresh 'active' raid_state row directly.
+
+    boss_name in the body picks it explicitly (mayor-selected); omitted/blank
+    falls back to a fresh random pick from raid_settings.boss_names, same
+    pool the automatic cycle draws from.
+    """
     if not _is_mayor_authed():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     flag_err = _raid_debug_flag_check()
     if flag_err:
         return flag_err
 
-    mayor  = session.get("username") or "key-auth"
-    # the real Saturday scheduler job — not duplicated; boss HP is flat
-    # (raid_settings.boss_hp_flat), no participants required. Returns False
-    # (no-op) if no raid is pending (status join_window or awaiting_raid) --
-    # must be checked here instead of blindly reporting success, or clicking
-    # this with nothing pending silently does nothing while still claiming
-    # success and logging an event, which looks like "nothing happened" (or,
-    # if clicked repeatedly, like the same stale boss/HP every time).
-    started = start_raid_if_unlocked()
-    if not started:
-        return jsonify({
-            "status": "error",
-            "message": "No raid is pending to start — run 'Force Succeed Challenge' first.",
-        })
+    data = request.get_json(silent=True) or {}
+    requested_boss_name = (data.get("boss_name") or "").strip()
+    mayor = session.get("username") or "key-auth"
+    now   = int(time.time())
 
-    db   = get_db()
-    raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
-    log_event(db, "admin_debug", f"👑 [RAID DEBUG] {mayor} force-started the raid", mayor)
+    # Both of these open their OWN separate sqlite3 connection (raid_settings)
+    # -- must resolve before this function's own db issues any write, or risk
+    # the exact lock class fixed for evaluate_weekly_challenge() earlier.
+    boss_name   = requested_boss_name or pick_boss_name()
+    boss_max_hp = raid_settings.get_setting("boss_hp_flat")
+
+    db = get_db()
+    # At most one live raid at a time -- neutralize anything else pending/
+    # active first so the automatic Saturday job and Monday timeout sweep
+    # never find two "active" rows to referee later.
+    superseded = db.execute(
+        "UPDATE raid_state SET status='cancelled' WHERE status IN ('join_window', 'awaiting_raid', 'active')"
+    ).rowcount
+
+    challenge_id = _debug_raid_challenge_anchor(db)
+    cur = db.execute(
+        "INSERT INTO raid_state "
+        "(challenge_id, boss_name, boss_max_hp, boss_current_hp, status, raid_start, created_at) "
+        "VALUES (?, ?, ?, ?, 'active', ?, ?)",
+        (challenge_id, boss_name, boss_max_hp, boss_max_hp, now, now),
+    )
+    raid_id = cur.lastrowid
+
+    log_event(db, "admin_debug",
+              f"👑 [RAID DEBUG] {mayor} force-started a new raid immediately: {boss_name} "
+              f"(HP {boss_max_hp}, no weekly-challenge precondition)"
+              + (f" — superseded {superseded} previous pending/active raid(s)" if superseded else ""),
+              mayor)
     db.commit()
+
+    raid = db.execute("SELECT * FROM raid_state WHERE id=?", (raid_id,)).fetchone()
     db.close()
     return jsonify({"status": "success", "raid": dict(raid) if raid else None})
+
+
+@app.route("/mayor/raid-debug/set-boss-hp", methods=["POST"])
+def raid_debug_set_boss_hp():
+    """Directly set the active raid's boss_current_hp -- for testing
+    near-defeat or fresh-start states without landing real damage. Does not
+    itself trigger resolution even at 0; use Force Resolve for that, or let
+    the next real attack finish it off."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    data = request.get_json(silent=True) or {}
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    raid = db.execute(
+        "SELECT id, boss_max_hp FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if not raid:
+        db.close()
+        return jsonify({"status": "error", "message": "No active raid to set HP on."})
+
+    try:
+        value = int(data.get("value"))
+    except (TypeError, ValueError):
+        db.close()
+        return jsonify({"status": "error", "message": "HP must be an integer."})
+    if value < 0 or value > raid["boss_max_hp"]:
+        db.close()
+        return jsonify({"status": "error", "message": f"HP must be between 0 and {raid['boss_max_hp']} (current max HP)."})
+
+    db.execute("UPDATE raid_state SET boss_current_hp=? WHERE id=?", (value, raid["id"]))
+    log_event(db, "admin_debug",
+              f"👑 [RAID DEBUG] {mayor} set boss HP to {value}/{raid['boss_max_hp']}", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "boss_current_hp": value, "boss_max_hp": raid["boss_max_hp"]})
+
+
+@app.route("/mayor/raid-debug/cancel-raid", methods=["POST"])
+def raid_debug_cancel_raid():
+    """True abort: mark the current pending/active raid cancelled directly,
+    bypassing resolve_raid() entirely -- no rewards distributed, no chat
+    announcement, no leaderboard resolution, and the weekly challenge is
+    untouched."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    cancelled = db.execute(
+        "UPDATE raid_state SET status='cancelled' WHERE status IN ('join_window', 'awaiting_raid', 'active')"
+    ).rowcount
+    log_event(db, "admin_debug",
+              f"👑 [RAID DEBUG] {mayor} cancelled the current raid ({cancelled} row(s)) "
+              f"— no rewards/announcement, weekly challenge untouched",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "raids_cancelled": cancelled})
 
 
 @app.route("/mayor/raid-debug/rename-boss", methods=["POST"])

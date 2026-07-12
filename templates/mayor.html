@@ -541,60 +541,40 @@
       </div>
     </div>
 
-    <!-- RAID DEBUG -->
-    <div class="mh-section-title" style="margin-top:20px;">🐉 RAID DEBUG</div>
+    <!-- ═══════════════════════════════════════════════════════════════════
+         WEEKLY CHALLENGE DEBUG — independent of the raid section below; none
+         of these actions require the raid to be in any particular state.
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="mh-section-title" style="margin-top:20px;">🏆 WEEKLY CHALLENGE DEBUG</div>
 
-    <!-- Status display (read-only, server-rendered on page load) -->
     <div class="mh-lookup" style="margin-bottom:16px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div>
-          <div style="color:var(--dim);font-size:16px;margin-bottom:6px;">WEEKLY CHALLENGE</div>
-          {% if current_challenge %}
-          <div class="mh-player-card">
-            <div class="mh-player-stat"><span class="k">Metric:</span> <span class="v">{{ current_challenge.metric_type }}</span></div>
-            <div class="mh-player-stat"><span class="k">Progress:</span> <span class="v">{{ "{:,}".format(current_challenge.current_progress) }} / {{ "{:,}".format(current_challenge.threshold) }}</span></div>
-            <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_challenge.status }}</span></div>
-          </div>
-          {% else %}
-          <div class="mh-no-buffs">No challenge exists yet.</div>
-          {% endif %}
-        </div>
-        <div>
-          <div style="color:var(--dim);font-size:16px;margin-bottom:6px;">RAID</div>
-          {% if current_raid %}
-          <div class="mh-player-card">
-            <div class="mh-player-stat"><span class="k">Boss:</span> <span class="v">{{ current_raid.boss_name }}</span></div>
-            <div class="mh-player-stat"><span class="k">HP:</span> <span class="v">{{ "{:,}".format(current_raid.boss_current_hp) }} / {{ "{:,}".format(current_raid.boss_max_hp) }}</span></div>
-            <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_raid.status }}</span></div>
-            <div class="mh-player-stat"><span class="k">Participants:</span> <span class="v">{{ raid_participant_count }}</span> <span style="color:var(--dim);">(informational only — boss HP no longer scales with this)</span></div>
-            <div class="mh-player-stat"><span class="k">Challenge won / join window start:</span> <span class="v" id="rd-join-window-start" data-ts="{{ current_raid.join_window_start or '' }}">—</span></div>
-            <div class="mh-player-stat"><span class="k">Raid start:</span> <span class="v" id="rd-raid-start" data-ts="{{ current_raid.raid_start or '' }}">—</span></div>
-            <div class="mh-player-stat"><span class="k">Raid end:</span> <span class="v" id="rd-raid-end" data-ts="{{ current_raid.raid_end or '' }}">—</span></div>
-          </div>
-          <!-- Quick one-off rename of THIS specific boss -- separate from managing
-               the boss_names pool new bosses get randomly picked from (below). -->
-          <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
-            <div class="mh-field" style="flex:1;margin:0;">
-              <label class="mh-label">RENAME CURRENT BOSS</label>
-              <input class="mh-input" type="text" maxlength="60" id="rd-rename-boss-input"
-                     value="{{ current_raid.boss_name }}"/>
-            </div>
-            <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdRenameBoss()">✏️ RENAME</button>
-          </div>
-          <div id="rd-rename-boss-result" style="margin-top:6px;font-size:16px;"></div>
-          {% else %}
-          <div class="mh-no-buffs">No raid exists yet.</div>
-          {% endif %}
-        </div>
+      {% if current_challenge %}
+      <div class="mh-player-card">
+        <div class="mh-player-stat"><span class="k">Metric:</span> <span class="v">{{ current_challenge.metric_type }}</span></div>
+        <div class="mh-player-stat"><span class="k">Progress:</span> <span class="v">{{ "{:,}".format(current_challenge.current_progress) }} / {{ "{:,}".format(current_challenge.threshold) }}</span></div>
+        <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_challenge.status }}</span></div>
       </div>
+      {% if current_challenge.status == 'active' %}
+      <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
+        <div class="mh-field" style="flex:1;margin:0;">
+          <label class="mh-label">SET CURRENT PROGRESS</label>
+          <input class="mh-input" type="number" min="0" id="rd-set-progress-input"
+                 value="{{ current_challenge.current_progress }}"/>
+        </div>
+        <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdSetProgress()">💾 SET</button>
+      </div>
+      <div id="rd-set-progress-result" style="margin-top:6px;font-size:16px;"></div>
+      {% endif %}
+      {% else %}
+      <div class="mh-no-buffs">No challenge exists yet.</div>
+      {% endif %}
     </div>
 
-    <!-- Live config editors -->
     <div class="mh-actions">
 
       <!-- Weekly metric thresholds -->
       <div class="mh-action-card">
-        <div class="mh-action-title">🏆 WEEKLY METRIC THRESHOLDS</div>
+        <div class="mh-action-title">🎯 WEEKLY METRIC THRESHOLDS</div>
         {% for m in weekly_metric_types %}
         <div class="mh-field">
           <label class="mh-label">{{ m.label }} ({{ m.id }})</label>
@@ -605,6 +585,85 @@
         <button class="mh-btn" onclick="rdSaveThresholds()">💾 SAVE THRESHOLDS</button>
         <div id="rd-thresholds-result" style="margin-top:6px;font-size:16px;"></div>
       </div>
+
+      <!-- Start new challenge -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">🆕 START NEW CHALLENGE</div>
+        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+          Cancels any currently active challenge first. Leave the metric on
+          "Random" to match how the automatic Monday cycle picks — the
+          dropdown is only for picking one explicitly to test.
+        </div>
+        <div class="mh-field">
+          <label class="mh-label">METRIC</label>
+          <select class="mh-select" id="rd-new-challenge-metric">
+            <option value="">— Random (default) —</option>
+            {% for m in weekly_metric_types %}
+            <option value="{{ m.id }}">{{ m.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="mh-btn" onclick="rdForceNewChallenge()">🆕 START NEW CHALLENGE</button>
+        <div id="rd-new-challenge-result" style="margin-top:6px;font-size:16px;"></div>
+      </div>
+
+    </div>
+
+    <div class="mh-lookup" style="margin-top:4px;">
+      <div class="mh-action-title" style="margin-bottom:10px;">⚡ CHALLENGE ACTIONS</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button class="mh-btn green" onclick="rdForceSucceedChallenge()">✅ FORCE SUCCEED</button>
+        <button class="mh-btn" onclick="rdForceFailChallenge()">❌ FORCE FAIL</button>
+        <button class="mh-btn danger" style="grid-column:span 2;" onclick="rdCancelChallenge()">🛑 CANCEL/RESET CHALLENGE (no outcome recorded, raid untouched)</button>
+      </div>
+      <div id="rd-challenge-force-result" style="margin-top:8px;font-size:16px;"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         WEEKEND RAID DEBUG — independent of the challenge section above;
+         "Start Raid Now" in particular has NO weekly-challenge precondition.
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div class="mh-section-title" style="margin-top:20px;">🐉 WEEKEND RAID DEBUG</div>
+
+    <div class="mh-lookup" style="margin-bottom:16px;">
+      {% if current_raid %}
+      <div class="mh-player-card">
+        <div class="mh-player-stat"><span class="k">Boss:</span> <span class="v">{{ current_raid.boss_name }}</span></div>
+        <div class="mh-player-stat"><span class="k">HP:</span> <span class="v">{{ "{:,}".format(current_raid.boss_current_hp) }} / {{ "{:,}".format(current_raid.boss_max_hp) }}</span></div>
+        <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_raid.status }}</span></div>
+        <div class="mh-player-stat"><span class="k">Participants:</span> <span class="v">{{ raid_participant_count }}</span> <span style="color:var(--dim);">(informational only — boss HP no longer scales with this)</span></div>
+        <div class="mh-player-stat"><span class="k">Challenge won / join window start:</span> <span class="v" id="rd-join-window-start" data-ts="{{ current_raid.join_window_start or '' }}">—</span></div>
+        <div class="mh-player-stat"><span class="k">Raid start:</span> <span class="v" id="rd-raid-start" data-ts="{{ current_raid.raid_start or '' }}">—</span></div>
+        <div class="mh-player-stat"><span class="k">Raid end:</span> <span class="v" id="rd-raid-end" data-ts="{{ current_raid.raid_end or '' }}">—</span></div>
+      </div>
+      <!-- Quick one-off rename of THIS specific boss -- separate from managing
+           the boss_names pool new bosses get randomly picked from (below). -->
+      <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
+        <div class="mh-field" style="flex:1;margin:0;">
+          <label class="mh-label">RENAME CURRENT BOSS</label>
+          <input class="mh-input" type="text" maxlength="60" id="rd-rename-boss-input"
+                 value="{{ current_raid.boss_name }}"/>
+        </div>
+        <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdRenameBoss()">✏️ RENAME</button>
+      </div>
+      <div id="rd-rename-boss-result" style="margin-top:6px;font-size:16px;"></div>
+      {% if current_raid.status == 'active' %}
+      <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
+        <div class="mh-field" style="flex:1;margin:0;">
+          <label class="mh-label">SET BOSS CURRENT HP</label>
+          <input class="mh-input" type="number" min="0" max="{{ current_raid.boss_max_hp }}" id="rd-set-boss-hp-input"
+                 value="{{ current_raid.boss_current_hp }}"/>
+        </div>
+        <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdSetBossHp()">💾 SET</button>
+      </div>
+      <div id="rd-set-boss-hp-result" style="margin-top:6px;font-size:16px;"></div>
+      {% endif %}
+      {% else %}
+      <div class="mh-no-buffs">No raid exists yet.</div>
+      {% endif %}
+    </div>
+
+    <div class="mh-actions">
 
       <!-- Boss HP + podium size -->
       <div class="mh-action-card">
@@ -633,8 +692,9 @@
         <div class="mh-action-title">👹 BOSS NAME POOL</div>
         <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
           One name per line. A new boss is picked at random from this list whenever a
-          weekly challenge succeeds. Doesn't affect the currently active boss — use
-          "Rename Current Boss" above for that.
+          weekly challenge succeeds (or Start Raid Now below, if left on Random).
+          Doesn't affect the currently active boss — use "Rename Current Boss" above
+          for that.
         </div>
         <div class="mh-field">
           <textarea class="mh-textarea" id="rd-boss-names" rows="7"
@@ -642,6 +702,28 @@
         </div>
         <button class="mh-btn" onclick="rdSaveBossNames()">💾 SAVE BOSS NAME POOL</button>
         <div id="rd-boss-names-result" style="margin-top:6px;font-size:16px;"></div>
+      </div>
+
+      <!-- Start raid now -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">⚔️ START RAID NOW</div>
+        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+          Spawns a boss immediately with the current flat HP setting — no
+          weekly-challenge precondition at all (works whether one succeeded,
+          is active, failed, or doesn't exist). Cancels any other pending/
+          active raid first, so there's only ever one live raid.
+        </div>
+        <div class="mh-field">
+          <label class="mh-label">BOSS NAME</label>
+          <select class="mh-select" id="rd-start-raid-boss">
+            <option value="">— Random from pool (default) —</option>
+            {% for name in raid_settings_all.boss_names %}
+            <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button class="mh-btn" onclick="rdForceStartRaid()">⚔️ START RAID NOW</button>
+        <div id="rd-start-raid-result" style="margin-top:6px;font-size:16px;"></div>
       </div>
 
       <!-- Lootbox drop rates -->
@@ -690,17 +772,20 @@
 
     </div>
 
-    <!-- Force actions -->
     <div class="mh-lookup" style="margin-top:4px;">
-      <div class="mh-action-title" style="margin-bottom:10px;">⚡ FORCE ACTIONS</div>
+      <div class="mh-action-title" style="margin-bottom:10px;">⚡ RAID ACTIONS</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="mh-btn" onclick="rdForceNewChallenge()">🆕 FORCE START NEW WEEKLY CHALLENGE</button>
-        <button class="mh-btn" onclick="rdForceSucceedChallenge()">✅ FORCE SUCCEED CURRENT CHALLENGE</button>
-        <button class="mh-btn" onclick="rdForceStartRaid()">⚔️ FORCE START RAID NOW</button>
         <button class="mh-btn green" onclick="rdForceResolve('defeated')">🏆 FORCE RESOLVE AS DEFEATED</button>
         <button class="mh-btn" onclick="rdForceResolve('timeout')">⏱️ FORCE RESOLVE AS TIMEOUT</button>
-        <button class="mh-btn danger" onclick="rdCancelCycle()">🛑 CANCEL/RESET CURRENT CYCLE</button>
+        <button class="mh-btn danger" style="grid-column:span 2;" onclick="rdCancelRaid()">🛑 CANCEL/RESET RAID (no rewards/announcement, challenge untouched)</button>
       </div>
+      <div id="rd-raid-force-result" style="margin-top:8px;font-size:16px;"></div>
+    </div>
+
+    <!-- Reset both systems at once -->
+    <div class="mh-lookup" style="margin-top:4px;">
+      <div class="mh-action-title" style="margin-bottom:10px;">🛑 RESET EVERYTHING</div>
+      <button class="mh-btn danger" onclick="rdCancelCycle()">🛑 CANCEL/RESET BOTH CHALLENGE + RAID (no rewards)</button>
       <div id="rd-force-result" style="margin-top:8px;font-size:16px;"></div>
     </div>
 
@@ -1270,31 +1355,79 @@
     rdSaveSetting('resource_range', value, 'rd-resource-result');
   }
 
+  // ── WEEKLY CHALLENGE ACTIONS ──
   async function rdForceNewChallenge() {
     if (!confirm('⚠️ This cancels any active weekly challenge and starts a fresh one. Continue?')) return;
-    const btn  = event.target;
-    const data = await api('/mayor/raid-debug/force-new-challenge', {}, btn);
-    rdShowResult('rd-force-result', data.status === 'success', data.status === 'success' ? 'New challenge started! Reload to see it.' : (data.message || 'Error.'));
+    const btn        = event.target;
+    const metricType = document.getElementById('rd-new-challenge-metric').value;
+    const data       = await api('/mayor/raid-debug/force-new-challenge', { metric_type: metricType }, btn);
+    rdShowResult('rd-new-challenge-result', data.status === 'success',
+      data.status === 'success' ? 'New challenge started! Reload to see it.' : (data.message || 'Error.'));
+  }
+
+  async function rdSetProgress() {
+    const btn   = event.target;
+    const value = parseInt(document.getElementById('rd-set-progress-input').value, 10);
+    const data  = await api('/mayor/raid-debug/set-progress', { value }, btn);
+    rdShowResult('rd-set-progress-result', data.status === 'success',
+      data.status === 'success' ? `Progress set to ${data.current_progress} / ${data.threshold}.` : (data.message || 'Error.'));
   }
 
   async function rdForceSucceedChallenge() {
     const btn  = event.target;
     const data = await api('/mayor/raid-debug/force-succeed-challenge', {}, btn);
-    rdShowResult('rd-force-result', data.status === 'success', data.status === 'success' ? 'Challenge force-succeeded! Reload to see the new raid.' : (data.message || 'Error.'));
+    rdShowResult('rd-challenge-force-result', data.status === 'success',
+      data.status === 'success' ? 'Challenge force-succeeded! Reload to see the new raid.' : (data.message || 'Error.'));
   }
 
-  async function rdForceStartRaid() {
+  async function rdForceFailChallenge() {
     const btn  = event.target;
-    const data = await api('/mayor/raid-debug/force-start-raid', {}, btn);
-    rdShowResult('rd-force-result', data.status === 'success', data.status === 'success' ? 'Raid started! Reload to see it.' : (data.message || 'Error.'));
+    const data = await api('/mayor/raid-debug/force-fail-challenge', {}, btn);
+    rdShowResult('rd-challenge-force-result', data.status === 'success',
+      data.status === 'success' ? 'Challenge force-failed! Reload to see it.' : (data.message || 'Error.'));
+  }
+
+  async function rdCancelChallenge() {
+    if (!confirm('⚠️ This cancels the active challenge with NO outcome recorded (no succeeded/failed, no popup). Continue?')) return;
+    const btn  = event.target;
+    const data = await api('/mayor/raid-debug/cancel-challenge', {}, btn);
+    rdShowResult('rd-challenge-force-result', data.status === 'success',
+      data.status === 'success' ? `Cancelled ${data.challenges_cancelled} challenge(s).` : (data.message || 'Error.'));
+  }
+
+  // ── WEEKEND RAID ACTIONS ──
+  async function rdForceStartRaid() {
+    const btn      = event.target;
+    const bossName = document.getElementById('rd-start-raid-boss').value;
+    const data     = await api('/mayor/raid-debug/force-start-raid', { boss_name: bossName }, btn);
+    rdShowResult('rd-start-raid-result', data.status === 'success',
+      data.status === 'success' ? `Raid started: ${data.raid.boss_name}! Reload to see it.` : (data.message || 'Error.'));
+  }
+
+  async function rdSetBossHp() {
+    const btn   = event.target;
+    const value = parseInt(document.getElementById('rd-set-boss-hp-input').value, 10);
+    const data  = await api('/mayor/raid-debug/set-boss-hp', { value }, btn);
+    rdShowResult('rd-set-boss-hp-result', data.status === 'success',
+      data.status === 'success' ? `Boss HP set to ${data.boss_current_hp} / ${data.boss_max_hp}.` : (data.message || 'Error.'));
   }
 
   async function rdForceResolve(reason) {
     const btn  = event.target;
     const data = await api('/mayor/raid-debug/force-resolve', { reason }, btn);
-    rdShowResult('rd-force-result', data.status === 'success', data.status === 'success' ? `Raid resolved as ${reason}! Reload to see results.` : (data.message || 'Error.'));
+    rdShowResult('rd-raid-force-result', data.status === 'success',
+      data.status === 'success' ? `Raid resolved as ${reason}! Reload to see results.` : (data.message || 'Error.'));
   }
 
+  async function rdCancelRaid() {
+    if (!confirm('⚠️ This cancels the current raid with NO rewards/announcement. Continue?')) return;
+    const btn  = event.target;
+    const data = await api('/mayor/raid-debug/cancel-raid', {}, btn);
+    rdShowResult('rd-raid-force-result', data.status === 'success',
+      data.status === 'success' ? `Cancelled ${data.raids_cancelled} raid(s).` : (data.message || 'Error.'));
+  }
+
+  // ── RESET EVERYTHING ──
   async function rdCancelCycle() {
     if (!confirm('⚠️ This cancels the active challenge/raid with NO rewards distributed. Continue?')) return;
     const btn  = event.target;
