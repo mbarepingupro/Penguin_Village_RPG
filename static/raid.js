@@ -67,7 +67,10 @@ const RaidJoin = {
           this._fetchAndShowResults(this._lastRaidId);
         }
 
-        if (data.status === 'challenge_active') {
+        // 'awaiting_raid' (raid_join_window off, default): challenge succeeded
+        // but the boss hasn't spawned yet -- shares the same bar/renderer as
+        // 'challenge_active', just pinned at 100% with a different label.
+        if (data.status === 'challenge_active' || data.status === 'awaiting_raid') {
           this.updateChallengeBar(data);
         } else if (wcBar) {
           wcBar.classList.remove('show');
@@ -87,7 +90,11 @@ const RaidJoin = {
     var pct = data.threshold > 0
       ? Math.max(0, Math.min(100, Math.round((data.current_progress / data.threshold) * 100)))
       : 0;
-    if (label) label.textContent = '🏆 Weekly Challenge — Unlocks Weekend Raid';
+    if (label) {
+      label.textContent = data.status === 'awaiting_raid'
+        ? '🏆 Weekly Challenge Complete! Raid starts Saturday.'
+        : '🏆 Weekly Challenge — Unlocks Weekend Raid';
+    }
     if (fill)  fill.style.width = pct + '%';
     if (text) {
       text.textContent = (data.metric_label || data.metric_type || 'Progress') + ': ' +

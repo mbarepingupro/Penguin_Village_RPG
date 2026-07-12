@@ -566,8 +566,8 @@
             <div class="mh-player-stat"><span class="k">Boss:</span> <span class="v">{{ current_raid.boss_name }}</span></div>
             <div class="mh-player-stat"><span class="k">HP:</span> <span class="v">{{ "{:,}".format(current_raid.boss_current_hp) }} / {{ "{:,}".format(current_raid.boss_max_hp) }}</span></div>
             <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_raid.status }}</span></div>
-            <div class="mh-player-stat"><span class="k">Participants:</span> <span class="v">{{ raid_participant_count }}</span></div>
-            <div class="mh-player-stat"><span class="k">Join window start:</span> <span class="v" id="rd-join-window-start" data-ts="{{ current_raid.join_window_start or '' }}">—</span></div>
+            <div class="mh-player-stat"><span class="k">Participants:</span> <span class="v">{{ raid_participant_count }}</span> <span style="color:var(--dim);">(informational only — boss HP no longer scales with this)</span></div>
+            <div class="mh-player-stat"><span class="k">Challenge won / join window start:</span> <span class="v" id="rd-join-window-start" data-ts="{{ current_raid.join_window_start or '' }}">—</span></div>
             <div class="mh-player-stat"><span class="k">Raid start:</span> <span class="v" id="rd-raid-start" data-ts="{{ current_raid.raid_start or '' }}">—</span></div>
             <div class="mh-player-stat"><span class="k">Raid end:</span> <span class="v" id="rd-raid-end" data-ts="{{ current_raid.raid_end or '' }}">—</span></div>
           </div>
@@ -598,10 +598,13 @@
       <!-- Boss HP + podium size -->
       <div class="mh-action-card">
         <div class="mh-action-title">👹 BOSS HP / REWARD TIERS</div>
+        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+          Boss HP is a flat value — it no longer scales with participant count.
+        </div>
         <div class="mh-field">
-          <label class="mh-label">BOSS HP PER PARTICIPANT</label>
+          <label class="mh-label">BOSS HP (FLAT)</label>
           <input class="mh-input" type="number" min="1" id="rd-boss-hp"
-                 value="{{ raid_settings_all.boss_hp_per_participant }}"/>
+                 value="{{ raid_settings_all.boss_hp_flat }}"/>
         </div>
         <div class="mh-field">
           <label class="mh-label">PODIUM SIZE (ranks that win N00Tboxes)</label>
@@ -1185,7 +1188,7 @@
 
   function rdSaveBossHp() {
     const value = parseInt(document.getElementById('rd-boss-hp').value, 10) || 0;
-    rdSaveSetting('boss_hp_per_participant', value, 'rd-boss-hp-result');
+    rdSaveSetting('boss_hp_flat', value, 'rd-boss-hp-result');
   }
 
   function rdSavePodiumSize() {

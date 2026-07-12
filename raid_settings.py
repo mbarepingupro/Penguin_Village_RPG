@@ -18,7 +18,11 @@ DEFAULTS = {
         "resources_gathered":  500,
         "monsters_killed":     100,
     },
-    "boss_hp_per_participant": 200,
+    "boss_hp_per_participant": 200,  # kept for reference — no longer read by boss spawn logic,
+                                      # which now always uses boss_hp_flat (see
+                                      # start_raid_if_unlocked in app.py). Restore manually if this
+                                      # scaling is ever wanted again.
+    "boss_hp_flat": 5000,
     "lootbox_drop_rates": {
         "legendary": 5,
         "rare":      10,
