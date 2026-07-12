@@ -1582,9 +1582,13 @@ def generate_gear_drop(monster_tier):
 # Standalone system (Phase 4) — not yet wired into raid rewards. Phase 5's
 # raid-reward distribution will call grant_lootbox() once the raid ends.
 
-def _roll_lootbox_rarity():
-    """Weighted random rarity roll using the live lootbox_drop_rates setting (sums to 100)."""
-    rates      = raid_settings.get_setting("lootbox_drop_rates")
+def _roll_lootbox_rarity(db=None):
+    """Weighted random rarity roll using the live lootbox_drop_rates setting (sums to 100).
+
+    Pass the caller's own already-open `db` connection when calling mid-
+    transaction -- see raid_settings.get_setting's docstring for why.
+    """
+    rates      = raid_settings.get_setting("lootbox_drop_rates", db=db)
     roll       = random.uniform(0, 100)
     cumulative = 0
     for rarity, pct in rates.items():
@@ -1622,10 +1626,10 @@ def open_lootbox(lootbox_id, username):
         db.close()
         return None
 
-    rarity   = _roll_lootbox_rarity()
+    rarity   = _roll_lootbox_rarity(db=db)
     gear     = _generate_lootbox_gear(rarity)
-    gold_range     = raid_settings.get_setting("gold_range")
-    resource_range = raid_settings.get_setting("resource_range")
+    gold_range     = raid_settings.get_setting("gold_range", db=db)
+    resource_range = raid_settings.get_setting("resource_range", db=db)
     gold     = random.randint(gold_range[0], gold_range[1])
     resource = random.choice(RESOURCE_TYPES)
     amount   = random.randint(resource_range[0], resource_range[1])
@@ -1673,7 +1677,7 @@ def grant_lootbox(username, count, source):
 # Phase 5 — the single place a raid transitions to a terminal status. Called
 # instantly from /raid/attack on boss defeat, and from the Monday timeout sweep.
 
-def calculate_rank_reward(rank, total_participants):
+def calculate_rank_reward(rank, total_participants, db=None):
     """Resource amount for non-podium ranks (below rank_reward_podium_size).
 
     Placeholder curve, tune during balance-pass — live inputs are the
@@ -1681,9 +1685,13 @@ def calculate_rank_reward(rank, total_participants):
     from the range's ceiling (the rank just below the podium) down to its
     floor (last place), so it neither dwarfs nor trivializes the lootbox
     rewards the podium ranks receive.
+
+    Called once per non-podium participant from resolve_raid()'s own loop --
+    pass its `db` through (as resolve_raid does) so this reuses that
+    already-open connection instead of opening two more per call.
     """
-    resource_range = raid_settings.get_setting("resource_range")
-    podium_size    = raid_settings.get_setting("rank_reward_podium_size")
+    resource_range = raid_settings.get_setting("resource_range", db=db)
+    podium_size    = raid_settings.get_setting("rank_reward_podium_size", db=db)
     lo, hi = resource_range[0], resource_range[1]
     first_scaled_rank = podium_size + 1
 
@@ -1718,7 +1726,10 @@ def resolve_raid(raid_id, reason):
         "ORDER BY total_damage_dealt DESC", (raid_id,)
     ).fetchall()
     total_participants = len(participants)
-    podium_size        = raid_settings.get_setting("rank_reward_podium_size")
+    podium_size        = raid_settings.get_setting("rank_reward_podium_size", db=db)
+    db.commit()   # release the write lock (get_setting may have just seeded this
+                   # key on first read) before the loop below's podium branch calls
+                   # grant_lootbox(), which opens its own separate connection
 
     leaderboard = []
     for rank, p in enumerate(participants, start=1):
@@ -1729,7 +1740,10 @@ def resolve_raid(raid_id, reason):
             reward = {"lootboxes": lootbox_count}
         else:
             resource = random.choice(RESOURCE_TYPES)
-            amount   = calculate_rank_reward(rank, total_participants)
+            # db passed through so this reuses the connection instead of
+            # opening two more per non-podium participant (see
+            # calculate_rank_reward's docstring).
+            amount   = calculate_rank_reward(rank, total_participants, db=db)
             ensure_resources(db, username)
             db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
             reward = {"resource_type": resource, "resource_amount": amount}
@@ -2175,17 +2189,13 @@ def evaluate_weekly_challenge():
                 "ORDER BY id DESC LIMIT 1"
             ).fetchone()
 
-        # pick_boss_name() reads raid_settings.boss_names, which opens its own
-        # separate sqlite3 connection (and, the first time that key is read,
-        # its own commit to seed the default). Must run BEFORE this
-        # function's own db issues any write below -- doing it after a write
-        # is exactly the record_challenge_progress() class of bug: the write
-        # below takes an implicit reserved lock on the whole file the moment
-        # it executes, and that second connection's own commit then hangs/
-        # fails against it ("database is locked"). Computing it here doesn't
-        # depend on the UPDATE having happened yet, so there's no reason not
-        # to just do it first.
-        boss_name = pick_boss_name() if (succeeded and not existing_raid) else None
+        # pick_boss_name(db=db) reuses this connection instead of opening a
+        # second one for raid_settings.boss_names -- a prior version of this
+        # call relied on call-ordering (running before any write here) to
+        # avoid contending with itself for the write lock, exactly the
+        # record_challenge_progress() class of bug; passing db through
+        # eliminates that risk structurally instead of by discipline.
+        boss_name = pick_boss_name(db=db) if (succeeded and not existing_raid) else None
 
         db.execute(
             "UPDATE weekly_challenges SET status=? WHERE id=?",
@@ -2267,7 +2277,7 @@ def start_raid_if_unlocked():
             return False
 
         raid_id     = raid["id"]
-        boss_max_hp = raid_settings.get_setting("boss_hp_flat")
+        boss_max_hp = raid_settings.get_setting("boss_hp_flat", db=db)
 
         db.execute(
             "UPDATE raid_state SET status='active', boss_max_hp=?, boss_current_hp=?, raid_start=? "
@@ -2571,15 +2581,12 @@ def raid_attack():
 
     raid_id = raid["id"]
 
-    # get_combat_power() and cp_damage_bonus() (via raid_settings.get_setting())
-    # each open their OWN separate sqlite3 connection -- both must be resolved
-    # before this route's own db issues any write below, or risk the same
-    # connection-lock class of bug already fixed twice elsewhere in this raid
-    # system (record_challenge_progress, pick_boss_name). cp_bonus only
-    # depends on player_cp and the live divisor setting, not on the roll
-    # computed later, so there's no reason to defer it until then.
+    # get_combat_power() is read-only (safe regardless of ordering); cp_damage_bonus()
+    # reuses this route's own db instead of opening a second connection for
+    # raid_settings.cp_damage_bonus_divisor, the same fix applied to
+    # pick_boss_name()/record_challenge_progress() elsewhere in this raid system.
     player_cp = get_combat_power(username)
-    cp_bonus  = cp_damage_bonus(player_cp)
+    cp_bonus  = cp_damage_bonus(player_cp, db=db)
 
     if FEATURES.get("raid_join_window", False):
         participant = db.execute(
@@ -7745,16 +7752,14 @@ def raid_debug_force_new_challenge():
         valid_ids = {m["id"] for m in WEEKLY_METRIC_TYPES}
         if metric_type not in valid_ids:
             return jsonify({"status": "error", "message": f"Unknown metric '{metric_type}'."})
-        # Read the live threshold BEFORE this connection issues any write
-        # below -- raid_settings.get_setting() opens its own connection and,
-        # on a cold key, its own commit; doing that after a write here would
-        # hit the same locking class of bug fixed for pick_boss_name() earlier.
-        thresholds = raid_settings.get_setting("weekly_metric_thresholds")
-        threshold  = thresholds.get(metric_type, 0)
         week_start = datetime.date.today().isoformat()
         now        = int(time.time())
 
         db = get_db()
+        # get_setting() reuses this connection instead of opening its own for
+        # raid_settings.weekly_metric_thresholds.
+        thresholds = raid_settings.get_setting("weekly_metric_thresholds", db=db)
+        threshold  = thresholds.get(metric_type, 0)
         cancelled = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
         db.execute(
             "INSERT INTO weekly_challenges (metric_type, threshold, current_progress, week_start, status, created_at) "
@@ -7934,13 +7939,12 @@ def raid_debug_force_start_raid():
     mayor = session.get("username") or "key-auth"
     now   = int(time.time())
 
-    # Both of these open their OWN separate sqlite3 connection (raid_settings)
-    # -- must resolve before this function's own db issues any write, or risk
-    # the exact lock class fixed for evaluate_weekly_challenge() earlier.
-    boss_name   = requested_boss_name or pick_boss_name()
-    boss_max_hp = raid_settings.get_setting("boss_hp_flat")
-
     db = get_db()
+    # pick_boss_name()/get_setting() reuse this connection instead of opening
+    # their own for raid_settings.boss_names/boss_hp_flat.
+    boss_name   = requested_boss_name or pick_boss_name(db=db)
+    boss_max_hp = raid_settings.get_setting("boss_hp_flat", db=db)
+
     # At most one live raid at a time -- neutralize anything else pending/
     # active first so the automatic Saturday job and Monday timeout sweep
     # never find two "active" rows to referee later.

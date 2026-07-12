@@ -59,34 +59,59 @@ def _get_db():
     return conn
 
 
-def get_setting(key):
-    """Return the live value for `key`, seeding its default on first read."""
+def get_setting(key, db=None):
+    """Return the live value for `key`, seeding its default on first read.
+
+    Pass the caller's own already-open `db` connection when calling from
+    inside another function's transaction (any scheduler job or request
+    handler mid-write) -- opening a second connection there would contend
+    for the write lock against that transaction, exactly the class of bug
+    already hit three times in this raid system (record_challenge_progress,
+    then re-introduced via pick_boss_name and cp_damage_bonus, each fixed by
+    manually reordering the call site instead of eliminating the second
+    connection). Passing `db` here eliminates it at the source instead:
+    when provided, this executes on that connection and the caller owns
+    commit/close, same convention as record_challenge_progress. Omit `db`
+    only for genuine top-level callers with no connection open yet (this
+    still opens/commits/closes its own, unchanged from before).
+    """
     if key not in DEFAULTS:
         raise ValueError(f"Unknown raid setting: {key}")
-    db = _get_db()
+    owns_conn = db is None
+    if owns_conn:
+        db = _get_db()
     row = db.execute("SELECT value FROM raid_settings WHERE key=?", (key,)).fetchone()
     if row:
-        db.close()
+        if owns_conn:
+            db.close()
         return json.loads(row["value"])
     default = DEFAULTS[key]
     db.execute("INSERT OR IGNORE INTO raid_settings (key, value) VALUES (?, ?)", (key, json.dumps(default)))
-    db.commit()
-    db.close()
+    if owns_conn:
+        db.commit()
+        db.close()
     return default
 
 
-def set_setting(key, value):
-    """Validate and persist a new value for `key`. Caller validates shape/ranges first."""
+def set_setting(key, value, db=None):
+    """Validate and persist a new value for `key`. Caller validates shape/ranges first.
+
+    Same optional-`db` convention as get_setting() -- pass the caller's
+    connection when called mid-transaction, omit it for top-level callers.
+    """
     if key not in DEFAULTS:
         raise ValueError(f"Unknown raid setting: {key}")
-    db = _get_db()
+    owns_conn = db is None
+    if owns_conn:
+        db = _get_db()
     db.execute(
         "INSERT INTO raid_settings (key, value) VALUES (?, ?) "
         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (key, json.dumps(value))
     )
-    db.commit()
-    db.close()
+    if owns_conn:
+        db.commit()
+        db.close()
 
 
 def get_all_settings():
