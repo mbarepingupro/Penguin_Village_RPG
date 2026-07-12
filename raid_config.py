@@ -77,3 +77,21 @@ def calculate_attack_damage(roll):
     need a different curve.
     """
     return roll
+
+
+CP_DAMAGE_BONUS_DIVISOR = 10  # tune during balance-pass -- only used as a fallback if
+                               # raid_settings.cp_damage_bonus_divisor is ever missing/invalid;
+                               # the Mayor Raid Debug panel edits that live value directly.
+
+
+def cp_damage_bonus(player_cp):
+    """Flat additive raid-attack damage bonus from the player's current total CP
+    (NOT a multiplier): floor(player_cp / cp_damage_bonus_divisor).
+
+    Added on top of calculate_attack_damage()'s roll-based base damage in
+    POST /raid/attack, identically for both normal rolls and free-roll/crit
+    rolls -- there's no separate curve for either path. Raid attacks only;
+    does not apply to Build!/ice-blocks rolls (calculate_ice_blocks_reward).
+    """
+    divisor = raid_settings.get_setting("cp_damage_bonus_divisor") or CP_DAMAGE_BONUS_DIVISOR
+    return player_cp // divisor

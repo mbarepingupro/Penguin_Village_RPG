@@ -23,6 +23,9 @@ DEFAULTS = {
                                       # start_raid_if_unlocked in app.py). Restore manually if this
                                       # scaling is ever wanted again.
     "boss_hp_flat": 5000,
+    # Flat additive raid-attack damage bonus = floor(player_cp / this) -- see
+    # raid_config.cp_damage_bonus(). Raid attacks only, not Build!/ice-blocks rolls.
+    "cp_damage_bonus_divisor": 10,
     # Live-editable pool raid_config.pick_boss_name() draws from -- seeded from
     # what used to be the hardcoded raid_config.BOSS_NAMES placeholder list.
     # That module-level list is kept as a fallback (used only if this pool is
