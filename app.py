@@ -2161,13 +2161,18 @@ def evaluate_weekly_challenge():
 
         if succeeded:
             boss_name = pick_boss_name()
+            # raid_join_window on: legacy join-window phase (players sign up here,
+            # raid opens Saturday). raid_join_window off (default): skip straight to
+            # "won, raid pending" -- no signup, the overlay just shows the challenge
+            # as complete until start_raid_if_unlocked() opens the raid Saturday.
+            initial_status = "join_window" if FEATURES.get("raid_join_window", False) else "awaiting_raid"
             db.execute(
                 "INSERT INTO raid_state "
                 "(challenge_id, boss_name, boss_max_hp, boss_current_hp, status, join_window_start, created_at) "
-                "VALUES (?, ?, 0, 0, 'join_window', ?, ?)",
-                (challenge_id, boss_name, now, now),
+                "VALUES (?, ?, 0, 0, ?, ?, ?)",
+                (challenge_id, boss_name, initial_status, now, now),
             )
-            print(f"[WeeklyChallenge] Challenge succeeded! Raid unlocked: {boss_name}")
+            print(f"[WeeklyChallenge] Challenge succeeded! Raid unlocked: {boss_name} (status={initial_status})")
         else:
             print(
                 f"[WeeklyChallenge] Challenge failed "
@@ -2182,27 +2187,30 @@ def evaluate_weekly_challenge():
 
 
 def start_raid_if_unlocked():
-    """Saturday 00:00 — close join window; set boss HP from participant count; open raid."""
+    """Saturday 00:00 — open the raid (boss HP is now flat, not participant-scaled).
+
+    Purely time-triggered: whichever raid_state row is sitting in 'join_window'
+    (legacy, raid_join_window on) or 'awaiting_raid' (default, raid_join_window
+    off) goes active here, regardless of how many players signed up/attacked
+    beforehand -- there's no participant-count dependency left in this
+    function at all. If the week's challenge failed, no such row exists and
+    this is a no-op, same as before.
+    """
     if not FEATURES.get("weekly_raid", False):
         return
     now = int(time.time())
     db = get_db()
     try:
         raid = db.execute(
-            "SELECT id FROM raid_state WHERE status='join_window' ORDER BY id DESC LIMIT 1"
+            "SELECT id FROM raid_state WHERE status IN ('join_window', 'awaiting_raid') "
+            "ORDER BY id DESC LIMIT 1"
         ).fetchone()
         if not raid:
-            print("[WeeklyChallenge] No raid in join_window — nothing to start")
+            print("[WeeklyChallenge] No raid pending — nothing to start")
             return
 
-        raid_id = raid["id"]
-        participant_count = db.execute(
-            "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (raid_id,)
-        ).fetchone()["cnt"]
-
-        # At least 1 so HP is never 0 even with no sign-ups yet
-        effective_count = max(1, participant_count)
-        boss_max_hp = effective_count * raid_settings.get_setting("boss_hp_per_participant")
+        raid_id     = raid["id"]
+        boss_max_hp = raid_settings.get_setting("boss_hp_flat")
 
         db.execute(
             "UPDATE raid_state SET status='active', boss_max_hp=?, boss_current_hp=?, raid_start=? "
@@ -2210,10 +2218,7 @@ def start_raid_if_unlocked():
             (boss_max_hp, boss_max_hp, now, raid_id),
         )
         db.commit()
-        print(
-            f"[WeeklyChallenge] Raid {raid_id} started — "
-            f"{participant_count} participants, boss HP {boss_max_hp}"
-        )
+        print(f"[WeeklyChallenge] Raid {raid_id} started — boss HP {boss_max_hp} (flat)")
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in start_raid_if_unlocked: {e}")
     finally:
@@ -2246,10 +2251,13 @@ elif not _APSCHEDULER_AVAILABLE:
 
 # ── ROUTES ───────────────────────────────────────────────────────────────────
 
-# Fixed join-window schedule set by the scheduler jobs above: opens Friday
-# 09:00 UTC, closes Saturday 00:00 UTC when start_raid_if_unlocked() flips
-# the raid to 'active'. Not stored on raid_state, so derive it from
-# join_window_start rather than adding a migration for it.
+# Legacy join-window schedule (raid_join_window flag only) set by the
+# scheduler jobs above: opens Friday 09:00 UTC, closes Saturday 00:00 UTC
+# when start_raid_if_unlocked() flips the raid to 'active'. Not stored on
+# raid_state, so derive it from join_window_start rather than adding a
+# migration for it. With raid_join_window off (default), raid_state goes
+# straight from 'awaiting_raid' to 'active' at the same Saturday 00:00 UTC
+# job — there's no window to compute an end time for.
 _RAID_REWARD_PREVIEW = "Top damage dealers win N00Tboxes + resources"
 
 
@@ -2263,6 +2271,30 @@ def raid_status():
 
     db  = get_db()
     row = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+
+    if row and row["status"] == "awaiting_raid":
+        # Challenge succeeded, raid_join_window is off, and the boss hasn't
+        # spawned yet -- purely a Fri-evening-to-Sat-morning holding state.
+        # Reuses the weekly-challenge-bar overlay slot/shape (current_progress
+        # pinned at threshold) so the frontend can render it with the same
+        # updateChallengeBar() renderer as challenge_active, just a different
+        # label -- see raid.js.
+        challenge = db.execute(
+            "SELECT metric_type, threshold FROM weekly_challenges WHERE id=?",
+            (row["challenge_id"],)
+        ).fetchone()
+        db.close()
+        threshold = challenge["threshold"] if challenge else 0
+        metric_type = challenge["metric_type"] if challenge else None
+        return jsonify({
+            "status":            "awaiting_raid",
+            "boss_name":         row["boss_name"],
+            "metric_type":       metric_type,
+            "metric_label":      _METRIC_LABELS.get(metric_type, metric_type),
+            "current_progress":  threshold,
+            "threshold":         threshold,
+        })
+
     if not row or row["status"] not in ("join_window", "active"):
         # No raid pending — surface the Mon-Fri weekly challenge progress instead,
         # so the map overlay can show its progress bar in the same slot the
@@ -2371,7 +2403,7 @@ def lifecycle_notices(username):
             notices.append({
                 "type": "challenge_result_success" if won else "challenge_result_fail",
                 "title": "CHALLENGE COMPLETE!" if won else "CHALLENGE FAILED!",
-                "subtitle": "The village hit the goal! A raid is now joinable." if won
+                "subtitle": "The village hit the goal! The raid begins Saturday morning!" if won
                             else "We came up short this week. Better luck next time!",
                 "description": f"{challenge['current_progress']}/{challenge['threshold']} {metric_label}",
             })
@@ -2380,7 +2412,13 @@ def lifecycle_notices(username):
     raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
     if raid:
         rid = raid["id"]
-        if rid > (p["notice_raid_start_id"] or 0):
+        # 'awaiting_raid' (raid_join_window off, default) means the boss
+        # hasn't spawned yet -- the raid isn't actually raidable until
+        # Saturday's status='active' flip, so don't announce "raid weekend"
+        # early. 'join_window' (legacy, raid_join_window on) already means
+        # players can act (sign up) the moment it opens, so that still fires
+        # immediately, same as before this change.
+        if raid["status"] != "awaiting_raid" and rid > (p["notice_raid_start_id"] or 0):
             notices.append({
                 "type": "raid_start",
                 "title": "RAID WEEKEND!",
@@ -2414,6 +2452,12 @@ def raid_join():
         return jsonify({"status": "error", "message": "Not logged in."})
     if not FEATURES.get("weekly_raid", False):
         return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+    if not FEATURES.get("raid_join_window", False):
+        # Route/table stay intact for re-enabling later — see feature_flags.py.
+        # No raid_state row is ever created with status='join_window' while
+        # this is off, so the query below would always return "no raid open"
+        # anyway; this just gives a truthful message instead of that generic one.
+        return jsonify({"status": "disabled", "message": "No signup needed — just attack the boss directly once the raid starts!"})
 
     db  = get_db()
     row = db.execute(
@@ -2466,13 +2510,27 @@ def raid_attack():
         db.close()
         return jsonify({"status": "error", "message": "No raid is active right now."}), 409
 
-    raid_id     = raid["id"]
-    participant = db.execute(
-        "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
-    ).fetchone()
-    if not participant:
-        db.close()
-        return jsonify({"status": "error", "message": "You haven't joined this raid."}), 403
+    raid_id = raid["id"]
+    if FEATURES.get("raid_join_window", False):
+        participant = db.execute(
+            "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
+        ).fetchone()
+        if not participant:
+            db.close()
+            return jsonify({"status": "error", "message": "You haven't joined this raid."}), 403
+    else:
+        # No join phase -- any logged-in player can attack once the raid is
+        # active. total_damage_dealt still needs a raid_participants row to
+        # accumulate onto (resolve_raid()'s leaderboard reads from that table
+        # unchanged), so upsert one on first attack instead of requiring a
+        # prior join. INSERT OR IGNORE is race-safe against a second
+        # device/session's simultaneous first attack for the same account —
+        # raid_participants' UNIQUE(raid_id, username) makes the loser a no-op
+        # rather than an error.
+        db.execute(
+            "INSERT OR IGNORE INTO raid_participants (raid_id, username, joined_at) VALUES (?, ?, ?)",
+            (raid_id, username, int(time.time())),
+        )
 
     p = db.execute(
         "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
@@ -7522,7 +7580,7 @@ def raid_debug_save_setting(key):
             valid_ids = {m["id"] for m in WEEKLY_METRIC_TYPES}
             if set(value.keys()) != valid_ids:
                 raise ValueError("Must supply a threshold for every metric: " + ", ".join(sorted(valid_ids)))
-        elif key == "boss_hp_per_participant":
+        elif key in ("boss_hp_per_participant", "boss_hp_flat"):
             value = int(value)
             if value <= 0:
                 raise ValueError("Must be positive.")
@@ -7621,8 +7679,10 @@ def raid_debug_force_start_raid():
         return flag_err
 
     mayor = session.get("username") or "key-auth"
-    start_raid_if_unlocked()  # the real Saturday scheduler job — not duplicated;
-                              # no-ops (with a printed message) if no raid is in join_window
+    start_raid_if_unlocked()  # the real Saturday scheduler job — not duplicated; boss HP is
+                              # flat (raid_settings.boss_hp_flat), no participants required.
+                              # no-ops (with a printed message) if no raid is pending
+                              # (status join_window or awaiting_raid)
 
     db   = get_db()
     raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
@@ -7672,7 +7732,7 @@ def raid_debug_cancel_cycle():
     db = get_db()
     challenges_cancelled = db.execute("UPDATE weekly_challenges SET status='cancelled' WHERE status='active'").rowcount
     raids_cancelled = db.execute(
-        "UPDATE raid_state SET status='cancelled' WHERE status IN ('join_window', 'active')"
+        "UPDATE raid_state SET status='cancelled' WHERE status IN ('join_window', 'awaiting_raid', 'active')"
     ).rowcount
     log_event(db, "admin_debug",
               f"👑 [RAID DEBUG] {mayor} cancelled the current cycle "
