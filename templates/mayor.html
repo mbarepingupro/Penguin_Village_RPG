@@ -571,6 +571,17 @@
             <div class="mh-player-stat"><span class="k">Raid start:</span> <span class="v" id="rd-raid-start" data-ts="{{ current_raid.raid_start or '' }}">—</span></div>
             <div class="mh-player-stat"><span class="k">Raid end:</span> <span class="v" id="rd-raid-end" data-ts="{{ current_raid.raid_end or '' }}">—</span></div>
           </div>
+          <!-- Quick one-off rename of THIS specific boss -- separate from managing
+               the boss_names pool new bosses get randomly picked from (below). -->
+          <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
+            <div class="mh-field" style="flex:1;margin:0;">
+              <label class="mh-label">RENAME CURRENT BOSS</label>
+              <input class="mh-input" type="text" maxlength="60" id="rd-rename-boss-input"
+                     value="{{ current_raid.boss_name }}"/>
+            </div>
+            <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdRenameBoss()">✏️ RENAME</button>
+          </div>
+          <div id="rd-rename-boss-result" style="margin-top:6px;font-size:16px;"></div>
           {% else %}
           <div class="mh-no-buffs">No raid exists yet.</div>
           {% endif %}
@@ -615,6 +626,22 @@
         <div id="rd-boss-hp-result" style="margin-top:6px;font-size:16px;"></div>
         <button class="mh-btn" style="margin-top:10px;" onclick="rdSavePodiumSize()">💾 SAVE PODIUM SIZE</button>
         <div id="rd-podium-result" style="margin-top:6px;font-size:16px;"></div>
+      </div>
+
+      <!-- Boss name pool -->
+      <div class="mh-action-card">
+        <div class="mh-action-title">👹 BOSS NAME POOL</div>
+        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+          One name per line. A new boss is picked at random from this list whenever a
+          weekly challenge succeeds. Doesn't affect the currently active boss — use
+          "Rename Current Boss" above for that.
+        </div>
+        <div class="mh-field">
+          <textarea class="mh-textarea" id="rd-boss-names" rows="7"
+                    style="width:100%;">{{ raid_settings_all.boss_names | join('\n') }}</textarea>
+        </div>
+        <button class="mh-btn" onclick="rdSaveBossNames()">💾 SAVE BOSS NAME POOL</button>
+        <div id="rd-boss-names-result" style="margin-top:6px;font-size:16px;"></div>
       </div>
 
       <!-- Lootbox drop rates -->
@@ -1194,6 +1221,20 @@
   function rdSavePodiumSize() {
     const value = parseInt(document.getElementById('rd-podium-size').value, 10) || 0;
     rdSaveSetting('rank_reward_podium_size', value, 'rd-podium-result');
+  }
+
+  function rdSaveBossNames() {
+    const raw   = document.getElementById('rd-boss-names').value;
+    const value = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    rdSaveSetting('boss_names', value, 'rd-boss-names-result');
+  }
+
+  async function rdRenameBoss() {
+    const btn  = event.target;
+    const name = document.getElementById('rd-rename-boss-input').value.trim();
+    const data = await api('/mayor/raid-debug/rename-boss', { name }, btn);
+    rdShowResult('rd-rename-boss-result', data.status === 'success',
+      data.status === 'success' ? `Renamed to "${data.boss_name}"! Reload to see it everywhere.` : (data.message || 'Error.'));
   }
 
   function rdUpdateRateSum() {
