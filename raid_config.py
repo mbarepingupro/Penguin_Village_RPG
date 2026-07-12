@@ -56,8 +56,16 @@ def pick_weekly_metric():
 
 
 def pick_boss_name():
-    """Return a random boss name from BOSS_NAMES."""
-    return random.choice(BOSS_NAMES)
+    """Return a random boss name from the live-editable raid_settings.boss_names pool.
+
+    BOSS_NAMES above only seeds that pool's default and serves as a fallback
+    if the pool is ever left completely empty -- the Mayor Raid Debug panel
+    edits raid_settings.boss_names directly, not this module-level constant.
+    """
+    names = raid_settings.get_setting("boss_names")
+    if not names:
+        names = BOSS_NAMES
+    return random.choice(names)
 
 
 def calculate_attack_damage(roll):

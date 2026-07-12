@@ -23,6 +23,18 @@ DEFAULTS = {
                                       # start_raid_if_unlocked in app.py). Restore manually if this
                                       # scaling is ever wanted again.
     "boss_hp_flat": 5000,
+    # Live-editable pool raid_config.pick_boss_name() draws from -- seeded from
+    # what used to be the hardcoded raid_config.BOSS_NAMES placeholder list.
+    # That module-level list is kept as a fallback (used only if this pool is
+    # ever left completely empty), not as the source of truth anymore.
+    "boss_names": [
+        "Frostfang",
+        "The Blizzard King",
+        "Glacial Colossus",
+        "Snowmaw the Devourer",
+        "Permafrost Tyrant",
+        "The Frozen Sovereign",
+    ],
     "lootbox_drop_rates": {
         "legendary": 5,
         "rare":      10,

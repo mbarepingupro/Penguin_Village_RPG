@@ -2154,13 +2154,24 @@ def evaluate_weekly_challenge():
         succeeded = row["current_progress"] >= row["threshold"]
         new_status = "succeeded" if succeeded else "failed"
 
+        # pick_boss_name() reads raid_settings.boss_names, which opens its own
+        # separate sqlite3 connection (and, the first time that key is read,
+        # its own commit to seed the default). Must run BEFORE this
+        # function's own db issues any write below -- doing it after a write
+        # is exactly the record_challenge_progress() class of bug: the write
+        # below takes an implicit reserved lock on the whole file the moment
+        # it executes, and that second connection's own commit then hangs/
+        # fails against it ("database is locked"). Computing it here doesn't
+        # depend on the UPDATE having happened yet, so there's no reason not
+        # to just do it first.
+        boss_name = pick_boss_name() if succeeded else None
+
         db.execute(
             "UPDATE weekly_challenges SET status=? WHERE id=?",
             (new_status, challenge_id),
         )
 
         if succeeded:
-            boss_name = pick_boss_name()
             # raid_join_window on: legacy join-window phase (players sign up here,
             # raid opens Saturday). raid_join_window off (default): skip straight to
             # "won, raid pending" -- no signup, the overlay just shows the challenge
@@ -2195,9 +2206,15 @@ def start_raid_if_unlocked():
     beforehand -- there's no participant-count dependency left in this
     function at all. If the week's challenge failed, no such row exists and
     this is a no-op, same as before.
+
+    Returns True if a raid actually transitioned to active, False otherwise
+    (feature off, or nothing pending) -- the real cron job ignores this, but
+    the Mayor debug route uses it to tell a real state change apart from a
+    no-op instead of reporting "success" either way (see
+    raid_debug_force_start_raid).
     """
     if not FEATURES.get("weekly_raid", False):
-        return
+        return False
     now = int(time.time())
     db = get_db()
     try:
@@ -2207,7 +2224,7 @@ def start_raid_if_unlocked():
         ).fetchone()
         if not raid:
             print("[WeeklyChallenge] No raid pending — nothing to start")
-            return
+            return False
 
         raid_id     = raid["id"]
         boss_max_hp = raid_settings.get_setting("boss_hp_flat")
@@ -2219,8 +2236,10 @@ def start_raid_if_unlocked():
         )
         db.commit()
         print(f"[WeeklyChallenge] Raid {raid_id} started — boss HP {boss_max_hp} (flat)")
+        return True
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in start_raid_if_unlocked: {e}")
+        return False
     finally:
         db.close()
 
@@ -7600,6 +7619,16 @@ def raid_debug_save_setting(key):
             value = int(value)
             if value < 1 or value > 20:
                 raise ValueError("Podium size must be between 1 and 20.")
+        elif key == "boss_names":
+            if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+                raise ValueError("Must be a list of names (one per line).")
+            value = [v.strip() for v in value if v.strip()]
+            if not value:
+                raise ValueError("Must supply at least one boss name.")
+            if len(value) > 50:
+                raise ValueError("Too many boss names (max 50).")
+            if any(len(v) > 60 for v in value):
+                raise ValueError("Each name must be 60 characters or fewer.")
     except (ValueError, TypeError, KeyError, AttributeError) as e:
         return jsonify({"status": "error", "message": str(e) or "Invalid value."})
 
@@ -7678,11 +7707,20 @@ def raid_debug_force_start_raid():
     if flag_err:
         return flag_err
 
-    mayor = session.get("username") or "key-auth"
-    start_raid_if_unlocked()  # the real Saturday scheduler job — not duplicated; boss HP is
-                              # flat (raid_settings.boss_hp_flat), no participants required.
-                              # no-ops (with a printed message) if no raid is pending
-                              # (status join_window or awaiting_raid)
+    mayor  = session.get("username") or "key-auth"
+    # the real Saturday scheduler job — not duplicated; boss HP is flat
+    # (raid_settings.boss_hp_flat), no participants required. Returns False
+    # (no-op) if no raid is pending (status join_window or awaiting_raid) --
+    # must be checked here instead of blindly reporting success, or clicking
+    # this with nothing pending silently does nothing while still claiming
+    # success and logging an event, which looks like "nothing happened" (or,
+    # if clicked repeatedly, like the same stale boss/HP every time).
+    started = start_raid_if_unlocked()
+    if not started:
+        return jsonify({
+            "status": "error",
+            "message": "No raid is pending to start — run 'Force Succeed Challenge' first.",
+        })
 
     db   = get_db()
     raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
@@ -7690,6 +7728,37 @@ def raid_debug_force_start_raid():
     db.commit()
     db.close()
     return jsonify({"status": "success", "raid": dict(raid) if raid else None})
+
+
+@app.route("/mayor/raid-debug/rename-boss", methods=["POST"])
+def raid_debug_rename_boss():
+    """Rename the current/last-spawned boss directly -- a quick one-off edit for
+    testing, distinct from managing the boss_names pool new bosses get picked from."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    flag_err = _raid_debug_flag_check()
+    if flag_err:
+        return flag_err
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"status": "error", "message": "Name cannot be empty."})
+    if len(name) > 60:
+        return jsonify({"status": "error", "message": "Name must be 60 characters or fewer."})
+
+    db   = get_db()
+    raid = db.execute("SELECT id FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    if not raid:
+        db.close()
+        return jsonify({"status": "error", "message": "No raid exists yet to rename."})
+
+    db.execute("UPDATE raid_state SET boss_name=? WHERE id=?", (name, raid["id"]))
+    mayor = session.get("username") or "key-auth"
+    log_event(db, "admin_debug", f"👑 [RAID DEBUG] {mayor} renamed the current boss to '{name}'", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "boss_name": name})
 
 
 @app.route("/mayor/raid-debug/force-resolve", methods=["POST"])
