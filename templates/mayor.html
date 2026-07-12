@@ -685,6 +685,13 @@
         <div id="rd-boss-hp-result" style="margin-top:6px;font-size:16px;"></div>
         <button class="mh-btn" style="margin-top:10px;" onclick="rdSavePodiumSize()">💾 SAVE PODIUM SIZE</button>
         <div id="rd-podium-result" style="margin-top:6px;font-size:16px;"></div>
+        <div class="mh-field" style="margin-top:10px;">
+          <label class="mh-label">CP DAMAGE BONUS DIVISOR (attack dmg += floor(CP / this))</label>
+          <input class="mh-input" type="number" min="1" id="rd-cp-bonus-divisor"
+                 value="{{ raid_settings_all.cp_damage_bonus_divisor }}"/>
+        </div>
+        <button class="mh-btn" onclick="rdSaveCpBonusDivisor()">💾 SAVE CP DAMAGE BONUS DIVISOR</button>
+        <div id="rd-cp-bonus-divisor-result" style="margin-top:6px;font-size:16px;"></div>
       </div>
 
       <!-- Boss name pool -->
@@ -1306,6 +1313,11 @@
   function rdSavePodiumSize() {
     const value = parseInt(document.getElementById('rd-podium-size').value, 10) || 0;
     rdSaveSetting('rank_reward_podium_size', value, 'rd-podium-result');
+  }
+
+  function rdSaveCpBonusDivisor() {
+    const value = parseInt(document.getElementById('rd-cp-bonus-divisor').value, 10) || 0;
+    rdSaveSetting('cp_damage_bonus_divisor', value, 'rd-cp-bonus-divisor-result');
   }
 
   function rdSaveBossNames() {

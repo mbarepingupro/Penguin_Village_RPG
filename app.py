@@ -16,7 +16,7 @@ from personality_config import (
     INTEREST_TOPICS, MAX_INTERESTS, highlight_name,
     GROUP_EVENT_CHANCE_PER_TICK, pick_group_event, format_group_event_text,
 )
-from raid_config import pick_weekly_metric, pick_boss_name, calculate_attack_damage, WEEKLY_METRIC_TYPES
+from raid_config import pick_weekly_metric, pick_boss_name, calculate_attack_damage, cp_damage_bonus, WEEKLY_METRIC_TYPES
 from lootbox_config import RESOURCE_TYPES
 import raid_settings
 import math
@@ -2482,7 +2482,7 @@ def lifecycle_notices(username):
                 "type": "raid_start",
                 "title": "RAID WEEKEND!",
                 "subtitle": f"The {raid['boss_name']} has awoken! Join the raid before the weekend ends!",
-                "description": "",
+                "description": "Your CP influences your rolls! Gear up and attack! (e.g. 50 CP gives +5 flat to rolls)",
             })
             updates["notice_raid_start_id"] = rid
         if raid["status"] in ("succeeded", "failed") and rid > (p["notice_raid_result_id"] or 0):
@@ -2570,6 +2570,17 @@ def raid_attack():
         return jsonify({"status": "error", "message": "No raid is active right now."}), 409
 
     raid_id = raid["id"]
+
+    # get_combat_power() and cp_damage_bonus() (via raid_settings.get_setting())
+    # each open their OWN separate sqlite3 connection -- both must be resolved
+    # before this route's own db issues any write below, or risk the same
+    # connection-lock class of bug already fixed twice elsewhere in this raid
+    # system (record_challenge_progress, pick_boss_name). cp_bonus only
+    # depends on player_cp and the live divisor setting, not on the roll
+    # computed later, so there's no reason to defer it until then.
+    player_cp = get_combat_power(username)
+    cp_bonus  = cp_damage_bonus(player_cp)
+
     if FEATURES.get("raid_join_window", False):
         participant = db.execute(
             "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
@@ -2609,8 +2620,13 @@ def raid_attack():
             return jsonify({"status": "error", "message": f"Need {energy_cost} energy to attack! Rest at the hotel."})
         db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (energy_cost, username))
 
-    roll          = random.randint(1, 20)
-    damage        = calculate_attack_damage(roll)
+    roll        = random.randint(1, 20)
+    base_damage = calculate_attack_damage(roll)
+    # cp_bonus (computed above, before any write on this connection) applies
+    # identically here regardless of whether this turns out to be a normal
+    # roll or a free-roll/crit roll (that only affects free_rolls bookkeeping
+    # below, not this damage total).
+    damage        = base_damage + cp_bonus
     is_crit       = (roll == 20 and not is_free_roll)
     normal_return = False
 
@@ -2641,6 +2657,13 @@ def raid_attack():
         "status":               "success",
         "roll":                 roll,
         "damage_dealt":         damage,
+        # Breakdown so the frontend can optionally show "roll: X + CP bonus: Y
+        # = Z damage" -- damage_dealt above is unchanged/still the total, so
+        # nothing requires the frontend to use these.
+        "base_damage":          base_damage,
+        "cp_bonus":             cp_bonus,
+        "total_damage":         damage,
+        "player_cp":            player_cp,
         "boss_current_hp":      new_boss_hp,
         "boss_max_hp":          raid["boss_max_hp"],
         "was_crit":             is_crit,
@@ -7658,7 +7681,7 @@ def raid_debug_save_setting(key):
             valid_ids = {m["id"] for m in WEEKLY_METRIC_TYPES}
             if set(value.keys()) != valid_ids:
                 raise ValueError("Must supply a threshold for every metric: " + ", ".join(sorted(valid_ids)))
-        elif key in ("boss_hp_per_participant", "boss_hp_flat"):
+        elif key in ("boss_hp_per_participant", "boss_hp_flat", "cp_damage_bonus_divisor"):
             value = int(value)
             if value <= 0:
                 raise ValueError("Must be positive.")
