@@ -1656,21 +1656,30 @@ def open_lootbox(lootbox_id, username):
     }
 
 
-def grant_lootbox(username, count, source):
+def grant_lootbox(username, count, source, db=None):
     """Insert `count` unopened lootboxes for username.
 
     Stable signature — Phase 5's raid-reward distribution calls this directly,
     e.g. grant_lootbox(username, 3, "raid_reward").
+
+    Pass the caller's own already-open `db` connection when calling mid-
+    transaction (same optional-db convention as raid_settings.get_setting) --
+    opening a second connection there would contend for the write lock
+    against that transaction. Omit `db` for a genuine top-level caller with
+    nothing open yet (unchanged from before: opens/commits/closes its own).
     """
-    db  = get_db()
+    owns_conn = db is None
+    if owns_conn:
+        db = get_db()
     now = int(time.time())
     for _ in range(count):
         db.execute(
             "INSERT INTO player_lootboxes (username, source, opened, created_at) VALUES (?,?,0,?)",
             (username, source, now)
         )
-    db.commit()
-    db.close()
+    if owns_conn:
+        db.commit()
+        db.close()
 
 
 # ── RAID RESOLUTION ───────────────────────────────────────────────────────────
@@ -2799,6 +2808,7 @@ def home():
     today = get_today()
     streak_row_pre = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
     is_new_day = not streak_row_pre or streak_row_pre["last_login_date"] != today
+    daily_lootbox_awarded = False
     if is_new_day:
         streak = update_login_streak(db, username, today)
         if not session.get("daily_reward"):
@@ -2808,6 +2818,11 @@ def home():
             session["streak_reward"] = milestone
         advance_mission(db, username, "login_today", today)
         check_achievements(db, username)
+        # First login of the calendar day -- grant_lootbox() reuses this
+        # route's own already-open `db` (see its docstring) rather than
+        # opening a second connection mid-transaction.
+        grant_lootbox(username, 1, "daily_login", db=db)
+        daily_lootbox_awarded = True
 
     db.commit()
     resources  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
@@ -2824,6 +2839,7 @@ def home():
         streak=streak_row["current_streak"] if streak_row else 1,
         streak_reward=streak_reward,
         daily_reward=daily_reward,
+        daily_lootbox_awarded=daily_lootbox_awarded,
         features=FEATURES,
         level_data=LEVEL_DATA,
         tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
