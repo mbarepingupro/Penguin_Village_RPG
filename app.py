@@ -3741,7 +3741,11 @@ def gear_cosmetics(username):
             d["source"] = "Achievement"
         else:
             d["source"] = "Gear Shop"
-        _, event_exclusive = _find_shop_definition(d.get("item_id"), "cosmetic")
+        try:
+            _, event_exclusive = _find_shop_definition(d.get("item_id"), "cosmetic")
+        except Exception as e:
+            print(f"[gear_cosmetics] event_exclusive lookup failed for gear id={d.get('id')} item_id={d.get('item_id')!r}: {e}")
+            event_exclusive = False
         d["event_exclusive"] = event_exclusive
         cosmetics.append(d)
     active = check_cosmetic_sets(username, db)
@@ -4226,10 +4230,19 @@ def gear_inventory():
     gear_list = []
     for g in rows:
         gd = dict(g)
-        gold_cost, event_exclusive = _find_shop_definition(gd["item_id"], gd["type"])
-        gd["event_exclusive"]  = event_exclusive
-        gd["bank_sellable"]    = (gd["slot"] or "") not in _BANK_UNSELLABLE_SLOTS
-        gd["bank_sell_value"]  = calculate_bank_sell_price(gd) if gd["bank_sellable"] else 0
+        # Bank pricing/event-exclusive lookups are best-effort per item -- a
+        # bad catalog entry or malformed gear row must not 500 the whole
+        # inventory response for every other item the player owns.
+        try:
+            gd["bank_sellable"]   = (gd["slot"] or "") not in _BANK_UNSELLABLE_SLOTS
+            _, event_exclusive    = _find_shop_definition(gd["item_id"], gd["type"])
+            gd["event_exclusive"] = event_exclusive
+            gd["bank_sell_value"] = calculate_bank_sell_price(gd) if gd["bank_sellable"] else 0
+        except Exception as e:
+            print(f"[gear_inventory] pricing failed for gear id={gd.get('id')} item_id={gd.get('item_id')!r}: {e}")
+            gd["bank_sellable"]   = False
+            gd["event_exclusive"] = False
+            gd["bank_sell_value"] = 0
         gear_list.append(gd)
     return jsonify({
         "gear":        gear_list,
@@ -8165,23 +8178,32 @@ def _find_shop_definition(item_id, item_type):
     have come from, keyed by the item type recorded on the player's gear row.
     Returns (gold_cost, event_exclusive), or (None, False) if the item was
     never sold for gold anywhere (milestone/tutorial rewards, Seal Shop
-    exclusives, etc.) -- callers should fall back to a flat price in that case."""
-    if item_type == "combat":
-        defn = GEAR_CATALOG.get(item_id)
-        if defn and defn.get("type") == "combat":
-            return defn["cost"].get("gold", 0), bool(defn.get("event_exclusive"))
-        for items in BARRACKS_SHOP.values():
-            for item in items:
-                if item["id"] == item_id:
-                    return item["cost"].get("gold", 0), bool(item.get("event_exclusive"))
-    else:
-        defn = GEAR_CATALOG.get(item_id)
-        if defn and defn.get("type") == "cosmetic":
-            return defn["cost"].get("gold", 0), bool(defn.get("event_exclusive"))
-        for items in BOUTIQUE_ITEMS.values():
-            for item in items:
-                if item["id"] == item_id:
-                    return item["price"], bool(item.get("event_exclusive"))
+    exclusives, etc.) -- callers should fall back to a flat price in that case.
+
+    Defensive against a malformed catalog entry (a "cost" that isn't a dict,
+    a missing "gold"/"price" key, etc.) -- returns (None, False) in that case
+    too rather than raising, same as a genuinely-unlisted item, so one bad
+    catalog entry can't take down every price lookup that runs after it."""
+    try:
+        if item_type == "combat":
+            defn = GEAR_CATALOG.get(item_id)
+            if defn and defn.get("type") == "combat":
+                return defn.get("cost", {}).get("gold", 0), bool(defn.get("event_exclusive"))
+            for items in BARRACKS_SHOP.values():
+                for item in items:
+                    if item["id"] == item_id:
+                        return item.get("cost", {}).get("gold", 0), bool(item.get("event_exclusive"))
+        else:
+            defn = GEAR_CATALOG.get(item_id)
+            if defn and defn.get("type") == "cosmetic":
+                return defn.get("cost", {}).get("gold", 0), bool(defn.get("event_exclusive"))
+            for items in BOUTIQUE_ITEMS.values():
+                for item in items:
+                    if item["id"] == item_id:
+                        return item.get("price"), bool(item.get("event_exclusive"))
+    except (AttributeError, TypeError) as e:
+        print(f"[_find_shop_definition] malformed catalog entry for item_id={item_id!r} type={item_type!r}: {e}")
+        return None, False
     return None, False
 
 
@@ -8190,13 +8212,19 @@ def calculate_bank_sell_price(gear_row):
     BANK_SELL_DISCOUNT of their real shop cost (gold portion only); event-
     exclusive items sell at BANK_EVENT_ITEM_SELL_MULTIPLIER instead. Items with
     no shop listing (rewards, Seal Shop exclusives) fall back to the flat
-    rarity-based _BANK_SELL_PRICES."""
-    gold_cost, event_exclusive = _find_shop_definition(gear_row["item_id"], gear_row["type"])
-    if gold_cost is None:
-        return _BANK_SELL_PRICES.get(gear_row["rarity"] or "common", 30)
-    if event_exclusive:
-        return math.ceil(gold_cost * BANK_EVENT_ITEM_SELL_MULTIPLIER)
-    return math.floor(gold_cost * BANK_SELL_DISCOUNT)
+    rarity-based _BANK_SELL_PRICES. Never raises -- a bad catalog entry or an
+    unexpected gold_cost type falls back to the flat price instead."""
+    fallback = _BANK_SELL_PRICES.get(gear_row["rarity"] or "common", 30)
+    try:
+        gold_cost, event_exclusive = _find_shop_definition(gear_row["item_id"], gear_row["type"])
+        if gold_cost is None:
+            return fallback
+        if event_exclusive:
+            return math.ceil(gold_cost * BANK_EVENT_ITEM_SELL_MULTIPLIER)
+        return math.floor(gold_cost * BANK_SELL_DISCOUNT)
+    except (TypeError, ValueError) as e:
+        print(f"[calculate_bank_sell_price] bad gold_cost for item_id={gear_row['item_id']!r}: {e}")
+        return fallback
 
 
 @app.route("/bank/listings")
@@ -8255,7 +8283,7 @@ def bank_list_item():
     if g["worn"]:
         db.close()
         return jsonify({"status": "error", "message": "Remove the item before listing it."})
-    if g.get("listed"):
+    if g["listed"]:
         db.close()
         return jsonify({"status": "error", "message": "Item is already listed."})
 
