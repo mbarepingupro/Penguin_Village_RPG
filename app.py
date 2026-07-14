@@ -1266,21 +1266,26 @@ DAILY_RESOURCE_OPTIONS = [
     ("spell_fragments","✨"),
 ]
 
-STREAK_MILESTONES = {
-    3:  {"label": "100 gold",                      "gold": 100},
-    7:  {"label": "Resource haul + 300 gold",      "gold": 300},
-    14: {"label": "Resource haul + 500 gold",      "gold": 500},
-    30: {"label": "Mega haul + 1000 gold",         "gold": 1000},
-    60: {"label": "Legendary haul + 2000 gold",    "gold": 2000},
+# N00Tboxes granted per day of the login streak, one real entry per day of a
+# full 30-day cycle (tunable) -- every day gets a box, escalating at the
+# weekly checkpoints (7/14/21/28) and peaking on day 30. Past day 30 the
+# cycle repeats from day 1 (see award_streak_milestone's cycle_day below),
+# same wraparound behavior the old 28-day _MILESTONE_TIERS cycle had, just
+# now spanning all 30 promised days instead of silently reusing a 4-entry
+# table with no day-3/30/60 rewards.
+LOGIN_STREAK_LOOTBOX_SCHEDULE = {
+    1: 1,  2: 1,  3: 1,  4: 1,  5: 1,  6: 1,
+    7: 2,                                       # 1-week checkpoint
+    8: 1,  9: 1, 10: 1, 11: 1, 12: 1, 13: 1,
+    14: 3,                                      # 2-week checkpoint
+    15: 1, 16: 1, 17: 1, 18: 1, 19: 1, 20: 1,
+    21: 2,                                      # 3-week checkpoint
+    22: 1, 23: 1, 24: 1, 25: 1, 26: 1, 27: 1,
+    28: 3,                                      # 4-week checkpoint
+    29: 1,
+    30: 5,                                      # full-cycle grand finale
 }
 
-# Resources awarded per milestone tier (every 7 days)
-_MILESTONE_TIERS = {
-    7:  {"gold": 300, "resources": [("fish", 20), ("herbs", 15)], "gear_tier": 1},
-    14: {"gold": 500, "resources": [("fish", 30), ("herbs", 20), ("bones", 15)]},
-    21: {"gold": 500, "resources": [("blood_gems", 10), ("bones", 25), ("fish", 20)]},
-    28: {"gold": 750, "resources": [("blood_gems", 15), ("spell_fragments", 10), ("herbs", 25)]},
-}
 
 def compute_daily_reward():
     res_name, res_icon = random.choice(DAILY_RESOURCE_OPTIONS)
@@ -1289,36 +1294,26 @@ def compute_daily_reward():
 
 
 def award_streak_milestone(db, username, streak):
-    """On every 7th login day, award a big resource haul + gold."""
-    if streak <= 0 or streak % 7 != 0:
+    """Grant this login-streak day's N00Tbox reward, per LOGIN_STREAK_LOOTBOX_SCHEDULE.
+
+    Fires every day (not just every 7th) -- streak maps onto a repeating
+    30-day cycle via cycle_day, so day 31 replays day 1's reward, day 60
+    replays day 30's, etc. Reuses the caller's own already-open `db`
+    connection (grant_lootbox's optional-db param, same convention as
+    raid_settings.get_setting) since this always runs mid-transaction from
+    home()/welcome-back's own login-streak update.
+    """
+    if streak <= 0:
         return None
-    cycle = streak % 28 or 28
-    tier = _MILESTONE_TIERS.get(cycle, _MILESTONE_TIERS[7])
-    gold = tier["gold"]
-    resources = tier["resources"]
-    add_gold(db, username, gold)
-    ensure_resources(db, username)
-    for res_key, amount in resources:
-        db.execute(f"UPDATE resources SET {res_key}={res_key}+? WHERE username=?", (amount, username))
-    gear_drop = None
-    if tier.get("gear_tier"):
-        gear_drop = generate_gear_drop(tier["gear_tier"])
-        db.execute(
-            "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
-            "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,?)",
-            (username, gear_drop["item_id"], gear_drop["name"], gear_drop["set_name"],
-             gear_drop["type"], gear_drop["slot"], gear_drop["rarity"],
-             gear_drop["attack_bonus"], gear_drop["defense_bonus"],
-             gear_drop["speed_bonus"], gear_drop["hp_bonus"],
-             gear_drop["combat_power"], int(time.time()))
-        )
-    res_summary = ", ".join(f"+{amt} {key}" for key, amt in resources)
+    cycle_day = ((streak - 1) % 30) + 1
+    count = LOGIN_STREAK_LOOTBOX_SCHEDULE[cycle_day]
+    grant_lootbox(username, count, "login_streak", db=db)
+    box_word = "N00Tbox" if count == 1 else "N00Tboxes"
     log_event(db, "achievement",
-              f"{username} hit a {streak}-day streak! Haul: +{gold} gold, {res_summary} 🔥",
+              f"{username} hit a {streak}-day login streak! +{count} {box_word} 🎁",
               username)
-    return {"gold": gold, "resources": resources, "streak": streak,
-            "gear_drop": {"name": gear_drop["name"], "rarity": gear_drop["rarity"], "slot": gear_drop["slot"]} if gear_drop else None}
+    return {"streak": streak, "cycle_day": cycle_day, "lootbox_count": count,
+            "is_milestone": cycle_day in (7, 14, 21, 28, 30)}
 
 
 def update_login_streak(db, username, today):

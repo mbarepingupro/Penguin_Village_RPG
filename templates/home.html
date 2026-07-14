@@ -10007,12 +10007,18 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('dp-day').textContent = streak;
     document.getElementById('dp-resource').textContent =
       `+${reward.resource_amount} ${reward.resource_icon} ${reward.resource.toUpperCase().replace('_',' ')}`;
-    const MILESTONES = {3:'3 DAYS: +100 GOLD', 7:'7 DAYS: GEAR DROP', 14:'14 DAYS: COSMETIC', 30:'30 DAYS: EPIC GEAR', 60:'60 DAYS: LEGENDARY'};
+    // Matches LOGIN_STREAK_LOOTBOX_SCHEDULE (app.py) -- every day of the
+    // 30-day cycle grants at least 1 N00Tbox; these are just the escalated
+    // checkpoints worth calling out. `done`/`next` compare against streak's
+    // position in the current 30-day cycle, not the raw lifetime streak, so
+    // this stays accurate every time the cycle repeats.
+    const MILESTONES = {7:'7 DAYS: +2 N00TBOXES', 14:'14 DAYS: +3 N00TBOXES', 21:'21 DAYS: +2 N00TBOXES', 28:'28 DAYS: +3 N00TBOXES', 30:'30 DAYS: +5 N00TBOXES'};
+    const cycleStreak = ((streak - 1) % 30) + 1;
     let mHtml = '';
     for (const [day, label] of Object.entries(MILESTONES)) {
       const d = parseInt(day);
-      const done = streak >= d;
-      const next = !done && d > streak;
+      const done = cycleStreak >= d;
+      const next = !done && d > cycleStreak;
       const color = done ? '#4aff6b' : next ? 'var(--orange)' : '#8888A8';
       mHtml += `<div style="font-size:16px;color:${color};margin-bottom:3px;">${done ? '✓' : '○'} ${label}</div>`;
     }
@@ -10060,11 +10066,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   {% if streak_reward %}
   (function() {
     const sr = {{ streak_reward | tojson }};
+    const boxWord = sr.lootbox_count === 1 ? 'N00TBOX' : 'N00TBOXES';
     document.getElementById('sm-title').textContent       = 'DAY ' + sr.streak + ' STREAK!';
-    document.getElementById('sm-streak-line').textContent = 'MILESTONE REWARD';
-    document.getElementById('sm-item-name').textContent   = '+' + sr.gold + ' GOLD';
-    document.getElementById('sm-resources').innerHTML     =
-      sr.resources.map(([k, v]) => `+${v} ${k.toUpperCase()}`).join('<br>');
+    document.getElementById('sm-streak-line').textContent = sr.is_milestone ? 'MILESTONE REWARD' : 'LOGIN STREAK REWARD';
+    document.getElementById('sm-item-name').textContent   = '+' + sr.lootbox_count + ' ' + boxWord;
+    document.getElementById('sm-resources').innerHTML     = '';
     document.getElementById('streak-modal').classList.add('show');
   })();
   {% endif %}
