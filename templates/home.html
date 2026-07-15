@@ -1728,6 +1728,12 @@
     }
     #toast.ok  { border-color: #4aff6b; color: #4aff6b; }
     #toast.err { border-color: #ff6b6b; color: #ff6b6b; }
+    .toast-action-btn {
+      font-family: 'C&C Red Alert', monospace; font-size: 15px;
+      margin-left: 10px; padding: 3px 10px; border: 2px solid currentColor;
+      background: transparent; color: inherit; cursor: pointer;
+    }
+    .toast-action-btn:hover { background: currentColor; color: var(--dark); }
 
     /* ══════════════════════════════════════════════════════════
        TABLET  768px – 1024px
@@ -3724,6 +3730,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     <div class="sm-item" id="sm-item-name"></div>
     <div id="sm-resources"></div>
     <br>
+    <button class="sm-close" id="sm-open-now-btn" style="display:none;margin-bottom:8px;"></button>
     <button class="sm-close" onclick="document.getElementById('streak-modal').classList.remove('show')">SWEET!</button>
   </div>
 </div>
@@ -4465,14 +4472,31 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   let _playerLevel        = {{ penguin['level'] | tojson }};
 
   // ── TOAST ──
+  // Optional 3rd arg `action` = {label, onClick} adds an inline button (e.g.
+  // "OPEN" on a N00Tbox-award toast) without forcing the player to act --
+  // the toast still auto-dismisses on its own, same as a plain toast, and
+  // the box just stays unopened in inventory if ignored.
   let _toastTimer = null;
-  function showToast(text, type) {
+  function showToast(text, type, action) {
     const el = document.getElementById('toast');
-    el.textContent = text;
+    el.innerHTML = '';
+    el.appendChild(document.createTextNode(text));
+    if (action && action.label && typeof action.onClick === 'function') {
+      const btn = document.createElement('button');
+      btn.textContent = action.label;
+      btn.className = 'toast-action-btn';
+      btn.onclick = function(e) {
+        e.stopPropagation();
+        el.style.display = 'none';
+        if (_toastTimer) clearTimeout(_toastTimer);
+        action.onClick();
+      };
+      el.appendChild(btn);
+    }
     el.className = type || '';
     el.style.display = 'block';
     if (_toastTimer) clearTimeout(_toastTimer);
-    _toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+    _toastTimer = setTimeout(() => { el.style.display = 'none'; }, action ? 6000 : 3500);
   }
 
   // Keep old showWorkMsg for igloo compatibility
@@ -8007,32 +8031,39 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   // ── STREAK ──
+  // week_days/reward flags come straight from the server's real 30-day
+  // LOGIN_STREAK_LOOTBOX_SCHEDULE (see /streak/<username>) -- this widget no
+  // longer assumes a fixed 7-day-only cycle, so day 30's finale (not a
+  // multiple of 7) still shows correctly as a reward day.
   async function loadStreak() {
     try {
       const res  = await fetch(`/streak/${CURRENT_USER}`);
       const data = await res.json();
       const cur  = data.current || 1;
-      const day  = data.week_day || 1;   // 1-7
 
       document.getElementById('streak-count').textContent = cur + ' DAY' + (cur !== 1 ? 'S' : '');
 
       let dotsHtml = '';
-      for (let i = 1; i <= 7; i++) {
-        const isReward = i === 7;
+      (data.week_days || []).forEach(function(wd) {
+        const isReward = wd.count > 1;
         let cls = 'streak-day' + (isReward ? ' reward' : '');
-        let label = isReward ? '★' : String(i);
-        if (i < day)       { cls += ' done';  label = isReward ? '★' : '✓'; }
-        else if (i === day){ cls += ' today'; label = isReward ? '★' : '●'; }
-        dotsHtml += `<div class="${cls}" title="Day ${i}">${label}</div>`;
-      }
+        let label = isReward ? '★' : String(wd.day);
+        if (wd.status === 'done')       { cls += ' done';  label = isReward ? '★' : '✓'; }
+        else if (wd.status === 'today') { cls += ' today'; label = isReward ? '★' : '●'; }
+        const boxWord = wd.count === 1 ? 'N00Tbox' : 'N00Tboxes';
+        dotsHtml += `<div class="${cls}" title="Day ${wd.day} of ${data.cycle_length || 30} -- +${wd.count} ${boxWord}">${label}</div>`;
+      });
       document.getElementById('streak-week').innerHTML = dotsHtml;
 
       const nextEl = document.getElementById('streak-next');
-      if (data.days_to_reward === 0) {
-        nextEl.textContent = '★ GEAR DROP EARNED TODAY!';
+      const nextCount = data.next_milestone_count || 1;
+      const nextWord  = nextCount === 1 ? 'N00Tbox' : 'N00Tboxes';
+      if (data.days_to_next_milestone === 0) {
+        nextEl.textContent = `★ +${nextCount} ${nextWord.toUpperCase()} EARNED TODAY!`;
         nextEl.className   = 'streak-next ready';
       } else {
-        nextEl.textContent = data.days_to_reward + ' day' + (data.days_to_reward !== 1 ? 's' : '') + ' until gear drop';
+        nextEl.textContent = data.days_to_next_milestone + ' day' + (data.days_to_next_milestone !== 1 ? 's' : '')
+          + ` until +${nextCount} ${nextWord}`;
         nextEl.className   = 'streak-next';
       }
     } catch(e) {}
@@ -10071,12 +10102,33 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('sm-streak-line').textContent = sr.is_milestone ? 'MILESTONE REWARD' : 'LOGIN STREAK REWARD';
     document.getElementById('sm-item-name').textContent   = '+' + sr.lootbox_count + ' ' + boxWord;
     document.getElementById('sm-resources').innerHTML     = '';
+    // Opens just the first box of this reward directly (same flow as the
+    // inventory's own Open button) -- if more than one was awarded (a
+    // milestone day), the rest wait in inventory to be opened one at a time,
+    // same as any other N00Tbox.
+    const openBtn = document.getElementById('sm-open-now-btn');
+    if (openBtn) {
+      if (sr.lootbox_ids && sr.lootbox_ids.length) {
+        const firstId = sr.lootbox_ids[0];
+        openBtn.textContent = 'OPEN NOW';
+        openBtn.style.display = '';
+        openBtn.onclick = function() {
+          document.getElementById('streak-modal').classList.remove('show');
+          invOpenLootbox(firstId);
+        };
+      } else {
+        openBtn.style.display = 'none';
+      }
+    }
     document.getElementById('streak-modal').classList.add('show');
   })();
   {% endif %}
 
   {% if daily_lootbox_awarded %}
-  showToast('🎁 Daily N00Tbox awarded!', 'ok');
+  showToast('🎁 Daily N00Tbox awarded!', 'ok', {
+    label: 'OPEN',
+    onClick: function() { invOpenLootbox({{ daily_lootbox_id | tojson }}); }
+  });
   {% endif %}
 
   {% endif %}

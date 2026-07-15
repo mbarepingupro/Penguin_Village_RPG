@@ -1307,13 +1307,13 @@ def award_streak_milestone(db, username, streak):
         return None
     cycle_day = ((streak - 1) % 30) + 1
     count = LOGIN_STREAK_LOOTBOX_SCHEDULE[cycle_day]
-    grant_lootbox(username, count, "login_streak", db=db)
+    lootbox_ids = grant_lootbox(username, count, "login_streak", db=db)
     box_word = "N00Tbox" if count == 1 else "N00Tboxes"
     log_event(db, "achievement",
               f"{username} hit a {streak}-day login streak! +{count} {box_word} 🎁",
               username)
     return {"streak": streak, "cycle_day": cycle_day, "lootbox_count": count,
-            "is_milestone": cycle_day in (7, 14, 21, 28, 30)}
+            "is_milestone": cycle_day in (7, 14, 21, 28, 30), "lootbox_ids": lootbox_ids}
 
 
 def update_login_streak(db, username, today):
@@ -1652,7 +1652,10 @@ def open_lootbox(lootbox_id, username):
 
 
 def grant_lootbox(username, count, source, db=None):
-    """Insert `count` unopened lootboxes for username.
+    """Insert `count` unopened lootboxes for username. Returns the list of
+    newly-inserted player_lootboxes.id values (in insert order) so a caller
+    that wants to offer an immediate "Open" action on its award notification
+    can target the exact box(es) just granted instead of only the count.
 
     Stable signature — Phase 5's raid-reward distribution calls this directly,
     e.g. grant_lootbox(username, 3, "raid_reward").
@@ -1667,14 +1670,17 @@ def grant_lootbox(username, count, source, db=None):
     if owns_conn:
         db = get_db()
     now = int(time.time())
+    ids = []
     for _ in range(count):
-        db.execute(
+        cur = db.execute(
             "INSERT INTO player_lootboxes (username, source, opened, created_at) VALUES (?,?,0,?)",
             (username, source, now)
         )
+        ids.append(cur.lastrowid)
     if owns_conn:
         db.commit()
         db.close()
+    return ids
 
 
 # ── RAID RESOLUTION ───────────────────────────────────────────────────────────
@@ -1740,8 +1746,11 @@ def resolve_raid(raid_id, reason):
         username = p["username"]
         if rank <= podium_size:
             lootbox_count = podium_size - rank + 1
-            grant_lootbox(username, lootbox_count, "raid_reward")
-            reward = {"lootboxes": lootbox_count}
+            lootbox_ids = grant_lootbox(username, lootbox_count, "raid_reward")
+            # lootbox_ids persisted alongside the count so the results modal
+            # can offer a direct "Open" action on the current viewer's own
+            # box(es) instead of just the count -- see reward_summary below.
+            reward = {"lootboxes": lootbox_count, "lootbox_ids": lootbox_ids}
         else:
             resource = random.choice(RESOURCE_TYPES)
             # db passed through so this reuses the connection instead of
@@ -2804,6 +2813,7 @@ def home():
     streak_row_pre = db.execute("SELECT last_login_date FROM login_streaks WHERE username=?", (username,)).fetchone()
     is_new_day = not streak_row_pre or streak_row_pre["last_login_date"] != today
     daily_lootbox_awarded = False
+    daily_lootbox_id = None
     if is_new_day:
         streak = update_login_streak(db, username, today)
         if not session.get("daily_reward"):
@@ -2815,8 +2825,9 @@ def home():
         check_achievements(db, username)
         # First login of the calendar day -- grant_lootbox() reuses this
         # route's own already-open `db` (see its docstring) rather than
-        # opening a second connection mid-transaction.
-        grant_lootbox(username, 1, "daily_login", db=db)
+        # opening a second connection mid-transaction. Capture the id so the
+        # award toast can offer a direct "Open" action on this exact box.
+        daily_lootbox_id = grant_lootbox(username, 1, "daily_login", db=db)[0]
         daily_lootbox_awarded = True
 
     db.commit()
@@ -2835,6 +2846,7 @@ def home():
         streak_reward=streak_reward,
         daily_reward=daily_reward,
         daily_lootbox_awarded=daily_lootbox_awarded,
+        daily_lootbox_id=daily_lootbox_id,
         features=FEATURES,
         level_data=LEVEL_DATA,
         tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
@@ -3142,19 +3154,53 @@ def save_building_positions():
 
 @app.route("/streak/<username>")
 def get_streak(username):
+    """Sidebar streak widget data -- reflects the real 30-day
+    LOGIN_STREAK_LOOTBOX_SCHEDULE cycle (see award_streak_milestone), not a
+    generic 7-day-only view. `week_days` is the current 7-day chunk of the
+    cycle (days 1-7, 8-14, 15-21, 22-28, or the final 29-30 pair), each
+    entry carrying that day's real N00Tbox count so the widget never
+    mislabels which days are big-reward days (e.g. day 30 isn't a multiple
+    of 7, so a naive mod-7 view would miss it entirely)."""
     db  = get_db()
     row = db.execute(
         "SELECT current_streak, longest_streak FROM login_streaks WHERE username=?", (username,)
     ).fetchone()
     db.close()
-    cur = row["current_streak"] if row else 1
-    week_day       = (cur % 7) or 7   # 1-7, where 7 = reward day
-    days_to_reward = 7 - week_day
+    cur       = row["current_streak"] if row else 1
+    cycle_day = ((cur - 1) % 30) + 1
+
+    week_start = ((cycle_day - 1) // 7) * 7 + 1
+    week_days  = []
+    d = week_start
+    while d <= 30 and d < week_start + 7:
+        week_days.append({
+            "day":    d,
+            "count":  LOGIN_STREAK_LOOTBOX_SCHEDULE[d],
+            "status": "done" if d < cycle_day else ("today" if d == cycle_day else "upcoming"),
+        })
+        d += 1
+
+    # Days until the next big-reward day (count > 1), searching forward
+    # through the 30-day cycle; today counts as 0 days away if it's itself
+    # a milestone day.
+    days_to_next_milestone = 0
+    next_milestone_count   = LOGIN_STREAK_LOOTBOX_SCHEDULE[cycle_day]
+    for offset in range(30):
+        d = ((cycle_day - 1 + offset) % 30) + 1
+        if LOGIN_STREAK_LOOTBOX_SCHEDULE[d] > 1:
+            days_to_next_milestone = offset
+            next_milestone_count   = LOGIN_STREAK_LOOTBOX_SCHEDULE[d]
+            break
+
     return jsonify({
-        "current":        cur,
-        "longest":        row["longest_streak"] if row else 1,
-        "week_day":       week_day,
-        "days_to_reward": days_to_reward,
+        "current":                cur,
+        "longest":                row["longest_streak"] if row else 1,
+        "cycle_day":              cycle_day,
+        "cycle_length":           30,
+        "today_lootbox_count":    LOGIN_STREAK_LOOTBOX_SCHEDULE[cycle_day],
+        "week_days":              week_days,
+        "days_to_next_milestone": days_to_next_milestone,
+        "next_milestone_count":   next_milestone_count,
     })
 
 
