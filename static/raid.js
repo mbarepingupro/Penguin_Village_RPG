@@ -297,6 +297,7 @@ const RaidJoin = {
 
     let html = '';
     let ownLootboxes = 0;
+    this._ownLootboxIds = [];
     const self = this;
     data.leaderboard.forEach(function(entry) {
       const isSelf = typeof CURRENT_USER !== 'undefined' && entry.username === CURRENT_USER;
@@ -304,7 +305,10 @@ const RaidJoin = {
       let rewardText = '';
       if (entry.reward && entry.reward.lootboxes) {
         rewardText = `🎁 x${entry.reward.lootboxes} N00Tbox${entry.reward.lootboxes === 1 ? '' : 'es'}`;
-        if (isSelf) ownLootboxes = entry.reward.lootboxes;
+        if (isSelf) {
+          ownLootboxes = entry.reward.lootboxes;
+          self._ownLootboxIds = entry.reward.lootbox_ids || [];
+        }
       } else if (entry.reward && entry.reward.resource_type) {
         const meta = self._RESOURCE_META[entry.reward.resource_type] || ['🎁', entry.reward.resource_type];
         rewardText = `${meta[0]} +${entry.reward.resource_amount} ${meta[1]}`;
@@ -332,10 +336,18 @@ const RaidJoin = {
     if (typeof refreshStats === 'function') refreshStats();
   },
 
-  // Reuses Phase 4's inventory/open flow directly — jumps straight to the
-  // Lootboxes tab rather than reimplementing the open animation here.
+  // Opens the current viewer's own first awarded box directly, reusing the
+  // exact same open flow (and gift-pop/reveal animation) as the inventory's
+  // own Open button -- no separate open logic here. Older resolved raids
+  // (persisted before reward_summary carried lootbox_ids) fall back to the
+  // original behavior of just jumping to the Lootboxes tab so the player can
+  // open from there instead.
   openLootboxesNow: function() {
     this.closeResults();
+    if (this._ownLootboxIds && this._ownLootboxIds.length && typeof window.invOpenLootbox === 'function') {
+      window.invOpenLootbox(this._ownLootboxIds[0]);
+      return;
+    }
     if (typeof window.openInventory === 'function') {
       window.openInventory().then(function() {
         if (typeof window.switchInvTab === 'function') window.switchInvTab('lootboxes');
