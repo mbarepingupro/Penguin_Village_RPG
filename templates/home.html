@@ -10273,8 +10273,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         el.classList.remove('tutorial-highlight');
       });
       if (selector) {
-        var el = document.querySelector(selector);
-        if (el) el.classList.add('tutorial-highlight');
+        // querySelectorAll so a comma-separated selector can glow several
+        // elements at once (e.g. the PENGUIN sidebar tab + the INVENTORY
+        // button inside it) -- single-element selectors behave as before.
+        document.querySelectorAll(selector).forEach(function(el) {
+          el.classList.add('tutorial-highlight');
+        });
       }
     },
 
@@ -10715,8 +10719,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         self._highlightEl('#mobile-player-btn');
         await self._sayThen('Tap the 🐧 button at the top → PENGUIN tab → 📦 INVENTORY — then equip the gear you just found!');
       } else {
-        self._highlightEl('.inv-open-btn');
-        await self._sayThen('Open your inventory — click 📦 INVENTORY on the left panel — and equip the gear you just found!');
+        // Both glow: the player may be on the STATS tab from step 4, where
+        // the INVENTORY button (inside the PENGUIN panel) isn't visible yet.
+        self._highlightEl('.sidebar-tab[onclick*="penguin"], .inv-open-btn');
+        await self._sayThen('Open your inventory — it lives in the PENGUIN tab on the left panel. Click 📦 INVENTORY and equip the gear you just found!');
       }
       self._waitForInventory().then(async function() {
         self._clearHighlights();
@@ -10887,8 +10893,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         self._highlightEl('#mobile-player-btn');
         await self._sayThen('Tap the 🐧 button at the top → PENGUIN tab → 📦 INVENTORY, then hit the 🎁 N00TBOXES tab and OPEN your box!');
       } else {
-        self._highlightEl('.inv-open-btn');
-        await self._sayThen('Open your 📦 INVENTORY on the left panel, hit the 🎁 N00TBOXES tab, and OPEN your box!');
+        // Same dual highlight as step 6 -- the INVENTORY button lives in the
+        // PENGUIN sidebar panel, which may not be the active tab right now.
+        self._highlightEl('.sidebar-tab[onclick*="penguin"], .inv-open-btn');
+        await self._sayThen('Open your 📦 INVENTORY in the PENGUIN tab, hit the 🎁 N00TBOXES tab, and OPEN your box!');
       }
       openPromise.then(async function() {
         self._clearHighlights();
@@ -10926,10 +10934,18 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       self._waitForSidebar('friends').then(async function() {
         self._clearHighlights();
         // Global chat is desktop-only (hidden below 768px), so only desktop copy mentions it.
-        await self._sayThen(isMobile
-          ? 'Every penguin you meet shows up here. Visit their igloos (ring the doorbell!) to build friendships — from stranger all the way to Trusted Flippers!'
-          : 'Every penguin you meet shows up here. Visit their igloos (ring the doorbell!) to build friendships — and hit the 💬 button on the map to chat with the whole village!');
-        self._showContinue('New friends! →', function() { self._advanceStep(); });
+        if (isMobile) {
+          await self._sayThen('Every penguin you meet shows up here. Visit their igloos (ring the doorbell!) to build friendships — from stranger all the way to Trusted Flippers!');
+          self._showContinue('New friends! →', function() { self._advanceStep(); });
+        } else {
+          // The 💬 button lives inside the MAP panel -- switch to it so the
+          // highlight is actually visible while chat is being introduced.
+          var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+          if (mapBtn) mapBtn.click();
+          self._highlightEl('#chat-toggle-btn');
+          await self._sayThen('Every penguin you meet shows up here. Visit their igloos (ring the doorbell!) to build friendships — and the glowing 💬 button on the map opens Global Chat with the whole village!');
+          self._showContinue('New friends! →', function() { self._clearHighlights(); self._advanceStep(); });
+        }
       });
     },
 
