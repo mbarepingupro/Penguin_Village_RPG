@@ -6868,6 +6868,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (target) target.opened = 1;
       renderInventory();
       showLootboxReveal(data);
+      if (window.TutorialManager) TutorialManager._notifyLootboxOpened();
     } catch (e) {
       showToast('N00Tbox open failed. Try again.', 'err');
     }
@@ -10177,6 +10178,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _pendingSidebarCb: null,
     _pendingInventoryCb: null,
     _pendingMinigameCb: null,
+    _pendingLootboxCb: null,
     _minigameTutorial: false,
     _mapDragListening: false,
     _skipTimer: null,
@@ -10325,6 +10327,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       }
     },
 
+    _notifyLootboxOpened: function() {
+      if (this._pendingLootboxCb) {
+        var cb = this._pendingLootboxCb;
+        this._pendingLootboxCb = null;
+        cb();
+      }
+    },
+
     // ── Wait helpers ─────────────────────────────────────────────────────────
 
     _waitForBuilding: function(buildingId) {
@@ -10364,6 +10374,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       var self = this;
       return new Promise(function(resolve) {
         self._pendingInventoryCb = resolve;
+      });
+    },
+
+    _waitForLootboxOpen: function() {
+      var self = this;
+      return new Promise(function(resolve) {
+        self._pendingLootboxCb = resolve;
       });
     },
 
@@ -10410,6 +10427,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         case 9:  this._step9();  break;
         case 10: this._step10(); break;
         case 11: this._step11(); break;
+        case 12: this._step12(); break;
+        case 13: this._step13(); break;
+        case 14: this._step14(); break;
+        case 15: this._step15(); break;
+        case 16: this._step16(); break;
         default: this._clearSkipTimer(); this._complete(); break;
       }
     },
@@ -10436,8 +10458,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           self._waitForMapDrag().then(function() {
             self._clearHighlights();
             if (window.GameSounds) GameSounds.chime();
-            self._say('Perfect! You\'re a natural explorer.', function() {
-              setTimeout(function() { self._advanceStep(); }, 1200);
+            self._say('Perfect! You\'re a natural explorer. Two handy tricks: the 🎯 button snaps the view back to your penguin, and a green dot next to a penguin\'s name means they\'re online right now!', function() {
+              self._showContinue('Handy! →', function() { self._advanceStep(); });
             });
           });
         });
@@ -10535,7 +10557,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         btn.textContent = 'Starting...';
         TutorialManager._minigameTutorial = true;
         TutorialManager._pendingMinigameCb = function(score) {
-          self._sayThen('Nice! Score: ' + score + '! The better you play, the more resources you earn. Mini-games cost 10 energy each (free here in the tutorial).').then(function() {
+          self._sayThen('Nice! Score: ' + score + '! The better you play, the more resources you earn. Mini-games cost 10 energy each (free here in the tutorial) — and your best scores live forever in the Award Hall\'s MINIGAME RECORDS!').then(function() {
             self._showContinue('Got it! →', function() { self._advanceStep(); });
           });
         };
@@ -10819,18 +10841,118 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       await self._sayThen('Almost forgot — you have your own home! Click the IGLOO tab to see your personal space.');
       self._waitForContentTab('igloo').then(async function() {
         self._clearHighlights();
-        await self._sayThen('It\'s a bit empty right now, but you can buy furniture at the Boutique and decorate it! Other penguins can visit your igloo too.');
+        await self._sayThen('It\'s a bit empty right now, but you can buy furniture at the Boutique and decorate it! Other penguins can visit your igloo too — you can even compose your own doorbell tune for them to ring when they stop by!');
         self._showContinue('Cool! →', function() { self._advanceStep(); });
       });
     },
 
-    // ── Step 11 — Stream + Final Gift ────────────────────────────────────────
+    // ── Step 11 — Weekly Challenge & Weekend Raid ────────────────────────────
     _step11: async function() {
+      var self = this;
+      var mapBtn = document.querySelector('.content-tab[data-tab="map"]');
+      if (mapBtn) mapBtn.click();
+      self._highlightEl('#build-btn');
+      await self._sayThen('See that Build! button? Clicking it rolls a d20 for Ice Blocks — and every week the whole village teams up on a shared challenge: earn gold, gather resources, or defeat monsters together. Watch the progress bar at the top of the map!');
+      self._showContinue('Team effort! →', async function() {
+        await self._sayThen('Complete the challenge and a BOSS raids the village on the weekend! While it\'s here, Build! becomes Attack! — your rolls deal damage, your Combat Power adds a bonus, and the top damage dealers win extra N00Tboxes!');
+        self._showContinue('Bring it on! →', function() { self._clearHighlights(); self._advanceStep(); });
+      });
+    },
+
+    // ── Step 12 — N00Tboxes ──────────────────────────────────────────────────
+    _step12: async function() {
+      var self = this;
+      var isMobile = window.innerWidth < 768;
+      await self._sayThen('Now for my favorite part — N00Tboxes! Mystery gift boxes stuffed with gear, gold, and resources. Here, have one on me!');
+      var alreadyGiven = false;
+      try {
+        var res  = await fetch('/tutorial/gift', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: CURRENT_USER, step: 12 })
+        });
+        var data = await res.json();
+        alreadyGiven = data.status === 'already_given';
+        if (data.earned && data.earned.lootboxes) _flyEmojiCollection(['+' + data.earned.lootboxes + ' 🎁']);
+      } catch(e) {}
+      if (alreadyGiven) {
+        // Replay path — no new box to open, so don't gate on the open hook.
+        await self._sayThen('Looks like you already know your way around N00Tboxes! Remember: you get a free one on your first login every day, and login streaks award even more — day 30 pays out FIVE!');
+        self._showContinue('Free stuff! →', function() { self._advanceStep(); });
+        return;
+      }
+      // Register the open-hook BEFORE instructing, so a fast click can't slip past it.
+      var openPromise = self._waitForLootboxOpen();
+      if (isMobile) {
+        self._highlightEl('#mobile-player-btn');
+        await self._sayThen('Tap the 🐧 button at the top → PENGUIN tab → 📦 INVENTORY, then hit the 🎁 N00TBOXES tab and OPEN your box!');
+      } else {
+        self._highlightEl('.inv-open-btn');
+        await self._sayThen('Open your 📦 INVENTORY on the left panel, hit the 🎁 N00TBOXES tab, and OPEN your box!');
+      }
+      openPromise.then(async function() {
+        self._clearHighlights();
+        await self._sayThen('Ooooh, nice pull! You earn a free N00Tbox on your first login every day — and the longer your login streak, the more boxes you get. Day 30 pays out FIVE!');
+        self._showContinue('Free stuff! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 13 — Penguin Bank ───────────────────────────────────────────────
+    _step13: async function() {
+      var self = this;
+      var isMobile = window.innerWidth < 768;
+      self._highlightEl('.content-tab[data-tab="bank"]');
+      await self._sayThen(isMobile
+        ? 'Time to talk business! Tap the BANK tab up top (scroll the tabs if you need to) — it\'s the village marketplace.'
+        : 'Time to talk business! Click the BANK tab up top — it\'s the village marketplace.');
+      self._waitForContentTab('bank').then(async function() {
+        self._clearHighlights();
+        await self._sayThen('Trade with other penguins — list your gear or resources and name your price. In a hurry? SELL TO BANK pays instant gold for gear (⭐ event items fetch a premium!), and the bank resells sold items in its SHOP if you change your mind.');
+        self._showContinue('Cha-ching! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 14 — Friends & Chat ─────────────────────────────────────────────
+    _step14: async function() {
+      var self = this;
+      var isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        self._highlightEl('#mobile-player-btn');
+        await self._sayThen('Penguins are social creatures! Tap the 🐧 button at the top, then the 👥 FRIENDS tab.');
+      } else {
+        self._highlightEl('.sidebar-tab[onclick*="friends"]');
+        await self._sayThen('Penguins are social creatures! Click the FRIENDS tab on the left panel.');
+      }
+      self._waitForSidebar('friends').then(async function() {
+        self._clearHighlights();
+        // Global chat is desktop-only (hidden below 768px), so only desktop copy mentions it.
+        await self._sayThen(isMobile
+          ? 'Every penguin you meet shows up here. Visit their igloos (ring the doorbell!) to build friendships — from stranger all the way to Trusted Flippers!'
+          : 'Every penguin you meet shows up here. Visit their igloos (ring the doorbell!) to build friendships — and hit the 💬 button on the map to chat with the whole village!');
+        self._showContinue('New friends! →', function() { self._advanceStep(); });
+      });
+    },
+
+    // ── Step 15 — Interests & Events ─────────────────────────────────────────
+    _step15: async function() {
+      var self = this;
+      await self._sayThen('One more secret: your penguin has a life of its own! Pick interests with ✏️ MODIFY INTERESTS in the PENGUIN tab — penguins who share interests hang out and hold group events, even while you\'re away.');
+      self._showContinue('They do WHAT? →', async function() {
+        self._highlightEl('.content-tab[data-tab="eventlog"]');
+        await self._sayThen('Everything that happens around here — activities, donations, combat, level-ups — shows up in the EVENTS tab. Peek at it anytime to catch up on the gossip!');
+        self._showContinue('Nosy! →', function() { self._clearHighlights(); self._advanceStep(); });
+      });
+    },
+
+    // ── Step 16 — Stream + Final Gift ────────────────────────────────────────
+    _step16: async function() {
       var self = this;
       await self._sayThen('Last thing — Penguin Village is connected to my Twitch stream! When I\'m live, you earn bonus resources and exclusive Mayor\'s Seals for special cosmetics.');
       self._showContinue('Awesome! →', async function() {
         self._clearButtons();
         try {
+          // Gift key stays 11 (its number under the old step layout) so
+          // players who already claimed the farewell gift aren't paid twice.
           var res  = await fetch('/tutorial/gift', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -10859,10 +10981,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         box.style.animation = 'slideDown 0.35s ease forwards';
         setTimeout(function() { if (box.parentNode) box.parentNode.removeChild(box); }, 350);
       }
+      // Step 17 = the completion threshold in /tutorial/advance (one past the
+      // last step index, 16). Keep the two in sync when adding steps.
       fetch('/tutorial/advance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, step: 12 })
+        body: JSON.stringify({ username: CURRENT_USER, step: 17 })
       }).catch(function() {});
       showToast('Tutorial complete! Welcome to Penguin Village! 🐧', 'ok');
     },
@@ -10877,10 +11001,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           setTimeout(function() { if (box.parentNode) box.parentNode.removeChild(box); }, 350);
         }
         try {
+          // Jump to the farewell step (16), same semantics as before the
+          // tutorial was extended: skipping parks the player just before
+          // completion, so their next visit shows only the final send-off.
           await fetch('/tutorial/advance', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: CURRENT_USER, step: 11 })
+            body: JSON.stringify({ username: CURRENT_USER, step: 16 })
           });
         } catch(e) {}
       }
@@ -10921,6 +11048,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       TutorialManager._pendingSidebarCb     = null;
       TutorialManager._pendingInventoryCb   = null;
       TutorialManager._pendingMinigameCb    = null;
+      TutorialManager._pendingLootboxCb     = null;
       TutorialManager._minigameTutorial     = false;
       TutorialManager._step2done            = false;
       TutorialManager._clearHighlights();
@@ -10929,10 +11057,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     }
   }
 
-  // Auto-start tutorial for new players
+  // Auto-start tutorial for new players (17 = completion threshold, must
+  // match /tutorial/advance's tutorial_completed cutoff in app.py)
   {% if logged_in and not tutorial_completed %}
   setTimeout(function() {
-    if (window.TutorialManager && TUTORIAL_STEP < 12) {
+    if (window.TutorialManager && TUTORIAL_STEP < 17) {
       TutorialManager.init(TUTORIAL_STEP);
     }
   }, 900);

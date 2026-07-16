@@ -6461,7 +6461,11 @@ def tutorial_advance():
         return jsonify({"status": "error", "message": "Not logged in."})
     db = get_db()
     db.execute("UPDATE penguins SET tutorial_step=? WHERE username=?", (step, username))
-    if step >= 12:
+    # Completion threshold = one past the last step index (steps 0-16, so 17).
+    # Must match TUTORIAL_TOTAL_STEPS in home.html's TutorialManager. Players
+    # who completed under the old 12-step threshold already have
+    # tutorial_completed=1 stored, so raising this doesn't re-open theirs.
+    if step >= 17:
         db.execute("UPDATE penguins SET tutorial_completed=1 WHERE username=?", (username,))
     db.commit()
     db.close()
@@ -6510,7 +6514,14 @@ def tutorial_gift():
     STEP_GIFTS = {
         2:  {"fish": 50,  "gold": 30,  "xp": 50},
         4:  {"gold": 100, "herbs": 20, "bones": 10, "spell_fragments": 5},
+        # Key 11 is the tutorial's FINAL farewell gift. The farewell step's
+        # index in home.html has since moved (new steps were inserted before
+        # it), but the gift stays keyed as 11 so players who already received
+        # it under the old numbering aren't gifted twice -- the frontend
+        # farewell step posts {step: 11} explicitly, whatever its index.
         11: {"gold": 200, "mayor_seals": 1},
+        # N00Tbox intro step -- one free box to open during the tutorial.
+        12: {"lootboxes": 1},
     }
 
     for resource, amount in STEP_GIFTS.get(step, {}).items():
@@ -6526,6 +6537,11 @@ def tutorial_gift():
         elif resource == "mayor_seals":
             db.execute("UPDATE resources SET mayor_seals=mayor_seals+? WHERE username=?", (amount, username))
             earned["mayor_seals"] = amount
+        elif resource == "lootboxes":
+            # Reuses this route's own open connection (grant_lootbox's
+            # optional-db param) -- we're mid-transaction here.
+            grant_lootbox(username, amount, "tutorial", db=db)
+            earned["lootboxes"] = amount
         else:
             db.execute(f"UPDATE resources SET {resource}={resource}+? WHERE username=?", (amount, username))
             earned[resource] = amount
