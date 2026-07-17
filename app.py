@@ -6771,6 +6771,16 @@ _CARD_SPRITE_DIR = os.path.join(os.path.dirname(__file__), "static")
 CARD_W, CARD_H  = 600, 340
 LEFT_W           = 190
 
+# Mirrors SHAPE_CONFIG in village_map.js (frameWidth/frameHeight) -- worn-item
+# art under static/penguin_wearing/ is a 2-frame walk strip, so this is the
+# size of frame 0 (the standing pose) to crop out of it before compositing.
+_CARD_SHAPE_FRAME = {
+    "normal": (32, 40),
+    "tall":   (32, 50),
+}
+# Mirrors _AREA_FOLDER in village_map.js -- visual area -> sprite folder name.
+_CARD_AREA_FOLDER = {"head": "hats", "body": "outfits", "feet": "footwear", "hand": "accessories"}
+
 _COLORS = {
     "bg":     (28,  28,  28),
     "purple": (168, 110, 255),
@@ -6871,12 +6881,21 @@ def _get_public_penguin(username):
         "SELECT achievement_id FROM achievements WHERE username=? ORDER BY unlocked_at ASC LIMIT 1",
         (username,)
     ).fetchone()
-    # worn cosmetics (for card visual)
+    # worn cosmetics (for card visual) -- slot is included so the card can
+    # layer gear by visual area (_VISUAL_AREA), the same slot->area mapping
+    # used everywhere else worn gear is drawn (e.g. _drawSidebarWornItems).
     cosmetics = db.execute(
-        "SELECT item_id FROM gear WHERE username=? AND type='cosmetic' AND worn=1",
+        "SELECT item_id, slot FROM gear WHERE username=? AND type='cosmetic' AND worn=1",
         (username,)
     ).fetchall()
     cosmetic_ids = {c["item_id"] for c in cosmetics if c["item_id"]}
+    worn_by_area = {}
+    for c in cosmetics:
+        if not c["item_id"]:
+            continue
+        area = _VISUAL_AREA.get(c["slot"])
+        if area:
+            worn_by_area[area] = c["item_id"]
     # equipped card background (still uses equipped=1 since card frames are not visual-area items)
     bg_row = db.execute(
         "SELECT item_id, name FROM gear WHERE username=? AND type='cosmetic' "
@@ -6895,6 +6914,7 @@ def _get_public_penguin(username):
         "fav_job": fav_job, "total_hours": round(total_hours, 1),
         "top_ach": ach["achievement_id"] if ach else None,
         "cosmetic_ids": cosmetic_ids,
+        "worn_by_area": worn_by_area,
         "penguin_name": pname,
         "penguin_color": pcolor,
         "penguin_shape": p["penguin_shape"] or "normal",
@@ -6970,6 +6990,36 @@ def _generate_card_image(data):
         bg_patch = Image.new("RGB", (_SPRITE_SLOT, _SPRITE_SLOT), _COLORS["bg"])
         paste_xy = ((_SPRITE_SLOT - new_w) // 2, (_SPRITE_SLOT - new_h) // 2)
         bg_patch.paste(sprite, paste_xy, mask=sprite.split()[3])
+
+        # Worn gear layers, same order/folder-mapping as home.html's
+        # _drawSidebarWornItems: footwear -> outfit -> hat -> accessory.
+        # Each overlay is scaled by the SAME factor as the base sprite (not
+        # forced to fill the slot) and anchored at the same top-left origin,
+        # so it doesn't reintroduce the stretch-to-square problem just fixed
+        # for the base sprite above.
+        fw, fh = _CARD_SHAPE_FRAME.get(_shape, _CARD_SHAPE_FRAME["normal"])
+        for area in ("feet", "body", "head", "hand"):
+            item_id = data.get("worn_by_area", {}).get(area)
+            if not item_id:
+                continue
+            folder = _CARD_AREA_FOLDER[area]
+            item_path = os.path.join(_CARD_SPRITE_DIR, "penguin_wearing", _shape, folder, f"{item_id}.png")
+            if not os.path.exists(item_path):
+                continue  # tolerate missing overlay art, same as SpriteLoader's fallback
+            try:
+                overlay = Image.open(item_path).convert("RGBA")
+                # Overlay art is a 2-frame walk strip -- crop out frame 0
+                # (the standing pose), same source region _drawSidebarWornItems
+                # samples via its drawImage source-rect.
+                crop_w, crop_h = min(fw, overlay.width), min(fh, overlay.height)
+                overlay = overlay.crop((0, 0, crop_w, crop_h))
+                ow = max(1, round(crop_w * scale))
+                oh = max(1, round(crop_h * scale))
+                overlay = overlay.resize((ow, oh), Image.NEAREST)
+                bg_patch.paste(overlay, paste_xy, mask=overlay.split()[3])
+            except Exception:
+                continue
+
         img.paste(bg_patch, (LEFT_W//2 - 40, 40))
     except Exception:
         pass
