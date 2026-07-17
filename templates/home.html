@@ -327,27 +327,12 @@
     #card-modal.show { display: flex; }
     .card-modal-box { background: #181820; border: 3px solid #A86EFF; padding: 16px; max-width: 420px; width: 90%; font-family: 'C&C Red Alert', monospace; animation: popIn 0.2s ease; }
     .card-modal-title { color: #A86EFF; font-size: 17px; margin-bottom: 12px; }
-    .card-preview { width: 100%; border: 2px solid #252535; margin-bottom: 12px; position: relative; overflow: hidden; }
-    .card-preview-inner { display: flex; background: #181820; }
-    /* Left panel: sprite now flex-grows to fill the height of the column
-       (matching the backend PIL renderer's full-height, aspect-ratio-
-       preserving box) instead of a small fixed 56x56 square. */
-    .card-preview-left { width: 120px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:10px 8px; border-right:1px solid #252535; gap:6px; }
-    .card-preview-sprite { width:100%; flex:1 1 0; min-height:0; object-fit:contain; image-rendering:pixelated; }
-    .card-preview-username { color:#fff; font-size:18px; text-align:center; }
-    .card-preview-title   { color:#A86EFF; font-size:17px; text-align:center; line-height:1.6; }
-    .card-preview-prestige { color:#FF7FE5; font-size:19px; }
-    /* Right panel: ID-card style -- high-opacity dark panel behind the text
-       (matches the backend's dark=(18,18,18) @ ~88% opacity), bigger fonts,
-       and a divider border-bottom on every field row. */
-    .card-preview-right { flex:1; padding:12px 14px; display:flex; flex-direction:column; gap:0; background: rgba(18,18,18,0.88); }
-    .card-preview-header { color:#A86EFF; font-size:19px; border-bottom:1px solid #3c3c48; padding-bottom:8px; margin-bottom:6px; }
-    .card-preview-stat { font-size:18px; color:#B8B8D0; line-height:1.7; border-bottom:1px solid #33333f; padding:6px 0; }
-    .card-preview-stat span { color:#fff; }
-    .card-preview-stat span.orange { color:#FF8C00; }
-    .card-preview-stat span.purple { color:#A86EFF; }
-    .card-preview-url { color:#8888A8; font-size:16px; margin-top:auto; padding-top:8px; }
-    .card-preview-watermark { position:absolute; right:8px; bottom:8px; width:15%; height:auto; opacity:0.4; pointer-events:none; z-index:0; }
+    /* The preview is now just the real rendered card PNG from
+       GET /card/<username>/image -- the same endpoint DOWNLOAD uses -- so
+       there's nothing left to lay out here; no separate HTML/CSS
+       re-rendering of the sprite/fields/watermark to keep in sync. */
+    .card-preview { width: 100%; border: 2px solid #252535; margin-bottom: 12px; }
+    .card-preview-img { width: 100%; height: auto; display: block; }
     .card-modal-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
     .card-modal-action-btn { font-family:'C&C Red Alert',monospace; font-size:16px; padding:6px 12px; border:2px solid #A86EFF; background:transparent; color:#A86EFF; cursor:pointer; }
     .card-modal-action-btn:hover { background:#A86EFF; color:#181820; }
@@ -3588,8 +3573,7 @@
   <div class="card-modal-box">
     <div class="card-modal-title">📋 YOUR PENGUIN CARD</div>
     <div class="card-preview" id="card-preview-container">
-      <div class="card-preview-inner" id="card-preview-inner"></div>
-      <img src="/static/watermark_logo.png" class="card-preview-watermark" alt="" aria-hidden="true" onerror="this.style.display='none'">
+      <img id="card-preview-img" class="card-preview-img" alt="Your penguin card">
     </div>
     <div class="card-modal-actions">
       <button class="card-modal-action-btn" onclick="shareCard()">🔗 SHARE</button>
@@ -3602,7 +3586,9 @@
   </div>
 </div>
 <!-- CARD BACKGROUND SELECTION MODAL -->
-<div id="bg-selection-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:10000;align-items:center;justify-content:center;">
+<!-- z-index 90039: opened from inside #card-modal (90032) via the BACKGROUND
+     button, so it must render above it, not behind it. -->
+<div id="bg-selection-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:90039;align-items:center;justify-content:center;">
   <div style="background:#181820;border:3px solid #A86EFF;padding:16px;max-width:480px;width:95%;max-height:80vh;overflow-y:auto;font-family:'C&C Red Alert',monospace;animation:popIn 0.2s ease;">
     <div style="color:#A86EFF;font-size:17px;margin-bottom:12px;">🖼️ CARD BACKGROUNDS</div>
     <div id="bg-selection-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;"></div>
@@ -6349,42 +6335,24 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   // ── PENGUIN CARD MODAL ──
+  // The preview <img> always points at GET /card/<username>/image -- the
+  // exact same endpoint DOWNLOAD uses -- so the on-page preview is
+  // pixel-identical to the downloaded file, not a separately re-rendered
+  // HTML/CSS approximation of it. A cache-busting ?t= param forces a fresh
+  // fetch (rather than a browser-cached copy of the last render) any time
+  // the card's contents may have changed.
+  function cardImageUrl() {
+    return '/card/' + CURRENT_USER.toLowerCase() + '/image?t=' + Date.now();
+  }
+
   function openCardModal() {
     if (window.GameSounds) GameSounds.modalOpen();
-    const goldEl = document.getElementById('count-gold');
-    const gold   = goldEl ? goldEl.textContent : '0';
-    const level  = _playerLevel || 1;
-    const job    = (_currentJob || '').replace(/_/g, ' ').toUpperCase() || 'IDLE';
-    const prestige = {{ penguin['prestige'] | tojson }} || 0;
-    const totalHoursEl = document.getElementById('stat-hours');
-    const totalHours = totalHoursEl ? totalHoursEl.textContent : '0';
-    const gatherPct = (level - 1) * 5;
-
-    const inner = document.getElementById('card-preview-inner');
-    const prestigeStars = prestige > 0 ? '★'.repeat(prestige) : '';
-    inner.innerHTML = `
-      <div class="card-preview-left">
-        <img id="card-penguin-img" src="/static/penguin_${PLAYER_SHAPE}_static.png" class="card-preview-sprite" alt="penguin"
-             onerror="this.style.display='none'">
-        <div class="card-preview-username">${CURRENT_USER.toUpperCase()}</div>
-        ${_activeTitle ? `<div class="card-preview-title">${_activeTitle}</div>` : ''}
-        ${prestigeStars ? `<div class="card-preview-prestige">${prestigeStars}</div>` : ''}
-        ${gatherPct > 0 ? `<div style="color:#4aff6b;font-size:17px;margin-top:auto;">+${gatherPct}% gather</div>` : ''}
-      </div>
-      <div class="card-preview-right">
-        <div class="card-preview-header">PENGUIN VILLAGE</div>
-        <div class="card-preview-stat">LEVEL <span>${level}</span></div>
-        <div class="card-preview-stat">JOB <span class="orange">${job}</span></div>
-        <div class="card-preview-stat">GOLD <span class="orange">${gold}</span></div>
-        ${_activeTitle ? `<div class="card-preview-stat">TITLE <span class="purple">"${_activeTitle}"</span></div>` : ''}
-        <div class="card-preview-url">mbarepingu.com/penguin/${CURRENT_USER.toLowerCase()}</div>
-      </div>`;
+    document.getElementById('card-preview-img').src = cardImageUrl();
 
     const urlEl = document.getElementById('card-modal-url');
     urlEl.textContent = window.location.origin + '/penguin/' + CURRENT_USER.toLowerCase();
 
     document.getElementById('card-modal').classList.add('show');
-    _applyPenguinColorToImg(document.getElementById('card-penguin-img'), PLAYER_COLOR);
   }
 
   function closeCardModal() {
@@ -6444,6 +6412,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         showToast('Card background equipped!', 'ok');
         if (window.GameSounds) GameSounds.equip();
         await loadBgList();
+        // Card modal stays open underneath the background-selection popup --
+        // refresh its preview <img> with a fresh cache-busting src right
+        // away so the new background is visible without a full page reload.
+        // downloadCard()/shareCard() both resolve through the same
+        // /card/<username>/image endpoint, so once this refreshes there's
+        // no separate stale copy left anywhere on the page.
+        const cardImg = document.getElementById('card-preview-img');
+        if (cardImg) cardImg.src = cardImageUrl();
       } else {
         showToast(data.message || 'Error.', 'err');
       }
