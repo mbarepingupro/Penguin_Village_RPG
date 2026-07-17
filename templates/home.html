@@ -3586,6 +3586,7 @@
     <div class="card-modal-actions">
       <button class="card-modal-action-btn" onclick="shareCard()">🔗 SHARE</button>
       <button class="card-modal-action-btn dl" onclick="downloadCard()">⬇ DOWNLOAD</button>
+      <button class="card-modal-action-btn" onclick="shareCardToTwitch(CURRENT_USER.toLowerCase())">📤 TWITCH</button>
       <button class="card-modal-action-btn" onclick="openBgSelection()">🖼️ BACKGROUND</button>
     </div>
     <div class="card-modal-url" id="card-modal-url"></div>
@@ -6450,6 +6451,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   function downloadCard() {
     window.open('/card/' + CURRENT_USER.toLowerCase() + '/image', '_blank');
+  }
+
+  async function shareCardToTwitch(username) {
+    // TODO StreamerBot: this is a stub -- the real integration is a future
+    // session. For now just tell the backend and show a "coming soon" toast.
+    // Mirrors shareEventToTwitch's fire-and-forget pattern exactly.
+    try {
+      await fetch(`/card/${username}/share`, { method: 'POST' });
+    } catch (e) {}
+    showToast('Coming soon — Twitch sharing');
   }
 
   async function renderSealShop() {
