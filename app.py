@@ -6897,7 +6897,7 @@ def _get_public_penguin(username):
         "cosmetic_ids": cosmetic_ids,
         "penguin_name": pname,
         "penguin_color": pcolor,
-        "penguin_shape": p.get("penguin_shape") or "normal",
+        "penguin_shape": p["penguin_shape"] or "normal",
         "color_palette": {},
         "equipped_bg": equipped_bg,
     }
@@ -6955,11 +6955,21 @@ def _generate_card_image(data):
         _sprite_path = os.path.join(_CARD_SPRITE_DIR, _sprite_file)
         if not os.path.exists(_sprite_path):
             _sprite_path = os.path.join(_CARD_SPRITE_DIR, "penguin_normal_static.png")
-        sprite = Image.open(_sprite_path).convert("RGBA").resize((80, 80), Image.NEAREST)
+        _SPRITE_SLOT = 80  # bounding box the sprite is scaled into, unchanged
+        raw = Image.open(_sprite_path).convert("RGBA")
+        # Scale by the limiting dimension so tall shapes (32x50) keep their
+        # real proportions instead of being stretched into a square like
+        # normal (32x32) -- then center in the slot and let the surrounding
+        # bg_patch pad the rest, rather than distorting the sprite to fill it.
+        scale = min(_SPRITE_SLOT / raw.width, _SPRITE_SLOT / raw.height)
+        new_w = max(1, round(raw.width * scale))
+        new_h = max(1, round(raw.height * scale))
+        sprite = raw.resize((new_w, new_h), Image.NEAREST)
         pcolor = data.get("penguin_color", "#1a1a1a")
         sprite = _recolor_sprite_pil(sprite, pcolor)
-        bg_patch = Image.new("RGB", (80, 80), _COLORS["bg"])
-        bg_patch.paste(sprite, mask=sprite.split()[3])
+        bg_patch = Image.new("RGB", (_SPRITE_SLOT, _SPRITE_SLOT), _COLORS["bg"])
+        paste_xy = ((_SPRITE_SLOT - new_w) // 2, (_SPRITE_SLOT - new_h) // 2)
+        bg_patch.paste(sprite, paste_xy, mask=sprite.split()[3])
         img.paste(bg_patch, (LEFT_W//2 - 40, 40))
     except Exception:
         pass
