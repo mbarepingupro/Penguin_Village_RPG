@@ -6997,35 +6997,45 @@ def _generate_card_image(data):
     for y in range(4, CARD_H-4):
         draw.point((LEFT_W, y), fill=(50, 50, 50))
 
-    # ── LEFT: sprite + username + title ──
+    # ── LEFT: full-height portrait, left-aligned ──
+    # Target box is now (almost) the entire left panel instead of a small
+    # fixed 80x80 corner box -- _SPRITE_MARGIN keeps clear of the outer
+    # border/divider, and an extra bottom margin keeps clear of the URL
+    # footer drawn later. Same aspect-ratio-preserving scale-by-limiting-
+    # dimension as before (unchanged), just against a much bigger box.
+    _SPRITE_MARGIN     = 4
+    _SPRITE_BOTTOM_PAD = 20  # extra clearance above the URL footer
+    _SPRITE_BOX_W = LEFT_W - _SPRITE_MARGIN * 2
+    _SPRITE_BOX_H = CARD_H - _SPRITE_MARGIN - _SPRITE_BOTTOM_PAD
     try:
         _shape = d.get("penguin_shape") or "normal"
         _sprite_file = f"penguin_{_shape}_static.png"
         _sprite_path = os.path.join(_CARD_SPRITE_DIR, _sprite_file)
         if not os.path.exists(_sprite_path):
             _sprite_path = os.path.join(_CARD_SPRITE_DIR, "penguin_normal_static.png")
-        _SPRITE_SLOT = 80  # bounding box the sprite is scaled into, unchanged
         raw = Image.open(_sprite_path).convert("RGBA")
         # Scale by the limiting dimension so tall shapes (32x50) keep their
-        # real proportions instead of being stretched into a square like
-        # normal (32x32) -- then center in the slot and let the surrounding
-        # bg_patch pad the rest, rather than distorting the sprite to fill it.
-        scale = min(_SPRITE_SLOT / raw.width, _SPRITE_SLOT / raw.height)
+        # real proportions instead of being stretched -- same fix as before,
+        # just against the left panel's full box instead of 80x80.
+        scale = min(_SPRITE_BOX_W / raw.width, _SPRITE_BOX_H / raw.height)
         new_w = max(1, round(raw.width * scale))
         new_h = max(1, round(raw.height * scale))
         sprite = raw.resize((new_w, new_h), Image.NEAREST)
         pcolor = data.get("penguin_color", "#1a1a1a")
         sprite = _recolor_sprite_pil(sprite, pcolor)
-        bg_patch = Image.new("RGB", (_SPRITE_SLOT, _SPRITE_SLOT), _COLORS["bg"])
-        paste_xy = ((_SPRITE_SLOT - new_w) // 2, (_SPRITE_SLOT - new_h) // 2)
+        bg_patch = Image.new("RGB", (_SPRITE_BOX_W, _SPRITE_BOX_H), _COLORS["bg"])
+        # Left-aligned (x=0 in the box) rather than centered; vertically
+        # centered since the width cap usually binds before the height does,
+        # leaving spare vertical room in the box.
+        paste_xy = (0, (_SPRITE_BOX_H - new_h) // 2)
         bg_patch.paste(sprite, paste_xy, mask=sprite.split()[3])
 
         # Worn gear layers, same order/folder-mapping as home.html's
         # _drawSidebarWornItems: footwear -> outfit -> hat -> accessory.
         # Each overlay is scaled by the SAME factor as the base sprite (not
-        # forced to fill the slot) and anchored at the same top-left origin,
-        # so it doesn't reintroduce the stretch-to-square problem just fixed
-        # for the base sprite above.
+        # forced to fill the box) and anchored at the same origin, so it
+        # doesn't reintroduce the stretch-to-square problem the base sprite
+        # fix removed. Compositing logic itself is unchanged from before.
         fw, fh = _CARD_SHAPE_FRAME.get(_shape, _CARD_SHAPE_FRAME["normal"])
         for area in ("feet", "body", "head", "hand"):
             item_id = data.get("worn_by_area", {}).get(area)
@@ -7049,56 +7059,68 @@ def _generate_card_image(data):
             except Exception:
                 continue
 
-        img.paste(bg_patch, (LEFT_W//2 - 40, 40))
+        img.paste(bg_patch, (_SPRITE_MARGIN, _SPRITE_MARGIN))
     except Exception:
         pass
 
-    username = d.get("username", "UNKNOWN")
-    draw.text((LEFT_W//2, 135), username.upper(), font=_font(7), fill=_COLORS["white"], anchor="mm")
+    # ── RIGHT: ID-card-style text panel ──
+    # Dark, high-opacity panel behind the whole text column so every field
+    # stays legible regardless of the equipped background image/color. Done
+    # as an RGBA alpha-composite (only the panel rectangle gets partial
+    # alpha; everywhere else is untouched) rather than flattening the whole
+    # canvas, so the sprite/border/divider drawn above are unaffected.
+    panel_box = (LEFT_W + 4, 4, CARD_W - 4, CARD_H - 4)
+    _panel_overlay = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 0))
+    ImageDraw.Draw(_panel_overlay).rectangle(panel_box, fill=(*_COLORS["dark"], round(255 * 0.88)))
+    # Back to RGB immediately -- _generate_card_image has always returned an
+    # RGB image (getpixel() callers throughout the codebase/tests expect
+    # 3-tuples), so the RGBA intermediate used for the alpha-composite must
+    # not leak out as the function's return mode.
+    img = Image.alpha_composite(img.convert("RGBA"), _panel_overlay).convert("RGB")
+    draw = ImageDraw.Draw(img)  # re-bind: alpha_composite returns a new image
+
+    username    = d.get("username", "UNKNOWN")
     active_title = d.get("active_title")
-    if active_title:
-        draw.text((LEFT_W//2, 153), active_title, font=_font(6), fill=_COLORS["purple"], anchor="mm")
-
-    prestige = d.get("prestige") or 0
-    if prestige > 0:
-        stars = "★" * prestige
-        draw.text((LEFT_W//2, 170), stars, font=_font(8), fill=_COLORS["pink"], anchor="mm")
-
-    # Gathering bonus chip
+    prestige    = d.get("prestige") or 0
+    job_str     = _job_label(d.get("job"))
+    gold_val    = data.get("gold", 0)
+    fav         = data.get("fav_job")
+    total_h     = data.get("total_hours", 0)
     from level_config import get_total_gathering_bonus
     gb = get_total_gathering_bonus(lv)
-    if gb > 0:
-        draw.text((LEFT_W//2, CARD_H - 30), f"+{gb}% gather", font=_font(5), fill=_COLORS["green"], anchor="mm")
 
-    # ── RIGHT: stats ──
-    rx = LEFT_W + 18
-    ry = 20
-    draw.text((rx, ry), "PENGUIN VILLAGE", font=_font(9), fill=_COLORS["purple"])
-    ry += 28
+    rx           = LEFT_W + 18
+    value_x      = rx + 78     # fixed value column so rows align, ID-card style
+    divider_x0   = LEFT_W + 10
+    divider_x1   = CARD_W - 10
+    label_font   = _font(7)
+    ry = 18
+    draw.text((rx, ry), "PENGUIN VILLAGE", font=_font(12), fill=_COLORS["purple"])
+    ry += 24
+    draw.line([(divider_x0, ry), (divider_x1, ry)], fill=(70, 70, 80))
+    ry += 10
 
-    draw.text((rx, ry), f"LEVEL {lv}", font=_font(10), fill=_COLORS["white"])
-    ry += 26
+    def _field(label, value, value_fill, value_font_size):
+        nonlocal ry
+        draw.text((rx, ry), label, font=label_font, fill=_COLORS["gray"])
+        draw.text((value_x, ry - 2), value, font=_font(value_font_size), fill=value_fill)
+        ry += 26
+        draw.line([(divider_x0, ry), (divider_x1, ry)], fill=(60, 60, 70))
+        ry += 10
 
-    job_str = _job_label(d.get("job"))
-    draw.text((rx, ry), f"JOB: {job_str.upper()}", font=_font(7), fill=_COLORS["orange"])
-    ry += 20
-
-    gold_val = data.get("gold", 0)
-    draw.text((rx, ry), f"GOLD: {gold_val}", font=_font(7), fill=_COLORS["orange"])
-    ry += 20
-
+    _field("NAME",  username.upper(), _COLORS["white"], 11)
+    if prestige > 0:
+        _field("RANK", "★" * prestige, _COLORS["pink"], 11)
+    _field("LEVEL", str(lv), _COLORS["white"], 12)
+    _field("JOB",   job_str.upper(), _COLORS["orange"], 9)
+    _field("GOLD",  str(gold_val), _COLORS["orange"], 9)
     if active_title:
-        draw.text((rx, ry), f'"{active_title}"', font=_font(6), fill=_COLORS["purple"])
-        ry += 18
-
-    fav = data.get("fav_job")
+        _field("TITLE", f'"{active_title}"', _COLORS["purple"], 8)
     if fav:
-        draw.text((rx, ry), f"BEST AT: {fav.upper()}", font=_font(6), fill=_COLORS["gray"])
-        ry += 16
-
-    total_h = data.get("total_hours", 0)
-    draw.text((rx, ry), f"HOURS WORKED: {total_h}", font=_font(5), fill=_COLORS["gray"])
-    ry += 14
+        _field("BEST AT", fav.upper(), _COLORS["white"], 8)
+    _field("HOURS", str(total_h), _COLORS["gray"], 8)
+    if gb > 0:
+        _field("GATHER", f"+{gb}%", _COLORS["green"], 8)
 
     # Sparkle corners
     if has_sparkle:
@@ -7109,6 +7131,27 @@ def _generate_card_image(data):
     draw.text((CARD_W//2, CARD_H - 12),
               f"mbarepingu.com/penguin/{username.lower()}",
               font=_font(5), fill=_COLORS["gray"], anchor="mm")
+
+    # Watermark, composited last so it sits above everything -- alpha-
+    # multiplied (each pixel's own alpha scaled by 0.4), not a flat 40%
+    # layer, so semi-transparent parts of the logo art stay proportionally
+    # lighter rather than all being clamped to one opacity. Small footprint
+    # in the bottom-right corner so it can't obscure the ID-card text panel.
+    watermark_path = os.path.join(os.path.dirname(__file__), "static", "watermark_logo.png")
+    if os.path.exists(watermark_path):
+        try:
+            wm = Image.open(watermark_path).convert("RGBA")
+            wm_w = max(1, round(CARD_W * 0.15))
+            wm_scale = wm_w / wm.width
+            wm_h = max(1, round(wm.height * wm_scale))
+            wm = wm.resize((wm_w, wm_h), Image.LANCZOS)
+            r, g, b, a = wm.split()
+            a = a.point(lambda px: round(px * 0.4))
+            wm.putalpha(a)
+            wm_margin = 8
+            img.paste(wm, (CARD_W - wm_w - wm_margin, CARD_H - wm_h - wm_margin), mask=wm)
+        except Exception:
+            pass
 
     return img
 
