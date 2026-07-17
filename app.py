@@ -7184,7 +7184,22 @@ def card_image(username):
     img.save(buf, format="PNG")
     buf.seek(0)
     from flask import send_file
-    return send_file(buf, mimetype="image/png")
+    # as_attachment so the DOWNLOAD button (downloadCard() in home.html)
+    # actually triggers a file download instead of just opening the PNG
+    # inline in the new tab it window.open()s.
+    return send_file(buf, mimetype="image/png", as_attachment=True,
+                      download_name=f"{username}_card.png")
+
+
+@app.route("/card/<username>/share", methods=["POST"])
+def share_card_to_twitch(username):
+    # TODO StreamerBot: wire this up to the real StreamerBot integration --
+    # no StreamerBot endpoints exist in this codebase yet, so this only logs
+    # the request and returns a not-implemented response for now. Mirrors
+    # share_event_to_twitch's stub shape exactly.
+    requester = session.get("username")
+    print(f"[CardShare] {requester or 'anonymous'} requested Twitch share for card username={username}")
+    return jsonify({"status": "not_implemented", "message": "Twitch sharing is coming soon."}), 501
 
 
 _VILLAGE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout.json")
