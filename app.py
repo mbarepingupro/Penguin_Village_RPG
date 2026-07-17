@@ -689,194 +689,216 @@ _MONSTER_ICONS = {
     "deaths_herald":      "💀",
 }
 
+# Per-tier monster CP bands: (easiest_cp, hardest_cp). Tune during
+# balance-pass -- rescaled 2026-07-17. The old values were set against BASE
+# player CP (10 + level*3) only, ignoring gear: a modestly geared level-8
+# player (~80-100 total CP) hit the 95% win-chance cap against every tier
+# 1-2 monster. These bands are sized against realistic gear-adjusted CP
+# (base + ~25/45/65/85/105/125/155 gear CP at levels 5/8/10/15/20/25/30),
+# so each tier's EASIEST monster is comfortably farmable at the tier's
+# unlock level while its HARDEST stays a real fight until well after the
+# next tier opens. Ramp widths grow with the tier (25/30/35/40/50) because
+# both the level span covered and the player gear-CP variance grow with
+# tier -- flat 20-25 ramps were tested and left tiers 3-5 flattening back
+# to near-95% across the board at their top end. Individual combat_power
+# values below are evenly spaced within these bands, preserving each
+# tier's original easiest->hardest monster ordering.
+MONSTER_TIER_CP_BANDS = {
+    1: (10, 35),    # levels 1-4   (7 monsters, ramp 25)
+    2: (45, 75),    # levels 5-9   (7 monsters, ramp 30)
+    3: (95, 130),   # levels 10-14 (7 monsters, ramp 35)
+    4: (140, 180),  # levels 15-24 (6 monsters, ramp 40)
+    5: (210, 260),  # levels 25-30 (4 monsters, ramp 50)
+}
+
 MONSTER_TYPES = {
     # ── TIER 1 — NEWCOMER GROUNDS (level 1) ──────────────────────────────────
     "crab": {
-        "tier": 1, "min_level": 1, "combat_power": 15,
+        "tier": 1, "min_level": 1, "combat_power": 23,
         "variants": ["Snow Crab", "Hermit Crab", "Giant Crab"],
         "energy_cost": 25,
         "rewards": {"gold": [50, 100], "xp": [45, 75], "resources": {"fish": [20, 50]}, "gear_drop_chance": 0.25},
     },
     "bat": {
-        "tier": 1, "min_level": 1, "combat_power": 18,
+        "tier": 1, "min_level": 1, "combat_power": 35,
         "variants": ["Ice Bat", "Cave Bat", "Frost Wing"],
         "energy_cost": 25,
         "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"herbs": [20, 40]}, "gear_drop_chance": 0.25},
     },
     "rat": {
-        "tier": 1, "min_level": 1, "combat_power": 12,
+        "tier": 1, "min_level": 1, "combat_power": 10,
         "variants": ["Frost Rat", "Sewer Rat", "Snow Mouse"],
         "energy_cost": 25,
         "rewards": {"gold": [25, 75], "xp": [30, 60], "resources": {"bones": [10, 30]}, "gear_drop_chance": 0.20},
     },
     "shell_lurker": {
-        "tier": 1, "min_level": 1, "combat_power": 14,
+        "tier": 1, "min_level": 1, "combat_power": 18,
         "variants": ["Tide Shell", "Giant Conch", "Lurking Shell"],
         "energy_cost": 25,
         "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"fish": [10, 40]}, "gear_drop_chance": 0.20},
     },
     "ice_squid": {
-        "tier": 1, "min_level": 1, "combat_power": 16,
+        "tier": 1, "min_level": 1, "combat_power": 27,
         "variants": ["Baby Squid", "Frost Squid", "Ink Specter"],
         "energy_cost": 25,
         "rewards": {"gold": [50, 90], "xp": [36, 66], "resources": {"fish": [20, 40], "herbs": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "frost_beetle": {
-        "tier": 1, "min_level": 1, "combat_power": 13,
+        "tier": 1, "min_level": 1, "combat_power": 14,
         "variants": ["Tunnel Bug", "Ice Crawler", "Crystal Grub"],
         "energy_cost": 25,
         "rewards": {"gold": [30, 70], "xp": [30, 60], "resources": {"bones": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "pufferfish": {
-        "tier": 1, "min_level": 1, "combat_power": 17,
+        "tier": 1, "min_level": 1, "combat_power": 31,
         "variants": ["Toxic Puffer", "Spiky Fish", "Blowfish"],
         "energy_cost": 25,
         "rewards": {"gold": [40, 80], "xp": [36, 66], "resources": {"fish": [20, 50], "herbs": [10, 20]}, "gear_drop_chance": 0.25},
     },
     # ── TIER 2 — FROZEN FRONTIER (level 6) ───────────────────────────────────
     "wolf": {
-        "tier": 2, "min_level": 5, "combat_power": 35,
+        "tier": 2, "min_level": 5, "combat_power": 50,
         "variants": ["Blizzard Wolf", "Shadow Wolf", "Arctic Dire Wolf"],
         "energy_cost": 25,
         "rewards": {"gold": [100, 200], "xp": [90, 150], "resources": {"bones": [30, 60], "blood_gems": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "snowman": {
-        "tier": 2, "min_level": 5, "combat_power": 40,
+        "tier": 2, "min_level": 5, "combat_power": 70,
         "variants": ["Cursed Snowman", "Frost Golem", "Ice Construct"],
         "energy_cost": 25,
         "rewards": {"gold": [110, 210], "xp": [96, 156], "resources": {"spell_fragments": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "shadow_penguin": {
-        "tier": 2, "min_level": 5, "combat_power": 38,
+        "tier": 2, "min_level": 5, "combat_power": 65,
         "variants": ["Shadow Penguin", "Dark Penguin", "Void Waddle"],
         "energy_cost": 25,
         "rewards": {"gold": [110, 190], "xp": [84, 144], "resources": {"blood_gems": [20, 40]}, "gear_drop_chance": 0.22},
     },
     "ice_hawk": {
-        "tier": 2, "min_level": 5, "combat_power": 33,
+        "tier": 2, "min_level": 5, "combat_power": 45,
         "variants": ["Storm Hawk", "Tundra Raptor", "Frozen Eagle"],
         "energy_cost": 25,
         "rewards": {"gold": [90, 180], "xp": [84, 135], "resources": {"herbs": [30, 60]}, "gear_drop_chance": 0.20},
     },
     "frost_scorpion": {
-        "tier": 2, "min_level": 5, "combat_power": 37,
+        "tier": 2, "min_level": 5, "combat_power": 60,
         "variants": ["Ice Stinger", "Polar Pincer", "Frost Venom"],
         "energy_cost": 25,
         "rewards": {"gold": [100, 190], "xp": [90, 144], "resources": {"blood_gems": [10, 30], "bones": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "snow_bear": {
-        "tier": 2, "min_level": 5, "combat_power": 42,
+        "tier": 2, "min_level": 5, "combat_power": 75,
         "variants": ["Snowfield Cub", "Frost Grizzly", "Avalanche Bear"],
         "energy_cost": 25,
         "rewards": {"gold": [125, 225], "xp": [105, 165], "resources": {"bones": [40, 80]}, "gear_drop_chance": 0.18},
     },
     "frost_wraith": {
-        "tier": 2, "min_level": 5, "combat_power": 36,
+        "tier": 2, "min_level": 5, "combat_power": 55,
         "variants": ["Ice Spirit", "Chilling Specter", "Pale Phantom"],
         "energy_cost": 25,
         "rewards": {"gold": [110, 200], "xp": [90, 150], "resources": {"spell_fragments": [10, 30]}, "gear_drop_chance": 0.22},
     },
     # ── TIER 3 — SHADOW TERRITORY (level 11) ─────────────────────────────────
     "ice_spider": {
-        "tier": 3, "min_level": 10, "combat_power": 58,
+        "tier": 3, "min_level": 10, "combat_power": 101,
         "variants": ["Web Creeper", "Frost Widow", "Icy Spinner"],
         "energy_cost": 25,
         "rewards": {"gold": [175, 300], "xp": [120, 195], "resources": {"herbs": [40, 80], "bones": [30, 50]}, "gear_drop_chance": 0.15},
     },
     "frost_shark": {
-        "tier": 3, "min_level": 10, "combat_power": 62,
+        "tier": 3, "min_level": 10, "combat_power": 113,
         "variants": ["Glacier Fin", "Deep Frostbite", "Ice Jaw"],
         "energy_cost": 25,
         "rewards": {"gold": [190, 310], "xp": [126, 204], "resources": {"fish": [60, 120]}, "gear_drop_chance": 0.15},
     },
     "tundra_boar": {
-        "tier": 3, "min_level": 10, "combat_power": 57,
+        "tier": 3, "min_level": 10, "combat_power": 95,
         "variants": ["Frozen Tusker", "Blizzard Hog", "Snow Crusher"],
         "energy_cost": 25,
         "rewards": {"gold": [165, 290], "xp": [114, 186], "resources": {"bones": [50, 90]}, "gear_drop_chance": 0.15},
     },
     "living_iceblock": {
-        "tier": 3, "min_level": 10, "combat_power": 65,
+        "tier": 3, "min_level": 10, "combat_power": 124,
         "variants": ["Frostcube", "Crystalline Mass", "Cryo Entity"],
         "energy_cost": 25,
         "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"spell_fragments": [30, 50]}, "gear_drop_chance": 0.14},
     },
     "cursed_owl": {
-        "tier": 3, "min_level": 10, "combat_power": 60,
+        "tier": 3, "min_level": 10, "combat_power": 107,
         "variants": ["Night Eye", "Shadow Talon", "Hexed Feather"],
         "energy_cost": 25,
         "rewards": {"gold": [175, 300], "xp": [126, 195], "resources": {"spell_fragments": [20, 50], "herbs": [30, 60]}, "gear_drop_chance": 0.16},
     },
     "glacier_croc": {
-        "tier": 3, "min_level": 10, "combat_power": 63,
+        "tier": 3, "min_level": 10, "combat_power": 118,
         "variants": ["Tundra Jaws", "Frost Maw", "Ice Scale"],
         "energy_cost": 25,
         "rewards": {"gold": [190, 315], "xp": [129, 201], "resources": {"fish": [50, 100], "bones": [30, 60]}, "gear_drop_chance": 0.14},
     },
     "night_stalker": {
-        "tier": 3, "min_level": 10, "combat_power": 68,
+        "tier": 3, "min_level": 10, "combat_power": 130,
         "variants": ["Shadow Creeper", "Dusk Hunter", "Void Walker"],
         "energy_cost": 25,
         "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"blood_gems": [30, 60]}, "gear_drop_chance": 0.15},
     },
     # ── TIER 4 — CURSED DEPTHS (level 16) ────────────────────────────────────
     "golem": {
-        "tier": 4, "min_level": 15, "combat_power": 85,
+        "tier": 4, "min_level": 15, "combat_power": 148,
         "variants": ["Stone Golem", "Crystal Golem", "Ancient Guardian"],
         "energy_cost": 25,
         "rewards": {"gold": [275, 425], "xp": [180, 270], "resources": {"bones": [60, 120], "blood_gems": [30, 60]}, "gear_drop_chance": 0.12},
     },
     "serpent": {
-        "tier": 4, "min_level": 15, "combat_power": 90,
+        "tier": 4, "min_level": 15, "combat_power": 164,
         "variants": ["Sea Serpent", "Ice Wyrm", "Frost Leviathan"],
         "energy_cost": 25,
         "rewards": {"gold": [290, 450], "xp": [186, 285], "resources": {"fish": [80, 150], "spell_fragments": [30, 50]}, "gear_drop_chance": 0.12},
     },
     "druid": {
-        "tier": 4, "min_level": 15, "combat_power": 82,
+        "tier": 4, "min_level": 15, "combat_power": 140,
         "variants": ["Dark Druid", "Cursed Shaman", "Shadow Priest"],
         "energy_cost": 25,
         "rewards": {"gold": [275, 425], "xp": [186, 276], "resources": {"spell_fragments": [50, 90], "herbs": [50, 90]}, "gear_drop_chance": 0.14},
     },
     "ice_drake": {
-        "tier": 4, "min_level": 15, "combat_power": 95,
+        "tier": 4, "min_level": 15, "combat_power": 172,
         "variants": ["Frost Whelp", "Arctic Drake", "Glacial Serpent"],
         "energy_cost": 25,
         "rewards": {"gold": [300, 475], "xp": [195, 300], "resources": {"blood_gems": [40, 80], "spell_fragments": [20, 40]}, "gear_drop_chance": 0.12},
     },
     "fallen_knight": {
-        "tier": 4, "min_level": 15, "combat_power": 88,
+        "tier": 4, "min_level": 15, "combat_power": 156,
         "variants": ["Lost Paladin", "Cursed Champion", "Hollow Warden"],
         "energy_cost": 25,
         "rewards": {"gold": [290, 460], "xp": [186, 285], "resources": {"bones": [50, 100], "blood_gems": [20, 50]}, "gear_drop_chance": 0.12},
     },
     "blizzard_elemental": {
-        "tier": 4, "min_level": 15, "combat_power": 100,
+        "tier": 4, "min_level": 15, "combat_power": 180,
         "variants": ["Storm Core", "Blizzard Wraith", "Polar Force"],
         "energy_cost": 25,
         "rewards": {"gold": [310, 490], "xp": [195, 300], "resources": {"spell_fragments": [40, 80]}, "gear_drop_chance": 0.12},
     },
     # ── TIER 5 — THE ABYSS (level 26) ────────────────────────────────────────
     "elite_frostbear": {
-        "tier": 5, "min_level": 25, "combat_power": 125,
+        "tier": 5, "min_level": 25, "combat_power": 210,
         "variants": ["Frostbear Alpha", "Glacial Ursine", "Permafrost Beast"],
         "energy_cost": 25,
         "rewards": {"gold": [450, 700], "xp": [270, 420], "resources": {"blood_gems": [60, 120], "bones": [80, 150]}, "gear_drop_chance": 0.10},
     },
     "frost_demon": {
-        "tier": 5, "min_level": 25, "combat_power": 140,
+        "tier": 5, "min_level": 25, "combat_power": 227,
         "variants": ["Frost Wraith Lord", "Infernal Ice", "Arctic Demon"],
         "energy_cost": 25,
         "rewards": {"gold": [500, 750], "xp": [300, 450], "resources": {"blood_gems": [80, 140], "spell_fragments": [50, 100]}, "gear_drop_chance": 0.10},
     },
     "ancient_wyrm": {
-        "tier": 5, "min_level": 25, "combat_power": 155,
+        "tier": 5, "min_level": 25, "combat_power": 243,
         "variants": ["Void Dragon", "Ancient Serpent", "Deep Abyss"],
         "energy_cost": 25,
         "rewards": {"gold": [550, 800], "xp": [330, 495], "resources": {"spell_fragments": [80, 150], "blood_gems": [50, 100]}, "gear_drop_chance": 0.08},
     },
     "deaths_herald": {
-        "tier": 5, "min_level": 25, "combat_power": 160,
+        "tier": 5, "min_level": 25, "combat_power": 260,
         "variants": ["Death Knight", "The Reaper", "End Bringer"],
         "energy_cost": 25,
         "rewards": {"gold": [600, 900], "xp": [360, 540], "resources": {"blood_gems": [100, 180], "bones": [100, 180]}, "gear_drop_chance": 0.08},
