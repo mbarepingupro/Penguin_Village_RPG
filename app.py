@@ -690,215 +690,217 @@ _MONSTER_ICONS = {
 }
 
 # Per-tier monster CP bands: (easiest_cp, hardest_cp). Tune during
-# balance-pass -- rescaled 2026-07-17. The old values were set against BASE
-# player CP (10 + level*3) only, ignoring gear: a modestly geared level-8
-# player (~80-100 total CP) hit the 95% win-chance cap against every tier
-# 1-2 monster. These bands are sized against realistic gear-adjusted CP
-# (base + ~25/45/65/85/105/125/155 gear CP at levels 5/8/10/15/20/25/30),
-# so each tier's EASIEST monster is comfortably farmable at the tier's
-# unlock level while its HARDEST stays a real fight until well after the
-# next tier opens. Ramp widths grow with the tier (25/30/35/40/50) because
-# both the level span covered and the player gear-CP variance grow with
-# tier -- flat 20-25 ramps were tested and left tiers 3-5 flattening back
-# to near-95% across the board at their top end. Individual combat_power
-# values below are evenly spaced within these bands, preserving each
-# tier's original easiest->hardest monster ordering.
+# balance-pass -- target-curve solve 2026-07-17. These are SOLVED, not
+# hand-picked: per bracket, the hardest monster's CP satisfies "~30% win at
+# the bracket's entry level, ~90% by its last level" and the easiest targets
+# "~85% at entry", against realistic total CP (base 10+level*3 plus expected
+# gear CP simulated from the real drop/XP systems and calibrated to the
+# measured 121-total-CP-at-level-8 data point). Bracket entry->exit total CP:
+#   T1 L1->L4:   13 -> 50    T2 L5->L9:  70 -> 135   T3 L10->L14: 152 -> 196
+#   T4 L15->L24: 205 -> 269  T5 L25->L30: 273 -> 289
+# Solved with the per-tier slope in WIN_CHANCE_TIER_STEEPNESS (see there for
+# why the slope had to become tier-dependent): hardest = entry + 20/K,
+# easiest = entry - 35/K. Tier 1's easiest clamps at CP 5 (hitting 85% for a
+# 13-CP fresh player would need negative monster CP), giving 63% at entry --
+# the one target that isn't exactly met, flagged rather than hidden.
+# Individual combat_power values below are evenly spaced within these bands,
+# preserving each tier's original easiest->hardest monster ordering.
 MONSTER_TIER_CP_BANDS = {
-    1: (10, 35),    # levels 1-4   (7 monsters, ramp 25)
-    2: (45, 75),    # levels 5-9   (7 monsters, ramp 30)
-    3: (95, 130),   # levels 10-14 (7 monsters, ramp 35)
-    4: (140, 180),  # levels 15-24 (6 monsters, ramp 40)
-    5: (210, 260),  # levels 25-30 (4 monsters, ramp 50)
+    1: (5, 25),     # levels 1-4   (7 monsters)
+    2: (32, 92),    # levels 5-9   (7 monsters)
+    3: (126, 167),  # levels 10-14 (7 monsters)
+    4: (168, 227),  # levels 15-24 (6 monsters)
+    5: (264, 278),  # levels 25-30 (4 monsters)
 }
 
 MONSTER_TYPES = {
     # ── TIER 1 — NEWCOMER GROUNDS (level 1) ──────────────────────────────────
     "crab": {
-        "tier": 1, "min_level": 1, "combat_power": 23,
+        "tier": 1, "min_level": 1, "combat_power": 15,
         "variants": ["Snow Crab", "Hermit Crab", "Giant Crab"],
         "energy_cost": 25,
         "rewards": {"gold": [50, 100], "xp": [45, 75], "resources": {"fish": [20, 50]}, "gear_drop_chance": 0.25},
     },
     "bat": {
-        "tier": 1, "min_level": 1, "combat_power": 35,
+        "tier": 1, "min_level": 1, "combat_power": 25,
         "variants": ["Ice Bat", "Cave Bat", "Frost Wing"],
         "energy_cost": 25,
         "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"herbs": [20, 40]}, "gear_drop_chance": 0.25},
     },
     "rat": {
-        "tier": 1, "min_level": 1, "combat_power": 10,
+        "tier": 1, "min_level": 1, "combat_power": 5,
         "variants": ["Frost Rat", "Sewer Rat", "Snow Mouse"],
         "energy_cost": 25,
         "rewards": {"gold": [25, 75], "xp": [30, 60], "resources": {"bones": [10, 30]}, "gear_drop_chance": 0.20},
     },
     "shell_lurker": {
-        "tier": 1, "min_level": 1, "combat_power": 18,
+        "tier": 1, "min_level": 1, "combat_power": 12,
         "variants": ["Tide Shell", "Giant Conch", "Lurking Shell"],
         "energy_cost": 25,
         "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"fish": [10, 40]}, "gear_drop_chance": 0.20},
     },
     "ice_squid": {
-        "tier": 1, "min_level": 1, "combat_power": 27,
+        "tier": 1, "min_level": 1, "combat_power": 18,
         "variants": ["Baby Squid", "Frost Squid", "Ink Specter"],
         "energy_cost": 25,
         "rewards": {"gold": [50, 90], "xp": [36, 66], "resources": {"fish": [20, 40], "herbs": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "frost_beetle": {
-        "tier": 1, "min_level": 1, "combat_power": 14,
+        "tier": 1, "min_level": 1, "combat_power": 8,
         "variants": ["Tunnel Bug", "Ice Crawler", "Crystal Grub"],
         "energy_cost": 25,
         "rewards": {"gold": [30, 70], "xp": [30, 60], "resources": {"bones": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "pufferfish": {
-        "tier": 1, "min_level": 1, "combat_power": 31,
+        "tier": 1, "min_level": 1, "combat_power": 22,
         "variants": ["Toxic Puffer", "Spiky Fish", "Blowfish"],
         "energy_cost": 25,
         "rewards": {"gold": [40, 80], "xp": [36, 66], "resources": {"fish": [20, 50], "herbs": [10, 20]}, "gear_drop_chance": 0.25},
     },
     # ── TIER 2 — FROZEN FRONTIER (level 6) ───────────────────────────────────
     "wolf": {
-        "tier": 2, "min_level": 5, "combat_power": 50,
+        "tier": 2, "min_level": 5, "combat_power": 42,
         "variants": ["Blizzard Wolf", "Shadow Wolf", "Arctic Dire Wolf"],
         "energy_cost": 25,
         "rewards": {"gold": [100, 200], "xp": [90, 150], "resources": {"bones": [30, 60], "blood_gems": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "snowman": {
-        "tier": 2, "min_level": 5, "combat_power": 70,
+        "tier": 2, "min_level": 5, "combat_power": 82,
         "variants": ["Cursed Snowman", "Frost Golem", "Ice Construct"],
         "energy_cost": 25,
         "rewards": {"gold": [110, 210], "xp": [96, 156], "resources": {"spell_fragments": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "shadow_penguin": {
-        "tier": 2, "min_level": 5, "combat_power": 65,
+        "tier": 2, "min_level": 5, "combat_power": 72,
         "variants": ["Shadow Penguin", "Dark Penguin", "Void Waddle"],
         "energy_cost": 25,
         "rewards": {"gold": [110, 190], "xp": [84, 144], "resources": {"blood_gems": [20, 40]}, "gear_drop_chance": 0.22},
     },
     "ice_hawk": {
-        "tier": 2, "min_level": 5, "combat_power": 45,
+        "tier": 2, "min_level": 5, "combat_power": 32,
         "variants": ["Storm Hawk", "Tundra Raptor", "Frozen Eagle"],
         "energy_cost": 25,
         "rewards": {"gold": [90, 180], "xp": [84, 135], "resources": {"herbs": [30, 60]}, "gear_drop_chance": 0.20},
     },
     "frost_scorpion": {
-        "tier": 2, "min_level": 5, "combat_power": 60,
+        "tier": 2, "min_level": 5, "combat_power": 62,
         "variants": ["Ice Stinger", "Polar Pincer", "Frost Venom"],
         "energy_cost": 25,
         "rewards": {"gold": [100, 190], "xp": [90, 144], "resources": {"blood_gems": [10, 30], "bones": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "snow_bear": {
-        "tier": 2, "min_level": 5, "combat_power": 75,
+        "tier": 2, "min_level": 5, "combat_power": 92,
         "variants": ["Snowfield Cub", "Frost Grizzly", "Avalanche Bear"],
         "energy_cost": 25,
         "rewards": {"gold": [125, 225], "xp": [105, 165], "resources": {"bones": [40, 80]}, "gear_drop_chance": 0.18},
     },
     "frost_wraith": {
-        "tier": 2, "min_level": 5, "combat_power": 55,
+        "tier": 2, "min_level": 5, "combat_power": 52,
         "variants": ["Ice Spirit", "Chilling Specter", "Pale Phantom"],
         "energy_cost": 25,
         "rewards": {"gold": [110, 200], "xp": [90, 150], "resources": {"spell_fragments": [10, 30]}, "gear_drop_chance": 0.22},
     },
     # ── TIER 3 — SHADOW TERRITORY (level 11) ─────────────────────────────────
     "ice_spider": {
-        "tier": 3, "min_level": 10, "combat_power": 101,
+        "tier": 3, "min_level": 10, "combat_power": 133,
         "variants": ["Web Creeper", "Frost Widow", "Icy Spinner"],
         "energy_cost": 25,
         "rewards": {"gold": [175, 300], "xp": [120, 195], "resources": {"herbs": [40, 80], "bones": [30, 50]}, "gear_drop_chance": 0.15},
     },
     "frost_shark": {
-        "tier": 3, "min_level": 10, "combat_power": 113,
+        "tier": 3, "min_level": 10, "combat_power": 146,
         "variants": ["Glacier Fin", "Deep Frostbite", "Ice Jaw"],
         "energy_cost": 25,
         "rewards": {"gold": [190, 310], "xp": [126, 204], "resources": {"fish": [60, 120]}, "gear_drop_chance": 0.15},
     },
     "tundra_boar": {
-        "tier": 3, "min_level": 10, "combat_power": 95,
+        "tier": 3, "min_level": 10, "combat_power": 126,
         "variants": ["Frozen Tusker", "Blizzard Hog", "Snow Crusher"],
         "energy_cost": 25,
         "rewards": {"gold": [165, 290], "xp": [114, 186], "resources": {"bones": [50, 90]}, "gear_drop_chance": 0.15},
     },
     "living_iceblock": {
-        "tier": 3, "min_level": 10, "combat_power": 124,
+        "tier": 3, "min_level": 10, "combat_power": 160,
         "variants": ["Frostcube", "Crystalline Mass", "Cryo Entity"],
         "energy_cost": 25,
         "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"spell_fragments": [30, 50]}, "gear_drop_chance": 0.14},
     },
     "cursed_owl": {
-        "tier": 3, "min_level": 10, "combat_power": 107,
+        "tier": 3, "min_level": 10, "combat_power": 140,
         "variants": ["Night Eye", "Shadow Talon", "Hexed Feather"],
         "energy_cost": 25,
         "rewards": {"gold": [175, 300], "xp": [126, 195], "resources": {"spell_fragments": [20, 50], "herbs": [30, 60]}, "gear_drop_chance": 0.16},
     },
     "glacier_croc": {
-        "tier": 3, "min_level": 10, "combat_power": 118,
+        "tier": 3, "min_level": 10, "combat_power": 153,
         "variants": ["Tundra Jaws", "Frost Maw", "Ice Scale"],
         "energy_cost": 25,
         "rewards": {"gold": [190, 315], "xp": [129, 201], "resources": {"fish": [50, 100], "bones": [30, 60]}, "gear_drop_chance": 0.14},
     },
     "night_stalker": {
-        "tier": 3, "min_level": 10, "combat_power": 130,
+        "tier": 3, "min_level": 10, "combat_power": 167,
         "variants": ["Shadow Creeper", "Dusk Hunter", "Void Walker"],
         "energy_cost": 25,
         "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"blood_gems": [30, 60]}, "gear_drop_chance": 0.15},
     },
     # ── TIER 4 — CURSED DEPTHS (level 16) ────────────────────────────────────
     "golem": {
-        "tier": 4, "min_level": 15, "combat_power": 148,
+        "tier": 4, "min_level": 15, "combat_power": 180,
         "variants": ["Stone Golem", "Crystal Golem", "Ancient Guardian"],
         "energy_cost": 25,
         "rewards": {"gold": [275, 425], "xp": [180, 270], "resources": {"bones": [60, 120], "blood_gems": [30, 60]}, "gear_drop_chance": 0.12},
     },
     "serpent": {
-        "tier": 4, "min_level": 15, "combat_power": 164,
+        "tier": 4, "min_level": 15, "combat_power": 203,
         "variants": ["Sea Serpent", "Ice Wyrm", "Frost Leviathan"],
         "energy_cost": 25,
         "rewards": {"gold": [290, 450], "xp": [186, 285], "resources": {"fish": [80, 150], "spell_fragments": [30, 50]}, "gear_drop_chance": 0.12},
     },
     "druid": {
-        "tier": 4, "min_level": 15, "combat_power": 140,
+        "tier": 4, "min_level": 15, "combat_power": 168,
         "variants": ["Dark Druid", "Cursed Shaman", "Shadow Priest"],
         "energy_cost": 25,
         "rewards": {"gold": [275, 425], "xp": [186, 276], "resources": {"spell_fragments": [50, 90], "herbs": [50, 90]}, "gear_drop_chance": 0.14},
     },
     "ice_drake": {
-        "tier": 4, "min_level": 15, "combat_power": 172,
+        "tier": 4, "min_level": 15, "combat_power": 215,
         "variants": ["Frost Whelp", "Arctic Drake", "Glacial Serpent"],
         "energy_cost": 25,
         "rewards": {"gold": [300, 475], "xp": [195, 300], "resources": {"blood_gems": [40, 80], "spell_fragments": [20, 40]}, "gear_drop_chance": 0.12},
     },
     "fallen_knight": {
-        "tier": 4, "min_level": 15, "combat_power": 156,
+        "tier": 4, "min_level": 15, "combat_power": 192,
         "variants": ["Lost Paladin", "Cursed Champion", "Hollow Warden"],
         "energy_cost": 25,
         "rewards": {"gold": [290, 460], "xp": [186, 285], "resources": {"bones": [50, 100], "blood_gems": [20, 50]}, "gear_drop_chance": 0.12},
     },
     "blizzard_elemental": {
-        "tier": 4, "min_level": 15, "combat_power": 180,
+        "tier": 4, "min_level": 15, "combat_power": 227,
         "variants": ["Storm Core", "Blizzard Wraith", "Polar Force"],
         "energy_cost": 25,
         "rewards": {"gold": [310, 490], "xp": [195, 300], "resources": {"spell_fragments": [40, 80]}, "gear_drop_chance": 0.12},
     },
     # ── TIER 5 — THE ABYSS (level 26) ────────────────────────────────────────
     "elite_frostbear": {
-        "tier": 5, "min_level": 25, "combat_power": 210,
+        "tier": 5, "min_level": 25, "combat_power": 264,
         "variants": ["Frostbear Alpha", "Glacial Ursine", "Permafrost Beast"],
         "energy_cost": 25,
         "rewards": {"gold": [450, 700], "xp": [270, 420], "resources": {"blood_gems": [60, 120], "bones": [80, 150]}, "gear_drop_chance": 0.10},
     },
     "frost_demon": {
-        "tier": 5, "min_level": 25, "combat_power": 227,
+        "tier": 5, "min_level": 25, "combat_power": 269,
         "variants": ["Frost Wraith Lord", "Infernal Ice", "Arctic Demon"],
         "energy_cost": 25,
         "rewards": {"gold": [500, 750], "xp": [300, 450], "resources": {"blood_gems": [80, 140], "spell_fragments": [50, 100]}, "gear_drop_chance": 0.10},
     },
     "ancient_wyrm": {
-        "tier": 5, "min_level": 25, "combat_power": 243,
+        "tier": 5, "min_level": 25, "combat_power": 273,
         "variants": ["Void Dragon", "Ancient Serpent", "Deep Abyss"],
         "energy_cost": 25,
         "rewards": {"gold": [550, 800], "xp": [330, 495], "resources": {"spell_fragments": [80, 150], "blood_gems": [50, 100]}, "gear_drop_chance": 0.08},
     },
     "deaths_herald": {
-        "tier": 5, "min_level": 25, "combat_power": 260,
+        "tier": 5, "min_level": 25, "combat_power": 278,
         "variants": ["Death Knight", "The Reaper", "End Bringer"],
         "energy_cost": 25,
         "rewards": {"gold": [600, 900], "xp": [360, 540], "resources": {"blood_gems": [100, 180], "bones": [100, 180]}, "gear_drop_chance": 0.08},
@@ -1526,8 +1528,31 @@ def update_passive_energy(username):
         db.close()
 
 
-def calculate_win_chance(player_cp, monster_cp):
-    return max(5, min(95, 50 + (player_cp - monster_cp)))
+# Per-tier win-chance steepness -- tune during balance-pass, target-curve
+# solve 2026-07-17. The target curve per bracket is: hardest monster ~30% win
+# at the bracket's entry level and ~90% by its last level, easiest ~85% at
+# entry. With realistic CP growth per bracket (simulated from the real drop/
+# XP systems, calibrated to the measured 121-total-CP-at-level-8 data point:
+# entry->exit total CP of 13->50, 70->135, 152->196, 205->269, 273->289),
+# the old fixed slope of 1 %/CP needs exactly 60 CP of growth per bracket to
+# span 30%->90% -- only tiers 2 and 4 come close (65/64); tiers 1, 3 and 5
+# grow 37/44/16. So the 30->90 target is NOT hittable with monster CP alone:
+# each tier's slope is solved as K = 60 / (bracket CP growth) instead.
+# Tier 5's steep 3.73 is the honest consequence of gear capping out (only
+# ~16 CP of growth across levels 25-30). tier=None keeps the legacy slope of
+# 1.0 for any non-tiered caller.
+WIN_CHANCE_TIER_STEEPNESS = {
+    1: 1.61,  # levels 1-4:   ~37 CP growth
+    2: 0.92,  # levels 5-9:   ~65 CP growth
+    3: 1.35,  # levels 10-14: ~44 CP growth
+    4: 0.94,  # levels 15-24: ~64 CP growth
+    5: 3.73,  # levels 25-30: ~16 CP growth
+}
+
+
+def calculate_win_chance(player_cp, monster_cp, tier=None):
+    k = WIN_CHANCE_TIER_STEEPNESS.get(tier, 1.0)
+    return max(5, min(95, round(50 + k * (player_cp - monster_cp))))
 
 def get_evaluation(win_chance):
     if win_chance >= 90: return "Free Real Estate"
@@ -1539,8 +1564,8 @@ def get_evaluation(win_chance):
     if win_chance >= 10: return "Basically Suicide"
     return "Miracle Required"
 
-def resolve_fight(player_cp, monster_cp):
-    win_chance = calculate_win_chance(player_cp, monster_cp)
+def resolve_fight(player_cp, monster_cp, tier=None):
+    win_chance = calculate_win_chance(player_cp, monster_cp, tier)
     roll = random.randint(1, 100)
     return {
         "victory": roll <= win_chance,
@@ -3921,7 +3946,7 @@ def combat_monsters(username):
         for type_id, mtype in MONSTER_TYPES.items():
             variant    = get_daily_variant(type_id)
             mcp        = mtype["combat_power"]
-            win_chance = calculate_win_chance(player_cp, mcp)
+            win_chance = calculate_win_chance(player_cp, mcp, mtype["tier"])
             rdef       = mtype["rewards"]
             res_parts  = [f"{lo}-{hi} {k.replace('_',' ')}" for k, (lo, hi) in rdef["resources"].items()]
             is_new     = (type_id, variant["name"]) not in first_kills_done
@@ -4004,7 +4029,7 @@ def combat_fight():
         energy_remaining = max(0, (p["energy"] or 0) - energy_cost)
 
         player_cp = get_combat_power(username)
-        fight = resolve_fight(player_cp, mtype["combat_power"])
+        fight = resolve_fight(player_cp, mtype["combat_power"], mtype["tier"])
 
         advance_mission(db, username, "fight_1", today)
         ensure_resources(db, username)
