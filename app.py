@@ -6896,13 +6896,26 @@ def _get_public_penguin(username):
         area = _VISUAL_AREA.get(c["slot"])
         if area:
             worn_by_area[area] = c["item_id"]
-    # equipped card background (still uses equipped=1 since card frames are not visual-area items)
-    bg_row = db.execute(
+    # Equipped card background + card frame -- these are two INDEPENDENT
+    # slots, not a mutually-exclusive pair: the Inventory > Cosmetics tab's
+    # equip route (/gear/cosmetics/equip) only sweeps the exact slot being
+    # equipped, so a player can have one of each equipped at the same time
+    # (the OTHER equip route, /card/background/equip, sweeps both slots
+    # together, but it's not the only path a player can equip through).
+    # Queried separately -- a single "LIMIT 1 across both slots" query would
+    # silently return only one of the two and drop the other entirely.
+    equipped_background_row = db.execute(
         "SELECT item_id, name FROM gear WHERE username=? AND type='cosmetic' "
-        "AND slot IN ('card_frame','card_background') AND equipped=1 LIMIT 1",
+        "AND slot='card_background' AND equipped=1 LIMIT 1",
         (username,)
     ).fetchone()
-    equipped_bg = dict(bg_row) if bg_row else None
+    equipped_frame_row = db.execute(
+        "SELECT item_id, name FROM gear WHERE username=? AND type='cosmetic' "
+        "AND slot='card_frame' AND equipped=1 LIMIT 1",
+        (username,)
+    ).fetchone()
+    equipped_background = dict(equipped_background_row) if equipped_background_row else None
+    equipped_frame       = dict(equipped_frame_row) if equipped_frame_row else None
     db.close()
     level, _, _ = xp_progress(p["xp"] or 0)
     pcolor   = _resolve_hex_color(p["penguin_color"] if p["penguin_color"] else "#1a1a1a")
@@ -6919,7 +6932,8 @@ def _get_public_penguin(username):
         "penguin_color": pcolor,
         "penguin_shape": p["penguin_shape"] or "normal",
         "color_palette": {},
-        "equipped_bg": equipped_bg,
+        "equipped_background": equipped_background,
+        "equipped_frame": equipped_frame,
     }
 
 
@@ -6927,10 +6941,12 @@ def _generate_card_image(data):
     d   = data["p"]
     lv  = data["level"]
     img = Image.new("RGB", (CARD_W, CARD_H), _COLORS["bg"])
-    # Card background — try image file, fall back to theme color
-    equipped_bg = data.get("equipped_bg")
-    if equipped_bg:
-        item_id = equipped_bg.get("item_id", "")
+    # Card background — drawn first (behind everything, including the frame
+    # border below) — try image file, fall back to theme color. Independent
+    # of whatever card_frame is ALSO equipped (see _get_public_penguin).
+    equipped_background = data.get("equipped_background")
+    if equipped_background:
+        item_id = equipped_background.get("item_id", "")
         bg_drawn = False
         # Try to load image
         bg_img_path = os.path.join(os.path.dirname(__file__), "static", "card_backgrounds",
@@ -6956,8 +6972,21 @@ def _generate_card_image(data):
                 img.paste(Image.new("RGB", (CARD_W, CARD_H), (r_val, g_val, b_val)))
     draw = ImageDraw.Draw(img)
 
-    has_golden_frame  = "golden_frame"  in data["cosmetic_ids"]
-    has_sparkle       = "animated_sparkle" in data["cosmetic_ids"]
+    # Frame border, drawn after (in front of) the background fill above.
+    # golden_frame (Seal Shop) is currently the ONLY card_frame item with any
+    # defined visual treatment -- it recolors the outer border. Checked
+    # against the actually-EQUIPPED frame (equipped_frame) rather than
+    # cosmetic_ids, which is built from worn=1 rows and can never be true
+    # for card_frame items -- they have no visual area (_VISUAL_AREA) and no
+    # wear UI at all, so this check previously could never fire for a real
+    # player. The four CONTRIBUTION_MILESTONES frames (Contributor's Frame,
+    # Builder's Canvas, Architect's Backdrop, Legendary Founder's Frame)
+    # still have NO defined visual anywhere (no color, no overlay image) --
+    # flagged for a design call rather than invented here.
+    equipped_frame   = data.get("equipped_frame")
+    frame_item_id    = equipped_frame.get("item_id", "") if equipped_frame else ""
+    has_golden_frame = frame_item_id == "golden_frame"
+    has_sparkle      = "animated_sparkle" in data["cosmetic_ids"]
 
     # Outer border
     border_col = _COLORS["orange"] if has_golden_frame else _COLORS["purple"]
