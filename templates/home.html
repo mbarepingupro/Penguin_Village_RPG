@@ -1352,6 +1352,7 @@
       padding: 10px; cursor: pointer;
     }
     .bank-btn:hover { background: #A86EFF; color: #181820; }
+    .bank-btn:disabled { border-color: #8888A8; color: #8888A8; cursor: not-allowed; background: none; }
     .bank-note { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #8888A8; line-height: 2; }
     .bank-empty { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #8888A8; text-align: center; padding: 20px; }
     .bank-item-preview {
@@ -1365,6 +1366,32 @@
     .bk-rarity-legendary { color: #FF8C00; }
     .bank-arrow { color: #B8B8D0; font-size: 17px; margin: 0 4px; }
     .bank-completed-tag { font-size: 16px; color: #4aff6b; }
+
+    /* ── Sell to Bank: two-column multi-select layout ── */
+    .bank-sell-columns   { flex: 1; display: flex; overflow: hidden; }
+    .bank-sell-col-left  { flex: 1 1 55%; min-width: 0; display: flex; flex-direction: column; overflow: hidden; border-right: 2px solid #303045; }
+    .bank-sell-col-right { flex: 1 1 45%; min-width: 0; display: flex; flex-direction: column; overflow: hidden; padding: 10px; }
+    .bank-sell-card {
+      background: #252535; border: 2px solid #303045; padding: 8px 10px; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+    }
+    .bank-sell-card:hover      { border-color: #A86EFF44; }
+    .bank-sell-card.selected   { border-color: #A86EFF; background: #2a1a4a; }
+    .bank-sell-card input[type="checkbox"] { flex-shrink: 0; cursor: pointer; pointer-events: none; }
+    .bank-sell-card-info  { flex: 1; min-width: 0; }
+    .bank-sell-card-name  { font-size: 16px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bank-sell-card-meta  { font-size: 16px; color: #8888A8; margin-top: 2px; }
+    .bank-sell-card-price { font-size: 16px; color: #4aff6b; flex-shrink: 0; white-space: nowrap; }
+    .bank-sell-footer {
+      flex-shrink: 0; padding: 8px 10px; border-top: 2px solid #303045;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .bank-sell-total { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #B8B8D0; }
+    .bank-sell-total strong { color: #4aff6b; }
+    @media (max-width: 768px) {
+      .bank-sell-col-right { display: none; }
+      .bank-sell-col-left  { flex: 1 1 100%; border-right: none; }
+    }
 
     /* ── LEVEL-UP CELEBRATION OVERLAY ── */
     @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
@@ -3480,14 +3507,21 @@
             </div>
             <!-- Sell to Bank -->
             <div class="bank-sub-panel" id="bk-bank-sell">
-              <div class="bank-form">
-                <div class="bank-note" style="margin-bottom:8px;">The bank buys your gear for instant gold. Items go on sale for other players at +20% for 24 hours.</div>
-                <div class="bank-form-label">SELECT ITEM TO SELL:</div>
-                <select id="bk-bank-sell-gear" class="bank-select bank-select-wide" onchange="bankPreviewSellToBank(parseInt(this.value))">
-                  <option value="">-- choose an item --</option>
-                </select>
-                <div id="bk-bank-sell-preview" class="bank-item-preview" style="display:none"></div>
-                <button class="bank-btn" onclick="bankSellToBank()">SELL TO BANK</button>
+              <div class="bank-sell-columns">
+                <div class="bank-sell-col-left">
+                  <div class="bank-note" style="margin:8px 8px 4px;">The bank buys your gear for instant gold. Items go on sale for other players at +20% for 24 hours.</div>
+                  <div class="eventlog-subtabs" id="bk-bank-sell-rarity-tabs"></div>
+                  <div id="bk-bank-sell-list" class="bank-listing-list">
+                    <div class="bank-empty">SELECT THE BANK TAB TO LOAD</div>
+                  </div>
+                  <div class="bank-sell-footer">
+                    <div id="bk-bank-sell-total" class="bank-sell-total">SELECTED: 0 · TOTAL: 0 🪙</div>
+                    <button class="bank-btn" id="bk-bank-sell-btn" onclick="bankSellToBank()" disabled>SELL TO BANK</button>
+                  </div>
+                </div>
+                <div class="bank-sell-col-right" id="bk-bank-sell-col-right">
+                  <!-- placeholder -->
+                </div>
               </div>
             </div>
             <!-- Items on Sale (bank shop) -->
@@ -8682,7 +8716,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   // ── BANK ──
   let _bkGearCache     = [];
-  let _bkBankSellCache = [];
+  let _bkBankSellData     = [];                                              // last-fetched sellable gear, cached for re-render on tab switch
+  let _bkBankSellRarity   = sessionStorage.getItem('bkBankSellRarity') || 'common';
+  let _bkBankSellSelected = new Set();                                       // gear ids currently checked for the batch sell
 
   const BANK_RES_ICONS = {
     gold: '🪙', fish: '🐟', herbs: '🌿',
@@ -8884,55 +8920,100 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   async function bankLoadBankSell() {
-    const sel = document.getElementById('bk-bank-sell-gear');
-    if (!sel) return;
+    const list = document.getElementById('bk-bank-sell-list');
+    if (!list) return;
+    list.innerHTML = '<div class="bank-empty">LOADING...</div>';
+    _bkBankSellSelected = new Set();
     try {
       const r    = await fetch(`/gear/inventory?username=${encodeURIComponent(CURRENT_USER)}`);
       const data = await r.json();
       // Titles/card frames/card backgrounds are excluded server-side via
       // bank_sellable; everything else (cosmetics + combat gear) is sellable,
       // including currently equipped/worn items -- selling auto-unequips them.
-      const gear = (data.gear || []).filter(g => !g.listed && g.bank_sellable);
-      _bkBankSellCache = gear;
-      if (!gear.length) {
-        sel.innerHTML = '<option value="">No gear available to sell</option>';
-        document.getElementById('bk-bank-sell-preview').style.display = 'none';
-        return;
-      }
-      sel.innerHTML = '<option value="">-- choose an item --</option>' +
-        gear.map(g => {
-          const tag = g.event_exclusive ? ' ⭐' : '';
-          return `<option value="${g.id}">${g.name}${tag} (${g.rarity || 'common'}) — ${g.bank_sell_value} 🪙</option>`;
-        }).join('');
-    } catch(e) {}
+      _bkBankSellData = (data.gear || []).filter(g => !g.listed && g.bank_sellable);
+      _renderBankSellList();
+    } catch(e) {
+      list.innerHTML = '<div class="bank-empty">ERROR</div>';
+    }
   }
 
-  function bankPreviewSellToBank(gearId) {
-    const preview = document.getElementById('bk-bank-sell-preview');
-    if (!preview) return;
-    const g = _bkBankSellCache.find(x => x.id === gearId);
-    if (!g) { preview.style.display = 'none'; return; }
-    const sp = g.bank_sell_value;
-    const bp = Math.ceil(sp * 1.2);
-    const rc = bankRarityClass(g.rarity);
-    const eventBadge = g.event_exclusive ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
-    preview.style.display = '';
-    preview.innerHTML = `<span class="${rc}">${g.name}</span>${eventBadge}<span style="color:#B8B8D0"> · CP ${g.combat_power || 0}${g.set_name ? ' · ' + g.set_name : ''}</span><br><span style="color:#4aff6b">Bank pays: ${sp} 🪙</span> <span style="color:#B8B8D0">· Listed at: ${bp} 🪙</span>`;
+  function switchBankSellRarity(rarity, btn) {
+    _bkBankSellRarity = rarity;
+    sessionStorage.setItem('bkBankSellRarity', rarity);
+    document.querySelectorAll('#bk-bank-sell .eventlog-subtab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    _renderBankSellList();
+  }
+
+  function _renderBankSellList() {
+    const tabs = document.getElementById('bk-bank-sell-rarity-tabs');
+    const list = document.getElementById('bk-bank-sell-list');
+    if (!tabs || !list) return;
+
+    // Same shape as switchInvGearRarity/renderCombatGearTab: all 5 rarity
+    // tabs always shown (this is the player's own inventory, like the
+    // Combat gear tab -- not the Barracks shop's availableRarities-only
+    // behavior), each tab filters the already-fetched _bkBankSellData
+    // client-side rather than re-fetching.
+    tabs.innerHTML = RARITY_ORDER.map(rarity => {
+      const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
+      const activeCls = rarity === _bkBankSellRarity ? ' active' : '';
+      return `<button class="eventlog-subtab${activeCls}" data-rarity="${rarity}" onclick="switchBankSellRarity('${rarity}', this)">${rh.label}</button>`;
+    }).join('');
+
+    const items = _bkBankSellData.filter(g => (g.rarity || 'common') === _bkBankSellRarity);
+    if (!items.length) {
+      list.innerHTML = '<div class="bank-empty">No gear to sell in this rarity.</div>';
+      _bkBankSellUpdateTotal();
+      return;
+    }
+    list.innerHTML = items.map(g => {
+      const rc = bankRarityClass(g.rarity);
+      const tag = g.event_exclusive ? ' ⭐' : '';
+      const selected = _bkBankSellSelected.has(g.id) ? ' selected' : '';
+      const checked  = _bkBankSellSelected.has(g.id) ? 'checked' : '';
+      const meta = [g.slot, g.combat_power ? `CP ${g.combat_power}` : '', g.set_name || '']
+        .filter(Boolean).join(' · ');
+      return `<div class="bank-sell-card${selected}" onclick="_bkBankSellToggle(${g.id})">
+        <input type="checkbox" ${checked} />
+        <div class="bank-sell-card-info">
+          <div class="bank-sell-card-name"><span class="${rc}">${g.name}</span>${tag}</div>
+          <div class="bank-sell-card-meta">${meta}</div>
+        </div>
+        <div class="bank-sell-card-price">${g.bank_sell_value} 🪙</div>
+      </div>`;
+    }).join('');
+    _bkBankSellUpdateTotal();
+  }
+
+  function _bkBankSellToggle(gearId) {
+    if (_bkBankSellSelected.has(gearId)) _bkBankSellSelected.delete(gearId);
+    else _bkBankSellSelected.add(gearId);
+    _renderBankSellList();
+  }
+
+  function _bkBankSellUpdateTotal() {
+    const totalEl = document.getElementById('bk-bank-sell-total');
+    const btn     = document.getElementById('bk-bank-sell-btn');
+    if (!totalEl || !btn) return;
+    const selectedItems = _bkBankSellData.filter(g => _bkBankSellSelected.has(g.id));
+    const total = selectedItems.reduce((sum, g) => sum + (g.bank_sell_value || 0), 0);
+    totalEl.innerHTML = `SELECTED: ${selectedItems.length} · TOTAL: <strong>${total} 🪙</strong>`;
+    btn.disabled = selectedItems.length === 0;
   }
 
   async function bankSellToBank() {
-    const gearId = parseInt(document.getElementById('bk-bank-sell-gear')?.value || '0');
-    if (!gearId) { showToast('Select an item.', 'err'); return; }
+    const gearIds = Array.from(_bkBankSellSelected);
+    if (!gearIds.length) { showToast('Select at least one item.', 'err'); return; }
     try {
       const r    = await fetch('/bank/sell-to-bank', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({username: CURRENT_USER, gear_id: gearId})
+        body: JSON.stringify({username: CURRENT_USER, gear_ids: gearIds})
       });
       const data = await r.json();
       if (data.status === 'success') {
         showToast(data.message, 'ok');
         if (window.GameSounds) GameSounds.purchase();
-        document.getElementById('bk-bank-sell-preview').style.display = 'none';
         bankLoadBankSell();
         await refreshStats();
         if (data.was_equipped_or_worn) await refreshPenguinDisplay();
