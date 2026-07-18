@@ -59,6 +59,25 @@
     .mh-main { flex: 1; padding: 16px; overflow-y: auto; }
     .mh-feed { width: 300px; flex-shrink: 0; border-left: 2px solid #2a2a3a; display: flex; flex-direction: column; }
 
+    /* ── TABS — reuses the .eventlog-subtab pattern (same class names,
+         same underline-indicator interaction) already used for sub-tabs
+         elsewhere in the app; restyled here with this file's own tokens
+         since mayor.html has no shared stylesheet with that file. ── */
+    .mh-tab-bar.eventlog-subtabs {
+      display: flex; border-bottom: 2px solid var(--purple); flex-shrink: 0;
+      overflow-x: auto; margin-bottom: 16px;
+    }
+    .eventlog-subtab {
+      font-family: 'Pixelify Sans', monospace; font-size: 16px;
+      padding: 9px 16px; border: none; background: none;
+      color: var(--dim); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .eventlog-subtab.active { color: var(--purple); border-bottom-color: var(--purple); }
+    .eventlog-subtab:hover:not(.active) { color: var(--white); }
+    .mh-tab-panel { display: none; }
+    .mh-tab-panel.active { display: block; }
+
     /* ── STAT CARDS ── */
     .mh-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
     .mh-stat-card {
@@ -221,604 +240,656 @@
 <div class="mh-body">
   <div class="mh-main">
 
-    <!-- STAT CARDS -->
-    <div class="mh-stats">
-      <div class="mh-stat-card">
-        <div class="mh-stat-icon">👥</div>
-        <div class="mh-stat-val" id="stat-online">{{ online_players }}</div>
-        <div class="mh-stat-lbl">PLAYERS ONLINE<br>(last 30 min)</div>
-      </div>
-      <div class="mh-stat-card">
-        <div class="mh-stat-icon">📊</div>
-        <div class="mh-stat-val" id="stat-total">{{ total_players }}</div>
-        <div class="mh-stat-lbl">TOTAL CITIZENS</div>
-      </div>
-      <div class="mh-stat-card">
-        <div class="mh-stat-icon">{% if is_live %}🔴{% else %}⚫{% endif %}</div>
-        <div class="mh-stat-val" style="color:{% if is_live %}#ff4444{% else %}#8888A8566{% endif %}">
-          {% if is_live %}LIVE{% else %}OFFLINE{% endif %}
-        </div>
-        <div class="mh-stat-lbl">STREAM STATUS</div>
-      </div>
-      <div class="mh-stat-card">
-        <div class="mh-stat-icon">⚡</div>
-        <div class="mh-stat-val" id="stat-buffs">{{ active_buffs | length }}</div>
-        <div class="mh-stat-lbl">ACTIVE BUFFS</div>
-      </div>
+    <!-- TABS -->
+    <div class="mh-tab-bar eventlog-subtabs">
+      <button class="eventlog-subtab active" data-tab="overview" onclick="switchMayorTab('overview', this)">📊 OVERVIEW</button>
+      <button class="eventlog-subtab" data-tab="players" onclick="switchMayorTab('players', this)">👥 PLAYERS</button>
+      <button class="eventlog-subtab" data-tab="economy" onclick="switchMayorTab('economy', this)">💰 ECONOMY</button>
+      <button class="eventlog-subtab" data-tab="announcements" onclick="switchMayorTab('announcements', this)">📢 ANNOUNCEMENTS</button>
+      <button class="eventlog-subtab" data-tab="raid" onclick="switchMayorTab('raid', this)">🐉 RAID &amp; CHALLENGES</button>
+      <button class="eventlog-subtab" data-tab="social" onclick="switchMayorTab('social', this)">🏷️ SOCIAL</button>
     </div>
 
-    <!-- ACTIONS -->
-    <div class="mh-section-title">⚡ QUICK ACTIONS</div>
-    <div class="mh-actions">
+    <!-- ═══════════════════════ OVERVIEW ═══════════════════════ -->
+    <div class="mh-tab-panel active" id="mh-tab-overview">
 
-      <!-- BUFF -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">🎉 ACTIVATE BUFF</div>
-        <div class="mh-field">
-          <label class="mh-label">BUFF TYPE</label>
-          <select class="mh-select" id="buff-type">
-            <option value="double_resources">2x RESOURCES</option>
-            <option value="double_xp">2x XP</option>
-            <option value="double_gold">2x GOLD</option>
-            <option value="half_energy">HALF ENERGY COSTS</option>
-            <option value="festival">FESTIVAL (2x XP + 2x GOLD)</option>
-          </select>
+      <!-- STAT CARDS -->
+      <div class="mh-stats">
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">👥</div>
+          <div class="mh-stat-val" id="stat-online">{{ online_players }}</div>
+          <div class="mh-stat-lbl">PLAYERS ONLINE<br>(last 30 min)</div>
         </div>
-        <div class="mh-field">
-          <label class="mh-label">DURATION (MINUTES)</label>
-          <input class="mh-input" type="number" id="buff-duration" value="30" min="1" max="480"/>
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">📊</div>
+          <div class="mh-stat-val" id="stat-total">{{ total_players }}</div>
+          <div class="mh-stat-lbl">TOTAL CITIZENS</div>
         </div>
-        <button class="mh-btn green" onclick="activateBuff()">⚡ ACTIVATE</button>
-        <div class="mh-buff-list" id="buff-list">
-          {% if active_buffs %}
-            {% for b in active_buffs %}
-            <div class="mh-buff-item">
-              <span class="mh-buff-name">{{ buff_names.get(b.buff_type, b.buff_type) }}</span>
-              <span class="mh-buff-timer" data-expires="{{ b.expires_at }}">...</span>
-            </div>
-            {% endfor %}
-          {% else %}
-            <div class="mh-no-buffs">No active buffs.</div>
-          {% endif %}
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">{% if is_live %}🔴{% else %}⚫{% endif %}</div>
+          <div class="mh-stat-val" style="color:{% if is_live %}#ff4444{% else %}#8888A8566{% endif %}">
+            {% if is_live %}LIVE{% else %}OFFLINE{% endif %}
+          </div>
+          <div class="mh-stat-lbl">STREAM STATUS</div>
         </div>
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">⚡</div>
+          <div class="mh-stat-val" id="stat-buffs">{{ active_buffs | length }}</div>
+          <div class="mh-stat-lbl">ACTIVE BUFFS</div>
+        </div>
+      </div>
+
+    </div><!-- /tab-overview -->
+
+    <!-- ═══════════════════════ PLAYERS ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-players">
+
+      <!-- PLAYER LOOKUP -->
+      <div class="mh-section-title">🔍 PLAYER LOOKUP</div>
+      <div class="mh-lookup">
+        <div class="mh-lookup-row">
+          <div class="mh-field">
+            <label class="mh-label">SEARCH PLAYER</label>
+            <input class="mh-input" type="text" id="lookup-username" placeholder="username"
+                   onkeydown="if(event.key==='Enter')lookupPlayer()"/>
+          </div>
+          <button class="mh-lookup-btn" onclick="lookupPlayer()">LOOKUP</button>
+        </div>
+        <div class="mh-lookup-result" id="lookup-result"></div>
       </div>
 
       <!-- GRANT TITLE -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">📛 GRANT TITLE</div>
-        <div class="mh-field">
-          <label class="mh-label">USERNAME</label>
-          <input class="mh-input" type="text" id="title-username" placeholder="username"/>
+      <div class="mh-actions" style="margin-top:16px;">
+        <div class="mh-action-card">
+          <div class="mh-action-title">📛 GRANT TITLE</div>
+          <div class="mh-field">
+            <label class="mh-label">USERNAME</label>
+            <input class="mh-input" type="text" id="title-username" placeholder="username"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">TITLE TEXT</label>
+            <input class="mh-input" type="text" id="title-text" placeholder="e.g. Village Hero"/>
+          </div>
+          <button class="mh-btn" onclick="grantTitle()">📛 GRANT</button>
         </div>
-        <div class="mh-field">
-          <label class="mh-label">TITLE TEXT</label>
-          <input class="mh-input" type="text" id="title-text" placeholder="e.g. Village Hero"/>
-        </div>
-        <button class="mh-btn" onclick="grantTitle()">📛 GRANT</button>
       </div>
 
-      <!-- GIFT -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">🎁 GIFT PLAYER</div>
-        <div class="mh-field">
-          <label class="mh-label">USERNAME (or "random")</label>
-          <input class="mh-input" type="text" id="gift-username" placeholder="username / random"/>
+      <!-- DEBUG PENGUIN -->
+      <div class="mh-section-title" style="margin-top:20px;">🛠️ DEBUG PENGUIN</div>
+      <div class="mh-lookup">
+        <div class="mh-lookup-row">
+          <div class="mh-field">
+            <label class="mh-label">PLAYER USERNAME</label>
+            <input class="mh-input" type="text" id="dbg-username" placeholder="username"
+                   onkeydown="if(event.key==='Enter')debugLoad()"/>
+          </div>
+          <button class="mh-lookup-btn" onclick="debugLoad()">LOAD</button>
         </div>
-        <div class="mh-field">
-          <label class="mh-label">GIFT TYPE</label>
-          <select class="mh-select" id="gift-type" onchange="toggleGiftFields()">
-            <option value="gold">GOLD</option>
-            <option value="seals">MAYOR'S SEALS</option>
-            <option value="resources">RESOURCES</option>
-            <option value="cosmetic">COSMETIC</option>
-          </select>
+        <div id="dbg-form" style="display:none;margin-top:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+            <div class="mh-field">
+              <label class="mh-label">NAME</label>
+              <input class="mh-input" type="text" id="dbg-name" maxlength="16"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">COLOR (#RRGGBB)</label>
+              <input class="mh-input" type="text" id="dbg-color" maxlength="7"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">SHAPE</label>
+              <select class="mh-select" id="dbg-shape">
+                <option value="normal">NORMAL</option>
+                <option value="tall">TALL</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+            <div class="mh-field">
+              <label class="mh-label">LEVEL (1–30)</label>
+              <input class="mh-input" type="number" id="dbg-level" min="1" max="30"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">ENERGY</label>
+              <input class="mh-input" type="number" id="dbg-energy" min="0"/>
+            </div>
+          </div>
+          <div style="font-size:16px;color:var(--dim);margin-bottom:4px;">RESOURCES</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+            <div class="mh-field">
+              <label class="mh-label">GOLD</label>
+              <input class="mh-input" type="number" id="dbg-gold" min="0"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">FISH</label>
+              <input class="mh-input" type="number" id="dbg-fish" min="0"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">HERBS</label>
+              <input class="mh-input" type="number" id="dbg-herbs" min="0"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">BLOOD GEMS</label>
+              <input class="mh-input" type="number" id="dbg-blood_gems" min="0"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">BONES</label>
+              <input class="mh-input" type="number" id="dbg-bones" min="0"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">SPELL FRAGMENTS</label>
+              <input class="mh-input" type="number" id="dbg-spell_fragments" min="0"/>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+            <div class="mh-field">
+              <label class="mh-label">STREAK (days)</label>
+              <input class="mh-input" type="number" id="dbg-streak" min="0"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">LAST LOGIN DATE (YYYY-MM-DD)</label>
+              <input class="mh-input" type="text" id="dbg-last_login_date" maxlength="10" placeholder="2025-01-01"/>
+            </div>
+          </div>
+          <div style="font-size:16px;color:var(--dim);margin-bottom:4px;">FORCE-EQUIP GEAR (optional)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+            <div class="mh-field">
+              <label class="mh-label">SLOT</label>
+              <input class="mh-input" type="text" id="dbg-equip-slot" placeholder="weapon"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">ITEM ID</label>
+              <input class="mh-input" type="text" id="dbg-equip-item_id" placeholder="debug_sword"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">NAME</label>
+              <input class="mh-input" type="text" id="dbg-equip-name" placeholder="Debug Sword"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">TYPE</label>
+              <select class="mh-select" id="dbg-equip-type">
+                <option value="combat">COMBAT</option>
+                <option value="cosmetic">COSMETIC</option>
+              </select>
+            </div>
+          </div>
+          <button class="mh-btn" id="dbg-apply-btn" onclick="debugApply()">✅ APPLY CHANGES</button>
+          <div id="dbg-result" style="margin-top:8px;font-size:16px;"></div>
         </div>
-        <div class="mh-field" id="gift-amount-field">
-          <label class="mh-label">AMOUNT</label>
-          <input class="mh-input" type="number" id="gift-amount" value="100" min="1"/>
-        </div>
-        <div class="mh-field" id="gift-resource-field" style="display:none;">
-          <label class="mh-label">RESOURCE TYPE</label>
-          <select class="mh-select" id="gift-resource">
-            <option value="fish">FISH</option>
-            <option value="herbs">HERBS</option>
-            <option value="blood_gems">BLOOD GEMS</option>
-            <option value="bones">BONES</option>
-            <option value="spell_fragments">SPELL FRAGMENTS</option>
-          </select>
-        </div>
-        <div class="mh-field" id="gift-cosmetic-field" style="display:none;">
-          <label class="mh-label">COSMETIC ITEM</label>
-          <select class="mh-select" id="gift-cosmetic">
-            {% for name, slot in cosmetic_slots.items() | sort %}
-            <option value="{{ name }}">{{ name }} ({{ slot }})</option>
-            {% endfor %}
-          </select>
-        </div>
-        <button class="mh-btn" onclick="sendGift()">🎁 SEND GIFT</button>
       </div>
 
-      <!-- GIFT GEAR -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">⚔️ GIFT GEAR ITEM</div>
-        <div class="mh-field">
-          <label class="mh-label">USERNAME</label>
-          <input class="mh-input" type="text" id="gg-username" placeholder="username"/>
+      <!-- PLAYER MANAGEMENT -->
+      <div class="mh-section-title" style="margin-top:20px;">👥 PLAYER MANAGEMENT</div>
+      <div class="mh-lookup">
+        <button onclick="loadPlayerList()" style="font-family:'Pixelify Sans',monospace;font-size:16px;padding:8px 16px;background:transparent;border:2px solid var(--purple);color:var(--purple);cursor:pointer;margin-bottom:12px;">LOAD ALL PLAYERS</button>
+        <div id="pm-player-list" style="margin-bottom:12px;"></div>
+        <div style="padding:14px;border:2px solid var(--red);margin-top:4px;">
+          <div style="font-family:'Press Start 2P',monospace;font-size:16px;color:var(--red);margin-bottom:10px;">⚠️ DANGER ZONE — DELETE PLAYER</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input class="mh-input" type="text" id="delete-username" placeholder="Twitch username to delete..." style="flex:1;"/>
+            <button onclick="deletePlayer()" style="font-family:'Pixelify Sans',monospace;font-size:16px;padding:9px 16px;background:var(--red);border:2px solid var(--red);color:#0f0f14;cursor:pointer;white-space:nowrap;">DELETE</button>
+          </div>
+          <div id="delete-result" style="margin-top:8px;font-size:16px;"></div>
         </div>
-        <div class="mh-field">
-          <label class="mh-label">ITEM</label>
-          <select class="mh-select" id="gg-item-select">
-            <option value="">Loading items…</option>
-          </select>
-        </div>
-        <button class="mh-btn" onclick="sendGiftGear()">⚔️ GIFT GEAR</button>
       </div>
 
-      <!-- ANNOUNCE -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">📢 ANNOUNCE</div>
-        <div class="mh-field">
-          <label class="mh-label">MESSAGE (MAX 200 CHARS)</label>
-          <textarea class="mh-textarea" id="announce-msg" maxlength="200"
-                    oninput="document.getElementById('announce-chars').textContent=this.value.length+'/200'"
-                    placeholder="Your message to the village..."></textarea>
-          <div class="mh-charcount"><span id="announce-chars">0</span>/200</div>
-        </div>
-        <button class="mh-btn" onclick="sendAnnouncement()">📢 ANNOUNCE</button>
-      </div>
+    </div><!-- /tab-players -->
 
-      <!-- BLIZZARD -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">🌨️ TRIGGER BLIZZARD</div>
-        <div class="mh-field">
-          <label class="mh-label">ENERGY LOSS (1–100)</label>
-          <input class="mh-input" type="number" id="blizzard-energy" value="30" min="1" max="100"/>
-        </div>
-        <div class="mh-warn">⚠️ THIS WILL AFFECT ALL PLAYERS!</div>
-        <button class="mh-btn danger" onclick="triggerBlizzard()">🌨️ TRIGGER BLIZZARD</button>
-      </div>
+    <!-- ═══════════════════════ ECONOMY ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-economy">
+      <div class="mh-actions">
 
-      <!-- BUILDING BOOST -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">🏗️ BOOST BUILDING</div>
-        <div class="mh-field">
-          <label class="mh-label">BUILDING</label>
-          <select class="mh-select" id="boost-building">
-            {% for bid, cfg in building_upgrades.items() %}
-            <option value="{{ bid }}">{{ cfg.name }} (Lv {{ building_levels.get(bid, 1) }})</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="mh-field">
-          <label class="mh-label">RESOURCE</label>
-          <select class="mh-select" id="boost-resource">
-            <option value="gold">GOLD</option>
-            <option value="fish">FISH</option>
-            <option value="herbs">HERBS</option>
-            <option value="blood_gems">BLOOD GEMS</option>
-            <option value="bones">BONES</option>
-            <option value="spell_fragments">SPELL FRAGMENTS</option>
-          </select>
-        </div>
-        <div class="mh-field">
-          <label class="mh-label">AMOUNT</label>
-          <input class="mh-input" type="number" id="boost-amount" value="500" min="1"/>
-        </div>
-        <button class="mh-btn" onclick="boostBuilding()">🏗️ BOOST</button>
-      </div>
-
-    </div><!-- /actions -->
-
-    <!-- PLAYER LOOKUP -->
-    <div class="mh-section-title">🔍 PLAYER LOOKUP</div>
-    <div class="mh-lookup">
-      <div class="mh-lookup-row">
-        <div class="mh-field">
-          <label class="mh-label">SEARCH PLAYER</label>
-          <input class="mh-input" type="text" id="lookup-username" placeholder="username"
-                 onkeydown="if(event.key==='Enter')lookupPlayer()"/>
-        </div>
-        <button class="mh-lookup-btn" onclick="lookupPlayer()">LOOKUP</button>
-      </div>
-      <div class="mh-lookup-result" id="lookup-result"></div>
-    </div>
-
-    <!-- DEBUG PENGUIN -->
-    <div class="mh-section-title" style="margin-top:20px;">🛠️ DEBUG PENGUIN</div>
-    <div class="mh-lookup">
-      <div class="mh-lookup-row">
-        <div class="mh-field">
-          <label class="mh-label">PLAYER USERNAME</label>
-          <input class="mh-input" type="text" id="dbg-username" placeholder="username"
-                 onkeydown="if(event.key==='Enter')debugLoad()"/>
-        </div>
-        <button class="mh-lookup-btn" onclick="debugLoad()">LOAD</button>
-      </div>
-      <div id="dbg-form" style="display:none;margin-top:12px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+        <!-- GIFT -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🎁 GIFT PLAYER</div>
           <div class="mh-field">
-            <label class="mh-label">NAME</label>
-            <input class="mh-input" type="text" id="dbg-name" maxlength="16"/>
+            <label class="mh-label">USERNAME (or "random")</label>
+            <input class="mh-input" type="text" id="gift-username" placeholder="username / random"/>
           </div>
           <div class="mh-field">
-            <label class="mh-label">COLOR (#RRGGBB)</label>
-            <input class="mh-input" type="text" id="dbg-color" maxlength="7"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">SHAPE</label>
-            <select class="mh-select" id="dbg-shape">
-              <option value="normal">NORMAL</option>
-              <option value="tall">TALL</option>
-            </select>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-          <div class="mh-field">
-            <label class="mh-label">LEVEL (1–30)</label>
-            <input class="mh-input" type="number" id="dbg-level" min="1" max="30"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">ENERGY</label>
-            <input class="mh-input" type="number" id="dbg-energy" min="0"/>
-          </div>
-        </div>
-        <div style="font-size:16px;color:var(--dim);margin-bottom:4px;">RESOURCES</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-          <div class="mh-field">
-            <label class="mh-label">GOLD</label>
-            <input class="mh-input" type="number" id="dbg-gold" min="0"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">FISH</label>
-            <input class="mh-input" type="number" id="dbg-fish" min="0"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">HERBS</label>
-            <input class="mh-input" type="number" id="dbg-herbs" min="0"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">BLOOD GEMS</label>
-            <input class="mh-input" type="number" id="dbg-blood_gems" min="0"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">BONES</label>
-            <input class="mh-input" type="number" id="dbg-bones" min="0"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">SPELL FRAGMENTS</label>
-            <input class="mh-input" type="number" id="dbg-spell_fragments" min="0"/>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-          <div class="mh-field">
-            <label class="mh-label">STREAK (days)</label>
-            <input class="mh-input" type="number" id="dbg-streak" min="0"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">LAST LOGIN DATE (YYYY-MM-DD)</label>
-            <input class="mh-input" type="text" id="dbg-last_login_date" maxlength="10" placeholder="2025-01-01"/>
-          </div>
-        </div>
-        <div style="font-size:16px;color:var(--dim);margin-bottom:4px;">FORCE-EQUIP GEAR (optional)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
-          <div class="mh-field">
-            <label class="mh-label">SLOT</label>
-            <input class="mh-input" type="text" id="dbg-equip-slot" placeholder="weapon"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">ITEM ID</label>
-            <input class="mh-input" type="text" id="dbg-equip-item_id" placeholder="debug_sword"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">NAME</label>
-            <input class="mh-input" type="text" id="dbg-equip-name" placeholder="Debug Sword"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">TYPE</label>
-            <select class="mh-select" id="dbg-equip-type">
-              <option value="combat">COMBAT</option>
+            <label class="mh-label">GIFT TYPE</label>
+            <select class="mh-select" id="gift-type" onchange="toggleGiftFields()">
+              <option value="gold">GOLD</option>
+              <option value="seals">MAYOR'S SEALS</option>
+              <option value="resources">RESOURCES</option>
               <option value="cosmetic">COSMETIC</option>
             </select>
           </div>
+          <div class="mh-field" id="gift-amount-field">
+            <label class="mh-label">AMOUNT</label>
+            <input class="mh-input" type="number" id="gift-amount" value="100" min="1"/>
+          </div>
+          <div class="mh-field" id="gift-resource-field" style="display:none;">
+            <label class="mh-label">RESOURCE TYPE</label>
+            <select class="mh-select" id="gift-resource">
+              <option value="fish">FISH</option>
+              <option value="herbs">HERBS</option>
+              <option value="blood_gems">BLOOD GEMS</option>
+              <option value="bones">BONES</option>
+              <option value="spell_fragments">SPELL FRAGMENTS</option>
+            </select>
+          </div>
+          <div class="mh-field" id="gift-cosmetic-field" style="display:none;">
+            <label class="mh-label">COSMETIC ITEM</label>
+            <select class="mh-select" id="gift-cosmetic">
+              {% for name, slot in cosmetic_slots.items() | sort %}
+              <option value="{{ name }}">{{ name }} ({{ slot }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="mh-btn" onclick="sendGift()">🎁 SEND GIFT</button>
         </div>
-        <button class="mh-btn" id="dbg-apply-btn" onclick="debugApply()">✅ APPLY CHANGES</button>
-        <div id="dbg-result" style="margin-top:8px;font-size:16px;"></div>
+
+        <!-- GIFT GEAR -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">⚔️ GIFT GEAR ITEM</div>
+          <div class="mh-field">
+            <label class="mh-label">USERNAME</label>
+            <input class="mh-input" type="text" id="gg-username" placeholder="username"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">ITEM</label>
+            <select class="mh-select" id="gg-item-select">
+              <option value="">Loading items…</option>
+            </select>
+          </div>
+          <button class="mh-btn" onclick="sendGiftGear()">⚔️ GIFT GEAR</button>
+        </div>
+
+        <!-- BUILDING BOOST -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🏗️ BOOST BUILDING</div>
+          <div class="mh-field">
+            <label class="mh-label">BUILDING</label>
+            <select class="mh-select" id="boost-building">
+              {% for bid, cfg in building_upgrades.items() %}
+              <option value="{{ bid }}">{{ cfg.name }} (Lv {{ building_levels.get(bid, 1) }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">RESOURCE</label>
+            <select class="mh-select" id="boost-resource">
+              <option value="gold">GOLD</option>
+              <option value="fish">FISH</option>
+              <option value="herbs">HERBS</option>
+              <option value="blood_gems">BLOOD GEMS</option>
+              <option value="bones">BONES</option>
+              <option value="spell_fragments">SPELL FRAGMENTS</option>
+            </select>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">AMOUNT</label>
+            <input class="mh-input" type="number" id="boost-amount" value="500" min="1"/>
+          </div>
+          <button class="mh-btn" onclick="boostBuilding()">🏗️ BOOST</button>
+        </div>
+
       </div>
-    </div>
+    </div><!-- /tab-economy -->
 
-    <!-- PLAYER MANAGEMENT -->
-    <div class="mh-section-title" style="margin-top:20px;">👥 PLAYER MANAGEMENT</div>
-    <div class="mh-lookup">
-      <button onclick="loadPlayerList()" style="font-family:'Pixelify Sans',monospace;font-size:16px;padding:8px 16px;background:transparent;border:2px solid var(--purple);color:var(--purple);cursor:pointer;margin-bottom:12px;">LOAD ALL PLAYERS</button>
-      <div id="pm-player-list" style="margin-bottom:12px;"></div>
-      <div style="padding:14px;border:2px solid var(--red);margin-top:4px;">
-        <div style="font-family:'Press Start 2P',monospace;font-size:16px;color:var(--red);margin-bottom:10px;">⚠️ DANGER ZONE — DELETE PLAYER</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input class="mh-input" type="text" id="delete-username" placeholder="Twitch username to delete..." style="flex:1;"/>
-          <button onclick="deletePlayer()" style="font-family:'Pixelify Sans',monospace;font-size:16px;padding:9px 16px;background:var(--red);border:2px solid var(--red);color:#0f0f14;cursor:pointer;white-space:nowrap;">DELETE</button>
+    <!-- ═══════════════════════ ANNOUNCEMENTS ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-announcements">
+      <div class="mh-actions">
+
+        <!-- BUFF -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🎉 ACTIVATE BUFF</div>
+          <div class="mh-field">
+            <label class="mh-label">BUFF TYPE</label>
+            <select class="mh-select" id="buff-type">
+              <option value="double_resources">2x RESOURCES</option>
+              <option value="double_xp">2x XP</option>
+              <option value="double_gold">2x GOLD</option>
+              <option value="half_energy">HALF ENERGY COSTS</option>
+              <option value="festival">FESTIVAL (2x XP + 2x GOLD)</option>
+            </select>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">DURATION (MINUTES)</label>
+            <input class="mh-input" type="number" id="buff-duration" value="30" min="1" max="480"/>
+          </div>
+          <button class="mh-btn green" onclick="activateBuff()">⚡ ACTIVATE</button>
+          <div class="mh-buff-list" id="buff-list">
+            {% if active_buffs %}
+              {% for b in active_buffs %}
+              <div class="mh-buff-item">
+                <span class="mh-buff-name">{{ buff_names.get(b.buff_type, b.buff_type) }}</span>
+                <span class="mh-buff-timer" data-expires="{{ b.expires_at }}">...</span>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="mh-no-buffs">No active buffs.</div>
+            {% endif %}
+          </div>
         </div>
-        <div id="delete-result" style="margin-top:8px;font-size:16px;"></div>
+
+        <!-- ANNOUNCE -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">📢 ANNOUNCE</div>
+          <div class="mh-field">
+            <label class="mh-label">MESSAGE (MAX 200 CHARS)</label>
+            <textarea class="mh-textarea" id="announce-msg" maxlength="200"
+                      oninput="document.getElementById('announce-chars').textContent=this.value.length+'/200'"
+                      placeholder="Your message to the village..."></textarea>
+            <div class="mh-charcount"><span id="announce-chars">0</span>/200</div>
+          </div>
+          <button class="mh-btn" onclick="sendAnnouncement()">📢 ANNOUNCE</button>
+        </div>
+
+        <!-- BLIZZARD -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🌨️ TRIGGER BLIZZARD</div>
+          <div class="mh-field">
+            <label class="mh-label">ENERGY LOSS (1–100)</label>
+            <input class="mh-input" type="number" id="blizzard-energy" value="30" min="1" max="100"/>
+          </div>
+          <div class="mh-warn">⚠️ THIS WILL AFFECT ALL PLAYERS!</div>
+          <button class="mh-btn danger" onclick="triggerBlizzard()">🌨️ TRIGGER BLIZZARD</button>
+        </div>
+
+        <!-- SPAWN COMMUNITY BOSS -- backend route (/mayor/spawn-boss) already
+             existed but had no UI anywhere; this button is the only way to
+             reach it. -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🐲 SPAWN COMMUNITY BOSS</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Spawns the village-wide community boss immediately. Fails if one
+            is already active (must be defeated first).
+          </div>
+          <button class="mh-btn danger" onclick="spawnCommunityBoss()">🐲 SPAWN BOSS</button>
+        </div>
+
       </div>
-    </div>
+    </div><!-- /tab-announcements -->
 
-    <!-- ═══════════════════════════════════════════════════════════════════
-         WEEKLY CHALLENGE DEBUG — independent of the raid section below; none
-         of these actions require the raid to be in any particular state.
-         ═══════════════════════════════════════════════════════════════════ -->
-    <div class="mh-section-title" style="margin-top:20px;">🏆 WEEKLY CHALLENGE DEBUG</div>
+    <!-- ═══════════════════════ RAID & CHALLENGES ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-raid">
 
-    <div class="mh-lookup" style="margin-bottom:16px;">
-      {% if current_challenge %}
-      <div class="mh-player-card">
-        <div class="mh-player-stat"><span class="k">Metric:</span> <span class="v">{{ current_challenge.metric_type }}</span></div>
-        <div class="mh-player-stat"><span class="k">Progress:</span> <span class="v">{{ "{:,}".format(current_challenge.current_progress) }} / {{ "{:,}".format(current_challenge.threshold) }}</span></div>
-        <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_challenge.status }}</span></div>
-      </div>
-      {% if current_challenge.status == 'active' %}
-      <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
-        <div class="mh-field" style="flex:1;margin:0;">
-          <label class="mh-label">SET CURRENT PROGRESS</label>
-          <input class="mh-input" type="number" min="0" id="rd-set-progress-input"
-                 value="{{ current_challenge.current_progress }}"/>
-        </div>
-        <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdSetProgress()">💾 SET</button>
-      </div>
-      <div id="rd-set-progress-result" style="margin-top:6px;font-size:16px;"></div>
-      {% endif %}
-      {% else %}
-      <div class="mh-no-buffs">No challenge exists yet.</div>
-      {% endif %}
-    </div>
+      <!-- ═══════════════════════════════════════════════════════════════════
+           WEEKLY CHALLENGE DEBUG — independent of the raid section below; none
+           of these actions require the raid to be in any particular state.
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="mh-section-title">🏆 WEEKLY CHALLENGE DEBUG</div>
 
-    <div class="mh-actions">
-
-      <!-- Weekly metric thresholds -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">🎯 WEEKLY METRIC THRESHOLDS</div>
-        {% for m in weekly_metric_types %}
-        <div class="mh-field">
-          <label class="mh-label">{{ m.label }} ({{ m.id }})</label>
-          <input class="mh-input" type="number" min="1" id="rd-threshold-{{ m.id }}"
-                 value="{{ raid_settings_all.weekly_metric_thresholds.get(m.id, 0) }}"/>
+      <div class="mh-lookup" style="margin-bottom:16px;">
+        {% if current_challenge %}
+        <div class="mh-player-card">
+          <div class="mh-player-stat"><span class="k">Metric:</span> <span class="v">{{ current_challenge.metric_type }}</span></div>
+          <div class="mh-player-stat"><span class="k">Progress:</span> <span class="v">{{ "{:,}".format(current_challenge.current_progress) }} / {{ "{:,}".format(current_challenge.threshold) }}</span></div>
+          <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_challenge.status }}</span></div>
         </div>
-        {% endfor %}
-        <button class="mh-btn" onclick="rdSaveThresholds()">💾 SAVE THRESHOLDS</button>
-        <div id="rd-thresholds-result" style="margin-top:6px;font-size:16px;"></div>
-      </div>
-
-      <!-- Start new challenge -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">🆕 START NEW CHALLENGE</div>
-        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
-          Cancels any currently active challenge first. Leave the metric on
-          "Random" to match how the automatic Monday cycle picks — the
-          dropdown is only for picking one explicitly to test.
+        {% if current_challenge.status == 'active' %}
+        <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
+          <div class="mh-field" style="flex:1;margin:0;">
+            <label class="mh-label">SET CURRENT PROGRESS</label>
+            <input class="mh-input" type="number" min="0" id="rd-set-progress-input"
+                   value="{{ current_challenge.current_progress }}"/>
+          </div>
+          <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdSetProgress()">💾 SET</button>
         </div>
-        <div class="mh-field">
-          <label class="mh-label">METRIC</label>
-          <select class="mh-select" id="rd-new-challenge-metric">
-            <option value="">— Random (default) —</option>
-            {% for m in weekly_metric_types %}
-            <option value="{{ m.id }}">{{ m.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <button class="mh-btn" onclick="rdForceNewChallenge()">🆕 START NEW CHALLENGE</button>
-        <div id="rd-new-challenge-result" style="margin-top:6px;font-size:16px;"></div>
-      </div>
-
-    </div>
-
-    <div class="mh-lookup" style="margin-top:4px;">
-      <div class="mh-action-title" style="margin-bottom:10px;">⚡ CHALLENGE ACTIONS</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="mh-btn green" onclick="rdForceSucceedChallenge()">✅ FORCE SUCCEED</button>
-        <button class="mh-btn" onclick="rdForceFailChallenge()">❌ FORCE FAIL</button>
-        <button class="mh-btn danger" style="grid-column:span 2;" onclick="rdCancelChallenge()">🛑 CANCEL/RESET CHALLENGE (no outcome recorded, raid untouched)</button>
-      </div>
-      <div id="rd-challenge-force-result" style="margin-top:8px;font-size:16px;"></div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════════
-         WEEKEND RAID DEBUG — independent of the challenge section above;
-         "Start Raid Now" in particular has NO weekly-challenge precondition.
-         ═══════════════════════════════════════════════════════════════════ -->
-    <div class="mh-section-title" style="margin-top:20px;">🐉 WEEKEND RAID DEBUG</div>
-
-    <div class="mh-lookup" style="margin-bottom:16px;">
-      {% if current_raid %}
-      <div class="mh-player-card">
-        <div class="mh-player-stat"><span class="k">Boss:</span> <span class="v">{{ current_raid.boss_name }}</span></div>
-        <div class="mh-player-stat"><span class="k">HP:</span> <span class="v">{{ "{:,}".format(current_raid.boss_current_hp) }} / {{ "{:,}".format(current_raid.boss_max_hp) }}</span></div>
-        <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_raid.status }}</span></div>
-        <div class="mh-player-stat"><span class="k">Participants:</span> <span class="v">{{ raid_participant_count }}</span> <span style="color:var(--dim);">(informational only — boss HP no longer scales with this)</span></div>
-        <div class="mh-player-stat"><span class="k">Challenge won / join window start:</span> <span class="v" id="rd-join-window-start" data-ts="{{ current_raid.join_window_start or '' }}">—</span></div>
-        <div class="mh-player-stat"><span class="k">Raid start:</span> <span class="v" id="rd-raid-start" data-ts="{{ current_raid.raid_start or '' }}">—</span></div>
-        <div class="mh-player-stat"><span class="k">Raid end:</span> <span class="v" id="rd-raid-end" data-ts="{{ current_raid.raid_end or '' }}">—</span></div>
-      </div>
-      <!-- Quick one-off rename of THIS specific boss -- separate from managing
-           the boss_names pool new bosses get randomly picked from (below). -->
-      <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
-        <div class="mh-field" style="flex:1;margin:0;">
-          <label class="mh-label">RENAME CURRENT BOSS</label>
-          <input class="mh-input" type="text" maxlength="60" id="rd-rename-boss-input"
-                 value="{{ current_raid.boss_name }}"/>
-        </div>
-        <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdRenameBoss()">✏️ RENAME</button>
-      </div>
-      <div id="rd-rename-boss-result" style="margin-top:6px;font-size:16px;"></div>
-      {% if current_raid.status == 'active' %}
-      <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
-        <div class="mh-field" style="flex:1;margin:0;">
-          <label class="mh-label">SET BOSS CURRENT HP</label>
-          <input class="mh-input" type="number" min="0" max="{{ current_raid.boss_max_hp }}" id="rd-set-boss-hp-input"
-                 value="{{ current_raid.boss_current_hp }}"/>
-        </div>
-        <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdSetBossHp()">💾 SET</button>
-      </div>
-      <div id="rd-set-boss-hp-result" style="margin-top:6px;font-size:16px;"></div>
-      {% endif %}
-      {% else %}
-      <div class="mh-no-buffs">No raid exists yet.</div>
-      {% endif %}
-    </div>
-
-    <div class="mh-actions">
-
-      <!-- Boss HP + podium size -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">👹 BOSS HP / REWARD TIERS</div>
-        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
-          Boss HP is a flat value — it no longer scales with participant count.
-        </div>
-        <div class="mh-field">
-          <label class="mh-label">BOSS HP (FLAT)</label>
-          <input class="mh-input" type="number" min="1" id="rd-boss-hp"
-                 value="{{ raid_settings_all.boss_hp_flat }}"/>
-        </div>
-        <div class="mh-field">
-          <label class="mh-label">PODIUM SIZE (ranks that win N00Tboxes)</label>
-          <input class="mh-input" type="number" min="1" max="20" id="rd-podium-size"
-                 value="{{ raid_settings_all.rank_reward_podium_size }}"/>
-        </div>
-        <button class="mh-btn" onclick="rdSaveBossHp()">💾 SAVE BOSS HP</button>
-        <div id="rd-boss-hp-result" style="margin-top:6px;font-size:16px;"></div>
-        <button class="mh-btn" style="margin-top:10px;" onclick="rdSavePodiumSize()">💾 SAVE PODIUM SIZE</button>
-        <div id="rd-podium-result" style="margin-top:6px;font-size:16px;"></div>
-        <div class="mh-field" style="margin-top:10px;">
-          <label class="mh-label">CP DAMAGE BONUS DIVISOR (attack dmg += floor(CP / this))</label>
-          <input class="mh-input" type="number" min="1" id="rd-cp-bonus-divisor"
-                 value="{{ raid_settings_all.cp_damage_bonus_divisor }}"/>
-        </div>
-        <button class="mh-btn" onclick="rdSaveCpBonusDivisor()">💾 SAVE CP DAMAGE BONUS DIVISOR</button>
-        <div id="rd-cp-bonus-divisor-result" style="margin-top:6px;font-size:16px;"></div>
-      </div>
-
-      <!-- Boss name pool -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">👹 BOSS NAME POOL</div>
-        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
-          One name per line. A new boss is picked at random from this list whenever a
-          weekly challenge succeeds (or Start Raid Now below, if left on Random).
-          Doesn't affect the currently active boss — use "Rename Current Boss" above
-          for that.
-        </div>
-        <div class="mh-field">
-          <textarea class="mh-textarea" id="rd-boss-names" rows="7"
-                    style="width:100%;">{{ raid_settings_all.boss_names | join('\n') }}</textarea>
-        </div>
-        <button class="mh-btn" onclick="rdSaveBossNames()">💾 SAVE BOSS NAME POOL</button>
-        <div id="rd-boss-names-result" style="margin-top:6px;font-size:16px;"></div>
+        <div id="rd-set-progress-result" style="margin-top:6px;font-size:16px;"></div>
+        {% endif %}
+        {% else %}
+        <div class="mh-no-buffs">No challenge exists yet.</div>
+        {% endif %}
       </div>
 
-      <!-- Start raid now -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">⚔️ START RAID NOW</div>
-        <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
-          Spawns a boss immediately with the current flat HP setting — no
-          weekly-challenge precondition at all (works whether one succeeded,
-          is active, failed, or doesn't exist). Cancels any other pending/
-          active raid first, so there's only ever one live raid.
+      <div class="mh-actions">
+
+        <!-- Weekly metric thresholds -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🎯 WEEKLY METRIC THRESHOLDS</div>
+          {% for m in weekly_metric_types %}
+          <div class="mh-field">
+            <label class="mh-label">{{ m.label }} ({{ m.id }})</label>
+            <input class="mh-input" type="number" min="1" id="rd-threshold-{{ m.id }}"
+                   value="{{ raid_settings_all.weekly_metric_thresholds.get(m.id, 0) }}"/>
+          </div>
+          {% endfor %}
+          <button class="mh-btn" onclick="rdSaveThresholds()">💾 SAVE THRESHOLDS</button>
+          <div id="rd-thresholds-result" style="margin-top:6px;font-size:16px;"></div>
         </div>
-        <div class="mh-field">
-          <label class="mh-label">BOSS NAME</label>
-          <select class="mh-select" id="rd-start-raid-boss">
-            <option value="">— Random from pool (default) —</option>
-            {% for name in raid_settings_all.boss_names %}
-            <option value="{{ name }}">{{ name }}</option>
-            {% endfor %}
-          </select>
+
+        <!-- Start new challenge -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🆕 START NEW CHALLENGE</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Cancels any currently active challenge first. Leave the metric on
+            "Random" to match how the automatic Monday cycle picks — the
+            dropdown is only for picking one explicitly to test.
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">METRIC</label>
+            <select class="mh-select" id="rd-new-challenge-metric">
+              <option value="">— Random (default) —</option>
+              {% for m in weekly_metric_types %}
+              <option value="{{ m.id }}">{{ m.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="mh-btn" onclick="rdForceNewChallenge()">🆕 START NEW CHALLENGE</button>
+          <div id="rd-new-challenge-result" style="margin-top:6px;font-size:16px;"></div>
         </div>
-        <button class="mh-btn" onclick="rdForceStartRaid()">⚔️ START RAID NOW</button>
-        <div id="rd-start-raid-result" style="margin-top:6px;font-size:16px;"></div>
+
       </div>
 
-      <!-- Lootbox drop rates -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">🎁 N00TBOX DROP RATES (must sum to 100)</div>
-        {% for rarity in ["legendary", "epic", "rare", "uncommon", "common"] %}
-        <div class="mh-field">
-          <label class="mh-label">{{ rarity | upper }} %</label>
-          <input class="mh-input rd-rate-input" type="number" min="0" max="100" step="0.1" id="rd-rate-{{ rarity }}"
-                 value="{{ raid_settings_all.lootbox_drop_rates.get(rarity, 0) }}" oninput="rdUpdateRateSum()"/>
-        </div>
-        {% endfor %}
-        <div id="rd-rate-sum" style="font-size:16px;color:var(--dim);margin-bottom:4px;">Sum: —</div>
-        <button class="mh-btn" onclick="rdSaveDropRates()">💾 SAVE DROP RATES</button>
-        <div id="rd-rates-result" style="margin-top:6px;font-size:16px;"></div>
-      </div>
-
-      <!-- Gold / resource range -->
-      <div class="mh-action-card">
-        <div class="mh-action-title">💰 N00TBOX GOLD / RESOURCE RANGE</div>
+      <div class="mh-lookup" style="margin-top:4px;">
+        <div class="mh-action-title" style="margin-bottom:10px;">⚡ CHALLENGE ACTIONS</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div class="mh-field">
-            <label class="mh-label">GOLD MIN</label>
-            <input class="mh-input" type="number" min="0" id="rd-gold-min" value="{{ raid_settings_all.gold_range[0] }}"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">GOLD MAX</label>
-            <input class="mh-input" type="number" min="0" id="rd-gold-max" value="{{ raid_settings_all.gold_range[1] }}"/>
-          </div>
+          <button class="mh-btn green" onclick="rdForceSucceedChallenge()">✅ FORCE SUCCEED</button>
+          <button class="mh-btn" onclick="rdForceFailChallenge()">❌ FORCE FAIL</button>
+          <button class="mh-btn danger" style="grid-column:span 2;" onclick="rdCancelChallenge()">🛑 CANCEL/RESET CHALLENGE (no outcome recorded, raid untouched)</button>
         </div>
-        <button class="mh-btn" onclick="rdSaveGoldRange()">💾 SAVE GOLD RANGE</button>
-        <div id="rd-gold-result" style="margin-top:6px;font-size:16px;"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
-          <div class="mh-field">
-            <label class="mh-label">RESOURCE MIN</label>
-            <input class="mh-input" type="number" min="0" id="rd-resource-min" value="{{ raid_settings_all.resource_range[0] }}"/>
-          </div>
-          <div class="mh-field">
-            <label class="mh-label">RESOURCE MAX</label>
-            <input class="mh-input" type="number" min="0" id="rd-resource-max" value="{{ raid_settings_all.resource_range[1] }}"/>
-          </div>
-        </div>
-        <button class="mh-btn" onclick="rdSaveResourceRange()">💾 SAVE RESOURCE RANGE</button>
-        <div id="rd-resource-result" style="margin-top:6px;font-size:16px;"></div>
+        <div id="rd-challenge-force-result" style="margin-top:8px;font-size:16px;"></div>
       </div>
 
-    </div>
+      <!-- ═══════════════════════════════════════════════════════════════════
+           WEEKEND RAID DEBUG — independent of the challenge section above;
+           "Start Raid Now" in particular has NO weekly-challenge precondition.
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="mh-section-title" style="margin-top:20px;">🐉 WEEKEND RAID DEBUG</div>
 
-    <div class="mh-lookup" style="margin-top:4px;">
-      <div class="mh-action-title" style="margin-bottom:10px;">⚡ RAID ACTIONS</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button class="mh-btn green" onclick="rdForceResolve('defeated')">🏆 FORCE RESOLVE AS DEFEATED</button>
-        <button class="mh-btn" onclick="rdForceResolve('timeout')">⏱️ FORCE RESOLVE AS TIMEOUT</button>
-        <button class="mh-btn danger" style="grid-column:span 2;" onclick="rdCancelRaid()">🛑 CANCEL/RESET RAID (no rewards/announcement, challenge untouched)</button>
-      </div>
-      <div id="rd-raid-force-result" style="margin-top:8px;font-size:16px;"></div>
-    </div>
-
-    <!-- Reset both systems at once -->
-    <div class="mh-lookup" style="margin-top:4px;">
-      <div class="mh-action-title" style="margin-bottom:10px;">🛑 RESET EVERYTHING</div>
-      <button class="mh-btn danger" onclick="rdCancelCycle()">🛑 CANCEL/RESET BOTH CHALLENGE + RAID (no rewards)</button>
-      <div id="rd-force-result" style="margin-top:8px;font-size:16px;"></div>
-    </div>
-
-    <!-- TOPIC SUGGESTIONS -->
-    <div class="mh-section-title" style="margin-top:20px;">🏷️ TOPIC SUGGESTIONS</div>
-    <div class="mh-lookup">
-      <div id="topic-suggestions-list">
-        <div class="mh-no-buffs">Loading...</div>
-      </div>
-    </div>
-
-    <div class="mh-lookup" style="margin-top:12px;">
-      <div class="mh-action-title" style="margin-bottom:10px;">➕ ADD NEW TOPIC</div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        <div class="mh-field" style="flex:1;min-width:180px;margin:0;">
-          <label class="mh-label">TOPIC NAME</label>
-          <input class="mh-input" type="text" id="topic-add-label" maxlength="40" placeholder="e.g. Astronomy"/>
+      <div class="mh-lookup" style="margin-bottom:16px;">
+        {% if current_raid %}
+        <div class="mh-player-card">
+          <div class="mh-player-stat"><span class="k">Boss:</span> <span class="v">{{ current_raid.boss_name }}</span></div>
+          <div class="mh-player-stat"><span class="k">HP:</span> <span class="v">{{ "{:,}".format(current_raid.boss_current_hp) }} / {{ "{:,}".format(current_raid.boss_max_hp) }}</span></div>
+          <div class="mh-player-stat"><span class="k">Status:</span> <span class="v">{{ current_raid.status }}</span></div>
+          <div class="mh-player-stat"><span class="k">Participants:</span> <span class="v">{{ raid_participant_count }}</span> <span style="color:var(--dim);">(informational only — boss HP no longer scales with this)</span></div>
+          <div class="mh-player-stat"><span class="k">Challenge won / join window start:</span> <span class="v" id="rd-join-window-start" data-ts="{{ current_raid.join_window_start or '' }}">—</span></div>
+          <div class="mh-player-stat"><span class="k">Raid start:</span> <span class="v" id="rd-raid-start" data-ts="{{ current_raid.raid_start or '' }}">—</span></div>
+          <div class="mh-player-stat"><span class="k">Raid end:</span> <span class="v" id="rd-raid-end" data-ts="{{ current_raid.raid_end or '' }}">—</span></div>
         </div>
-        <div class="mh-field" style="width:80px;margin:0;">
-          <label class="mh-label">EMOJI</label>
-          <input class="mh-input" type="text" id="topic-add-emoji" maxlength="4" placeholder="🏷️"/>
+        <!-- Quick one-off rename of THIS specific boss -- separate from managing
+             the boss_names pool new bosses get randomly picked from (below). -->
+        <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
+          <div class="mh-field" style="flex:1;margin:0;">
+            <label class="mh-label">RENAME CURRENT BOSS</label>
+            <input class="mh-input" type="text" maxlength="60" id="rd-rename-boss-input"
+                   value="{{ current_raid.boss_name }}"/>
+          </div>
+          <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdRenameBoss()">✏️ RENAME</button>
         </div>
-        <button class="mh-btn" style="width:auto;padding:9px 16px;" onclick="addTopicDirect()">ADD</button>
+        <div id="rd-rename-boss-result" style="margin-top:6px;font-size:16px;"></div>
+        {% if current_raid.status == 'active' %}
+        <div style="display:flex;gap:6px;margin-top:8px;align-items:flex-end;">
+          <div class="mh-field" style="flex:1;margin:0;">
+            <label class="mh-label">SET BOSS CURRENT HP</label>
+            <input class="mh-input" type="number" min="0" max="{{ current_raid.boss_max_hp }}" id="rd-set-boss-hp-input"
+                   value="{{ current_raid.boss_current_hp }}"/>
+          </div>
+          <button class="mh-btn" style="width:auto;padding:9px 14px;" onclick="rdSetBossHp()">💾 SET</button>
+        </div>
+        <div id="rd-set-boss-hp-result" style="margin-top:6px;font-size:16px;"></div>
+        {% endif %}
+        {% else %}
+        <div class="mh-no-buffs">No raid exists yet.</div>
+        {% endif %}
       </div>
-      <div id="topic-add-result" style="margin-top:8px;font-size:16px;"></div>
-    </div>
+
+      <div class="mh-actions">
+
+        <!-- Boss HP + podium size -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">👹 BOSS HP / REWARD TIERS</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Boss HP is a flat value — it no longer scales with participant count.
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">BOSS HP (FLAT)</label>
+            <input class="mh-input" type="number" min="1" id="rd-boss-hp"
+                   value="{{ raid_settings_all.boss_hp_flat }}"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">PODIUM SIZE (ranks that win N00Tboxes)</label>
+            <input class="mh-input" type="number" min="1" max="20" id="rd-podium-size"
+                   value="{{ raid_settings_all.rank_reward_podium_size }}"/>
+          </div>
+          <button class="mh-btn" onclick="rdSaveBossHp()">💾 SAVE BOSS HP</button>
+          <div id="rd-boss-hp-result" style="margin-top:6px;font-size:16px;"></div>
+          <button class="mh-btn" style="margin-top:10px;" onclick="rdSavePodiumSize()">💾 SAVE PODIUM SIZE</button>
+          <div id="rd-podium-result" style="margin-top:6px;font-size:16px;"></div>
+          <div class="mh-field" style="margin-top:10px;">
+            <label class="mh-label">CP DAMAGE BONUS DIVISOR (attack dmg += floor(CP / this))</label>
+            <input class="mh-input" type="number" min="1" id="rd-cp-bonus-divisor"
+                   value="{{ raid_settings_all.cp_damage_bonus_divisor }}"/>
+          </div>
+          <button class="mh-btn" onclick="rdSaveCpBonusDivisor()">💾 SAVE CP DAMAGE BONUS DIVISOR</button>
+          <div id="rd-cp-bonus-divisor-result" style="margin-top:6px;font-size:16px;"></div>
+        </div>
+
+        <!-- Boss name pool -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">👹 BOSS NAME POOL</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            One name per line. A new boss is picked at random from this list whenever a
+            weekly challenge succeeds (or Start Raid Now below, if left on Random).
+            Doesn't affect the currently active boss — use "Rename Current Boss" above
+            for that.
+          </div>
+          <div class="mh-field">
+            <textarea class="mh-textarea" id="rd-boss-names" rows="7"
+                      style="width:100%;">{{ raid_settings_all.boss_names | join('\n') }}</textarea>
+          </div>
+          <button class="mh-btn" onclick="rdSaveBossNames()">💾 SAVE BOSS NAME POOL</button>
+          <div id="rd-boss-names-result" style="margin-top:6px;font-size:16px;"></div>
+        </div>
+
+        <!-- Start raid now -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">⚔️ START RAID NOW</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Spawns a boss immediately with the current flat HP setting — no
+            weekly-challenge precondition at all (works whether one succeeded,
+            is active, failed, or doesn't exist). Cancels any other pending/
+            active raid first, so there's only ever one live raid.
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">BOSS NAME</label>
+            <select class="mh-select" id="rd-start-raid-boss">
+              <option value="">— Random from pool (default) —</option>
+              {% for name in raid_settings_all.boss_names %}
+              <option value="{{ name }}">{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="mh-btn" onclick="rdForceStartRaid()">⚔️ START RAID NOW</button>
+          <div id="rd-start-raid-result" style="margin-top:6px;font-size:16px;"></div>
+        </div>
+
+        <!-- Lootbox drop rates -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🎁 N00TBOX DROP RATES (must sum to 100)</div>
+          {% for rarity in ["legendary", "epic", "rare", "uncommon", "common"] %}
+          <div class="mh-field">
+            <label class="mh-label">{{ rarity | upper }} %</label>
+            <input class="mh-input rd-rate-input" type="number" min="0" max="100" step="0.1" id="rd-rate-{{ rarity }}"
+                   value="{{ raid_settings_all.lootbox_drop_rates.get(rarity, 0) }}" oninput="rdUpdateRateSum()"/>
+          </div>
+          {% endfor %}
+          <div id="rd-rate-sum" style="font-size:16px;color:var(--dim);margin-bottom:4px;">Sum: —</div>
+          <button class="mh-btn" onclick="rdSaveDropRates()">💾 SAVE DROP RATES</button>
+          <div id="rd-rates-result" style="margin-top:6px;font-size:16px;"></div>
+        </div>
+
+        <!-- Gold / resource range -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">💰 N00TBOX GOLD / RESOURCE RANGE</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="mh-field">
+              <label class="mh-label">GOLD MIN</label>
+              <input class="mh-input" type="number" min="0" id="rd-gold-min" value="{{ raid_settings_all.gold_range[0] }}"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">GOLD MAX</label>
+              <input class="mh-input" type="number" min="0" id="rd-gold-max" value="{{ raid_settings_all.gold_range[1] }}"/>
+            </div>
+          </div>
+          <button class="mh-btn" onclick="rdSaveGoldRange()">💾 SAVE GOLD RANGE</button>
+          <div id="rd-gold-result" style="margin-top:6px;font-size:16px;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+            <div class="mh-field">
+              <label class="mh-label">RESOURCE MIN</label>
+              <input class="mh-input" type="number" min="0" id="rd-resource-min" value="{{ raid_settings_all.resource_range[0] }}"/>
+            </div>
+            <div class="mh-field">
+              <label class="mh-label">RESOURCE MAX</label>
+              <input class="mh-input" type="number" min="0" id="rd-resource-max" value="{{ raid_settings_all.resource_range[1] }}"/>
+            </div>
+          </div>
+          <button class="mh-btn" onclick="rdSaveResourceRange()">💾 SAVE RESOURCE RANGE</button>
+          <div id="rd-resource-result" style="margin-top:6px;font-size:16px;"></div>
+        </div>
+
+      </div>
+
+      <div class="mh-lookup" style="margin-top:4px;">
+        <div class="mh-action-title" style="margin-bottom:10px;">⚡ RAID ACTIONS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="mh-btn green" onclick="rdForceResolve('defeated')">🏆 FORCE RESOLVE AS DEFEATED</button>
+          <button class="mh-btn" onclick="rdForceResolve('timeout')">⏱️ FORCE RESOLVE AS TIMEOUT</button>
+          <button class="mh-btn danger" style="grid-column:span 2;" onclick="rdCancelRaid()">🛑 CANCEL/RESET RAID (no rewards/announcement, challenge untouched)</button>
+        </div>
+        <div id="rd-raid-force-result" style="margin-top:8px;font-size:16px;"></div>
+      </div>
+
+      <!-- Reset both systems at once -->
+      <div class="mh-lookup" style="margin-top:4px;">
+        <div class="mh-action-title" style="margin-bottom:10px;">🛑 RESET EVERYTHING</div>
+        <button class="mh-btn danger" onclick="rdCancelCycle()">🛑 CANCEL/RESET BOTH CHALLENGE + RAID (no rewards)</button>
+        <div id="rd-force-result" style="margin-top:8px;font-size:16px;"></div>
+      </div>
+
+    </div><!-- /tab-raid -->
+
+    <!-- ═══════════════════════ SOCIAL ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-social">
+
+      <!-- TOPIC SUGGESTIONS -->
+      <div class="mh-section-title">🏷️ TOPIC SUGGESTIONS</div>
+      <div class="mh-lookup">
+        <div id="topic-suggestions-list">
+          <div class="mh-no-buffs">Loading...</div>
+        </div>
+      </div>
+
+      <div class="mh-lookup" style="margin-top:12px;">
+        <div class="mh-action-title" style="margin-bottom:10px;">➕ ADD NEW TOPIC</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="mh-field" style="flex:1;min-width:180px;margin:0;">
+            <label class="mh-label">TOPIC NAME</label>
+            <input class="mh-input" type="text" id="topic-add-label" maxlength="40" placeholder="e.g. Astronomy"/>
+          </div>
+          <div class="mh-field" style="width:80px;margin:0;">
+            <label class="mh-label">EMOJI</label>
+            <input class="mh-input" type="text" id="topic-add-emoji" maxlength="4" placeholder="🏷️"/>
+          </div>
+          <button class="mh-btn" style="width:auto;padding:9px 16px;" onclick="addTopicDirect()">ADD</button>
+        </div>
+        <div id="topic-add-result" style="margin-top:8px;font-size:16px;"></div>
+      </div>
+
+    </div><!-- /tab-social -->
 
   </div><!-- /main -->
 
@@ -845,6 +916,16 @@
 <script>
   const MAYOR_KEY = {{ mayor_key | tojson }};
   const KEY_PARAM = MAYOR_KEY ? `?key=${MAYOR_KEY}` : '';
+
+  // ── TABS ──
+  function switchMayorTab(tab, btn) {
+    document.querySelectorAll('.mh-tab-bar .eventlog-subtab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.mh-tab-panel').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const panel = document.getElementById('mh-tab-' + tab);
+    if (panel) panel.classList.add('active');
+    sessionStorage.setItem('mayorTab', tab);
+  }
 
   // ── CLOCK ──
   function updateClock() {
@@ -1082,6 +1163,17 @@
     }
   }
 
+  // ── SPAWN COMMUNITY BOSS ──
+  async function spawnCommunityBoss() {
+    const btn  = event.target;
+    const data = await api('/mayor/spawn-boss', {}, btn);
+    if (data.status === 'success') {
+      toast(`✅ ${data.message}`);
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
   // ── BUILDING BOOST ──
   async function boostBuilding() {
     const btn      = event.target;
@@ -1201,8 +1293,8 @@
           ${p.active_title ? `<div class="mh-player-stat" style="grid-column:span 2"><span class="k">TITLE </span><span class="v" style="color:var(--pink)">${p.active_title}</span></div>` : ''}
         </div>
         <div class="mh-player-actions">
-          <button class="mh-player-action" onclick="document.getElementById('gift-username').value='${p.username}';document.querySelector('.mh-action-card:nth-child(3)').scrollIntoView({behavior:'smooth'})">GIFT</button>
-          <button class="mh-player-action" onclick="document.getElementById('title-username').value='${p.username}';document.querySelector('.mh-action-card:nth-child(2)').scrollIntoView({behavior:'smooth'})">GRANT TITLE</button>
+          <button class="mh-player-action" onclick="document.getElementById('gift-username').value='${p.username}';switchMayorTab('economy', document.querySelector('.mh-tab-bar [data-tab=economy]'))">GIFT</button>
+          <button class="mh-player-action" onclick="document.getElementById('title-username').value='${p.username}'">GRANT TITLE</button>
         </div>
       </div>`;
   }
@@ -1509,6 +1601,13 @@
   }
 
   loadTopicSuggestions();
+
+  // ── RESTORE LAST-SELECTED TAB ──
+  (function() {
+    const saved = sessionStorage.getItem('mayorTab') || 'overview';
+    const btn = document.querySelector(`.mh-tab-bar .eventlog-subtab[data-tab="${saved}"]`);
+    if (btn) switchMayorTab(saved, btn);
+  })();
 </script>
 </body>
 </html>
