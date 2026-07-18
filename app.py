@@ -446,6 +446,16 @@ BARRACKS_SHOP = {
         {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "blood_gems": 50,  "spell_fragments": 25}},
         {"id": "crystal_armor",   "name": "Crystal Armor",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}},
     ],
+    # "epic" is intentionally a single item, not a full 4-slot tier -- ported
+    # from the now-retired GEAR_CATALOG (the only genuine gap it filled: no
+    # other epic-rarity item existed anywhere in Barracks). Cost carried over
+    # unchanged from its GEAR_CATALOG listing (already gold + blood_gems only,
+    # matching this shop's resource conventions). Filling out epic
+    # helmet/boots/armor (and any legendary tier) is deliberately left for a
+    # separate pass, not designed here.
+    "epic": [
+        {"id": "blood_axe", "name": "Blood Axe", "slot": "weapon", "combat_power": 30, "cost": {"gold": 500, "blood_gems": 15}},
+    ],
 }
 
 # resource column name in building_upgrades table
@@ -918,28 +928,6 @@ COMMUNITY_BOSS = {
     "speed":       20,
     "attack":      50,
     "defense":     20,
-}
-
-# ── GEAR CATALOG ──────────────────────────────────────────────────────────────
-# cost keys: 'gold' + resource names (never gold alone)
-GEAR_CATALOG = {
-    # Weapons
-    "fish_club":   {"name":"FISH CLUB",       "set_name":None,            "type":"combat",  "slot":"weapon","rarity":"common",   "attack_bonus":5,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":5,  "cost":{"gold":50}},
-    "bone_dagger": {"name":"BONE DAGGER",     "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"uncommon", "attack_bonus":10, "defense_bonus":0, "speed_bonus":2,"hp_bonus":0, "combat_power":12, "cost":{"gold":80,  "bones":10}},
-    "ice_sword":   {"name":"ICE SWORD",       "set_name":"Frost Guardian","type":"combat",  "slot":"weapon","rarity":"rare",     "attack_bonus":18, "defense_bonus":2, "speed_bonus":0,"hp_bonus":0, "combat_power":20, "cost":{"gold":200, "fish":30}},
-    "blood_axe":   {"name":"BLOOD AXE",       "set_name":"Blood Reaper",  "type":"combat",  "slot":"weapon","rarity":"epic",     "attack_bonus":30, "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":30, "cost":{"gold":500, "blood_gems":15}},
-    # Armor
-    "fish_vest":   {"name":"FISH SCALE VEST", "set_name":None,            "type":"combat",  "slot":"armor", "rarity":"common",   "attack_bonus":0,  "defense_bonus":8, "speed_bonus":0,"hp_bonus":10,"combat_power":10, "cost":{"gold":60,  "fish":15}},
-    "bone_plate":  {"name":"BONE PLATE",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"armor", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":12,"speed_bonus":0,"hp_bonus":15,"combat_power":15, "cost":{"gold":120, "bones":20}},
-    "ice_plate":   {"name":"ICE PLATE",       "set_name":"Frost Guardian","type":"combat",  "slot":"armor", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":22,"speed_bonus":0,"hp_bonus":25,"combat_power":27, "cost":{"gold":300, "fish":40,"herbs":10}},
-    # Boots
-    "leather_boots":{"name":"LEATHER BOOTS", "set_name":None,            "type":"combat",  "slot":"boots", "rarity":"common",   "attack_bonus":0,  "defense_bonus":3, "speed_bonus":5,"hp_bonus":0, "combat_power":8,  "cost":{"gold":40}},
-    "bone_boots":  {"name":"BONE BOOTS",      "set_name":"Blood Reaper",  "type":"combat",  "slot":"boots", "rarity":"uncommon", "attack_bonus":2,  "defense_bonus":5, "speed_bonus":8,"hp_bonus":0, "combat_power":15, "cost":{"gold":100, "bones":15}},
-    "frost_boots": {"name":"FROST BOOTS",     "set_name":"Frost Guardian","type":"combat",  "slot":"boots", "rarity":"rare",     "attack_bonus":0,  "defense_bonus":8, "speed_bonus":12,"hp_bonus":5,"combat_power":21, "cost":{"gold":250, "fish":20,"spell_fragments":5}},
-    # Cosmetics (purchasable via /gear/buy; boutique items live in BOUTIQUE_ITEMS)
-    "crown":       {"name":"CROWN",           "set_name":None,            "type":"cosmetic","slot":"hat",    "rarity":"rare",     "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":200}},
-    "red_cape":    {"name":"RED CAPE",        "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"common",   "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":20}},
-    "star_cape":   {"name":"STAR CAPE",       "set_name":None,            "type":"cosmetic","slot":"outfit", "rarity":"uncommon", "attack_bonus":0,  "defense_bonus":0, "speed_bonus":0,"hp_bonus":0, "combat_power":0,  "cost":{"gold":80,  "herbs":10}},
 }
 
 # ── GEAR DROP TEMPLATES ───────────────────────────────────────────────────────
@@ -4340,57 +4328,11 @@ def gear_inventory():
         gear_list.append(gd)
     return jsonify({
         "gear":        gear_list,
-        "catalog":     GEAR_CATALOG,
         "gold":        gold,
         "resources":   dict(r) if r else {},
         "player_cp":   player_cp,
         "set_bonuses": sb,
     })
-
-
-@app.route("/gear/buy", methods=["POST"])
-def gear_buy():
-    if not FEATURES.get("gear_crafting", False):
-        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
-    data     = request.get_json(silent=True) or {}
-    username = session.get("username", "")
-    item_id  = data.get("item_id", "")
-    defn = GEAR_CATALOG.get(item_id)
-    if not defn:
-        return jsonify({"status": "error", "message": "Unknown item."})
-
-    db = get_db()
-    ensure_resources(db, username)
-    r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
-    if not r:
-        db.close()
-        return jsonify({"status": "error", "message": "Penguin not found."})
-
-    # Check affordability
-    for resource, amount in defn["cost"].items():
-        have = r["gold"] if resource == "gold" else (r[resource] if resource in r.keys() else 0)
-        if have < amount:
-            db.close()
-            return jsonify({"status": "error", "message": f"Need {amount} {resource}."})
-
-    # Deduct
-    for resource, amount in defn["cost"].items():
-        if resource == "gold":
-            add_gold(db, username, -amount)
-        else:
-            db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
-
-    db.execute(
-        "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, obtained_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        (username, item_id, defn["name"], defn.get("set_name"), defn["type"], defn["slot"],
-         defn.get("rarity","common"), defn["attack_bonus"], defn["defense_bonus"],
-         defn["speed_bonus"], defn["hp_bonus"], defn.get("combat_power", 0), int(time.time()))
-    )
-    new_ach = check_achievements(db, username)
-    db.commit()
-    db.close()
-    return jsonify({"status": "success", "message": f"{defn['name']} purchased!", "new_achievements": new_ach})
 
 
 @app.route("/gear/equip", methods=["POST"])
@@ -7467,7 +7409,6 @@ def mayor_dashboard():
         buff_names=BUFF_NAMES,
         is_live=is_live,
         mayor_key=MAYOR_KEY,
-        gear_catalog=GEAR_CATALOG,
         cosmetic_slots=COSMETIC_SLOTS,
         current_challenge=dict(current_challenge) if current_challenge else None,
         current_raid=dict(current_raid) if current_raid else None,
@@ -7667,16 +7608,6 @@ def mayor_items_all():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
 
     items = []
-
-    # GEAR_CATALOG (combat weapons/armor/boots + combat cosmetics)
-    for item_id, item in GEAR_CATALOG.items():
-        items.append({
-            "id":     item_id,
-            "name":   item["name"],
-            "slot":   item["slot"],
-            "rarity": item.get("rarity", "common"),
-            "source": "gear_catalog",
-        })
 
     # BOUTIQUE_ITEMS (purchasable cosmetics: hat/outfit/footwear/accessory)
     for _category, entries in BOUTIQUE_ITEMS.items():
@@ -8464,17 +8395,11 @@ def _find_shop_definition(item_id, item_type):
     catalog entry can't take down every price lookup that runs after it."""
     try:
         if item_type == "combat":
-            defn = GEAR_CATALOG.get(item_id)
-            if defn and defn.get("type") == "combat":
-                return defn.get("cost", {}).get("gold", 0), bool(defn.get("event_exclusive"))
             for items in BARRACKS_SHOP.values():
                 for item in items:
                     if item["id"] == item_id:
                         return item.get("cost", {}).get("gold", 0), bool(item.get("event_exclusive"))
         else:
-            defn = GEAR_CATALOG.get(item_id)
-            if defn and defn.get("type") == "cosmetic":
-                return defn.get("cost", {}).get("gold", 0), bool(defn.get("event_exclusive"))
             for items in BOUTIQUE_ITEMS.values():
                 for item in items:
                     if item["id"] == item_id:
