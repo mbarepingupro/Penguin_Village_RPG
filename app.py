@@ -428,23 +428,59 @@ BOUTIQUE_ITEMS = {
 }
 
 BARRACKS_SHOP = {
+    # Each rarity below carries one purely-cosmetic ALTERNATIVE per slot
+    # alongside the original (iron/steel/crystal): identical combat_power to
+    # its slot+rarity counterpart -- no new stat dimension, no playstyle
+    # differentiation, just a second name/theme at the same power level.
+    # Gold is kept IDENTICAL to the original item so there's no "objectively
+    # better deal" between the two. The secondary resource is swapped from
+    # bones/blood_gems (Guillotine, 5/hr) to fish/herbs (Sea Lion Pit/Club
+    # Soda, 12.5/hr) to spread farming load off Guillotine -- amounts are
+    # scaled by that same 12.5/5 = 2.5x rate difference so the alternative
+    # costs the same GATHERING TIME, not less (e.g. 50 bones = 10hrs of
+    # Guillotine work = 125 fish = 10hrs of Sea Lion Pit work). Uncommon
+    # keeps its blood_gems component unchanged (only the bones portion is
+    # swapped); rare keeps spell_fragments unchanged and swaps out its
+    # blood_gems portion instead, since blood_gems is the resource this
+    # tier's alternative is meant to relieve pressure from. Barracks items
+    # have never had individual worn-gear sprites (the shop UI shows a
+    # generic per-slot emoji, and the worn-gear overlay system already
+    # tolerates a missing sprite file via its existing
+    # `if not os.path.exists(item_path): continue` skip) -- these
+    # alternatives rely on that same pre-existing fallback, no new art
+    # assets required.
     "common": [
         {"id": "iron_sword",   "name": "Iron Sword",   "slot": "weapon", "combat_power": 4,  "cost": {"gold": 200, "bones": 50}},
         {"id": "iron_helmet",  "name": "Iron Helmet",  "slot": "helmet", "combat_power": 3,  "cost": {"gold": 200, "bones": 40}},
         {"id": "iron_boots",   "name": "Iron Boots",   "slot": "boots",  "combat_power": 3,  "cost": {"gold": 150, "bones": 30}},
         {"id": "iron_plate",   "name": "Iron Plate",   "slot": "armor",  "combat_power": 4,  "cost": {"gold": 250, "bones": 60}},
+        # "Driftwood" -- salvaged coastal materials, cosmetic alternative to Iron.
+        {"id": "driftwood_club",    "name": "Driftwood Club",    "slot": "weapon", "combat_power": 4,  "cost": {"gold": 200, "fish": 125}},
+        {"id": "driftwood_cap",     "name": "Driftwood Cap",     "slot": "helmet", "combat_power": 3,  "cost": {"gold": 200, "herbs": 100}},
+        {"id": "driftwood_sandals", "name": "Driftwood Sandals", "slot": "boots",  "combat_power": 3,  "cost": {"gold": 150, "fish": 75}},
+        {"id": "driftwood_vest",    "name": "Driftwood Vest",    "slot": "armor",  "combat_power": 4,  "cost": {"gold": 250, "herbs": 150}},
     ],
     "uncommon": [
         {"id": "steel_sword",  "name": "Steel Sword",  "slot": "weapon", "combat_power": 9,  "cost": {"gold": 500,  "bones": 100, "blood_gems": 20}},
         {"id": "steel_helmet", "name": "Steel Helmet", "slot": "helmet", "combat_power": 7,  "cost": {"gold": 500,  "bones": 80,  "blood_gems": 15}},
         {"id": "steel_boots",  "name": "Steel Boots",  "slot": "boots",  "combat_power": 6,  "cost": {"gold": 400,  "bones": 70,  "blood_gems": 15}},
         {"id": "steel_plate",  "name": "Steel Plate",  "slot": "armor",  "combat_power": 9,  "cost": {"gold": 600,  "bones": 120, "blood_gems": 25}},
+        # "Coral" -- reef-harvested, cosmetic alternative to Steel.
+        {"id": "coral_blade", "name": "Coral Blade", "slot": "weapon", "combat_power": 9,  "cost": {"gold": 500, "fish": 250,  "blood_gems": 20}},
+        {"id": "coral_helm",  "name": "Coral Helm",  "slot": "helmet", "combat_power": 7,  "cost": {"gold": 500, "herbs": 200, "blood_gems": 15}},
+        {"id": "coral_boots", "name": "Coral Boots", "slot": "boots",  "combat_power": 6,  "cost": {"gold": 400, "fish": 175,  "blood_gems": 15}},
+        {"id": "coral_guard", "name": "Coral Guard", "slot": "armor",  "combat_power": 9,  "cost": {"gold": 600, "herbs": 300, "blood_gems": 25}},
     ],
     "rare": [
         {"id": "crystal_blade",   "name": "Crystal Blade",   "slot": "weapon", "combat_power": 19, "cost": {"gold": 1500, "blood_gems": 80,  "spell_fragments": 40}},
         {"id": "crystal_crown",   "name": "Crystal Crown",   "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "blood_gems": 60,  "spell_fragments": 30}},
         {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "blood_gems": 50,  "spell_fragments": 25}},
         {"id": "crystal_armor",   "name": "Crystal Armor",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}},
+        # "Aurora" -- aurora-touched ice, cosmetic alternative to Crystal.
+        {"id": "aurora_blade",  "name": "Aurora Blade",  "slot": "weapon", "combat_power": 19, "cost": {"gold": 1500, "fish": 200,  "spell_fragments": 40}},
+        {"id": "aurora_diadem", "name": "Aurora Diadem", "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "herbs": 150, "spell_fragments": 30}},
+        {"id": "aurora_boots",  "name": "Aurora Boots",  "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "fish": 125,  "spell_fragments": 25}},
+        {"id": "aurora_mail",   "name": "Aurora Mail",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "herbs": 250, "spell_fragments": 50}},
     ],
     # epic/legendary: standalone (no set_name -- barracks_buy() always writes
     # NULL), so these grant no set bonus. CP per slot matches GEAR_TEMPLATES'
