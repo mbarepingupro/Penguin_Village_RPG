@@ -8802,19 +8802,19 @@ def bank_shop():
     username = request.args.get("username", "")
     now      = int(time.time())
     db       = get_db()
-    # Expire items older than 24 h: the buyback window is over, so the item
-    # leaves the economy for good -- DELETE the row. (This used to UPDATE
-    # username to NULL, which violated gear.username's NOT NULL constraint
-    # and 500'd this whole tab the moment ANY bank item aged past 24h; a
-    # NULL-username row would also have been unreachable dead weight, since
-    # every gear query filters by username.) The sweep is best-effort: if it
-    # ever fails, log and still serve the shop (with stale items) rather
-    # than crash the tab.
+    # Expire items older than 30 days: the buyback window is over, so the
+    # item leaves the economy for good -- DELETE the row. (This used to
+    # UPDATE username to NULL, which violated gear.username's NOT NULL
+    # constraint and 500'd this whole tab the moment ANY bank item aged past
+    # the window; a NULL-username row would also have been unreachable dead
+    # weight, since every gear query filters by username.) The sweep is
+    # best-effort: if it ever fails, log and still serve the shop (with
+    # stale items) rather than crash the tab.
     try:
         db.execute(
             "DELETE FROM gear "
             "WHERE username='__bank__' AND bank_listed_at > 0 AND bank_listed_at < ?",
-            (now - 86400,)
+            (now - 30 * 86400,)
         )
         db.commit()
     except Exception as e:
