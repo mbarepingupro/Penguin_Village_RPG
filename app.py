@@ -490,24 +490,46 @@ BARRACKS_SHOP = {
     # strictly better or worse. blood_axe's CP was 30 when it was ported
     # solo from GEAR_CATALOG (a previous pass, before this tier existed);
     # adjusted to 28 here so all four epic items share one consistent split
-    # instead of an odd one out. Resource mix continues rare's pattern
-    # (blood_gems + spell_fragments, gold scaling up) rather than
-    # reintroducing bones, which rare already dropped -- fish/herbs/
-    # ice_blocks/mayor_seals stay out of every Barracks tier. Cost keeps
-    # the ~2.5-3x per-tier gold/resource growth already established from
-    # common->rare, extrapolated forward one step for epic and one more for
-    # legendary.
+    # instead of an odd one out. Cost keeps the ~2.5-3x per-tier gold/
+    # resource growth already established from common->rare, extrapolated
+    # forward one step for epic and one more for legendary. bones and
+    # mayor_seals still stay out (bones was already dropped at rare;
+    # mayor_seals stays walled off to the Seal Shop, per standing design
+    # decision) -- but unlike the previous pass, fish/herbs/ice_blocks are
+    # no longer excluded: since epic/legendary have no cosmetic-alternative
+    # items to carry a resource swap (unlike common/uncommon/rare's
+    # driftwood/coral/aurora pairs), each single item's cost is instead a
+    # mix, carving a same-gathering-TIME-value slice out of its existing
+    # spell_fragments/blood_gems rather than adding it on top (so total
+    # value per item is unchanged, only its variety):
+    #   - 25% of spell_fragments -> fish (weapon/boots) or herbs
+    #     (helmet/armor), 1:1, since both spell_fragments (Cursed Temple)
+    #     and fish/herbs (Sea Lion Pit/Club Soda) produce at the same
+    #     12.5/hr rate -- no scaling needed for time parity.
+    #   - 20% of blood_gems -> ice_blocks, at a ~4.2x ratio. ice_blocks has
+    #     no "produces"-building rate to read off directly, so its rate is
+    #     derived the same way: update_passive_energy()'s 10 energy/hr
+    #     regen, spent at build_roll()'s 5-energy-per-roll cost, averaging
+    #     roll (1-20) = ~10.5 ice_blocks/roll -> (10/5)*10.5 = ~21/hr,
+    #     against blood_gems' 5/hr (Guillotine) = 21/5 = 4.2x. The only
+    #     *other* existing ice_blocks reference is the flat 5000/10000
+    #     building-donation tiers, but those are a whole village's
+    #     communal cost pooled over time, not one player's single-item
+    #     cost, so they're deliberately not reused directly -- sanity
+    #     check: even legendary's largest ice_blocks cost (613, armor)
+    #     lands well under 15% of that flat figure, as expected for a
+    #     single piece of gear vs. a village-wide upgrade.
     "epic": [
-        {"id": "obsidian_blade",   "name": "Obsidian Blade",   "slot": "weapon", "combat_power": 28, "cost": {"gold": 4000, "blood_gems": 220, "spell_fragments": 110}},
-        {"id": "obsidian_crest",   "name": "Obsidian Crest",   "slot": "helmet", "combat_power": 22, "cost": {"gold": 3200, "blood_gems": 160, "spell_fragments": 80}},
-        {"id": "obsidian_greaves", "name": "Obsidian Greaves", "slot": "boots",  "combat_power": 20, "cost": {"gold": 2700, "blood_gems": 135, "spell_fragments": 70}},
-        {"id": "obsidian_plate",   "name": "Obsidian Plate",   "slot": "armor",  "combat_power": 25, "cost": {"gold": 4800, "blood_gems": 270, "spell_fragments": 135}},
+        {"id": "obsidian_blade",   "name": "Obsidian Blade",   "slot": "weapon", "combat_power": 28, "cost": {"gold": 4000, "blood_gems": 176, "spell_fragments": 82,  "fish": 28,           "ice_blocks": 185}},
+        {"id": "obsidian_crest",   "name": "Obsidian Crest",   "slot": "helmet", "combat_power": 22, "cost": {"gold": 3200, "blood_gems": 128, "spell_fragments": 60,  "herbs": 20,          "ice_blocks": 134}},
+        {"id": "obsidian_greaves", "name": "Obsidian Greaves", "slot": "boots",  "combat_power": 20, "cost": {"gold": 2700, "blood_gems": 108, "spell_fragments": 52,  "fish": 18,           "ice_blocks": 113}},
+        {"id": "obsidian_plate",   "name": "Obsidian Plate",   "slot": "armor",  "combat_power": 25, "cost": {"gold": 4800, "blood_gems": 216, "spell_fragments": 101, "herbs": 34,          "ice_blocks": 227}},
     ],
     "legendary": [
-        {"id": "mythril_blade",    "name": "Mythril Blade",    "slot": "weapon", "combat_power": 45, "cost": {"gold": 11000, "blood_gems": 600, "spell_fragments": 300}},
-        {"id": "mythril_diadem",   "name": "Mythril Diadem",   "slot": "helmet", "combat_power": 35, "cost": {"gold": 8600,  "blood_gems": 430, "spell_fragments": 220}},
-        {"id": "mythril_sabatons", "name": "Mythril Sabatons", "slot": "boots",  "combat_power": 32, "cost": {"gold": 7300,  "blood_gems": 365, "spell_fragments": 190}},
-        {"id": "mythril_plate",    "name": "Mythril Plate",    "slot": "armor",  "combat_power": 42, "cost": {"gold": 13000, "blood_gems": 730, "spell_fragments": 365}},
+        {"id": "mythril_blade",    "name": "Mythril Blade",    "slot": "weapon", "combat_power": 45, "cost": {"gold": 11000, "blood_gems": 480, "spell_fragments": 225, "fish": 75,  "ice_blocks": 504}},
+        {"id": "mythril_diadem",   "name": "Mythril Diadem",   "slot": "helmet", "combat_power": 35, "cost": {"gold": 8600,  "blood_gems": 344, "spell_fragments": 165, "herbs": 55, "ice_blocks": 361}},
+        {"id": "mythril_sabatons", "name": "Mythril Sabatons", "slot": "boots",  "combat_power": 32, "cost": {"gold": 7300,  "blood_gems": 292, "spell_fragments": 142, "fish": 48,  "ice_blocks": 307}},
+        {"id": "mythril_plate",    "name": "Mythril Plate",    "slot": "armor",  "combat_power": 42, "cost": {"gold": 13000, "blood_gems": 584, "spell_fragments": 274, "herbs": 91, "ice_blocks": 613}},
     ],
 }
 
