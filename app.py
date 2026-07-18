@@ -1426,16 +1426,22 @@ def calculate_set_bonuses(db, username):
     total_cp_bonus = 0
     active_descriptions = []
 
+    # Piece-count tiers are mutually exclusive -- only the HIGHEST tier a
+    # player's piece count reaches applies (checked highest-first, first
+    # match wins), not every tier whose threshold is met summed together.
+    # "secret" is a separate unlock condition (piece count + a specific
+    # cosmetic), not a piece-count tier, so it stays additive on top.
+    _PIECE_TIERS = (("3pc", 3), ("2pc", 2))
+
     for set_name, count in set_counts.items():
         if set_name not in SET_BONUSES:
             continue
         set_data = SET_BONUSES[set_name]
-        if count >= 2 and "2pc" in set_data:
-            total_cp_bonus += set_data["2pc"]["combat_power_bonus"]
-            active_descriptions.append(f"{set_name} 2pc: {set_data['2pc']['description']}")
-        if count >= 3 and "3pc" in set_data:
-            total_cp_bonus += set_data["3pc"]["combat_power_bonus"]
-            active_descriptions.append(f"{set_name} 3pc: {set_data['3pc']['description']}")
+        for tier_key, pieces_required in _PIECE_TIERS:
+            if count >= pieces_required and tier_key in set_data:
+                total_cp_bonus += set_data[tier_key]["combat_power_bonus"]
+                active_descriptions.append(f"{set_name} {tier_key}: {set_data[tier_key]['description']}")
+                break
         if count >= 3 and "secret" in set_data:
             if set_data["secret"]["cosmetic_required"] in cosmetic_names:
                 total_cp_bonus += set_data["secret"]["combat_power_bonus"]
