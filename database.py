@@ -398,6 +398,64 @@ def init_db():
         )
     """)
 
+    # Catalog tables -- DB-backed mirrors of what are still (as of this pass)
+    # the source-of-truth dict literals in app.py (BARRACKS_SHOP,
+    # BOUTIQUE_ITEMS, GEAR_TEMPLATES, SET_BONUSES). Seeded once by
+    # migrate_catalog_tables.py; no route reads from these tables yet -- that
+    # switchover is a separate, later pass. cost is JSON-encoded (resource ->
+    # int), same convention as raid_settings' value column.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS barracks_shop (
+            id              TEXT PRIMARY KEY,
+            name            TEXT NOT NULL,
+            slot            TEXT NOT NULL,
+            rarity          TEXT NOT NULL,
+            combat_power    INTEGER NOT NULL,
+            cost            TEXT NOT NULL,
+            event_exclusive INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS boutique_items (
+            id              TEXT PRIMARY KEY,
+            name            TEXT NOT NULL,
+            category        TEXT NOT NULL,
+            slot            TEXT NOT NULL,
+            price           INTEGER NOT NULL,
+            tier            TEXT NOT NULL,
+            event_exclusive INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
+    # id is synthetic -- GEAR_TEMPLATES entries have no stable id in app.py
+    # (a fresh item_id is generated per drop instead); migrate_catalog_tables.py
+    # derives one as slugify(name)_slot_rarity so each row has a stable PK.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS gear_templates (
+            id           TEXT PRIMARY KEY,
+            name         TEXT NOT NULL,
+            slot         TEXT NOT NULL,
+            rarity       TEXT NOT NULL,
+            set_name     TEXT DEFAULT NULL,
+            combat_power INTEGER NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS set_bonuses (
+            set_name                TEXT PRIMARY KEY,
+            pieces_needed            INTEGER NOT NULL,
+            bonus_2pc_cp             INTEGER NOT NULL,
+            bonus_2pc_desc           TEXT NOT NULL,
+            bonus_3pc_cp             INTEGER NOT NULL,
+            bonus_3pc_desc           TEXT NOT NULL,
+            secret_cosmetic_required TEXT DEFAULT NULL,
+            secret_cp                INTEGER NOT NULL,
+            secret_desc              TEXT NOT NULL
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
