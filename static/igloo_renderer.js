@@ -173,10 +173,15 @@ const IglooRenderer = (function () {
         const cx = (topF[0].x + topF[1].x + topF[2].x + topF[3].x) / 4;
         const cy = (topF[0].y + topF[1].y + topF[2].y + topF[3].y) / 4;
         const fs = Math.max(10, Math.min(18, TW * Math.min(w, h) * 0.35));
+        const rotation = ((item.rotation || 0) % 360 + 360) % 360;
+        _ctx.save();
+        _ctx.translate(cx, cy);
+        _ctx.rotate(rotation * Math.PI / 180);
         _ctx.font = `${fs}px sans-serif`;
         _ctx.textAlign = 'center';
         _ctx.textBaseline = 'middle';
-        _ctx.fillText(emoji, cx, cy);
+        _ctx.fillText(emoji, 0, 0);
+        _ctx.restore();
 
         if (cat === 'special') {
             _ctx.strokeStyle = '#FFD700';

@@ -5084,6 +5084,23 @@ def igloo_move():
     return jsonify({"status": "success"})
 
 
+@app.route("/igloo/furniture/<int:placement_id>/rotate", methods=["POST"])
+def igloo_rotate_furniture(placement_id):
+    username = session.get("username", "")
+    db = get_db()
+    row = db.execute(
+        "SELECT rotation FROM igloo_furniture WHERE id=? AND username=?", (placement_id, username)
+    ).fetchone()
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "Placement not found."})
+    new_rotation = ((row["rotation"] or 0) + 90) % 360
+    db.execute("UPDATE igloo_furniture SET rotation=? WHERE id=?", (new_rotation, placement_id))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "placement_id": placement_id, "rotation": new_rotation})
+
+
 @app.route("/igloo/upgrade", methods=["POST"])
 def igloo_upgrade():
     data     = request.get_json(silent=True) or {}

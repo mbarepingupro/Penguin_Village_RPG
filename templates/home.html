@@ -843,6 +843,8 @@
     .igloo-furn-btn.place:hover  { background: #4aff6b; color: var(--dark); }
     .igloo-furn-btn.remove { border-color: var(--pink); color: var(--pink); }
     .igloo-furn-btn.remove:hover { background: var(--pink); color: var(--dark); }
+    .igloo-furn-btn.rotate { border-color: #88c8e8; color: #88c8e8; }
+    .igloo-furn-btn.rotate:hover { background: #88c8e8; color: var(--dark); }
     .igloo-furn-btn.placing-active { background: #4aff6b; color: var(--dark); border-color: #4aff6b; }
     .igloo-edit-divider { height: 1px; background: #2a2a2a; margin: 4px 0; flex-shrink: 0; }
     .igloo-room-opt-btn {
@@ -8458,6 +8460,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         const isSel = IglooRenderer.selectedId === f.id;
         return `<div class="igloo-furn-card${isSel ? ' selected' : ''}">
           <div class="igloo-furn-name">${name}<br><span class="igloo-furn-size">${f.width||1}×${f.height||1}</span></div>
+          <button class="igloo-furn-btn rotate" onclick="iglooDoRotate(${f.id})" title="Rotate (currently ${f.rotation||0}°)">↻</button>
           <button class="igloo-furn-btn remove" onclick="iglooDoRemove(${f.id})">REMOVE</button>
         </div>`;
       }).join('');
@@ -8640,6 +8643,18 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (window.GameSounds) GameSounds.furnitureRemove();
       await iglooRefresh();
     } catch(e) { showToast('Error removing item.', 'err'); }
+  }
+
+  async function iglooDoRotate(placementId) {
+    try {
+      const res  = await fetch(`/igloo/furniture/${placementId}/rotate`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: CURRENT_USER }),
+      });
+      const data = await res.json();
+      if (data.status !== 'success') { showToast(data.message, 'err'); return; }
+      await iglooRefresh();
+    } catch(e) { showToast('Error rotating item.', 'err'); }
   }
 
   async function iglooDoUpgrade() {
