@@ -49,84 +49,23 @@
     }
 
     /* ── CARD ── */
+    /* The card is now just the real rendered PNG from
+       GET /card/<username>/image -- the same endpoint DOWNLOAD/SHARE and
+       the in-game card modal preview all use -- so this page always shows
+       the identical card, not a separate hand-styled re-implementation of
+       it (which had drifted out of sync: no ID-card panel, no full-height
+       sprite, no watermark, no worn-gear alignment fix, etc.). */
     .card {
       width: 100%;
       max-width: 560px;
-      background: #181820;
-      border: 3px solid #A86EFF;
-      display: flex;
-      gap: 0;
-      position: relative;
       margin-bottom: 24px;
     }
-    .card.golden-frame { border-color: #FF8C00; }
-
-    .card-left {
-      width: 180px;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 24px 12px 18px;
-      border-right: 1px solid #252535;
+    .card-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border: 3px solid #A86EFF;
     }
-    .card-sprite {
-      width: 80px;
-      height: 80px;
-      image-rendering: pixelated;
-      margin-bottom: 12px;
-    }
-    .card-username {
-      color: #fff;
-      font-size: 17px;
-      text-align: center;
-      margin-bottom: 6px;
-      word-break: break-all;
-    }
-    .card-active-title {
-      color: #A86EFF;
-      font-size: 16px;
-      text-align: center;
-      line-height: 1.6;
-      margin-bottom: 6px;
-    }
-    .card-prestige {
-      color: #FF7FE5;
-      font-size: 17px;
-      margin-bottom: 4px;
-    }
-    .card-gather-bonus {
-      color: #4aff6b;
-      font-size: 16px;
-      margin-top: auto;
-    }
-
-    .card-sparkle {
-      position: absolute;
-      font-size: 17px;
-      color: #FF7FE5;
-      pointer-events: none;
-    }
-    .card-sparkle.tl { top: 6px;  left: 6px; }
-    .card-sparkle.tr { top: 6px;  right: 6px; }
-    .card-sparkle.bl { bottom: 6px; left: 6px; }
-    .card-sparkle.br { bottom: 6px; right: 6px; }
-
-    .card-right {
-      flex: 1;
-      padding: 20px 16px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .card-header { color: #A86EFF; font-size: 17px; }
-    .card-stat { font-size: 16px; line-height: 1.8; }
-    .card-stat .lbl { color: #8888A8; }
-    .card-stat .val { color: #fff; }
-    .card-stat .val.orange { color: #FF8C00; }
-    .card-stat .val.purple { color: #A86EFF; }
-    .card-stat .val.green  { color: #4aff6b; }
-    .card-url { color: #3A3A50; font-size: 16px; margin-top: auto; }
 
     /* ── STATS SECTION (below card) ── */
     .profile-section {
@@ -199,9 +138,6 @@
       .cta-btn { justify-content: center; }
     }
     @media (max-width: 480px) {
-      .card { flex-direction: column; }
-      .card-left { width: 100%; border-right: none; border-bottom: 1px solid #252535; padding-bottom: 14px; }
-      .card-gather-bonus { margin-top: 8px; }
       .logo { font-size: 17px; }
     }
   </style>
@@ -220,66 +156,9 @@
 
   {% else %}
 
-  {# gather bonus for display #}
-  {% set gather_pct = (level - 1) * 5 %}
-
-  <div class="card{% if 'golden_frame' in (titles | map(attribute='title') | list) %} golden-frame{% endif %}">
-
-    {% if 'animated_sparkle' in (titles | map(attribute='title') | list) %}
-    <span class="card-sparkle tl">✦</span>
-    <span class="card-sparkle tr">✦</span>
-    <span class="card-sparkle bl">✦</span>
-    <span class="card-sparkle br">✦</span>
-    {% endif %}
-
-    <div class="card-left">
-      <img src="/static/penguin_{{ penguin_shape or 'normal' }}_static.png" class="card-sprite" alt="{{ username }}'s penguin"
-           onerror="this.style.display='none'">
-      <div class="card-username">{{ username | upper }}</div>
-      {% if active_title %}
-      <div class="card-active-title">{{ active_title }}</div>
-      {% endif %}
-      {% if prestige > 0 %}
-      <div class="card-prestige">{{ '★' * prestige }}</div>
-      {% endif %}
-      {% if gather_pct > 0 %}
-      <div class="card-gather-bonus">+{{ gather_pct }}% gather</div>
-      {% endif %}
-    </div>
-
-    <div class="card-right">
-      <div class="card-header">PENGUIN VILLAGE</div>
-
-      <div class="card-stat">
-        <span class="lbl">LEVEL </span><span class="val">{{ level }}</span>
-      </div>
-
-      <div class="card-stat">
-        <span class="lbl">JOB </span><span class="val orange">{{ job | upper }}</span>
-      </div>
-
-      <div class="card-stat">
-        <span class="lbl">GOLD </span><span class="val orange">{{ gold }}</span>
-      </div>
-
-      {% if active_title %}
-      <div class="card-stat">
-        <span class="lbl">TITLE </span><span class="val purple">"{{ active_title }}"</span>
-      </div>
-      {% endif %}
-
-      {% if fav_job %}
-      <div class="card-stat">
-        <span class="lbl">BEST AT </span><span class="val">{{ fav_job | upper }}</span>
-      </div>
-      {% endif %}
-
-      <div class="card-stat">
-        <span class="lbl">HRS WORKED </span><span class="val">{{ total_hours }}</span>
-      </div>
-
-      <div class="card-url">mbarepingu.com/penguin/{{ username | lower }}</div>
-    </div>
+  <div class="card">
+    <img src="/card/{{ username | lower }}/image?t={{ card_cache_bust }}" class="card-img"
+         alt="{{ username }}'s penguin card">
   </div>
 
   {% if not card_only %}
