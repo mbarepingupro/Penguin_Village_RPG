@@ -19,6 +19,7 @@ from personality_config import (
 from raid_config import pick_weekly_metric, pick_boss_name, calculate_attack_damage, cp_damage_bonus, WEEKLY_METRIC_TYPES
 from lootbox_config import RESOURCE_TYPES
 import raid_settings
+import catalog
 import math
 import time
 import requests as http_requests
@@ -382,156 +383,12 @@ def _resolve_hex_color(pcolor):
     return "#1a1a1a"
 
 
-BOUTIQUE_ITEMS = {
-    "hats": [
-        {"id": "baseball_cap",  "name": "Baseball Cap",  "slot": "hat", "price": 200,  "tier": "cheap"},
-        {"id": "beanie",        "name": "Beanie",         "slot": "hat", "price": 350,  "tier": "cheap"},
-        {"id": "party_hat",     "name": "Party Hat",      "slot": "hat", "price": 400,  "tier": "mid", "event_exclusive": True},
-        {"id": "beret",         "name": "Beret",          "slot": "hat", "price": 450,  "tier": "mid"},
-        {"id": "chefs_hat",     "name": "Chef's Hat",     "slot": "hat", "price": 500,  "tier": "mid"},
-        {"id": "cowboy_hat",    "name": "Cowboy Hat",     "slot": "hat", "price": 600,  "tier": "mid"},
-        {"id": "viking_helmet", "name": "Viking Helmet",  "slot": "hat", "price": 800,  "tier": "mid"},
-        {"id": "top_hat",       "name": "Top Hat",        "slot": "hat", "price": 800,  "tier": "mid"},
-        {"id": "pirate_hat",    "name": "Pirate Hat",     "slot": "hat", "price": 1000, "tier": "expensive"},
-    ],
-    "outfits": [
-        {"id": "plain_tshirt",    "name": "Plain T-Shirt",    "slot": "outfit", "price": 200,  "tier": "cheap"},
-        {"id": "hawaiian_shirt",  "name": "Hawaiian Shirt",   "slot": "outfit", "price": 350,  "tier": "cheap"},
-        {"id": "hoodie",          "name": "Hoodie",           "slot": "outfit", "price": 400,  "tier": "mid"},
-        {"id": "bra",             "name": "Bra",              "slot": "outfit", "price": 500,  "tier": "mid"},
-        {"id": "lab_coat",        "name": "Lab Coat",         "slot": "outfit", "price": 600,  "tier": "mid"},
-        {"id": "leather_jacket",  "name": "Leather Jacket",   "slot": "outfit", "price": 800,  "tier": "mid"},
-        {"id": "tuxedo_vest",     "name": "Tuxedo Vest",      "slot": "outfit", "price": 1200, "tier": "expensive"},
-        {"id": "superhero_cape",  "name": "Superhero Cape",   "slot": "outfit", "price": 1500, "tier": "expensive"},
-        {"id": "tuxedo",          "name": "Full Tuxedo",      "slot": "outfit", "price": 2500, "tier": "expensive"},
-    ],
-    "footwear": [
-        {"id": "sandals",       "name": "Sandals",       "slot": "footwear", "price": 150, "tier": "cheap"},
-        {"id": "sneakers",      "name": "Sneakers",      "slot": "footwear", "price": 200, "tier": "cheap"},
-        {"id": "fuzzy_slippers","name": "Fuzzy Slippers","slot": "footwear", "price": 250, "tier": "cheap"},
-        {"id": "rain_boots",    "name": "Rain Boots",    "slot": "footwear", "price": 300, "tier": "cheap"},
-        {"id": "roller_skates", "name": "Roller Skates", "slot": "footwear", "price": 500, "tier": "mid"},
-        {"id": "cowboy_boots",  "name": "Cowboy Boots",  "slot": "footwear", "price": 700, "tier": "mid"},
-    ],
-    "accessories": [
-        {"id": "lollipop",    "name": "Lollipop",    "slot": "accessory", "price": 150,  "tier": "cheap"},
-        {"id": "scarf_shop",  "name": "Scarf",        "slot": "accessory", "price": 200,  "tier": "cheap"},
-        {"id": "sunglasses",  "name": "Sunglasses",   "slot": "accessory", "price": 300,  "tier": "cheap"},
-        {"id": "bow_tie",     "name": "Bow Tie",       "slot": "accessory", "price": 350,  "tier": "mid"},
-        {"id": "backpack",    "name": "Backpack",      "slot": "accessory", "price": 400,  "tier": "mid"},
-        {"id": "monocle",     "name": "Monocle",       "slot": "accessory", "price": 500,  "tier": "mid"},
-        {"id": "bubble_pipe", "name": "Bubble Pipe",   "slot": "accessory", "price": 600,  "tier": "mid"},
-        {"id": "village_bandana","name": "Village Bandana","slot": "accessory","price": 750,  "tier": "mid"},
-        {"id": "gold_chain",  "name": "Gold Chain",    "slot": "accessory", "price": 1000, "tier": "expensive"},
-        {"id": "dragon_wings","name": "Dragon Wings",  "slot": "accessory", "price": 3000, "tier": "expensive"},
-    ],
-}
-
-BARRACKS_SHOP = {
-    # Each rarity below carries one purely-cosmetic ALTERNATIVE per slot
-    # alongside the original (iron/steel/crystal): identical combat_power to
-    # its slot+rarity counterpart -- no new stat dimension, no playstyle
-    # differentiation, just a second name/theme at the same power level.
-    # Gold is kept IDENTICAL to the original item so there's no "objectively
-    # better deal" between the two. The secondary resource is swapped from
-    # bones/blood_gems (Guillotine, 5/hr) to fish/herbs (Sea Lion Pit/Club
-    # Soda, 12.5/hr) to spread farming load off Guillotine -- amounts are
-    # scaled by that same 12.5/5 = 2.5x rate difference so the alternative
-    # costs the same GATHERING TIME, not less (e.g. 50 bones = 10hrs of
-    # Guillotine work = 125 fish = 10hrs of Sea Lion Pit work). Uncommon
-    # keeps its blood_gems component unchanged (only the bones portion is
-    # swapped); rare keeps spell_fragments unchanged and swaps out its
-    # blood_gems portion instead, since blood_gems is the resource this
-    # tier's alternative is meant to relieve pressure from. Barracks items
-    # have never had individual worn-gear sprites (the shop UI shows a
-    # generic per-slot emoji, and the worn-gear overlay system already
-    # tolerates a missing sprite file via its existing
-    # `if not os.path.exists(item_path): continue` skip) -- these
-    # alternatives rely on that same pre-existing fallback, no new art
-    # assets required.
-    "common": [
-        {"id": "iron_sword",   "name": "Iron Sword",   "slot": "weapon", "combat_power": 4,  "cost": {"gold": 200, "bones": 50}},
-        {"id": "iron_helmet",  "name": "Iron Helmet",  "slot": "helmet", "combat_power": 3,  "cost": {"gold": 200, "bones": 40}},
-        {"id": "iron_boots",   "name": "Iron Boots",   "slot": "boots",  "combat_power": 3,  "cost": {"gold": 150, "bones": 30}},
-        {"id": "iron_plate",   "name": "Iron Plate",   "slot": "armor",  "combat_power": 4,  "cost": {"gold": 250, "bones": 60}},
-        # "Driftwood" -- salvaged coastal materials, cosmetic alternative to Iron.
-        {"id": "driftwood_club",    "name": "Driftwood Club",    "slot": "weapon", "combat_power": 4,  "cost": {"gold": 200, "fish": 125}},
-        {"id": "driftwood_cap",     "name": "Driftwood Cap",     "slot": "helmet", "combat_power": 3,  "cost": {"gold": 200, "herbs": 100}},
-        {"id": "driftwood_sandals", "name": "Driftwood Sandals", "slot": "boots",  "combat_power": 3,  "cost": {"gold": 150, "fish": 75}},
-        {"id": "driftwood_vest",    "name": "Driftwood Vest",    "slot": "armor",  "combat_power": 4,  "cost": {"gold": 250, "herbs": 150}},
-    ],
-    "uncommon": [
-        {"id": "steel_sword",  "name": "Steel Sword",  "slot": "weapon", "combat_power": 9,  "cost": {"gold": 500,  "bones": 100, "blood_gems": 20}},
-        {"id": "steel_helmet", "name": "Steel Helmet", "slot": "helmet", "combat_power": 7,  "cost": {"gold": 500,  "bones": 80,  "blood_gems": 15}},
-        {"id": "steel_boots",  "name": "Steel Boots",  "slot": "boots",  "combat_power": 6,  "cost": {"gold": 400,  "bones": 70,  "blood_gems": 15}},
-        {"id": "steel_plate",  "name": "Steel Plate",  "slot": "armor",  "combat_power": 9,  "cost": {"gold": 600,  "bones": 120, "blood_gems": 25}},
-        # "Coral" -- reef-harvested, cosmetic alternative to Steel.
-        {"id": "coral_blade", "name": "Coral Blade", "slot": "weapon", "combat_power": 9,  "cost": {"gold": 500, "fish": 250,  "blood_gems": 20}},
-        {"id": "coral_helm",  "name": "Coral Helm",  "slot": "helmet", "combat_power": 7,  "cost": {"gold": 500, "herbs": 200, "blood_gems": 15}},
-        {"id": "coral_boots", "name": "Coral Boots", "slot": "boots",  "combat_power": 6,  "cost": {"gold": 400, "fish": 175,  "blood_gems": 15}},
-        {"id": "coral_guard", "name": "Coral Guard", "slot": "armor",  "combat_power": 9,  "cost": {"gold": 600, "herbs": 300, "blood_gems": 25}},
-    ],
-    "rare": [
-        {"id": "crystal_blade",   "name": "Crystal Blade",   "slot": "weapon", "combat_power": 19, "cost": {"gold": 1500, "blood_gems": 80,  "spell_fragments": 40}},
-        {"id": "crystal_crown",   "name": "Crystal Crown",   "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "blood_gems": 60,  "spell_fragments": 30}},
-        {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "blood_gems": 50,  "spell_fragments": 25}},
-        {"id": "crystal_armor",   "name": "Crystal Armor",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}},
-        # "Aurora" -- aurora-touched ice, cosmetic alternative to Crystal.
-        {"id": "aurora_blade",  "name": "Aurora Blade",  "slot": "weapon", "combat_power": 19, "cost": {"gold": 1500, "fish": 200,  "spell_fragments": 40}},
-        {"id": "aurora_diadem", "name": "Aurora Diadem", "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "herbs": 150, "spell_fragments": 30}},
-        {"id": "aurora_boots",  "name": "Aurora Boots",  "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "fish": 125,  "spell_fragments": 25}},
-        {"id": "aurora_mail",   "name": "Aurora Mail",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "herbs": 250, "spell_fragments": 50}},
-    ],
-    # epic/legendary: standalone (no set_name -- barracks_buy() always writes
-    # NULL), so these grant no set bonus. CP per slot matches GEAR_TEMPLATES'
-    # own epic/legendary split exactly (Temple Mystic 28/22/20/25, Penguin
-    # Emperor 45/35/32/42) so a forged item is exactly as strong as the
-    # equivalent drop-set piece -- a genuine no-RNG alternative path, not
-    # strictly better or worse. blood_axe's CP was 30 when it was ported
-    # solo from GEAR_CATALOG (a previous pass, before this tier existed);
-    # adjusted to 28 here so all four epic items share one consistent split
-    # instead of an odd one out. Cost keeps the ~2.5-3x per-tier gold/
-    # resource growth already established from common->rare, extrapolated
-    # forward one step for epic and one more for legendary. bones and
-    # mayor_seals still stay out (bones was already dropped at rare;
-    # mayor_seals stays walled off to the Seal Shop, per standing design
-    # decision) -- but unlike the previous pass, fish/herbs/ice_blocks are
-    # no longer excluded: since epic/legendary have no cosmetic-alternative
-    # items to carry a resource swap (unlike common/uncommon/rare's
-    # driftwood/coral/aurora pairs), each single item's cost is instead a
-    # mix, carving a same-gathering-TIME-value slice out of its existing
-    # spell_fragments/blood_gems rather than adding it on top (so total
-    # value per item is unchanged, only its variety):
-    #   - 25% of spell_fragments -> fish (weapon/boots) or herbs
-    #     (helmet/armor), 1:1, since both spell_fragments (Cursed Temple)
-    #     and fish/herbs (Sea Lion Pit/Club Soda) produce at the same
-    #     12.5/hr rate -- no scaling needed for time parity.
-    #   - 20% of blood_gems -> ice_blocks, at a ~4.2x ratio. ice_blocks has
-    #     no "produces"-building rate to read off directly, so its rate is
-    #     derived the same way: update_passive_energy()'s 10 energy/hr
-    #     regen, spent at build_roll()'s 5-energy-per-roll cost, averaging
-    #     roll (1-20) = ~10.5 ice_blocks/roll -> (10/5)*10.5 = ~21/hr,
-    #     against blood_gems' 5/hr (Guillotine) = 21/5 = 4.2x. The only
-    #     *other* existing ice_blocks reference is the flat 5000/10000
-    #     building-donation tiers, but those are a whole village's
-    #     communal cost pooled over time, not one player's single-item
-    #     cost, so they're deliberately not reused directly -- sanity
-    #     check: even legendary's largest ice_blocks cost (613, armor)
-    #     lands well under 15% of that flat figure, as expected for a
-    #     single piece of gear vs. a village-wide upgrade.
-    "epic": [
-        {"id": "obsidian_blade",   "name": "Obsidian Blade",   "slot": "weapon", "combat_power": 28, "cost": {"gold": 4000, "blood_gems": 176, "spell_fragments": 82,  "fish": 28,           "ice_blocks": 185}},
-        {"id": "obsidian_crest",   "name": "Obsidian Crest",   "slot": "helmet", "combat_power": 22, "cost": {"gold": 3200, "blood_gems": 128, "spell_fragments": 60,  "herbs": 20,          "ice_blocks": 134}},
-        {"id": "obsidian_greaves", "name": "Obsidian Greaves", "slot": "boots",  "combat_power": 20, "cost": {"gold": 2700, "blood_gems": 108, "spell_fragments": 52,  "fish": 18,           "ice_blocks": 113}},
-        {"id": "obsidian_plate",   "name": "Obsidian Plate",   "slot": "armor",  "combat_power": 25, "cost": {"gold": 4800, "blood_gems": 216, "spell_fragments": 101, "herbs": 34,          "ice_blocks": 227}},
-    ],
-    "legendary": [
-        {"id": "mythril_blade",    "name": "Mythril Blade",    "slot": "weapon", "combat_power": 45, "cost": {"gold": 11000, "blood_gems": 480, "spell_fragments": 225, "fish": 75,  "ice_blocks": 504}},
-        {"id": "mythril_diadem",   "name": "Mythril Diadem",   "slot": "helmet", "combat_power": 35, "cost": {"gold": 8600,  "blood_gems": 344, "spell_fragments": 165, "herbs": 55, "ice_blocks": 361}},
-        {"id": "mythril_sabatons", "name": "Mythril Sabatons", "slot": "boots",  "combat_power": 32, "cost": {"gold": 7300,  "blood_gems": 292, "spell_fragments": 142, "fish": 48,  "ice_blocks": 307}},
-        {"id": "mythril_plate",    "name": "Mythril Plate",    "slot": "armor",  "combat_power": 42, "cost": {"gold": 13000, "blood_gems": 584, "spell_fragments": 274, "herbs": 91, "ice_blocks": 613}},
-    ],
-}
+# BOUTIQUE_ITEMS and BARRACKS_SHOP used to be dict literals here; both are
+# now DB-backed via catalog.load_boutique_items()/catalog.load_barracks_shop()
+# (see catalog.py for the full design-rationale notes preserved from the old
+# BARRACKS_SHOP literal's comments, and migrate_catalog_tables.py for the
+# one-time seed that populated the boutique_items/barracks_shop tables from
+# those literals' exact original values).
 
 # resource column name in building_upgrades table
 _RES_COL = {
@@ -1006,38 +863,8 @@ COMMUNITY_BOSS = {
 }
 
 # ── GEAR DROP TEMPLATES ───────────────────────────────────────────────────────
-GEAR_TEMPLATES = {
-    "common": [
-        {"name": "Rusty Sword",  "slot": "weapon", "set_name": None, "combat_power": 3},
-        {"name": "Leather Cap",  "slot": "helmet", "set_name": None, "combat_power": 2},
-        {"name": "Worn Boots",   "slot": "boots",  "set_name": None, "combat_power": 2},
-        {"name": "Padded Vest",  "slot": "armor",  "set_name": None, "combat_power": 3},
-    ],
-    "uncommon": [
-        {"name": "Frost Blade",   "slot": "weapon", "set_name": "Frost Guardian", "combat_power": 7},
-        {"name": "Frost Helm",    "slot": "helmet", "set_name": "Frost Guardian", "combat_power": 5},
-        {"name": "Frost Greaves", "slot": "boots",  "set_name": "Frost Guardian", "combat_power": 5},
-        {"name": "Frost Mail",    "slot": "armor",  "set_name": "Frost Guardian", "combat_power": 7},
-    ],
-    "rare": [
-        {"name": "Blood Reaper",    "slot": "weapon", "set_name": "Blood Reaper", "combat_power": 15},
-        {"name": "Blood Crown",     "slot": "helmet", "set_name": "Blood Reaper", "combat_power": 12},
-        {"name": "Blood Stompers",  "slot": "boots",  "set_name": "Blood Reaper", "combat_power": 11},
-        {"name": "Blood Plate",     "slot": "armor",  "set_name": "Blood Reaper", "combat_power": 14},
-    ],
-    "epic": [
-        {"name": "Temple Mystic Staff",    "slot": "weapon", "set_name": "Temple Mystic", "combat_power": 28},
-        {"name": "Temple Mystic Hood",     "slot": "helmet", "set_name": "Temple Mystic", "combat_power": 22},
-        {"name": "Temple Mystic Sandals",  "slot": "boots",  "set_name": "Temple Mystic", "combat_power": 20},
-        {"name": "Temple Mystic Robes",    "slot": "armor",  "set_name": "Temple Mystic", "combat_power": 25},
-    ],
-    "legendary": [
-        {"name": "Emperor's Scepter",  "slot": "weapon", "set_name": "Penguin Emperor", "combat_power": 45},
-        {"name": "Emperor's Diadem",   "slot": "helmet", "set_name": "Penguin Emperor", "combat_power": 35},
-        {"name": "Emperor's Sabatons", "slot": "boots",  "set_name": "Penguin Emperor", "combat_power": 32},
-        {"name": "Emperor's Regalia",  "slot": "armor",  "set_name": "Penguin Emperor", "combat_power": 42},
-    ],
-}
+# GEAR_TEMPLATES used to be a dict literal here -- now DB-backed via
+# catalog.load_gear_templates() (see catalog.py / migrate_catalog_tables.py).
 
 _GEAR_DROP_RARITY_WEIGHTS = {
     1: {"common": 70, "uncommon": 25, "rare": 5,  "epic": 0,  "legendary": 0},
@@ -1048,32 +875,10 @@ _GEAR_DROP_RARITY_WEIGHTS = {
 }
 
 # ── SET BONUSES ───────────────────────────────────────────────────────────────
-SET_BONUSES = {
-    "Frost Guardian": {
-        "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 5,  "description": "+5 Combat Power"},
-        "3pc": {"combat_power_bonus": 15, "description": "+15 Combat Power"},
-        "secret": {"cosmetic_required": "Golden Scarf", "combat_power_bonus": 10, "description": "+10 CP (secret!)"},
-    },
-    "Blood Reaper": {
-        "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 8,  "description": "+8 Combat Power"},
-        "3pc": {"combat_power_bonus": 20, "description": "+20 Combat Power"},
-        "secret": {"cosmetic_required": "Shadow Cloak", "combat_power_bonus": 15, "description": "+15 CP (secret!)"},
-    },
-    "Temple Mystic": {
-        "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 12, "description": "+12 Combat Power"},
-        "3pc": {"combat_power_bonus": 25, "description": "+25 Combat Power"},
-        "secret": {"cosmetic_required": "Ancient Amulet", "combat_power_bonus": 20, "description": "+20 CP (secret!)"},
-    },
-    "Penguin Emperor": {
-        "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 15, "description": "+15 Combat Power"},
-        "3pc": {"combat_power_bonus": 35, "description": "+35 Combat Power"},
-        "secret": {"cosmetic_required": "Prestige Crown", "combat_power_bonus": 30, "description": "+30 CP (secret!)"},
-    },
-}
+# SET_BONUSES used to be a dict literal here -- now DB-backed via
+# catalog.load_set_bonuses() (see catalog.py / migrate_catalog_tables.py).
+# COSMETIC_SET_BONUSES below is a separate, differently-shaped dict that was
+# NOT part of that migration and stays a literal.
 
 COSMETIC_SET_BONUSES = {
     "Street Style": {
@@ -1496,10 +1301,11 @@ def calculate_set_bonuses(db, username):
     # cosmetic), not a piece-count tier, so it stays additive on top.
     _PIECE_TIERS = (("3pc", 3), ("2pc", 2))
 
+    set_bonuses = catalog.load_set_bonuses(db=db)
     for set_name, count in set_counts.items():
-        if set_name not in SET_BONUSES:
+        if set_name not in set_bonuses:
             continue
-        set_data = SET_BONUSES[set_name]
+        set_data = set_bonuses[set_name]
         for tier_key, pieces_required in _PIECE_TIERS:
             if count >= pieces_required and tier_key in set_data:
                 total_cp_bonus += set_data[tier_key]["combat_power_bonus"]
@@ -1670,12 +1476,16 @@ def get_combat_stats(db, username):
     return {"attack": attack, "defense": defense, "speed": speed, "hp": hp, "level": level}
 
 
-def generate_gear_drop(monster_tier):
-    """Generate a random gear drop for a given monster tier."""
+def generate_gear_drop(monster_tier, db=None):
+    """Generate a random gear drop for a given monster tier.
+
+    Pass the caller's own already-open `db` connection when calling mid-
+    transaction -- see raid_settings.get_setting's docstring for why.
+    """
     weights  = _GEAR_DROP_RARITY_WEIGHTS.get(monster_tier, _GEAR_DROP_RARITY_WEIGHTS[1])
     pool     = [r for r, w in weights.items() for _ in range(w)]
     rarity   = random.choice(pool)
-    tmpl     = random.choice(GEAR_TEMPLATES[rarity])
+    tmpl     = random.choice(catalog.load_gear_templates(db=db)[rarity])
     item_id  = f"drop_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {
         "name": tmpl["name"].upper(),
@@ -1709,9 +1519,11 @@ def _roll_lootbox_rarity(db=None):
     return "common"  # float-rounding fallback
 
 
-def _generate_lootbox_gear(rarity):
-    """Random gear item of an exact rarity — reuses GEAR_TEMPLATES, same shape as generate_gear_drop()."""
-    tmpl    = random.choice(GEAR_TEMPLATES[rarity])
+def _generate_lootbox_gear(rarity, db=None):
+    """Random gear item of an exact rarity — reuses catalog.load_gear_templates(),
+    same shape as generate_gear_drop(). Same optional-`db` convention as
+    raid_settings.get_setting()."""
+    tmpl    = random.choice(catalog.load_gear_templates(db=db)[rarity])
     item_id = f"lootbox_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {
         "name": tmpl["name"].upper(),
@@ -1738,7 +1550,7 @@ def open_lootbox(lootbox_id, username):
         return None
 
     rarity   = _roll_lootbox_rarity(db=db)
-    gear     = _generate_lootbox_gear(rarity)
+    gear     = _generate_lootbox_gear(rarity, db=db)
     gold_range     = raid_settings.get_setting("gold_range", db=db)
     resource_range = raid_settings.get_setting("resource_range", db=db)
     gold     = random.randint(gold_range[0], gold_range[1])
@@ -2016,7 +1828,7 @@ def check_achievements(db, username):
                 if reward.get("gold"):
                     add_gold(db, username, reward["gold"])
                 if reward.get("gear_tier"):
-                    gear = generate_gear_drop(reward["gear_tier"])
+                    gear = generate_gear_drop(reward["gear_tier"], db=db)
                     db.execute(
                         "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
                         "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
@@ -3899,7 +3711,7 @@ def gear_cosmetics(username):
         else:
             d["source"] = "Gear Shop"
         try:
-            _, event_exclusive = _find_shop_definition(d.get("item_id"), "cosmetic")
+            _, event_exclusive = _find_shop_definition(d.get("item_id"), "cosmetic", db=db)
         except Exception as e:
             print(f"[gear_cosmetics] event_exclusive lookup failed for gear id={d.get('id')} item_id={d.get('item_id')!r}: {e}")
             event_exclusive = False
@@ -4130,7 +3942,7 @@ def combat_fight():
 
             gear_drop = None
             if random.random() < rdef["gear_drop_chance"]:
-                gear_drop = generate_gear_drop(mtype["tier"])
+                gear_drop = generate_gear_drop(mtype["tier"], db=db)
                 db.execute(
                     "INSERT INTO gear (username, item_id, name, set_name, type, slot, rarity, "
                     "attack_bonus, defense_bonus, speed_bonus, hp_bonus, combat_power, equipped, obtained_at) "
@@ -6130,7 +5942,7 @@ def boutique_items():
     player_gold = get_gold(db, username)
     db.close()
     result = {}
-    for category, items in BOUTIQUE_ITEMS.items():
+    for category, items in catalog.load_boutique_items().items():
         result[category] = [
             {**item, "owned": item["id"] in owned_ids, "equipped": item["id"] in equipped_ids}
             for item in items
@@ -6144,7 +5956,7 @@ def boutique_buy():
     username = session.get("username", "")
     item_id  = data.get("item_id", "")
     item = next(
-        (i for items in BOUTIQUE_ITEMS.values() for i in items if i["id"] == item_id),
+        (i for items in catalog.load_boutique_items().values() for i in items if i["id"] == item_id),
         None
     )
     if not item:
@@ -6200,7 +6012,7 @@ def boutique_equip():
 @app.route("/boutique/preview/<item_id>")
 def boutique_preview(item_id):
     item = next(
-        (i for items in BOUTIQUE_ITEMS.values() for i in items if i["id"] == item_id),
+        (i for items in catalog.load_boutique_items().values() for i in items if i["id"] == item_id),
         None
     )
     if not item:
@@ -6213,7 +6025,7 @@ def boutique_preview(item_id):
 @app.route("/barracks/shop/<username>")
 def barracks_shop(username):
     if not FEATURES.get("gear_equip", False):
-        return jsonify({"status": "disabled", "shop": BARRACKS_SHOP, "owned_ids": [], "gold": 0, "resources": {}})
+        return jsonify({"status": "disabled", "shop": catalog.load_barracks_shop(), "owned_ids": [], "gold": 0, "resources": {}})
     db = get_db()
     ensure_resources(db, username)
     owned = db.execute(
@@ -6225,7 +6037,7 @@ def barracks_shop(username):
     db.close()
     return jsonify({
         "status": "ok",
-        "shop": BARRACKS_SHOP,
+        "shop": catalog.load_barracks_shop(),
         "owned_ids": owned_ids,
         "gold": gold,
         "resources": dict(res) if res else {},
@@ -6242,7 +6054,7 @@ def barracks_buy():
 
     defn = None
     rarity = None
-    for r, items in BARRACKS_SHOP.items():
+    for r, items in catalog.load_barracks_shop().items():
         for item in items:
             if item["id"] == item_id:
                 defn   = item
@@ -6646,7 +6458,7 @@ def tutorial_starter_fight():
     add_gold(db, username, 30)
     _, level_ups = award_xp(db, username, 20)
 
-    template = random.choice(GEAR_TEMPLATES["common"])
+    template = random.choice(catalog.load_gear_templates(db=db)["common"])
     now      = int(time.time())
     db.execute(
         "INSERT INTO gear (username, name, type, slot, rarity, set_name, combat_power, equipped, obtained_at) "
@@ -6690,7 +6502,7 @@ def tutorial_free_boutique():
         return jsonify({"status": "already_given", "message": "Free item already claimed."})
 
     item = next(
-        (i for items in BOUTIQUE_ITEMS.values() for i in items if i["id"] == item_id),
+        (i for items in catalog.load_boutique_items(db=db).values() for i in items if i["id"] == item_id),
         None
     )
     if not item:
@@ -7684,8 +7496,8 @@ def mayor_items_all():
 
     items = []
 
-    # BOUTIQUE_ITEMS (purchasable cosmetics: hat/outfit/footwear/accessory)
-    for _category, entries in BOUTIQUE_ITEMS.items():
+    # boutique_items (purchasable cosmetics: hat/outfit/footwear/accessory)
+    for _category, entries in catalog.load_boutique_items().items():
         for entry in entries:
             items.append({
                 "id":     entry["id"],
@@ -7695,8 +7507,8 @@ def mayor_items_all():
                 "source": "boutique",
             })
 
-    # BARRACKS_SHOP (purchasable combat gear with rarity)
-    for rarity, entries in BARRACKS_SHOP.items():
+    # barracks_shop (purchasable combat gear with rarity)
+    for rarity, entries in catalog.load_barracks_shop().items():
         for entry in entries:
             items.append({
                 "id":     entry["id"],
@@ -8457,7 +8269,7 @@ BANK_EVENT_ITEM_SELL_MULTIPLIER  = 1.5  # event-exclusive items sell above cost 
 _BANK_UNSELLABLE_SLOTS = {"card_frame", "card_background"}
 
 
-def _find_shop_definition(item_id, item_type):
+def _find_shop_definition(item_id, item_type, db=None):
     """Look up an item's original shop listing across every catalog it could
     have come from, keyed by the item type recorded on the player's gear row.
     Returns (gold_cost, event_exclusive), or (None, False) if the item was
@@ -8467,15 +8279,18 @@ def _find_shop_definition(item_id, item_type):
     Defensive against a malformed catalog entry (a "cost" that isn't a dict,
     a missing "gold"/"price" key, etc.) -- returns (None, False) in that case
     too rather than raising, same as a genuinely-unlisted item, so one bad
-    catalog entry can't take down every price lookup that runs after it."""
+    catalog entry can't take down every price lookup that runs after it.
+
+    Pass the caller's own already-open `db` connection when calling mid-
+    transaction -- see raid_settings.get_setting's docstring for why."""
     try:
         if item_type == "combat":
-            for items in BARRACKS_SHOP.values():
+            for items in catalog.load_barracks_shop(db=db).values():
                 for item in items:
                     if item["id"] == item_id:
                         return item.get("cost", {}).get("gold", 0), bool(item.get("event_exclusive"))
         else:
-            for items in BOUTIQUE_ITEMS.values():
+            for items in catalog.load_boutique_items(db=db).values():
                 for item in items:
                     if item["id"] == item_id:
                         return item.get("price"), bool(item.get("event_exclusive"))
@@ -8485,16 +8300,19 @@ def _find_shop_definition(item_id, item_type):
     return None, False
 
 
-def calculate_bank_sell_price(gear_row):
+def calculate_bank_sell_price(gear_row, db=None):
     """Gold the bank pays for a player's item. Standard items sell at
     BANK_SELL_DISCOUNT of their real shop cost (gold portion only); event-
     exclusive items sell at BANK_EVENT_ITEM_SELL_MULTIPLIER instead. Items with
     no shop listing (rewards, Seal Shop exclusives) fall back to the flat
     rarity-based _BANK_SELL_PRICES. Never raises -- a bad catalog entry or an
-    unexpected gold_cost type falls back to the flat price instead."""
+    unexpected gold_cost type falls back to the flat price instead.
+
+    Pass the caller's own already-open `db` connection when calling mid-
+    transaction -- see raid_settings.get_setting's docstring for why."""
     fallback = _BANK_SELL_PRICES.get(gear_row["rarity"] or "common", 30)
     try:
-        gold_cost, event_exclusive = _find_shop_definition(gear_row["item_id"], gear_row["type"])
+        gold_cost, event_exclusive = _find_shop_definition(gear_row["item_id"], gear_row["type"], db=db)
         if gold_cost is None:
             return fallback
         if event_exclusive:
@@ -8760,7 +8578,7 @@ def bank_sell_to_bank():
 
         if g["equipped"] or g["worn"]:
             was_equipped_or_worn = True
-        sell_price = calculate_bank_sell_price(g)
+        sell_price = calculate_bank_sell_price(g, db=db)
         buy_price  = math.ceil(sell_price * 1.2)
 
         add_gold(db, username, sell_price)
