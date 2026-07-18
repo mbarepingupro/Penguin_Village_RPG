@@ -248,6 +248,7 @@
       <button class="eventlog-subtab" data-tab="announcements" onclick="switchMayorTab('announcements', this)">📢 ANNOUNCEMENTS</button>
       <button class="eventlog-subtab" data-tab="raid" onclick="switchMayorTab('raid', this)">🐉 RAID &amp; CHALLENGES</button>
       <button class="eventlog-subtab" data-tab="social" onclick="switchMayorTab('social', this)">🏷️ SOCIAL</button>
+      <button class="eventlog-subtab" data-tab="items" onclick="switchMayorTab('items', this)">🗃️ ITEMS</button>
     </div>
 
     <!-- ═══════════════════════ OVERVIEW ═══════════════════════ -->
@@ -891,6 +892,45 @@
 
     </div><!-- /tab-social -->
 
+    <!-- ═══════════════════════ ITEMS ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-items">
+
+      <div style="color:var(--dim);font-size:15px;margin-bottom:12px;">
+        Full CRUD on the DB-backed item catalogs. Editing/deleting a
+        definition here never changes gear a player already owns or has
+        equipped -- combat_power/slot/rarity/etc. are copied onto their
+        gear row the moment they buy or drop an item, not looked up live.
+        The one exception is Set Bonuses: the bonus CP for an equipped set
+        <em>is</em> looked up live every time combat power is computed, so
+        editing or deleting a set here takes effect immediately for anyone
+        who currently has matching pieces equipped (you'll get a warning
+        first, but it's not blocked). N00Tbox drop rates are already fully
+        editable under RAID &amp; CHALLENGES → WEEKEND RAID DEBUG, so
+        they're not duplicated here.
+      </div>
+
+      <div class="eventlog-subtabs" id="items-catalog-tabs" style="margin-bottom:14px;">
+        <button class="eventlog-subtab active" data-catalog="barracks_shop" onclick="switchItemsCatalog('barracks_shop')">⚔️ BARRACKS SHOP</button>
+        <button class="eventlog-subtab" data-catalog="boutique_items" onclick="switchItemsCatalog('boutique_items')">🛍️ BOUTIQUE ITEMS</button>
+        <button class="eventlog-subtab" data-catalog="gear_templates" onclick="switchItemsCatalog('gear_templates')">🎲 GEAR TEMPLATES</button>
+        <button class="eventlog-subtab" data-catalog="set_bonuses" onclick="switchItemsCatalog('set_bonuses')">✨ SET BONUSES</button>
+      </div>
+
+      <div class="eventlog-subtabs" id="items-group-tabs" style="margin-bottom:12px;"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div id="items-list-title" style="color:var(--dim);font-size:16px;"></div>
+        <button class="mh-btn green" style="width:auto;padding:8px 14px;margin-top:0;" onclick="openCatalogForm(null)">➕ ADD NEW</button>
+      </div>
+
+      <div id="items-list" class="mh-lookup" style="margin-bottom:16px;">
+        <div class="mh-no-buffs">Loading...</div>
+      </div>
+
+      <div id="items-form-card" class="mh-action-card" style="display:none;"></div>
+
+    </div><!-- /tab-items -->
+
   </div><!-- /main -->
 
   <!-- LIVE FEED -->
@@ -925,6 +965,7 @@
     const panel = document.getElementById('mh-tab-' + tab);
     if (panel) panel.classList.add('active');
     sessionStorage.setItem('mayorTab', tab);
+    if (tab === 'items') loadCatalogItems(_itemsCatalog);
   }
 
   // ── CLOCK ──
@@ -1601,6 +1642,273 @@
   }
 
   loadTopicSuggestions();
+
+  // ── ITEMS TAB: catalog CRUD (barracks_shop/boutique_items/gear_templates/set_bonuses) ──
+  const RARITY_ORDER  = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  const RESOURCE_LIST = ['gold', 'fish', 'herbs', 'blood_gems', 'bones', 'spell_fragments', 'ice_blocks'];
+
+  const CATALOG_META = {
+    barracks_shop:  { pk: 'id',       groupField: 'rarity',   groups: RARITY_ORDER, label: 'Barracks Shop' },
+    boutique_items: { pk: 'id',       groupField: 'category', groups: ['hats', 'outfits', 'footwear', 'accessories'], label: 'Boutique Items' },
+    gear_templates: { pk: 'id',       groupField: 'rarity',   groups: RARITY_ORDER, label: 'Gear Templates' },
+    set_bonuses:    { pk: 'set_name', groupField: null,       groups: null,          label: 'Set Bonuses' },
+  };
+
+  const CATALOG_FIELDS = {
+    barracks_shop: [
+      { key: 'id',   label: 'ID (slug, immutable once created)', type: 'text', placeholder: 'iron_sword' },
+      { key: 'name', label: 'NAME', type: 'text' },
+      { key: 'slot', label: 'SLOT', type: 'select', options: ['weapon', 'armor', 'helmet', 'boots'] },
+      { key: 'rarity', label: 'RARITY', type: 'select', options: RARITY_ORDER },
+      { key: 'combat_power', label: 'COMBAT POWER', type: 'number' },
+      { key: 'cost', label: 'COST', type: 'cost' },
+      { key: 'event_exclusive', label: 'EVENT EXCLUSIVE', type: 'checkbox' },
+    ],
+    boutique_items: [
+      { key: 'id',   label: 'ID (slug, immutable once created)', type: 'text', placeholder: 'baseball_cap' },
+      { key: 'name', label: 'NAME', type: 'text' },
+      { key: 'category', label: 'CATEGORY', type: 'select', options: ['hats', 'outfits', 'footwear', 'accessories'] },
+      { key: 'slot', label: 'SLOT', type: 'select', options: ['hat', 'outfit', 'footwear', 'accessory'] },
+      { key: 'price', label: 'PRICE (gold)', type: 'number' },
+      { key: 'tier', label: 'TIER', type: 'select', options: ['cheap', 'mid', 'expensive'] },
+      { key: 'event_exclusive', label: 'EVENT EXCLUSIVE', type: 'checkbox' },
+    ],
+    gear_templates: [
+      { key: 'id',   label: 'ID (slug, immutable once created)', type: 'text', placeholder: 'rusty_sword_weapon_common' },
+      { key: 'name', label: 'NAME', type: 'text' },
+      { key: 'slot', label: 'SLOT', type: 'select', options: ['weapon', 'armor', 'helmet', 'boots'] },
+      { key: 'rarity', label: 'RARITY', type: 'select', options: RARITY_ORDER },
+      { key: 'set_name', label: 'SET NAME (optional -- must match a Set Bonuses entry to grant a bonus)', type: 'text', optional: true },
+      { key: 'combat_power', label: 'COMBAT POWER', type: 'number' },
+    ],
+    set_bonuses: [
+      { key: 'set_name', label: 'SET NAME (must exactly match gear_templates set_name to apply)', type: 'text', placeholder: 'Frost Guardian' },
+      { key: 'pieces_needed', label: 'PIECES NEEDED', type: 'number' },
+      { key: 'bonus_2pc_cp', label: '2PC BONUS CP', type: 'number' },
+      { key: 'bonus_2pc_desc', label: '2PC DESCRIPTION', type: 'text' },
+      { key: 'bonus_3pc_cp', label: '3PC BONUS CP', type: 'number' },
+      { key: 'bonus_3pc_desc', label: '3PC DESCRIPTION', type: 'text' },
+      { key: 'secret_cosmetic_required', label: 'SECRET COSMETIC REQUIRED (optional)', type: 'text', optional: true },
+      { key: 'secret_cp', label: 'SECRET BONUS CP', type: 'number' },
+      { key: 'secret_desc', label: 'SECRET DESCRIPTION', type: 'text' },
+    ],
+  };
+
+  let _itemsCatalog = sessionStorage.getItem('itemsCatalog') || 'barracks_shop';
+  let _itemsGroup   = null;   // current rarity/category filter within the active catalog
+  let _itemsData    = {};     // catalogName -> array of raw rows, last fetched
+
+  function switchItemsCatalog(catalogName) {
+    _itemsCatalog = catalogName;
+    _itemsGroup   = null;
+    sessionStorage.setItem('itemsCatalog', catalogName);
+    closeCatalogForm();
+    loadCatalogItems(catalogName);
+  }
+
+  async function loadCatalogItems(catalogName) {
+    _itemsCatalog = catalogName;
+    document.querySelectorAll('#items-catalog-tabs .eventlog-subtab').forEach(t => {
+      t.classList.toggle('active', t.dataset.catalog === catalogName);
+    });
+    document.getElementById('items-list').innerHTML = '<div class="mh-no-buffs">Loading...</div>';
+    try {
+      const res  = await fetch(`/mayor/catalog/${catalogName}${KEY_PARAM}`);
+      const data = await res.json();
+      if (data.status !== 'success') { document.getElementById('items-list').innerHTML = '<div class="mh-no-buffs">Error loading.</div>'; return; }
+      _itemsData[catalogName] = data.items;
+      const meta = CATALOG_META[catalogName];
+      if (meta.groupField && !_itemsGroup) _itemsGroup = meta.groups[0];
+      renderItemsGroupTabs();
+      renderItemsList();
+    } catch(e) {
+      document.getElementById('items-list').innerHTML = '<div class="mh-no-buffs">Error loading.</div>';
+    }
+  }
+
+  function renderItemsGroupTabs() {
+    const meta   = CATALOG_META[_itemsCatalog];
+    const tabsEl = document.getElementById('items-group-tabs');
+    if (!meta.groupField) { tabsEl.style.display = 'none'; tabsEl.innerHTML = ''; return; }
+    tabsEl.style.display = '';
+    tabsEl.innerHTML = meta.groups.map(g => {
+      const activeCls = g === _itemsGroup ? ' active' : '';
+      return `<button class="eventlog-subtab${activeCls}" onclick="switchItemsGroup('${g}', this)">${g.toUpperCase()}</button>`;
+    }).join('');
+  }
+
+  function switchItemsGroup(group, btn) {
+    _itemsGroup = group;
+    document.querySelectorAll('#items-group-tabs .eventlog-subtab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderItemsList();
+  }
+
+  function renderItemsList() {
+    const meta  = CATALOG_META[_itemsCatalog];
+    const all   = _itemsData[_itemsCatalog] || [];
+    const items = meta.groupField ? all.filter(i => i[meta.groupField] === _itemsGroup) : all;
+    const listEl = document.getElementById('items-list');
+    document.getElementById('items-list-title').textContent =
+      `${meta.label}${meta.groupField ? ' — ' + _itemsGroup.toUpperCase() : ''} (${items.length})`;
+    if (!items.length) { listEl.innerHTML = '<div class="mh-no-buffs">No items yet.</div>'; return; }
+    listEl.innerHTML = items.map(item => renderItemRow(_itemsCatalog, item)).join('');
+  }
+
+  function renderItemRow(catalogName, item) {
+    const meta  = CATALOG_META[catalogName];
+    const pkVal = item[meta.pk];
+    let summary = '';
+    if (catalogName === 'barracks_shop') {
+      const costStr = Object.entries(item.cost).map(([r, v]) => `${r}:${v}`).join(', ');
+      summary = `<div class="mh-topic-text">${escapeHtml(item.name)} <span style="color:var(--dim);">[${escapeHtml(item.id)}]</span></div>
+        <div class="mh-topic-meta">${item.slot} · CP ${item.combat_power} · ${escapeHtml(costStr)}${item.event_exclusive ? ' · ⭐ event' : ''}</div>`;
+    } else if (catalogName === 'boutique_items') {
+      summary = `<div class="mh-topic-text">${escapeHtml(item.name)} <span style="color:var(--dim);">[${escapeHtml(item.id)}]</span></div>
+        <div class="mh-topic-meta">${item.slot} · ${item.price}g · ${item.tier}${item.event_exclusive ? ' · ⭐ event' : ''}</div>`;
+    } else if (catalogName === 'gear_templates') {
+      summary = `<div class="mh-topic-text">${escapeHtml(item.name)} <span style="color:var(--dim);">[${escapeHtml(item.id)}]</span></div>
+        <div class="mh-topic-meta">${item.slot} · CP ${item.combat_power}${item.set_name ? ' · SET: ' + escapeHtml(item.set_name) : ''}</div>`;
+    } else if (catalogName === 'set_bonuses') {
+      summary = `<div class="mh-topic-text">${escapeHtml(item.set_name)}</div>
+        <div class="mh-topic-meta">2pc +${item.bonus_2pc_cp} · 3pc +${item.bonus_3pc_cp}${item.secret_cosmetic_required ? ' · secret: ' + escapeHtml(item.secret_cosmetic_required) : ''}</div>`;
+    }
+    return `<div class="mh-topic-row">
+      <div>${summary}</div>
+      <div class="mh-topic-actions">
+        <button class="mh-topic-btn" onclick="editCatalogItemByPk(${JSON.stringify(String(pkVal))})">✏️ EDIT</button>
+        <button class="mh-topic-btn reject" onclick="deleteCatalogItem(this, ${JSON.stringify(String(pkVal))})">🗑️ DELETE</button>
+      </div>
+    </div>`;
+  }
+
+  function editCatalogItemByPk(pk) {
+    const meta = CATALOG_META[_itemsCatalog];
+    const item = (_itemsData[_itemsCatalog] || []).find(i => String(i[meta.pk]) === pk);
+    if (item) openCatalogForm(item);
+  }
+
+  function openCatalogForm(item) {
+    const card = document.getElementById('items-form-card');
+    card.style.display = '';
+    card.innerHTML = renderCatalogForm(_itemsCatalog, item);
+    card.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function closeCatalogForm() {
+    const card = document.getElementById('items-form-card');
+    card.style.display = 'none';
+    card.innerHTML = '';
+  }
+
+  function renderCatalogForm(catalogName, item) {
+    const isEdit = !!item;
+    const fields = CATALOG_FIELDS[catalogName];
+    const meta   = CATALOG_META[catalogName];
+    let html = `<div class="mh-action-title">${isEdit ? '✏️ EDIT' : '➕ ADD NEW'} — ${meta.label}</div>`;
+    for (const f of fields) {
+      const isPk     = f.key === meta.pk;
+      const readonly = isEdit && isPk;
+      if (f.type === 'text') {
+        const prefill = isEdit ? (item[f.key] ?? '') : (f.key === meta.groupField && _itemsGroup ? _itemsGroup : '');
+        html += `<div class="mh-field"><label class="mh-label">${f.label}</label>
+          <input class="mh-input" id="if-${f.key}" value="${escapeHtml(prefill)}" ${f.placeholder ? `placeholder="${f.placeholder}"` : ''} ${readonly ? 'readonly style="opacity:0.6;"' : ''}/></div>`;
+      } else if (f.type === 'number') {
+        const val = isEdit ? (item[f.key] ?? 0) : 0;
+        html += `<div class="mh-field"><label class="mh-label">${f.label}</label>
+          <input class="mh-input" type="number" min="0" id="if-${f.key}" value="${val}"/></div>`;
+      } else if (f.type === 'select') {
+        const current = isEdit ? item[f.key] : (f.key === meta.groupField && _itemsGroup ? _itemsGroup : f.options[0]);
+        html += `<div class="mh-field"><label class="mh-label">${f.label}</label>
+          <select class="mh-select" id="if-${f.key}" ${readonly ? 'disabled' : ''}>
+          ${f.options.map(o => `<option value="${o}" ${o === current ? 'selected' : ''}>${o.toUpperCase()}</option>`).join('')}
+          </select></div>`;
+      } else if (f.type === 'checkbox') {
+        const checked = isEdit && item[f.key];
+        html += `<div class="mh-field"><label style="display:flex;align-items:center;gap:6px;font-size:16px;color:var(--dim);">
+          <input type="checkbox" id="if-${f.key}" ${checked ? 'checked' : ''}/> ${f.label}</label></div>`;
+      } else if (f.type === 'cost') {
+        const cost = isEdit ? (item.cost || {}) : {};
+        html += `<div style="font-size:16px;color:var(--dim);margin:8px 0 4px;">${f.label} (0 = omit that resource)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+          ${RESOURCE_LIST.map(r => `<div class="mh-field"><label class="mh-label">${r.toUpperCase()}</label>
+            <input class="mh-input" type="number" min="0" id="if-cost-${r}" value="${cost[r] || 0}"/></div>`).join('')}
+          </div>`;
+      }
+    }
+    if (catalogName === 'set_bonuses' && isEdit) {
+      html += `<div class="mh-warn">⚠️ Editing this set's bonus values takes effect IMMEDIATELY for any player who currently has matching pieces equipped -- their gear itself is unchanged, but their effective combat power will shift right away.</div>`;
+    }
+    html += `<div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="mh-btn green" style="margin-top:0;" onclick="saveCatalogItem(this)">💾 SAVE</button>
+      <button class="mh-btn" style="margin-top:0;" onclick="closeCatalogForm()">CANCEL</button>
+    </div>
+    <div id="items-form-result" style="margin-top:8px;font-size:16px;"></div>`;
+    return html;
+  }
+
+  function _gatherCatalogFormPayload(catalogName) {
+    const fields  = CATALOG_FIELDS[catalogName];
+    const payload = {};
+    for (const f of fields) {
+      if (f.type === 'text') {
+        payload[f.key] = document.getElementById(`if-${f.key}`).value.trim();
+      } else if (f.type === 'number') {
+        payload[f.key] = parseInt(document.getElementById(`if-${f.key}`).value, 10) || 0;
+      } else if (f.type === 'select') {
+        payload[f.key] = document.getElementById(`if-${f.key}`).value;
+      } else if (f.type === 'checkbox') {
+        payload[f.key] = document.getElementById(`if-${f.key}`).checked;
+      } else if (f.type === 'cost') {
+        const cost = {};
+        RESOURCE_LIST.forEach(r => {
+          const v = parseInt(document.getElementById(`if-cost-${r}`).value, 10) || 0;
+          if (v > 0) cost[r] = v;
+        });
+        payload.cost = cost;
+      }
+    }
+    return payload;
+  }
+
+  async function saveCatalogItem(btn, confirmOverride) {
+    const catalogName = _itemsCatalog;
+    const payload      = _gatherCatalogFormPayload(catalogName);
+    if (confirmOverride) payload.confirm = true;
+    const resultEl = document.getElementById('items-form-result');
+    const data = await api(`/mayor/catalog/${catalogName}/save`, payload, btn);
+    if (data.status === 'success') {
+      toast(`✅ ${data.message}`);
+      closeCatalogForm();
+      loadCatalogItems(catalogName);
+    } else if (data.status === 'warning') {
+      if (confirm(`⚠️ ${data.message}\n\nSave anyway?`)) {
+        saveCatalogItem(btn, true);
+      } else if (resultEl) {
+        resultEl.innerHTML = `<span style="color:var(--orange);">⚠️ Not saved: ${escapeHtml(data.message)}</span>`;
+      }
+    } else if (resultEl) {
+      resultEl.innerHTML = `<span style="color:var(--red);">❌ ${escapeHtml(data.message || 'Error.')}</span>`;
+    }
+  }
+
+  async function deleteCatalogItem(btn, pkVal, confirmOverride) {
+    const catalogName = _itemsCatalog;
+    const meta    = CATALOG_META[catalogName];
+    const payload = { [meta.pk]: pkVal };
+    if (confirmOverride) payload.confirm = true;
+    const data = await api(`/mayor/catalog/${catalogName}/delete`, payload, btn);
+    if (data.status === 'success') {
+      toast(`✅ ${data.message}`);
+      loadCatalogItems(catalogName);
+    } else if (data.status === 'warning') {
+      if (confirm(`⚠️ ${data.message}\n\nDelete anyway?`)) {
+        deleteCatalogItem(btn, pkVal, true);
+      }
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
 
   // ── RESTORE LAST-SELECTED TAB ──
   (function() {
