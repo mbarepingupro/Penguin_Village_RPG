@@ -6779,6 +6779,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     return html;
   }
 
+  let _invGearRarity = sessionStorage.getItem('invGearRarity') || 'common';
+
+  function switchInvGearRarity(rarity, btn) {
+    _invGearRarity = rarity;
+    sessionStorage.setItem('invGearRarity', rarity);
+    document.querySelectorAll('#inv-body .eventlog-subtab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderInventory();
+  }
+
   function renderCombatGearTab() {
     const COMBAT_SLOTS = [
       { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
@@ -6786,9 +6796,23 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       { key: 'helmet', label: 'HELMET', icon: '⛑️' },
       { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
     ];
+
+    // Inventory tabs always show all 5 rarities, regardless of whether the
+    // player owns anything in that tier yet (empty state is fine) -- unlike
+    // the Barracks shop tabs, which only show rarities actually stocked.
+    let tabsHtml = `<div class="eventlog-subtabs" style="margin-bottom:10px;">`;
+    for (const rarity of RARITY_ORDER) {
+      const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
+      const activeCls = rarity === _invGearRarity ? ' active' : '';
+      tabsHtml += `<button class="eventlog-subtab${activeCls}" data-rarity="${rarity}" onclick="switchInvGearRarity('${rarity}', this)">${rh.label}</button>`;
+    }
+    tabsHtml += `</div>`;
+
+    const rarityItems = _invGearData.filter(g => (g.rarity || 'common') === _invGearRarity);
+
     let html = '';
     for (const slot of COMBAT_SLOTS) {
-      const items = _invGearData.filter(g => g.slot === slot.key);
+      const items = rarityItems.filter(g => g.slot === slot.key);
       if (items.length === 0) continue;
       html += `<div class="inv-slot-group"><div class="inv-slot-title">${slot.icon} ${slot.label}</div>`;
       for (const item of items) {
@@ -6823,8 +6847,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       }
       html += `</div>`;
     }
-    if (!html) html = '<div class="inv-empty">No combat gear owned yet.</div>';
-    return html;
+    if (!html) html = '<div class="inv-empty">No combat gear owned in this rarity yet.</div>';
+    return tabsHtml + html;
   }
 
   function renderLootboxesTab() {
@@ -7403,69 +7427,113 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   const _RESOURCE_ICONS = { gold: '🪙', bones: '🦴', blood_gems: '💎', spell_fragments: '✨', fish: '🐟', herbs: '🌿' };
 
+  // Rank order for rarity sub-tabs everywhere they appear (Barracks shop,
+  // inventory Combat tab) -- common..legendary, NOT alphabetical (which
+  // would misorder as common/epic/legendary/rare/uncommon).
+  const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  const RARITY_HEADERS = {
+    common:    { label: 'COMMON',    color: '#B8B8D0' },
+    uncommon:  { label: 'UNCOMMON',  color: '#4aff6b' },
+    rare:      { label: 'RARE',      color: '#6b9fff' },
+    epic:      { label: 'EPIC',      color: '#A86EFF' },
+    legendary: { label: 'LEGENDARY', color: '#FF8C00' },
+  };
+
+  let _barracksShopData   = null;
+  let _barracksShopRarity = sessionStorage.getItem('barracksShopRarity') || 'common';
+
   async function loadBarracksShop() {
     const container = document.getElementById('barracks-shop-content');
     if (!container) return;
     container.innerHTML = '<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">LOADING...</div>';
     try {
       const res  = await fetch(`/barracks/shop/${CURRENT_USER}`);
-      const data = await res.json();
-
-      const gold = data.gold || 0;
-      const res_ = data.resources || {};
-      const ownedIds = data.owned_ids || [];
-      const shop = data.shop || {};
-
-      const resLine = `🪙 ${gold.toLocaleString()} &nbsp; 🦴 ${res_.bones||0} &nbsp; 💎 ${res_.blood_gems||0} &nbsp; ✨ ${res_.spell_fragments||0}`;
-      let html = `<div style="color:#ff6b6b;font-size:20px;margin-bottom:4px;">🛡️ GEAR SHOP</div>`;
-      html += `<div style="color:#B8B8D0;font-size:16px;margin-bottom:8px;">Forge your own gear with resources</div>`;
-      html += `<div style="color:#FF8C00;font-size:16px;margin-bottom:10px;line-height:2;">${resLine}</div>`;
-
-      const rarityHeaders = { common: { label: 'COMMON GEAR', color: '#B8B8D0' }, uncommon: { label: 'UNCOMMON GEAR', color: '#4aff6b' }, rare: { label: 'RARE GEAR', color: '#6b9fff' }, epic: { label: 'EPIC GEAR', color: '#A86EFF' }, legendary: { label: 'LEGENDARY GEAR', color: '#FF8C00' } };
-      const slotIcons = { weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'🥾' };
-
-      for (const [rarity, items] of Object.entries(shop)) {
-        const rh = rarityHeaders[rarity] || { label: rarity.toUpperCase(), color: '#B8B8D0' };
-        html += `<div style="color:${rh.color};font-size:16px;border-bottom:1px solid ${rh.color};padding-bottom:3px;margin:10px 0 6px;">— ${rh.label} —</div>`;
-        items.forEach(item => {
-          const owned = ownedIds.includes(item.id);
-          let canAfford = true;
-          const shortList = [];
-          for (const [r, amt] of Object.entries(item.cost)) {
-            const have = r === 'gold' ? gold : (res_[r] || 0);
-            if (have < amt) { canAfford = false; shortList.push(`${_RESOURCE_ICONS[r]||r} ${amt-have} more`); }
-          }
-          const costStr = Object.entries(item.cost).map(([r,v]) => `${_RESOURCE_ICONS[r]||r} ${v}`).join(' | ');
-          const slotIcon = slotIcons[item.slot] || '❓';
-
-          html += `<div style="background:#111;border:1px solid #303045;padding:8px;margin-bottom:6px;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <div>
-                <div style="color:#fff;font-size:17px;">${item.name}</div>
-                <div style="color:#FF8C00;font-size:17px;margin-top:2px;">CP: +${item.combat_power}</div>
-                <div style="color:#B8B8D0;font-size:16px;margin-top:2px;">${slotIcon} ${item.slot.toUpperCase()}</div>
-                <div style="color:#aaa;font-size:16px;margin-top:4px;">${costStr}</div>
-                ${!canAfford && !owned ? `<div style="color:#ff6b6b;font-size:16px;margin-top:2px;">Need: ${shortList.join(', ')}</div>` : ''}
-              </div>
-              <div style="flex-shrink:0;margin-left:8px;">
-                ${owned
-                  ? `<div style="color:#4aff6b;font-size:16px;margin-top:8px;">OWNED ✅</div>`
-                  : `<button onclick="barracksForge('${item.id}')"
-                       style="font-family:inherit;font-size:16px;padding:5px 8px;background:#1a1a1a;
-                              border:1px solid ${canAfford ? '#4aff6b' : '#8888A8'};
-                              color:${canAfford ? '#4aff6b' : '#8888A8'};cursor:${canAfford ? 'pointer' : 'not-allowed'};"
-                       ${canAfford ? '' : 'disabled'}>FORGE</button>`
-                }
-              </div>
-            </div>
-          </div>`;
-        });
-      }
-
-      container.innerHTML = html;
+      _barracksShopData = await res.json();
+      _renderBarracksShop();
     } catch(e) {
       container.innerHTML = '<div style="color:#ff6b6b;font-size:16px;text-align:center;padding:10px;">ERROR LOADING SHOP</div>';
     }
+  }
+
+  function switchBarracksShopRarity(rarity, btn) {
+    _barracksShopRarity = rarity;
+    sessionStorage.setItem('barracksShopRarity', rarity);
+    document.querySelectorAll('#barracks-shop-content .eventlog-subtab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    _renderBarracksShop();
+  }
+
+  function _renderBarracksShop() {
+    const container = document.getElementById('barracks-shop-content');
+    if (!container || !_barracksShopData) return;
+    const data = _barracksShopData;
+
+    const gold = data.gold || 0;
+    const res_ = data.resources || {};
+    const ownedIds = data.owned_ids || [];
+    const shop = data.shop || {};
+    const slotIcons = { weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'🥾' };
+
+    // Only tab over rarities that actually have items in the shop right now
+    // -- e.g. don't render an empty EPIC/LEGENDARY tab before those tiers
+    // are wired in -- ordered common->legendary, not object key order.
+    const availableRarities = RARITY_ORDER.filter(r => shop[r] && shop[r].length);
+    if (!availableRarities.includes(_barracksShopRarity)) {
+      _barracksShopRarity = availableRarities[0] || 'common';
+    }
+
+    const resLine = `🪙 ${gold.toLocaleString()} &nbsp; 🦴 ${res_.bones||0} &nbsp; 💎 ${res_.blood_gems||0} &nbsp; ✨ ${res_.spell_fragments||0}`;
+    let html = `<div style="color:#ff6b6b;font-size:20px;margin-bottom:4px;">🛡️ GEAR SHOP</div>`;
+    html += `<div style="color:#B8B8D0;font-size:16px;margin-bottom:8px;">Forge your own gear with resources</div>`;
+    html += `<div style="color:#FF8C00;font-size:16px;margin-bottom:10px;line-height:2;">${resLine}</div>`;
+
+    html += `<div class="eventlog-subtabs" style="margin-bottom:10px;">`;
+    for (const rarity of availableRarities) {
+      const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
+      const activeCls = rarity === _barracksShopRarity ? ' active' : '';
+      html += `<button class="eventlog-subtab${activeCls}" data-rarity="${rarity}" onclick="switchBarracksShopRarity('${rarity}', this)">${rh.label}</button>`;
+    }
+    html += `</div>`;
+
+    const items = shop[_barracksShopRarity] || [];
+    items.forEach(item => {
+      const owned = ownedIds.includes(item.id);
+      let canAfford = true;
+      const shortList = [];
+      for (const [r, amt] of Object.entries(item.cost)) {
+        const have = r === 'gold' ? gold : (res_[r] || 0);
+        if (have < amt) { canAfford = false; shortList.push(`${_RESOURCE_ICONS[r]||r} ${amt-have} more`); }
+      }
+      const costStr = Object.entries(item.cost).map(([r,v]) => `${_RESOURCE_ICONS[r]||r} ${v}`).join(' | ');
+      const slotIcon = slotIcons[item.slot] || '❓';
+
+      html += `<div style="background:#111;border:1px solid #303045;padding:8px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="color:#fff;font-size:17px;">${item.name}</div>
+            <div style="color:#FF8C00;font-size:17px;margin-top:2px;">CP: +${item.combat_power}</div>
+            <div style="color:#B8B8D0;font-size:16px;margin-top:2px;">${slotIcon} ${item.slot.toUpperCase()}</div>
+            <div style="color:#aaa;font-size:16px;margin-top:4px;">${costStr}</div>
+            ${!canAfford && !owned ? `<div style="color:#ff6b6b;font-size:16px;margin-top:2px;">Need: ${shortList.join(', ')}</div>` : ''}
+          </div>
+          <div style="flex-shrink:0;margin-left:8px;">
+            ${owned
+              ? `<div style="color:#4aff6b;font-size:16px;margin-top:8px;">OWNED ✅</div>`
+              : `<button onclick="barracksForge('${item.id}')"
+                   style="font-family:inherit;font-size:16px;padding:5px 8px;background:#1a1a1a;
+                          border:1px solid ${canAfford ? '#4aff6b' : '#8888A8'};
+                          color:${canAfford ? '#4aff6b' : '#8888A8'};cursor:${canAfford ? 'pointer' : 'not-allowed'};"
+                   ${canAfford ? '' : 'disabled'}>FORGE</button>`
+            }
+          </div>
+        </div>
+      </div>`;
+    });
+    if (items.length === 0) {
+      html += '<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">No items in this rarity yet.</div>';
+    }
+
+    container.innerHTML = html;
   }
 
   async function barracksForge(itemId) {
