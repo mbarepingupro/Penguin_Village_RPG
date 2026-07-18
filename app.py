@@ -7014,29 +7014,48 @@ def _generate_card_image(data):
         if not os.path.exists(_sprite_path):
             _sprite_path = os.path.join(_CARD_SPRITE_DIR, "penguin_normal_static.png")
         raw = Image.open(_sprite_path).convert("RGBA")
-        # Scale by the limiting dimension so tall shapes (32x50) keep their
-        # real proportions instead of being stretched -- same fix as before,
-        # just against the left panel's full box instead of 80x80.
-        scale = min(_SPRITE_BOX_W / raw.width, _SPRITE_BOX_H / raw.height)
+        # Scale against the shape's nominal wearable-frame box (fw x fh),
+        # NOT the static sprite's own raster size -- mirrors home.html's
+        # _drawPenguinOnCanvas/_drawSidebarWornItems, which scale/position
+        # against SHAPE_CONFIG's frameWidth/frameHeight for exactly this
+        # reason. penguin_normal_static.png is only 32px tall vs. the
+        # wearable-art convention of 40px (8px of headroom reserved above
+        # the head for hats), so scaling/cropping gear against the raw
+        # sprite's own 32px height stretched every "normal"-shape gear
+        # layer ~1.25x too tall and floating without that headroom.
+        # "tall" isn't affected -- its static sprite is already 50px,
+        # matching its frame exactly.
+        fw, fh = _CARD_SHAPE_FRAME.get(_shape, _CARD_SHAPE_FRAME["normal"])
+        scale = min(_SPRITE_BOX_W / fw, _SPRITE_BOX_H / fh)
         new_w = max(1, round(raw.width * scale))
         new_h = max(1, round(raw.height * scale))
         sprite = raw.resize((new_w, new_h), Image.NEAREST)
         pcolor = data.get("penguin_color", "#1a1a1a")
         sprite = _recolor_sprite_pil(sprite, pcolor)
         bg_patch = Image.new("RGB", (_SPRITE_BOX_W, _SPRITE_BOX_H), _COLORS["bg"])
-        # Left-aligned (x=0 in the box) rather than centered; vertically
-        # centered since the width cap usually binds before the height does,
-        # leaving spare vertical room in the box.
-        paste_xy = (0, (_SPRITE_BOX_H - new_h) // 2)
+
+        # The frame box itself is left-aligned (x=0) and vertically centered
+        # in the sprite box -- same placement as before. Gear anchors to
+        # this frame box's own top-left corner; the base sprite is
+        # bottom-anchored within it (pushed down by the frame/sprite height
+        # difference) so its feet land on the frame's bottom edge exactly
+        # where gear art (which already spans the full frame, headroom
+        # included) expects the body to be -- same bottom-anchor correction
+        # as _drawPenguinOnCanvas's "(cfg.frameHeight - srcH) * scale" term.
+        frame_h_scaled = fh * scale
+        frame_x = 0
+        frame_y = (_SPRITE_BOX_H - frame_h_scaled) / 2
+        gear_xy = (round(frame_x), round(frame_y))
+        paste_xy = (round(frame_x), round(frame_y + (fh - raw.height) * scale))
         bg_patch.paste(sprite, paste_xy, mask=sprite.split()[3])
 
         # Worn gear layers, same order/folder-mapping as home.html's
         # _drawSidebarWornItems: footwear -> outfit -> hat -> accessory.
-        # Each overlay is scaled by the SAME factor as the base sprite (not
-        # forced to fill the box) and anchored at the same origin, so it
-        # doesn't reintroduce the stretch-to-square problem the base sprite
-        # fix removed. Compositing logic itself is unchanged from before.
-        fw, fh = _CARD_SHAPE_FRAME.get(_shape, _CARD_SHAPE_FRAME["normal"])
+        # Each overlay is cropped to its native frame (fw x fh) and
+        # resized/anchored against the SAME frame box the base sprite used
+        # above (gear_xy), so gear lands exactly where its own art was
+        # designed to sit relative to the body, not shifted/oversized
+        # relative to the enlarged base sprite.
         for area in ("feet", "body", "head", "hand"):
             item_id = data.get("worn_by_area", {}).get(area)
             if not item_id:
@@ -7055,7 +7074,7 @@ def _generate_card_image(data):
                 ow = max(1, round(crop_w * scale))
                 oh = max(1, round(crop_h * scale))
                 overlay = overlay.resize((ow, oh), Image.NEAREST)
-                bg_patch.paste(overlay, paste_xy, mask=overlay.split()[3])
+                bg_patch.paste(overlay, gear_xy, mask=overlay.split()[3])
             except Exception:
                 continue
 
