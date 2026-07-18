@@ -8722,43 +8722,77 @@ def bank_accept_listing(listing_id):
 
 @app.route("/bank/sell-to-bank", methods=["POST"])
 def bank_sell_to_bank():
+    """Sells one or more of the player's gear items to the bank in a single
+    batch. Accepts either the original single-item {"gear_id": N} shape
+    (kept working for backward compatibility) or a new {"gear_ids": [N, ...]}
+    list for a multi-select sell. Each item is processed with the exact same
+    per-item logic/checks as before, just looped; gold is credited once as a
+    running total rather than per item. Items that fail an individual check
+    (not found, unsellable slot, currently listed) are skipped rather than
+    aborting the whole batch, and reported back in "errors" -- so one bad
+    item in a multi-select can't block selling the rest."""
     data     = request.get_json(silent=True) or {}
     username = session.get("username", "")
-    gear_id  = data.get("gear_id")
-    db       = get_db()
 
-    g = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
-    if not g:
-        db.close()
-        return jsonify({"status": "error", "message": "Item not found."})
-    if (g["slot"] or "") in _BANK_UNSELLABLE_SLOTS:
-        db.close()
-        return jsonify({"status": "error", "message": "This item can't be sold."})
-    if g["listed"]:
-        db.close()
-        return jsonify({"status": "error", "message": "Cancel your listing before selling to the bank."})
+    gear_ids = data.get("gear_ids")
+    if gear_ids is None:
+        single = data.get("gear_id")
+        gear_ids = [single] if single else []
 
-    was_equipped_or_worn = bool(g["equipped"] or g["worn"])
-    sell_price = calculate_bank_sell_price(g)
-    buy_price  = math.ceil(sell_price * 1.2)
-    now        = int(time.time())
+    db = get_db()
+    total_gold           = 0
+    sold_items            = []
+    errors                = []
+    was_equipped_or_worn  = False
+    now                   = int(time.time())
 
-    add_gold(db, username, sell_price)
-    # Auto-unequip/un-wear as part of the sale rather than rejecting it --
-    # there's no "dangling equipped-but-not-owned" state once username flips
-    # to '__bank__' below, since these flags are cleared in the same update.
-    db.execute(
-        "UPDATE gear SET username='__bank__', bank_sell_price=?, bank_listed_at=?, "
-        "equipped=0, worn=0, listed=0, original_owner=? WHERE id=?",
-        (buy_price, now, username, gear_id)
-    )
-    log_event(db, "bank",
-        f"🏦 {username} sold {g['name']} to the Penguin Bank for {sell_price} gold!", username)
+    for gear_id in gear_ids:
+        g = db.execute("SELECT * FROM gear WHERE id=? AND username=?", (gear_id, username)).fetchone()
+        if not g:
+            errors.append("Item not found.")
+            continue
+        if (g["slot"] or "") in _BANK_UNSELLABLE_SLOTS:
+            errors.append(f"{g['name']} can't be sold.")
+            continue
+        if g["listed"]:
+            errors.append(f"Cancel your listing for {g['name']} before selling to the bank.")
+            continue
+
+        if g["equipped"] or g["worn"]:
+            was_equipped_or_worn = True
+        sell_price = calculate_bank_sell_price(g)
+        buy_price  = math.ceil(sell_price * 1.2)
+
+        add_gold(db, username, sell_price)
+        # Auto-unequip/un-wear as part of the sale rather than rejecting it --
+        # there's no "dangling equipped-but-not-owned" state once username
+        # flips to '__bank__' below, since these flags are cleared in the
+        # same update.
+        db.execute(
+            "UPDATE gear SET username='__bank__', bank_sell_price=?, bank_listed_at=?, "
+            "equipped=0, worn=0, listed=0, original_owner=? WHERE id=?",
+            (buy_price, now, username, gear_id)
+        )
+        log_event(db, "bank",
+            f"🏦 {username} sold {g['name']} to the Penguin Bank for {sell_price} gold!", username)
+        total_gold += sell_price
+        sold_items.append({"gear_id": gear_id, "name": g["name"], "sell_price": sell_price})
+
+    if not sold_items:
+        db.close()
+        return jsonify({"status": "error", "message": errors[0] if errors else "No item selected."})
+
     db.commit()
     db.close()
+    message = (f"Sold {sold_items[0]['name']} for {total_gold} 🪙 gold!" if len(sold_items) == 1
+               else f"Sold {len(sold_items)} items for {total_gold} 🪙 gold!")
     return jsonify({
-        "status": "success",
-        "message": f"Sold for {sell_price} 🪙 gold!",
+        "status":               "success",
+        "message":              message,
+        "total_gold":           total_gold,
+        "sold_count":           len(sold_items),
+        "sold_items":           sold_items,
+        "errors":               errors,
         "was_equipped_or_worn": was_equipped_or_worn,
     })
 
