@@ -446,15 +446,32 @@ BARRACKS_SHOP = {
         {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "blood_gems": 50,  "spell_fragments": 25}},
         {"id": "crystal_armor",   "name": "Crystal Armor",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}},
     ],
-    # "epic" is intentionally a single item, not a full 4-slot tier -- ported
-    # from the now-retired GEAR_CATALOG (the only genuine gap it filled: no
-    # other epic-rarity item existed anywhere in Barracks). Cost carried over
-    # unchanged from its GEAR_CATALOG listing (already gold + blood_gems only,
-    # matching this shop's resource conventions). Filling out epic
-    # helmet/boots/armor (and any legendary tier) is deliberately left for a
-    # separate pass, not designed here.
+    # epic/legendary: standalone (no set_name -- barracks_buy() always writes
+    # NULL), so these grant no set bonus. CP per slot matches GEAR_TEMPLATES'
+    # own epic/legendary split exactly (Temple Mystic 28/22/20/25, Penguin
+    # Emperor 45/35/32/42) so a forged item is exactly as strong as the
+    # equivalent drop-set piece -- a genuine no-RNG alternative path, not
+    # strictly better or worse. blood_axe's CP was 30 when it was ported
+    # solo from GEAR_CATALOG (a previous pass, before this tier existed);
+    # adjusted to 28 here so all four epic items share one consistent split
+    # instead of an odd one out. Resource mix continues rare's pattern
+    # (blood_gems + spell_fragments, gold scaling up) rather than
+    # reintroducing bones, which rare already dropped -- fish/herbs/
+    # ice_blocks/mayor_seals stay out of every Barracks tier. Cost keeps
+    # the ~2.5-3x per-tier gold/resource growth already established from
+    # common->rare, extrapolated forward one step for epic and one more for
+    # legendary.
     "epic": [
-        {"id": "blood_axe", "name": "Blood Axe", "slot": "weapon", "combat_power": 30, "cost": {"gold": 500, "blood_gems": 15}},
+        {"id": "obsidian_blade",   "name": "Obsidian Blade",   "slot": "weapon", "combat_power": 28, "cost": {"gold": 4000, "blood_gems": 220, "spell_fragments": 110}},
+        {"id": "obsidian_crest",   "name": "Obsidian Crest",   "slot": "helmet", "combat_power": 22, "cost": {"gold": 3200, "blood_gems": 160, "spell_fragments": 80}},
+        {"id": "obsidian_greaves", "name": "Obsidian Greaves", "slot": "boots",  "combat_power": 20, "cost": {"gold": 2700, "blood_gems": 135, "spell_fragments": 70}},
+        {"id": "obsidian_plate",   "name": "Obsidian Plate",   "slot": "armor",  "combat_power": 25, "cost": {"gold": 4800, "blood_gems": 270, "spell_fragments": 135}},
+    ],
+    "legendary": [
+        {"id": "mythril_blade",    "name": "Mythril Blade",    "slot": "weapon", "combat_power": 45, "cost": {"gold": 11000, "blood_gems": 600, "spell_fragments": 300}},
+        {"id": "mythril_diadem",   "name": "Mythril Diadem",   "slot": "helmet", "combat_power": 35, "cost": {"gold": 8600,  "blood_gems": 430, "spell_fragments": 220}},
+        {"id": "mythril_sabatons", "name": "Mythril Sabatons", "slot": "boots",  "combat_power": 32, "cost": {"gold": 7300,  "blood_gems": 365, "spell_fragments": 190}},
+        {"id": "mythril_plate",    "name": "Mythril Plate",    "slot": "armor",  "combat_power": 42, "cost": {"gold": 13000, "blood_gems": 730, "spell_fragments": 365}},
     ],
 }
 
