@@ -3509,7 +3509,7 @@
             <div class="bank-sub-panel" id="bk-bank-sell">
               <div class="bank-sell-columns">
                 <div class="bank-sell-col-left">
-                  <div class="bank-note" style="margin:8px 8px 4px;">The bank buys your gear for instant gold. Items go on sale for other players at +20% for 24 hours.</div>
+                  <div class="bank-note" style="margin:8px 8px 4px;">The bank buys your gear for instant gold. Items go on sale for other players at +20% for 30 days.</div>
                   <div class="eventlog-subtabs" id="bk-bank-sell-rarity-tabs"></div>
                   <div id="bk-bank-sell-list" class="bank-listing-list">
                     <div class="bank-empty">SELECT THE BANK TAB TO LOAD</div>
@@ -8715,6 +8715,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   // ── BANK ──
+  // Must match the expiry sweep threshold in app.py's bank_shop() route
+  // (30 * 86400 there too) -- how long a bank-shop listing stays buyable
+  // before it's hard-deleted.
+  const BANK_SHOP_EXPIRY_SECONDS = 30 * 86400;
   let _bkGearCache     = [];
   let _bkBankSellData     = [];                                              // last-fetched sellable gear, cached for re-render on tab switch
   let _bkBankSellRarity   = sessionStorage.getItem('bkBankSellRarity') || 'common';
@@ -9035,13 +9039,18 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       }
       const now = Date.now() / 1000;
       list.innerHTML = items.map(g => {
-        const rc    = bankRarityClass(g.rarity);
-        const hLeft = Math.max(1, Math.ceil((g.bank_listed_at + 86400 - now) / 3600));
+        const rc       = bankRarityClass(g.rarity);
+        const secsLeft = Math.max(1, (g.bank_listed_at + BANK_SHOP_EXPIRY_SECONDS) - now);
+        // Days once there's more than a day left, hours for the final day --
+        // same "Xh ago"/"Xd ago" granularity convention used elsewhere.
+        const leftStr  = secsLeft >= 86400
+          ? `${Math.ceil(secsLeft / 86400)}d left`
+          : `${Math.max(1, Math.ceil(secsLeft / 3600))}h left`;
         return `<div class="bank-listing">
           <div class="bank-listing-info">
             <div class="bank-listing-offer"><span class="${rc}">${g.name}</span> <span style="color:#8888A8">(${g.slot || '?'}, ${g.rarity || 'common'})</span></div>
             ${g.combat_power ? `<div style="color:#B8B8D0;font-size:16px;">CP ${g.combat_power}${g.set_name ? ' · ' + g.set_name : ''}</div>` : ''}
-            <div class="bank-listing-meta">🏦 Bank · ${hLeft}h left</div>
+            <div class="bank-listing-meta">🏦 Bank · ${leftStr}</div>
           </div>
           <div style="text-align:right">
             <div style="color:#4aff6b;font-size:16px;margin-bottom:4px;">${g.bank_sell_price} 🪙</div>
