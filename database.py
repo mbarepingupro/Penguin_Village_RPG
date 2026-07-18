@@ -730,6 +730,21 @@ def init_db():
     except Exception:
         pass
 
+    # Seed the catalog tables (barracks_shop/boutique_items/gear_templates/
+    # set_bonuses) the first time they're empty -- e.g. a genuinely fresh
+    # database. Must happen here, once, on init_db()'s own single connection
+    # before any request handling starts: catalog.py's load_*() functions
+    # are read-only and may run on a borrowed, already-mid-transaction `db`
+    # from a caller (see raid_settings.get_setting's docstring on why that
+    # matters) -- a lazy seed-on-read there previously caused a real
+    # "database is locked" error when a second connection (e.g.
+    # get_combat_power()'s own) tried to write into a table while another
+    # connection held an uncommitted transaction on it.
+    import catalog
+    catalog._seed_barracks_shop_if_empty(c, owns_conn=False)
+    catalog._seed_boutique_items_if_empty(c, owns_conn=False)
+    catalog._seed_gear_templates_if_empty(c, owns_conn=False)
+    catalog._seed_set_bonuses_if_empty(c, owns_conn=False)
 
     conn.commit()
     conn.close()

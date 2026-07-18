@@ -1,14 +1,16 @@
-"""One-time migration: seed barracks_shop, boutique_items, gear_templates, and
+"""HISTORICAL -- this script's job is done and it can no longer run.
+
+It originally seeded barracks_shop, boutique_items, gear_templates, and
 set_bonuses (created in database.py's init_db()) from app.py's BARRACKS_SHOP,
-BOUTIQUE_ITEMS, GEAR_TEMPLATES, and SET_BONUSES dict literals.
-
-Those dict literals remain the live source of truth read by every existing
-route -- this script only populates the new tables as a verified-correct
-foundation for a later pass to switch reads over to. Safe to re-run: each row
-is INSERT OR REPLACE'd, so running this again after an app.py edit just
-re-syncs the tables to the dicts' current values.
-
-Usage: python3 migrate_catalog_tables.py
+BOUTIQUE_ITEMS, GEAR_TEMPLATES, and SET_BONUSES dict literals, as a verified-
+correct foundation before any route switched over to reading from the new
+tables. That switchover has since happened (every call site now reads via
+catalog.py's load_*() functions instead), and the dict literals this script
+depended on were removed from app.py in the same pass -- `import app` here
+will succeed (the module still exists), but `appmod.BARRACKS_SHOP` etc. no
+longer exist, so migrate() will raise AttributeError if invoked. Kept in the
+repo as a record of exactly how the tables were originally seeded, not as a
+runnable tool.
 """
 import json
 import re
