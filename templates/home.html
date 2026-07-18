@@ -5369,19 +5369,24 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (!items.length) continue;
       html += `<div style="color:#A86EFF;font-size:16px;padding:6px 10px 4px;border-bottom:1px solid #303045;">${catLabel}</div>`;
       for (const [itemId, defn] of items) {
-        const owned = defn.owned;
+        const ownedCount  = defn.owned  || 0;
+        const placedCount = defn.placed || 0;
         const costStr = defn.cost
           ? Object.entries(defn.cost).map(([r,a]) => `${a.toLocaleString()} ${r}`).join(' + ')
           : 'Special';
-        html += `<div class="bq-card" style="${owned ? 'opacity:0.6;' : ''}">
+        html += `<div class="bq-card">
           <div class="bq-item-name">${defn.name}</div>
           <div style="color:#B8B8D0;font-size:16px;">${defn.width||1}×${defn.height||1} tile${(defn.width||1)*(defn.height||1)>1?'s':''}</div>
           <div style="color:#FF8C00;font-size:16px;">🪙 ${costStr}</div>
-          ${owned
-            ? `<div style="color:#4aff6b;font-size:16px;margin-top:4px;">✅ OWNED</div>`
-            : defn.cost
-              ? `<button class="bq-btn buy" onclick="iglooBuyFurniture('${itemId}')">BUY</button>`
-              : `<div style="color:#B8B8D0;font-size:16px;margin-top:4px;">N/A</div>`
+          ${ownedCount > 0
+            ? `<div style="color:#4aff6b;font-size:16px;margin-top:4px;">✅ ${ownedCount} OWNED, ${placedCount} PLACED</div>`
+            : ''
+          }
+          ${defn.cost
+            ? `<button class="bq-btn buy" onclick="iglooBuyFurniture('${itemId}')">BUY</button>`
+            : ownedCount === 0
+              ? `<div style="color:#B8B8D0;font-size:16px;margin-top:4px;">N/A</div>`
+              : ''
           }
         </div>`;
       }
@@ -8458,22 +8463,28 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       }).join('');
     }
 
-    // Available items
-    const owned = (_iglooData.owned_items || []).filter(i => !i.placed);
+    // Available items -- one card per unplaced owned unit (fungible units of
+    // the same item_id each get their own card, so owning 3 with 1 placed
+    // shows 2 identical, independently-placeable entries).
+    const owned = (_iglooData.owned_items || []).filter(i => i.available > 0);
     const availEl = document.getElementById('igloo-avail-list');
     if (!owned.length) {
       availEl.innerHTML = '<div style="color:#3A3A50;font-size:16px;padding:6px 10px;">No items in inventory.<br><span style="color:#8888A8;">Visit the Boutique!</span></div>';
     } else {
-      availEl.innerHTML = owned.map(i => {
+      const cards = [];
+      owned.forEach(i => {
         const defn = IGLOO_FURNITURE_DEFS[i.item_id] || {};
         const name = defn.name || i.item_id;
         const isPlacing = _iglooPlacingItemId === i.item_id;
-        return `<div class="igloo-furn-card">
-          <div class="igloo-furn-name">${name}<br><span class="igloo-furn-size">${defn.width||1}×${defn.height||1}</span></div>
-          <button class="igloo-furn-btn place${isPlacing ? ' placing-active' : ''}"
-                  onclick="iglooStartPlace('${i.item_id}')">${isPlacing ? 'PLACING' : 'PLACE'}</button>
-        </div>`;
-      }).join('');
+        for (let n = 0; n < i.available; n++) {
+          cards.push(`<div class="igloo-furn-card">
+            <div class="igloo-furn-name">${name}<br><span class="igloo-furn-size">${defn.width||1}×${defn.height||1}</span></div>
+            <button class="igloo-furn-btn place${isPlacing ? ' placing-active' : ''}"
+                    onclick="iglooStartPlace('${i.item_id}')">${isPlacing ? 'PLACING' : 'PLACE'}</button>
+          </div>`);
+        }
+      });
+      availEl.innerHTML = cards.join('');
     }
 
     // Room options

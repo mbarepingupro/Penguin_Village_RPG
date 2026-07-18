@@ -4831,10 +4831,24 @@ def get_igloo(username):
             "width":   defn.get("width",  1),
             "height":  defn.get("height", 1),
         })
-    owned = db.execute(
-        "SELECT item_id, placed FROM igloo_items WHERE username=? ORDER BY obtained_at",
+    owned_rows = db.execute(
+        "SELECT item_id, COUNT(*) AS cnt, MIN(obtained_at) AS first_obtained "
+        "FROM igloo_items WHERE username=? GROUP BY item_id ORDER BY first_obtained",
         (username,)
     ).fetchall()
+    placed_counts = {}
+    for f in furniture_list:
+        placed_counts[f["item_id"]] = placed_counts.get(f["item_id"], 0) + 1
+    owned_items = []
+    for r in owned_rows:
+        owned_n  = r["cnt"]
+        placed_n = placed_counts.get(r["item_id"], 0)
+        owned_items.append({
+            "item_id":   r["item_id"],
+            "owned":     owned_n,
+            "placed":    placed_n,
+            "available": max(0, owned_n - placed_n),
+        })
     import json as _json
     unlocked_floors = list(set((igloo["unlocked_floors"] or "ice").split(",")))
     unlocked_walls  = list(set((igloo["unlocked_walls"]  or "snow").split(",")))
@@ -4851,7 +4865,7 @@ def get_igloo(username):
         "floor_type":       igloo["floor_type"],
         "wall_type":        igloo["wall_type"],
         "furniture":        furniture_list,
-        "owned_items":      [{"item_id": r["item_id"], "placed": bool(r["placed"])} for r in owned],
+        "owned_items":      owned_items,
         "unlocked_floors":  unlocked_floors,
         "unlocked_walls":   unlocked_walls,
         "floor_cells":      floor_cells,
@@ -4898,14 +4912,20 @@ def save_doorbell_tune():
 def igloo_shop():
     username = request.args.get("username", "")
     db = get_db()
-    owned_ids = set()
+    owned_counts = {}
+    placed_counts = {}
     igloo_data = None
     player_gold = 0
     if username:
         _ensure_igloo(db, username)
-        owned_ids = {r["item_id"] for r in db.execute(
-            "SELECT item_id FROM igloo_items WHERE username=?", (username,)
-        ).fetchall()}
+        for r in db.execute(
+            "SELECT item_id, COUNT(*) AS cnt FROM igloo_items WHERE username=? GROUP BY item_id", (username,)
+        ).fetchall():
+            owned_counts[r["item_id"]] = r["cnt"]
+        for r in db.execute(
+            "SELECT item_id, COUNT(*) AS cnt FROM igloo_furniture WHERE username=? GROUP BY item_id", (username,)
+        ).fetchall():
+            placed_counts[r["item_id"]] = r["cnt"]
         igloo_row = db.execute("SELECT * FROM igloos WHERE username=?", (username,)).fetchone()
         if igloo_row:
             igloo_data = dict(igloo_row)
@@ -4913,7 +4933,10 @@ def igloo_shop():
         player_gold = get_gold(db, username)
     db.commit()
     db.close()
-    furniture = {iid: {**defn, "owned": iid in owned_ids} for iid, defn in IGLOO_FURNITURE.items()}
+    furniture = {
+        iid: {**defn, "owned": owned_counts.get(iid, 0), "placed": placed_counts.get(iid, 0)}
+        for iid, defn in IGLOO_FURNITURE.items()
+    }
     return jsonify({
         "status":       "success",
         "furniture":    furniture,
@@ -4937,9 +4960,6 @@ def igloo_buy_furniture():
     if cost is None:
         return jsonify({"status": "error", "message": "This item cannot be purchased."})
     db = get_db()
-    if db.execute("SELECT 1 FROM igloo_items WHERE username=? AND item_id=?", (username, item_id)).fetchone():
-        db.close()
-        return jsonify({"status": "error", "message": "Already owned!"})
     ensure_resources(db, username)
     res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     for resource, amount in cost.items():
@@ -4949,13 +4969,16 @@ def igloo_buy_furniture():
     for resource, amount in cost.items():
         db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
     db.execute(
-        "INSERT INTO igloo_items (username, item_id, obtained_at, placed) VALUES (?,?,?,0)",
+        "INSERT INTO igloo_items (username, item_id, obtained_at) VALUES (?,?,?)",
         (username, item_id, int(time.time()))
     )
+    owned_count = db.execute(
+        "SELECT COUNT(*) FROM igloo_items WHERE username=? AND item_id=?", (username, item_id)
+    ).fetchone()[0]
     new_gold = get_gold(db, username)
     db.commit()
     db.close()
-    return jsonify({"status": "success", "item_id": item_id, "gold_remaining": new_gold})
+    return jsonify({"status": "success", "item_id": item_id, "owned_count": owned_count, "gold_remaining": new_gold})
 
 
 @app.route("/igloo/place", methods=["POST"])
@@ -4970,15 +4993,18 @@ def igloo_place():
         return jsonify({"status": "error", "message": "Unknown item."})
     db = get_db()
     _ensure_igloo(db, username)
-    owned = db.execute(
-        "SELECT id, placed FROM igloo_items WHERE username=? AND item_id=?", (username, item_id)
-    ).fetchone()
-    if not owned:
+    owned_count = db.execute(
+        "SELECT COUNT(*) FROM igloo_items WHERE username=? AND item_id=?", (username, item_id)
+    ).fetchone()[0]
+    if owned_count == 0:
         db.close()
         return jsonify({"status": "error", "message": "You don't own this item."})
-    if owned["placed"]:
+    placed_count = db.execute(
+        "SELECT COUNT(*) FROM igloo_furniture WHERE username=? AND item_id=?", (username, item_id)
+    ).fetchone()[0]
+    if placed_count >= owned_count:
         db.close()
-        return jsonify({"status": "error", "message": "Item is already placed."})
+        return jsonify({"status": "error", "message": "All owned units of this item are already placed."})
     igloo = db.execute("SELECT room_level FROM igloos WHERE username=?", (username,)).fetchone()
     room_size = IGLOO_LEVELS[igloo["room_level"]]["size"]
     w, h = defn["width"], defn["height"]
@@ -4998,7 +5024,6 @@ def igloo_place():
         (username, item_id, grid_x, grid_y)
     )
     placement_id = cur.lastrowid
-    db.execute("UPDATE igloo_items SET placed=1 WHERE username=? AND item_id=?", (username, item_id))
     check_achievements(db, username)
     db.commit()
     db.close()
@@ -5018,7 +5043,6 @@ def igloo_remove():
         db.close()
         return jsonify({"status": "error", "message": "Placement not found."})
     db.execute("DELETE FROM igloo_furniture WHERE id=?", (placement_id,))
-    db.execute("UPDATE igloo_items SET placed=0 WHERE username=? AND item_id=?", (username, row["item_id"]))
     db.commit()
     db.close()
     return jsonify({"status": "success"})

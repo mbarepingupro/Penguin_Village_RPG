@@ -50,9 +50,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             item_id TEXT NOT NULL,
-            obtained_at INTEGER NOT NULL,
-            placed INTEGER DEFAULT 0,
-            UNIQUE(username, item_id)
+            obtained_at INTEGER NOT NULL
         )
     """)
 
@@ -699,6 +697,31 @@ def init_db():
             placed INTEGER DEFAULT 0,
             UNIQUE(username, item_id)
         )""")
+
+    # Migrate igloo_items again: drop UNIQUE(username, item_id) and the
+    # `placed` column so a player can own multiple units of the same
+    # furniture item, each independently placeable. Ownership/placed counts
+    # are now derived (COUNT igloo_items rows / COUNT igloo_furniture rows
+    # per item_id) rather than tracked on the ownership row itself.
+    try:
+        row = c.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='igloo_items'"
+        ).fetchone()
+        if row and row[0] and "UNIQUE" in row[0]:
+            c.execute("ALTER TABLE igloo_items RENAME TO igloo_items_old")
+            c.execute("""CREATE TABLE igloo_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                obtained_at INTEGER NOT NULL
+            )""")
+            c.execute("""
+                INSERT INTO igloo_items (id, username, item_id, obtained_at)
+                SELECT id, username, item_id, obtained_at FROM igloo_items_old
+            """)
+            c.execute("DROP TABLE igloo_items_old")
+    except Exception:
+        pass
 
     _add_col(c, "igloos", "unlocked_floors TEXT DEFAULT 'ice'")
     _add_col(c, "igloos", "unlocked_walls TEXT DEFAULT 'snow'")
