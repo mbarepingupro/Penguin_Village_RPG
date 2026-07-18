@@ -7690,34 +7690,6 @@ def mayor_list_players():
     return jsonify({"status": "success", "players": [dict(p) for p in players], "total": len(players)})
 
 
-@app.route("/mayor/lookup-player/<username>")
-def mayor_lookup_player(username):
-    if not _is_mayor_authed():
-        return jsonify({"status": "error", "message": "Unauthorized."}), 403
-    db = get_db()
-    p = db.execute("SELECT * FROM penguins WHERE username=?", (username,)).fetchone()
-    if not p:
-        db.close()
-        return jsonify({"status": "error", "message": f"Player '{username}' not found"})
-    gear_count = db.execute("SELECT COUNT(*) as c FROM gear WHERE username=?", (username,)).fetchone()["c"]
-    db.close()
-    pd = dict(p)
-    return jsonify({"status": "success", "player": {
-        "username":               pd.get("username"),
-        "penguin_name":           pd.get("penguin_name"),
-        "level":                  pd.get("level"),
-        "xp":                     pd.get("xp"),
-        "penguin_shape":          pd.get("penguin_shape"),
-        "penguin_color":          pd.get("penguin_color"),
-        "character_created":      pd.get("character_created"),
-        "tutorial_completed":     pd.get("tutorial_completed"),
-        "tutorial_step":          pd.get("tutorial_step"),
-        "prestige":               pd.get("prestige", 0),
-        "gear_count":             gear_count,
-        "total_monsters_defeated": pd.get("total_monsters_defeated", 0),
-    }})
-
-
 @app.route("/mayor/delete-player", methods=["POST"])
 def mayor_delete_player():
     if not _is_mayor_authed():
