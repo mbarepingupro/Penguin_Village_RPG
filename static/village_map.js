@@ -1338,12 +1338,29 @@ function gameLoop(ts) {
         }
     }
 
-    // Buildings — use front corner (bottom-right) for depth so they cover objects behind them
+    // Buildings — key depth off the front (south) edge's row, WITHOUT also
+    // extending the column by width. The old key, (gridX+width-1)+(gridY+
+    // height-1), used the last covered tile's own index -- for a wide
+    // building (e.g. the 3x2 buildings in village_layout.json), that
+    // under-shoots the true front row enough that a penguin standing on
+    // the building's own walkable front row (its west/left columns
+    // especially) can still tie-or-lose against it and render underneath.
+    // Anchoring at bdef.gridX+width / bdef.gridY+height (bPt, the vertex
+    // drawBuilding() uses to anchor the SPRITE's bottom) over-corrects the
+    // other way -- it pushes the WHOLE front row below the comparison
+    // threshold, not just the trailing edge. Only extending Y by height
+    // (not X by width) guarantees every column across the building's own
+    // front row -- from its leftmost column to its rightmost -- has a
+    // sortKey >= this one (since larger X only makes the comparison easier
+    // to win), while objects a row north of the building still fall
+    // strictly below it. Verified against every real building in
+    // static/village_layout.json, including the wide 3x2 ones the
+    // footprint-center formula didn't fully clear.
     for (const [id, bdef] of Object.entries(buildingLayout)) {
         const level = buildingLevels[id] !== undefined ? buildingLevels[id] : 1;
         uprightObjects.push({
             type: 'building', id, bdef, level,
-            sortKey: (bdef.gridX + bdef.width - 1) + (bdef.gridY + bdef.height - 1),
+            sortKey: bdef.gridX + (bdef.gridY + bdef.height),
         });
     }
 
