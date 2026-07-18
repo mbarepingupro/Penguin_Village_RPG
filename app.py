@@ -8749,8 +8749,8 @@ def bank_sell_to_bank():
     # to '__bank__' below, since these flags are cleared in the same update.
     db.execute(
         "UPDATE gear SET username='__bank__', bank_sell_price=?, bank_listed_at=?, "
-        "equipped=0, worn=0, listed=0 WHERE id=?",
-        (buy_price, now, gear_id)
+        "equipped=0, worn=0, listed=0, original_owner=? WHERE id=?",
+        (buy_price, now, username, gear_id)
     )
     log_event(db, "bank",
         f"🏦 {username} sold {g['name']} to the Penguin Bank for {sell_price} gold!", username)
