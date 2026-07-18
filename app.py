@@ -7199,6 +7199,7 @@ def public_profile(username):
         titles=data["titles"],
         og_image=request.host_url.rstrip("/") + f"/card/{username}/image",
         og_url=request.host_url.rstrip("/") + f"/penguin/{username}",
+        card_cache_bust=int(time.time()),
     )
 
 
@@ -7233,6 +7234,7 @@ def card_page(username):
         og_image=og_img,
         og_url=og_url,
         card_only=True,
+        card_cache_bust=int(time.time()),
     )
 
 
