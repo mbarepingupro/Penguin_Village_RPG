@@ -565,6 +565,11 @@
     .bq-btn.equip   { border-color: #4a9eff; color: #4a9eff; }
     .bq-btn.equipped-mark { border-color: #4aff6b; color: #4aff6b; cursor: default; }
     .bq-owned { font-size: 16px; color: #4aff6b; }
+    /* Igloo furniture shop cards -- a size modifier scoped to .bq-card, not a
+       change to the shared class, so boutique cosmetic cards are unaffected. */
+    .bq-card.igloo-shop-card { padding: 18px; gap: 10px; }
+    .igloo-shop-card .bq-item-name { font-size: 20px; }
+    .igloo-shop-card .bq-btn { font-size: 18px; padding: 9px 10px; }
     /* Preview overlay */
     #bq-preview { display:none; position:absolute; inset:0; background:rgba(0,0,0,0.85); z-index:10; align-items:center; justify-content:center; flex-direction:column; gap:12px; padding:20px; }
     #bq-preview.show { display:flex; }
@@ -850,9 +855,9 @@
     .igloo-room-opt-btn {
       display: block; width: calc(100% - 16px); margin: 4px 8px;
       background: var(--dark); border: 1px solid #3a3a3a;
-      color: #aaa; font-size: 16px;
+      color: #aaa; font-size: 18px;
       font-family: 'C&C Red Alert', monospace;
-      padding: 7px 8px; cursor: pointer; text-align: left; flex-shrink: 0;
+      padding: 14px 12px; cursor: pointer; text-align: left; flex-shrink: 0;
     }
     .igloo-room-opt-btn:hover:not(:disabled) { border-color: var(--purple); color: var(--white); }
     .igloo-room-opt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -5371,23 +5376,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (!items.length) continue;
       html += `<div style="color:#A86EFF;font-size:16px;padding:6px 10px 4px;border-bottom:1px solid #303045;">${catLabel}</div>`;
       for (const [itemId, defn] of items) {
-        const ownedCount  = defn.owned  || 0;
-        const placedCount = defn.placed || 0;
+        const ownedCount  = defn.owned || 0;
         const costStr = defn.cost
           ? Object.entries(defn.cost).map(([r,a]) => `${a.toLocaleString()} ${r}`).join(' + ')
           : 'Special';
-        html += `<div class="bq-card">
+        html += `<div class="bq-card igloo-shop-card">
           <div class="bq-item-name">${defn.name}</div>
-          <div style="color:#B8B8D0;font-size:16px;">${defn.width||1}×${defn.height||1} tile${(defn.width||1)*(defn.height||1)>1?'s':''}</div>
-          <div style="color:#FF8C00;font-size:16px;">🪙 ${costStr}</div>
+          <div style="color:#B8B8D0;font-size:17px;">${defn.width||1}×${defn.height||1} tile${(defn.width||1)*(defn.height||1)>1?'s':''}</div>
+          <div style="color:#FF8C00;font-size:18px;">🪙 ${costStr}</div>
           ${ownedCount > 0
-            ? `<div style="color:#4aff6b;font-size:16px;margin-top:4px;">✅ ${ownedCount} OWNED, ${placedCount} PLACED</div>`
+            ? `<div style="color:#4aff6b;font-size:17px;margin-top:4px;">✅ OWNED x${ownedCount}</div>`
             : ''
           }
           ${defn.cost
             ? `<button class="bq-btn buy" onclick="iglooBuyFurniture('${itemId}')">BUY</button>`
             : ownedCount === 0
-              ? `<div style="color:#B8B8D0;font-size:16px;margin-top:4px;">N/A</div>`
+              ? `<div style="color:#B8B8D0;font-size:17px;margin-top:4px;">N/A</div>`
               : ''
           }
         </div>`;
@@ -8596,7 +8600,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     html += `<button class="igloo-room-opt-btn" onclick="openBoutiqueFurniture()"
       style="background:rgba(168,110,255,0.15);border-color:#A86EFF;">
       🛋️ OPEN FURNITURE SHOP →<br>
-      <span style="color:#A86EFF;font-size:16px;">Buy items to place in your igloo</span>
+      <span style="color:#A86EFF;font-size:17px;">Buy items to place in your igloo</span>
     </button>`;
     el.innerHTML = html;
   }
