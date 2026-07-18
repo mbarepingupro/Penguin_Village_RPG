@@ -7543,6 +7543,311 @@ def mayor_items_all():
     return jsonify({"status": "success", "by_slot": by_slot, "items": unique_items})
 
 
+# ── MAYOR ITEMS TAB: catalog CRUD (barracks_shop/boutique_items/          ──
+# ── gear_templates/set_bonuses -- see catalog.py for the read-side       ──
+# ── loaders these tables also back) ─────────────────────────────────────
+_CATALOG_TABLES = {
+    "barracks_shop":  {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "combat_power", "cost", "event_exclusive"]},
+    "boutique_items": {"pk": "id",       "columns": ["id", "name", "category", "slot", "price", "tier", "event_exclusive"]},
+    "gear_templates": {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "set_name", "combat_power"]},
+    "set_bonuses":    {"pk": "set_name", "columns": ["set_name", "pieces_needed", "bonus_2pc_cp", "bonus_2pc_desc",
+                                                      "bonus_3pc_cp", "bonus_3pc_desc", "secret_cosmetic_required",
+                                                      "secret_cp", "secret_desc"]},
+}
+_CATALOG_COMBAT_SLOTS   = {"weapon", "armor", "helmet", "boots"}
+_CATALOG_COSMETIC_SLOTS = {"hat", "outfit", "footwear", "accessory"}
+_CATALOG_RARITIES       = {"common", "uncommon", "rare", "epic", "legendary"}
+_CATALOG_RESOURCES      = {"gold", "fish", "herbs", "blood_gems", "bones", "spell_fragments", "ice_blocks"}
+_CATALOG_TIERS          = {"cheap", "mid", "expensive"}
+_CATALOG_CATEGORIES     = {"hats", "outfits", "footwear", "accessories"}
+# id (barracks_shop/boutique_items/gear_templates) is a slug: matches the
+# style every existing seeded id already uses, and keeps it safe to embed
+# in an onclick="...('${id}')" attribute in the Items tab UI without any
+# HTML/JS escaping edge cases. set_name is a display name (existing values
+# are "Word Word" style), so it's allowed spaces but nothing else that
+# could break out of that same attribute context.
+_CATALOG_ID_RE       = re.compile(r'^[a-z0-9_]+$')
+_CATALOG_SET_NAME_RE = re.compile(r"^[A-Za-z0-9' ]+$")
+
+
+def _validate_catalog_row(catalog_name, data):
+    """Validate + shape a create/edit payload for one catalog table into a
+    dict of column -> stored value (cost pre-JSON-encoded, booleans as 0/1).
+    Raises ValueError with a player-facing message on anything invalid.
+    id/set_name (the PK) is required and, for barracks_shop/boutique_items,
+    is the same id gear rows reference forever -- the frontend treats it as
+    immutable after creation (not enforced here beyond "must be present";
+    the id simply becomes the row's new content on any save, same as every
+    other field, so the UI is responsible for not offering to edit it)."""
+    if catalog_name == "barracks_shop":
+        id_   = (data.get("id") or "").strip()
+        name  = (data.get("name") or "").strip()
+        slot  = data.get("slot")
+        rarity = data.get("rarity")
+        combat_power = data.get("combat_power")
+        cost  = data.get("cost") or {}
+        event_exclusive = bool(data.get("event_exclusive"))
+        if not id_ or not name:
+            raise ValueError("id and name are required.")
+        if not _CATALOG_ID_RE.match(id_):
+            raise ValueError("id must be lowercase letters/digits/underscores only (e.g. iron_sword).")
+        if slot not in _CATALOG_COMBAT_SLOTS:
+            raise ValueError(f"slot must be one of {sorted(_CATALOG_COMBAT_SLOTS)}.")
+        if rarity not in _CATALOG_RARITIES:
+            raise ValueError(f"rarity must be one of {sorted(_CATALOG_RARITIES)}.")
+        if not isinstance(combat_power, int) or isinstance(combat_power, bool) or combat_power < 0:
+            raise ValueError("combat_power must be a non-negative integer.")
+        if not isinstance(cost, dict) or not cost:
+            raise ValueError("cost must be a non-empty resource -> amount mapping.")
+        for res, amt in cost.items():
+            if res not in _CATALOG_RESOURCES:
+                raise ValueError(f"unknown resource in cost: {res}")
+            if not isinstance(amt, int) or isinstance(amt, bool) or amt <= 0:
+                raise ValueError(f"cost[{res}] must be a positive integer.")
+        return {"id": id_, "name": name, "slot": slot, "rarity": rarity,
+                "combat_power": combat_power, "cost": json.dumps(cost),
+                "event_exclusive": int(event_exclusive)}
+
+    if catalog_name == "boutique_items":
+        id_   = (data.get("id") or "").strip()
+        name  = (data.get("name") or "").strip()
+        category = data.get("category")
+        slot  = data.get("slot")
+        price = data.get("price")
+        tier  = data.get("tier")
+        event_exclusive = bool(data.get("event_exclusive"))
+        if not id_ or not name:
+            raise ValueError("id and name are required.")
+        if not _CATALOG_ID_RE.match(id_):
+            raise ValueError("id must be lowercase letters/digits/underscores only (e.g. baseball_cap).")
+        if category not in _CATALOG_CATEGORIES:
+            raise ValueError(f"category must be one of {sorted(_CATALOG_CATEGORIES)}.")
+        if slot not in _CATALOG_COSMETIC_SLOTS:
+            raise ValueError(f"slot must be one of {sorted(_CATALOG_COSMETIC_SLOTS)}.")
+        if not isinstance(price, int) or isinstance(price, bool) or price < 0:
+            raise ValueError("price must be a non-negative integer.")
+        if tier not in _CATALOG_TIERS:
+            raise ValueError(f"tier must be one of {sorted(_CATALOG_TIERS)}.")
+        return {"id": id_, "name": name, "category": category, "slot": slot,
+                "price": price, "tier": tier, "event_exclusive": int(event_exclusive)}
+
+    if catalog_name == "gear_templates":
+        id_   = (data.get("id") or "").strip()
+        name  = (data.get("name") or "").strip()
+        slot  = data.get("slot")
+        rarity = data.get("rarity")
+        set_name = (data.get("set_name") or "").strip() or None
+        combat_power = data.get("combat_power")
+        if not id_ or not name:
+            raise ValueError("id and name are required.")
+        if not _CATALOG_ID_RE.match(id_):
+            raise ValueError("id must be lowercase letters/digits/underscores only (e.g. rusty_sword_weapon_common).")
+        if slot not in _CATALOG_COMBAT_SLOTS:
+            raise ValueError(f"slot must be one of {sorted(_CATALOG_COMBAT_SLOTS)}.")
+        if rarity not in _CATALOG_RARITIES:
+            raise ValueError(f"rarity must be one of {sorted(_CATALOG_RARITIES)}.")
+        if set_name is not None and not _CATALOG_SET_NAME_RE.match(set_name):
+            raise ValueError("set_name may only contain letters, digits, spaces, and apostrophes.")
+        if not isinstance(combat_power, int) or isinstance(combat_power, bool) or combat_power < 0:
+            raise ValueError("combat_power must be a non-negative integer.")
+        return {"id": id_, "name": name, "slot": slot, "rarity": rarity,
+                "set_name": set_name, "combat_power": combat_power}
+
+    if catalog_name == "set_bonuses":
+        set_name = (data.get("set_name") or "").strip()
+        pieces_needed = data.get("pieces_needed")
+        bonus_2pc_cp   = data.get("bonus_2pc_cp")
+        bonus_2pc_desc = (data.get("bonus_2pc_desc") or "").strip()
+        bonus_3pc_cp   = data.get("bonus_3pc_cp")
+        bonus_3pc_desc = (data.get("bonus_3pc_desc") or "").strip()
+        secret_cosmetic_required = (data.get("secret_cosmetic_required") or "").strip() or None
+        secret_cp   = data.get("secret_cp")
+        secret_desc = (data.get("secret_desc") or "").strip()
+        if not set_name:
+            raise ValueError("set_name is required.")
+        if not _CATALOG_SET_NAME_RE.match(set_name):
+            raise ValueError("set_name may only contain letters, digits, spaces, and apostrophes.")
+        if secret_cosmetic_required is not None and not _CATALOG_SET_NAME_RE.match(secret_cosmetic_required):
+            raise ValueError("secret_cosmetic_required may only contain letters, digits, spaces, and apostrophes.")
+        for label, val in (("pieces_needed", pieces_needed), ("bonus_2pc_cp", bonus_2pc_cp),
+                            ("bonus_3pc_cp", bonus_3pc_cp), ("secret_cp", secret_cp)):
+            if not isinstance(val, int) or isinstance(val, bool) or val < 0:
+                raise ValueError(f"{label} must be a non-negative integer.")
+        if not bonus_2pc_desc or not bonus_3pc_desc or not secret_desc:
+            raise ValueError("bonus_2pc_desc, bonus_3pc_desc, and secret_desc are all required.")
+        return {"set_name": set_name, "pieces_needed": pieces_needed,
+                "bonus_2pc_cp": bonus_2pc_cp, "bonus_2pc_desc": bonus_2pc_desc,
+                "bonus_3pc_cp": bonus_3pc_cp, "bonus_3pc_desc": bonus_3pc_desc,
+                "secret_cosmetic_required": secret_cosmetic_required,
+                "secret_cp": secret_cp, "secret_desc": secret_desc}
+
+    raise ValueError("Unknown catalog.")
+
+
+def _catalog_delete_safety_check(db, catalog_name, row):
+    """Returns (severity, message): 'block' refuses the delete outright
+    (even with confirm=true) because it would crash live gameplay, not just
+    look empty; 'warn' requires the caller to resend with confirm=true but
+    otherwise proceeds; None means delete freely.
+
+    gear_templates is the one hard-block case: generate_gear_drop() and
+    _generate_lootbox_gear() do random.choice(templates_for_that_rarity),
+    which raises IndexError on an empty list -- deleting the LAST template
+    for a rarity that a monster tier still rolls would crash the very next
+    drop of that rarity, not just render an empty admin list.
+
+    set_bonuses only warns (never blocks), per explicit product decision:
+    editing/deleting it already changes effective combat power live for
+    anyone with matching pieces equipped (calculate_set_bonuses() looks the
+    set up in the CURRENT set_bonuses table every time, not from anything
+    stored on the gear row) -- same category as other live-tunable knobs
+    (buffs, raid settings) that already take effect immediately."""
+    if catalog_name == "gear_templates":
+        rarity = row["rarity"]
+        remaining = db.execute(
+            "SELECT COUNT(*) c FROM gear_templates WHERE rarity=? AND id != ?", (rarity, row["id"])
+        ).fetchone()["c"]
+        if remaining == 0:
+            reachable = any(w.get(rarity, 0) > 0 for w in _GEAR_DROP_RARITY_WEIGHTS.values())
+            if reachable:
+                return ("block",
+                        f"This is the LAST {rarity} gear template, and at least one monster tier "
+                        f"still rolls {rarity} drops -- deleting it would crash the next {rarity} "
+                        f"drop. Add another {rarity} template before deleting this one.")
+            return ("warn", f"This is the last {rarity} gear template. No monster tier currently "
+                             f"rolls {rarity} drops, so this is safe, but double-check first.")
+    elif catalog_name == "barracks_shop":
+        rarity = row["rarity"]
+        remaining = db.execute(
+            "SELECT COUNT(*) c FROM barracks_shop WHERE rarity=? AND id != ?", (rarity, row["id"])
+        ).fetchone()["c"]
+        if remaining == 0:
+            return ("warn", f"This is the last {rarity}-tier item in the Barracks shop -- deleting "
+                             f"it leaves that rarity tab empty (the shop still renders fine, just "
+                             f"nothing to buy in {rarity}).")
+    elif catalog_name == "boutique_items":
+        category = row["category"]
+        remaining = db.execute(
+            "SELECT COUNT(*) c FROM boutique_items WHERE category=? AND id != ?", (category, row["id"])
+        ).fetchone()["c"]
+        if remaining == 0:
+            return ("warn", f"This is the last item in the {category} category -- deleting it "
+                             f"leaves that Boutique category empty.")
+    elif catalog_name == "set_bonuses":
+        set_name = row["set_name"]
+        affected = db.execute(
+            "SELECT username, COUNT(*) c FROM gear WHERE set_name=? AND equipped=1 AND type='combat' "
+            "GROUP BY username HAVING c >= 2",
+            (set_name,)
+        ).fetchall()
+        if affected:
+            names = ", ".join(a["username"] for a in affected[:5])
+            more  = f" (+{len(affected)-5} more)" if len(affected) > 5 else ""
+            return ("warn", f"{len(affected)} player(s) currently have 2+ equipped {set_name} pieces "
+                             f"and will immediately lose this set bonus if deleted: {names}{more}.")
+    return (None, None)
+
+
+@app.route("/mayor/catalog/<catalog_name>")
+def mayor_catalog_list(catalog_name):
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    if catalog_name not in _CATALOG_TABLES:
+        return jsonify({"status": "error", "message": "Unknown catalog."}), 404
+    db   = get_db()
+    rows = db.execute(f"SELECT * FROM {catalog_name} ORDER BY rowid").fetchall()
+    db.close()
+    items = [dict(r) for r in rows]
+    if catalog_name == "barracks_shop":
+        for it in items:
+            it["cost"] = json.loads(it["cost"])
+    return jsonify({"status": "success", "items": items})
+
+
+@app.route("/mayor/catalog/<catalog_name>/save", methods=["POST"])
+def mayor_catalog_save(catalog_name):
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    if catalog_name not in _CATALOG_TABLES:
+        return jsonify({"status": "error", "message": "Unknown catalog."}), 404
+    cfg  = _CATALOG_TABLES[catalog_name]
+    data = request.get_json(silent=True) or {}
+    try:
+        row = _validate_catalog_row(catalog_name, data)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+    db = get_db()
+    pk_col = cfg["pk"]
+    pk_val = row[pk_col]
+    is_edit = db.execute(f"SELECT 1 FROM {catalog_name} WHERE {pk_col}=?", (pk_val,)).fetchone() is not None
+
+    # set_bonuses: editing an existing entry changes live combat power for
+    # anyone with matching pieces equipped right now (see
+    # _catalog_delete_safety_check's docstring) -- warn once, same
+    # warn-don't-block UX as delete, per explicit product decision.
+    if catalog_name == "set_bonuses" and is_edit and not data.get("confirm"):
+        affected = db.execute(
+            "SELECT username, COUNT(*) c FROM gear WHERE set_name=? AND equipped=1 AND type='combat' "
+            "GROUP BY username HAVING c >= 2",
+            (pk_val,)
+        ).fetchall()
+        if affected:
+            names = ", ".join(a["username"] for a in affected[:5])
+            more  = f" (+{len(affected)-5} more)" if len(affected) > 5 else ""
+            db.close()
+            return jsonify({"status": "warning", "message":
+                f"{len(affected)} player(s) currently have 2+ equipped {pk_val} pieces and will "
+                f"immediately feel this change: {names}{more}."})
+
+    cols = cfg["columns"]
+    col_list      = ",".join(cols)
+    placeholders  = ",".join("?" for _ in cols)
+    update_clause = ",".join(f"{c}=excluded.{c}" for c in cols if c != pk_col)
+    db.execute(
+        f"INSERT INTO {catalog_name} ({col_list}) VALUES ({placeholders}) "
+        f"ON CONFLICT({pk_col}) DO UPDATE SET {update_clause}",
+        [row[c] for c in cols]
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"{pk_val} {'updated' if is_edit else 'created'}.", "is_edit": is_edit})
+
+
+@app.route("/mayor/catalog/<catalog_name>/delete", methods=["POST"])
+def mayor_catalog_delete(catalog_name):
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    if catalog_name not in _CATALOG_TABLES:
+        return jsonify({"status": "error", "message": "Unknown catalog."}), 404
+    cfg    = _CATALOG_TABLES[catalog_name]
+    data   = request.get_json(silent=True) or {}
+    pk_col = cfg["pk"]
+    pk_val = (data.get(pk_col) or "").strip()
+    confirmed = bool(data.get("confirm"))
+    if not pk_val:
+        return jsonify({"status": "error", "message": f"{pk_col} required."})
+
+    db  = get_db()
+    row = db.execute(f"SELECT * FROM {catalog_name} WHERE {pk_col}=?", (pk_val,)).fetchone()
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "Not found."})
+
+    severity, message = _catalog_delete_safety_check(db, catalog_name, dict(row))
+    if severity == "block":
+        db.close()
+        return jsonify({"status": "error", "message": message})
+    if severity == "warn" and not confirmed:
+        db.close()
+        return jsonify({"status": "warning", "message": message})
+
+    db.execute(f"DELETE FROM {catalog_name} WHERE {pk_col}=?", (pk_val,))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "message": f"{pk_val} deleted."})
+
+
 @app.route("/mayor/announce", methods=["POST"])
 def mayor_announce():
     if not _is_mayor_authed():
