@@ -450,6 +450,11 @@ def init_db():
     _add_col(c, "gear", "listed INTEGER DEFAULT 0")
     _add_col(c, "gear", "bank_sell_price INTEGER DEFAULT 0")
     _add_col(c, "gear", "bank_listed_at INTEGER DEFAULT 0")
+    # Who sold this item to the bank, if it's currently a bank listing (or
+    # was one previously) -- purely informational, never read by any pricing,
+    # ownership, or expiry logic. NULL for items that never went through
+    # bank_sell_to_bank().
+    _add_col(c, "gear", "original_owner TEXT DEFAULT NULL")
     _add_col(c, "penguins", "total_monsters_defeated INTEGER DEFAULT 0")
     _add_col(c, "penguins", "total_resources_collected INTEGER DEFAULT 0")
     _add_col(c, "penguins", "total_gold_collected INTEGER DEFAULT 0")
