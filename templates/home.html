@@ -4212,9 +4212,28 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (!this._open) this.toggle();
     },
 
+    // Persisted per-account in localStorage (not just an in-memory flag) so
+    // the unread badge survives a page reload/relaunch instead of resetting
+    // to 0 every time -- otherwise the badge could only ever fire for
+    // messages that happened to arrive during the current tab's lifetime,
+    // never for anything sent while the player was away.
+    _lastReadKey: function() {
+      return 'chat_last_read_' + CURRENT_USER;
+    },
+    _getLastReadTs: function() {
+      try {
+        var v = localStorage.getItem(this._lastReadKey());
+        return v ? parseInt(v, 10) : null; // null = never tracked yet (brand-new visitor)
+      } catch (e) { return null; }
+    },
+    _setLastReadTs: function(ts) {
+      try { localStorage.setItem(this._lastReadKey(), String(ts)); } catch (e) {}
+    },
+
     _clearUnread: function() {
       this._unread = 0;
       this._hideNotif();
+      this._setLastReadTs(Math.floor(Date.now() / 1000));
       var badge = document.getElementById('chat-badge');
       if (badge) badge.style.display = 'none';
     },
@@ -4279,11 +4298,29 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     },
 
     _processUnread: function(msgs) {
-      // On the very first poll, just establish the baseline — don't count existing history as unread
+      // On the very first poll since this page load, seed _highestTs from
+      // the freshest message, then check the persisted last-read marker
+      // (localStorage, survives reloads) instead of always baselining to
+      // zero unread -- so messages sent while the player was away still
+      // show up as unread the next time they open the game.
       if (this._highestTs === 0) {
+        var self = this;
         msgs.forEach(function(m) {
-          if (m.created_at > this._highestTs) this._highestTs = m.created_at;
-        }, this);
+          if (m.created_at > self._highestTs) self._highestTs = m.created_at;
+        });
+        var lastRead = this._getLastReadTs();
+        if (lastRead === null) {
+          // Brand-new visitor, nothing to compare against yet -- baseline
+          // silently same as before rather than flagging all history unread.
+          this._setLastReadTs(this._highestTs || Math.floor(Date.now() / 1000));
+          return;
+        }
+        var missed = msgs.filter(function(m) { return m.created_at > lastRead; });
+        if (missed.length > 0 && !this._open) {
+          this._unread = missed.length;
+          this._updateBadge();
+          this._showNotif(missed[missed.length - 1]);
+        }
         return;
       }
       var newest = null;
@@ -4324,7 +4361,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           var data = await res.json();
           var msgs = data.messages || [];
           this._processUnread(msgs);
-          if (this._open) this._renderMessages(msgs);
+          if (this._open) {
+            this._renderMessages(msgs);
+            // Keep the persisted marker fresh while actively viewing, so
+            // closing the tab without hitting the ✕ close button doesn't
+            // leave a stale last-read timestamp that would wrongly flag
+            // already-seen messages as unread on the next page load.
+            this._setLastReadTs(Math.floor(Date.now() / 1000));
+          }
         }
       } catch(e) {}
     },
@@ -4497,9 +4541,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         if (e.key === 'Enter') { e.preventDefault(); GlobalChat.send(); }
       });
     }
+    // Deferred to DOMContentLoaded (rather than called inline here) because
+    // CURRENT_USER isn't declared (const, further down this same script)
+    // until after this point -- an immediate call here would have
+    // _processUnread()'s first poll reference it while still in the
+    // temporal dead zone, throwing a ReferenceError that _poll()'s catch
+    // silently swallows, breaking the very first unread-badge check on
+    // every page load. By DOMContentLoaded, the whole script (including
+    // CURRENT_USER's declaration) has already run.
+    GlobalChat.startPolling();
   });
-
-  GlobalChat.startPolling();
 
   // ── PLAYER INTERESTS ──
   var _interestTopics  = [];   // [{key, label, emoji}, ...]

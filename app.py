@@ -517,6 +517,7 @@ def _event_bucket(event_type):
 
 # ── Global chat ──────────────────────────────────────────────────────────────
 _CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
+CHAT_MESSAGE_RETENTION   = 300  # keep only the newest N rows -- see run_autonomous_actions()
 # Hardcoded wordlist — expandable; basic bad-word filter applied on send
 _CHAT_BLOCKED_WORDS = frozenset({
     'fuck', 'shit', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
@@ -2120,9 +2121,15 @@ def run_autonomous_actions():
         print(f"[Autonomous] Group event error: {e}")
 
     db.commit()
-    # Prune chat messages older than 24 h to keep the table bounded
-    cutoff = now - 86400
-    db.execute("DELETE FROM chat_messages WHERE created_at < ?", (cutoff,))
+    # Keep the table bounded by count instead of a 24h age cutoff -- messages
+    # persist indefinitely until there are more than CHAT_MESSAGE_RETENTION,
+    # so a quiet period never leaves the panel empty, and only the oldest
+    # overflow gets pruned once that many have piled up.
+    db.execute(
+        "DELETE FROM chat_messages WHERE id NOT IN "
+        "(SELECT id FROM chat_messages ORDER BY id DESC LIMIT ?)",
+        (CHAT_MESSAGE_RETENTION,)
+    )
     db.commit()
     db.close()
     print(f"[Autonomous] Generated {generated} actions for {len(all_penguins)} penguins")
@@ -9815,15 +9822,15 @@ def mayor_debug_penguin_fetch():
 
 @app.route("/chat/messages")
 def chat_get_messages():
-    now    = int(time.time())
-    cutoff = now - 86400          # last 24 hours only
-    db     = get_db()
-    rows   = db.execute(
+    # No age cutoff -- messages persist until CHAT_MESSAGE_RETENTION prunes
+    # the oldest overflow (see run_autonomous_actions()), so the panel always
+    # has recent history to show instead of going empty after a quiet spell.
+    db   = get_db()
+    rows = db.execute(
         "SELECT username, message, created_at "
-        "FROM chat_messages WHERE created_at > ? "
-        "ORDER BY created_at ASC LIMIT 100",
-        (cutoff,)
+        "FROM chat_messages ORDER BY created_at DESC LIMIT 100"
     ).fetchall()
+    rows = list(reversed(rows))
     db.close()
     return jsonify({
         "messages": [
