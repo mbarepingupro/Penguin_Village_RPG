@@ -111,6 +111,7 @@
     .sidebar-tab:last-child { border-right: none; }
     .sidebar-tab.active { color: var(--purple); background: var(--panel); }
     .sidebar-tab:hover:not(.active) { color: var(--pink); }
+    .sidebar-tab-energy { font-size: 15px; color: #4aff6b; margin-top: 2px; }
 
     .sidebar-panel { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
     .sidebar-panel.active { display: flex; }
@@ -1791,6 +1792,9 @@
     /* ── Mobile player button (hidden on desktop) ── */
     .mobile-player-btn {
       display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
       font-family: 'C&C Red Alert', monospace;
       font-size: 16px;
       color: #A86EFF;
@@ -1803,6 +1807,8 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
+    .mobile-player-btn-row { display: flex; align-items: center; gap: 4px; }
+    .mobile-player-energy { font-size: 13px; color: #4aff6b; }
 
     /* ── touch-action for all interactive elements ── */
     button, canvas, a, [onclick], .content-tab, .sidebar-tab {
@@ -1839,7 +1845,7 @@
       .nav-logo { font-size: 16px; }
       .nav-user { display: none; }
       .nav-logout { min-height: 44px; display: flex; align-items: center; padding: 0 8px; font-size: 16px; }
-      .mobile-player-btn { display: inline-flex; align-items: center; }
+      .mobile-player-btn { display: inline-flex; }
 
       /* ── Sidebar hidden on mobile — player button handles this ── */
       .sidebar { display: none !important; }
@@ -2939,7 +2945,10 @@
       {% if logged_in %}
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
         <button id="help-btn" onclick="resetHelpTooltips();replayTutorial()" title="Help &amp; Tutorial">❓</button>
-        <button id="mobile-player-btn" class="mobile-player-btn" onclick="openMobilePlayerPanel()">🐧 <span id="mobile-player-name">{{ penguin['username'] }}</span></button>
+        <button id="mobile-player-btn" class="mobile-player-btn" onclick="openMobilePlayerPanel()">
+          <span class="mobile-player-btn-row">🐧 <span id="mobile-player-name">{{ penguin['username'] }}</span></span>
+          <span class="mobile-player-energy" id="mobile-player-energy">⚡ {{ penguin['energy'] }}/100</span>
+        </button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -2978,7 +2987,7 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sidebar-tabs">
-        <button class="sidebar-tab active" onclick="switchSidebarTab('penguin', this)">PENGUIN</button>
+        <button class="sidebar-tab active" onclick="switchSidebarTab('penguin', this)">PENGUIN<div class="sidebar-tab-energy" id="sidebar-tab-energy">⚡ {{ penguin['energy'] }}/100</div></button>
         <button class="sidebar-tab" onclick="switchSidebarTab('stats', this)">STATS</button>
         <button class="sidebar-tab" onclick="switchSidebarTab('friends', this)">FRIENDS</button>
       </div>
@@ -4728,6 +4737,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           ? `<span style="color:#4aff6b">⚡ FULL</span>`
           : `${p.energy}/${maxE} <span style="color:#B8B8D0;font-size:16px">+10/hr</span>`;
         document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
+        const tabEnergyEl = document.getElementById('sidebar-tab-energy');
+        if (tabEnergyEl) tabEnergyEl.textContent = `⚡ ${p.energy}/${maxE}`;
+        const mobEnergyEl = document.getElementById('mobile-player-energy');
+        if (mobEnergyEl) mobEnergyEl.textContent = `⚡ ${p.energy}/${maxE}`;
         document.getElementById('stat-level').textContent = '★ LEVEL ' + p.level;
         const xpNeeded = p.xp_needed || 100;
         const xpInto   = p.xp_into   || 0;
