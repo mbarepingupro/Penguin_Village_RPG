@@ -159,10 +159,23 @@ const EditorSprites = {
     get(path) { return this.cache[path] || null; },
 };
 
+// Cache-busting: appends ?v=<mtime> so the URL changes automatically
+// whenever the underlying file changes (see app.py's _static_asset_versions,
+// injected as the ASSET_VERSIONS global). Mirrors village_map.js's
+// _versionedAsset() -- kept as its own copy here since this file has no
+// shared module system with village_map.js. relPath is the path relative to
+// /static/, e.g. "buildings/hotel.png"; EditorSprites' cache is keyed by the
+// exact string passed to load()/get(), so every call site must build its
+// URL through this helper so both agree on the same versioned key.
+function _versionedAsset(relPath) {
+    const v = (typeof ASSET_VERSIONS !== 'undefined' && ASSET_VERSIONS[relPath]) || null;
+    return `/static/${relPath}` + (v ? `?v=${v}` : '');
+}
+
 async function preloadSprites() {
-    const loads = BUILDING_KEYS.map(id => EditorSprites.load(`/static/buildings/${id}.png`));
+    const loads = BUILDING_KEYS.map(id => EditorSprites.load(_versionedAsset(`buildings/${id}.png`)));
     for (const name of ['snow', 'path', 'water', 'tree', 'fence']) {
-        loads.push(EditorSprites.load(`/static/tiles/${name}.png`));
+        loads.push(EditorSprites.load(_versionedAsset(`tiles/${name}.png`)));
     }
     await Promise.all(loads);
 }
@@ -216,7 +229,7 @@ const _TILE_SPRITE = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' }
 
 function drawTile(sx, sy, tileType, isHover) {
     const spriteName = _TILE_SPRITE[tileType];
-    const sprite = spriteName ? EditorSprites.get(`/static/tiles/${spriteName}.png`) : null;
+    const sprite = spriteName ? EditorSprites.get(_versionedAsset(`tiles/${spriteName}.png`)) : null;
 
     if (sprite) {
         ctx.imageSmoothingEnabled = false;
@@ -266,7 +279,7 @@ function drawBuilding(key, bdef) {
     const color = def.color;
 
     // Try PNG sprite — same anchor logic as village_map.js
-    const sprite = EditorSprites.get(`/static/buildings/${key}.png`);
+    const sprite = EditorSprites.get(_versionedAsset(`buildings/${key}.png`));
     if (sprite) {
         const footprintWidth = rPt.x - lPt.x;
         const frontX = (lPt.x + rPt.x) / 2;
