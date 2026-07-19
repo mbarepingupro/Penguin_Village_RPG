@@ -52,21 +52,22 @@ BUFF_NAMES = {
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
-# ── STATIC ASSET CACHE-BUSTING (map/building rendering sprites only) ───────────
-# static/buildings, static/tiles, static/items, and static/penguin_wearing are
-# all referenced by an unchanging URL (e.g. /static/buildings/hotel.png) built
-# client-side from an id, with no filename/hash change when the underlying
-# file is swapped -- so a stale browser/CDN cache can silently keep serving
-# the old bytes after a sprite replacement (see: sea_lion_pit.png). Every file
-# under these 4 directories gets a ?v=<content hash> query param so the URL
-# changes automatically whenever the file's content changes, no manual bump
-# needed. Deliberately NOT mtime-based: git does not preserve original commit
-# timestamps on checkout/clone -- every file touched by a given checkout gets
-# stamped with that checkout's wall-clock time regardless of its actual
-# per-file change history, which made mtime an unreliable proxy for "this
-# specific asset changed" (confirmed: unrelated sprites sharing an identical
-# on-disk mtime after a fresh clone).
-_ASSET_VERSION_DIRS = ("buildings", "tiles", "items", "penguin_wearing")
+# ── STATIC ASSET CACHE-BUSTING (map/building/igloo rendering sprites only) ─────
+# static/buildings, static/tiles, static/items, static/penguin_wearing, and
+# static/igloo_furniture are all referenced by an unchanging URL (e.g.
+# /static/buildings/hotel.png) built client-side from an id, with no
+# filename/hash change when the underlying file is swapped -- so a stale
+# browser/CDN cache can silently keep serving the old bytes after a sprite
+# replacement (see: sea_lion_pit.png). Every file under these directories
+# gets a ?v=<content hash> query param so the URL changes automatically
+# whenever the file's content changes, no manual bump needed. Deliberately
+# NOT mtime-based: git does not preserve original commit timestamps on
+# checkout/clone -- every file touched by a given checkout gets stamped with
+# that checkout's wall-clock time regardless of its actual per-file change
+# history, which made mtime an unreliable proxy for "this specific asset
+# changed" (confirmed: unrelated sprites sharing an identical on-disk mtime
+# after a fresh clone).
+_ASSET_VERSION_DIRS = ("buildings", "tiles", "items", "penguin_wearing", "igloo_furniture")
 _ASSET_VERSION_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
 _ASSET_HASH_LEN = 10
 
