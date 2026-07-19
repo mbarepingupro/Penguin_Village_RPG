@@ -10593,6 +10593,31 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   });
   {% endif %}
 
+  {% if build_leaderboard_reward %}
+  (function() {
+    // Same reusable "Open" toast pattern as daily_lootbox_awarded above --
+    // just fed from the reward resolve_weekly_build_leaderboard() already
+    // granted (see app.py's home() build_leaderboard_reward lookup) instead
+    // of a fresh grant_lootbox() call here.
+    var blr = {{ build_leaderboard_reward | tojson }};
+    var resEmojis = {fish:'🐟', herbs:'🌿', blood_gems:'💎', bones:'🦴', spell_fragments:'✨', ice_blocks:'🧊'};
+    var parts = [];
+    if (blr.lootboxes > 0) parts.push(blr.lootboxes + ' N00Tbox' + (blr.lootboxes === 1 ? '' : 'es'));
+    Object.keys(blr.resources).forEach(function(r) {
+      parts.push('+' + blr.resources[r] + ' ' + (resEmojis[r] || '') + ' ' + r.replace('_', ' '));
+    });
+    var msg = '🧊 Weekly Building Leaderboard #' + blr.rank + '! ' + (parts.join(', ') || 'Nothing this time.');
+    if (blr.lootbox_ids && blr.lootbox_ids.length) {
+      showToast(msg, 'ok', {
+        label: 'OPEN',
+        onClick: function() { invOpenLootbox(blr.lootbox_ids[0]); }
+      });
+    } else {
+      showToast(msg, 'ok');
+    }
+  })();
+  {% endif %}
+
   {% endif %}
 
   // ═══════════════════════════════════════════════════════════════

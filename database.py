@@ -416,14 +416,25 @@ def init_db():
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS weekly_build_leaderboard_archive (
-            id               INTEGER PRIMARY KEY AUTOINCREMENT,
-            week_id          INTEGER NOT NULL,
-            rank             INTEGER NOT NULL,
-            username         TEXT    NOT NULL,
-            ice_blocks_total INTEGER NOT NULL,
-            archived_at      INTEGER NOT NULL
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            week_id             INTEGER NOT NULL,
+            rank                INTEGER NOT NULL,
+            username            TEXT    NOT NULL,
+            ice_blocks_total    INTEGER NOT NULL,
+            archived_at         INTEGER NOT NULL,
+            reward_lootboxes    INTEGER NOT NULL DEFAULT 0,
+            reward_lootbox_ids  TEXT    NOT NULL DEFAULT '[]',
+            reward_resources    TEXT    NOT NULL DEFAULT '{}',
+            notified            INTEGER NOT NULL DEFAULT 0
         )
     """)
+    # Added after the table's initial rollout -- _add_col back-fills any DB
+    # created before rewards existed (see resolve_weekly_build_leaderboard()
+    # in app.py, Phase 3b) with the same defaults as a fresh CREATE above.
+    _add_col(c, "weekly_build_leaderboard_archive", "reward_lootboxes INTEGER NOT NULL DEFAULT 0")
+    _add_col(c, "weekly_build_leaderboard_archive", "reward_lootbox_ids TEXT NOT NULL DEFAULT '[]'")
+    _add_col(c, "weekly_build_leaderboard_archive", "reward_resources TEXT NOT NULL DEFAULT '{}'")
+    _add_col(c, "weekly_build_leaderboard_archive", "notified INTEGER NOT NULL DEFAULT 0")
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS weekly_build_leaderboard_state (

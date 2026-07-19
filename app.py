@@ -2840,6 +2840,34 @@ def home():
         daily_lootbox_id = grant_lootbox(username, 1, "daily_login", db=db)[0]
         daily_lootbox_awarded = True
 
+    # ── Weekly build-leaderboard reward -- one-shot login toast ─────────────
+    # resolve_weekly_build_leaderboard() (a scheduled job, not this request)
+    # already granted the lootboxes/resources and wrote them onto the
+    # player's archive row; there's no live session to stash a flag in like
+    # daily_reward/streak_reward above, so the archive row's own `notified`
+    # column is the "already shown" marker instead -- same DB-backed-marker
+    # idea as check_lifecycle_notices()'s notice_*_id columns, just scoped to
+    # a single row. Cleared here (not by the job) so it fires exactly once,
+    # on this player's next page load after the reset, however long that is.
+    build_leaderboard_reward = None
+    if FEATURES.get("weekly_build_leaderboard", True):
+        blb_row = db.execute(
+            "SELECT id, week_id, rank, ice_blocks_total, reward_lootboxes, "
+            "reward_lootbox_ids, reward_resources FROM weekly_build_leaderboard_archive "
+            "WHERE username=? AND notified=0 ORDER BY week_id DESC LIMIT 1",
+            (username,)
+        ).fetchone()
+        if blb_row:
+            build_leaderboard_reward = {
+                "rank":             blb_row["rank"],
+                "week_id":          blb_row["week_id"],
+                "ice_blocks_total": blb_row["ice_blocks_total"],
+                "lootboxes":        blb_row["reward_lootboxes"],
+                "lootbox_ids":      json.loads(blb_row["reward_lootbox_ids"] or "[]"),
+                "resources":        json.loads(blb_row["reward_resources"] or "{}"),
+            }
+            db.execute("UPDATE weekly_build_leaderboard_archive SET notified=1 WHERE id=?", (blb_row["id"],))
+
     db.commit()
     resources  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     streak_row = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
@@ -2857,6 +2885,7 @@ def home():
         daily_reward=daily_reward,
         daily_lootbox_awarded=daily_lootbox_awarded,
         daily_lootbox_id=daily_lootbox_id,
+        build_leaderboard_reward=build_leaderboard_reward,
         features=FEATURES,
         level_data=LEVEL_DATA,
         tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
@@ -9195,12 +9224,50 @@ def _next_build_leaderboard_deadline(reference_ts=None):
     return int(candidate.timestamp())
 
 
+def _calculate_build_leaderboard_reward(rank, total_players):
+    """(lootbox_count, {resource_type: amount}) for a given final rank.
+
+    Podium (1-3) gets a fixed lootbox count plus random(0,100) rolls on an
+    increasing number of resource types. Ranks 4+ get no lootbox, one random
+    resource type, and a linearly-scaled amount from 50 (rank 4) down to 0
+    (last place) -- collapses to a flat 50 when rank 4 IS the last place
+    (only 4 total players), since the linear formula's own denominator
+    (total_players - 4) would otherwise be zero there."""
+    if rank == 1:
+        return 3, {r: random.randint(0, 100) for r in RESOURCE_TYPES}
+    if rank == 2:
+        return 2, {r: random.randint(0, 100) for r in random.sample(RESOURCE_TYPES, 2)}
+    if rank == 3:
+        return 1, {random.choice(RESOURCE_TYPES): random.randint(0, 100)}
+
+    non_podium_count = total_players - 3
+    if non_podium_count <= 1:
+        amount = 50
+    else:
+        amount = max(0, math.floor(50 * (1 - (rank - 4) / (total_players - 4))))
+    return 0, ({random.choice(RESOURCE_TYPES): amount} if amount > 0 else {})
+
+
 def resolve_weekly_build_leaderboard():
     """Sun 23:59 -- archives the just-ended week's final standings (ranked by
-    ice_blocks_total) into weekly_build_leaderboard_archive for Phase 3c's
-    reward distribution to read later, clears the live table, and advances
-    week_id for the week that's about to start. No rewards are granted here
-    -- that's Phase 3c's job, not this one."""
+    ice_blocks_total) into weekly_build_leaderboard_archive, grants rank
+    rewards from those standings, clears the live table, and advances
+    week_id for the week that's about to start.
+
+    Rewards use the same helper functions/pattern as every other reward path
+    in this file -- grant_lootbox() for N00Tboxes and ensure_resources() +
+    the parameterized `UPDATE resources SET {resource}={resource}+?` used by
+    raid/igloo/minigame rewards -- never a raw INSERT bypassing them (see the
+    igloo-visit gold fix this mirrors). Each reward is logged to event_log
+    under its own event_type, and the archive row it's attached to carries
+    enough (lootbox ids + resource breakdown) for home()'s one-shot login
+    toast to reuse the exact daily-login/streak "Open" button pattern instead
+    of a new notification path.
+
+    Players who earned 0 ice_blocks this week never got a
+    weekly_build_leaderboard row to begin with (record_build_leaderboard_progress
+    only ever inserts on a positive award), so they're excluded from both the
+    standings and every reward below with no extra filtering needed here."""
     if not FEATURES.get("weekly_build_leaderboard", True):
         return
     try:
@@ -9212,12 +9279,41 @@ def resolve_weekly_build_leaderboard():
         standings = db.execute(
             "SELECT username, ice_blocks_total FROM weekly_build_leaderboard ORDER BY ice_blocks_total DESC"
         ).fetchall()
+        total_players = len(standings)
 
         for rank, row in enumerate(standings, start=1):
+            username = row["username"]
+            lootbox_count, reward_resources = _calculate_build_leaderboard_reward(rank, total_players)
+
+            lootbox_ids = grant_lootbox(username, lootbox_count, "build_leaderboard_reward", db=db) \
+                if lootbox_count > 0 else []
+
+            if reward_resources:
+                ensure_resources(db, username)
+                for resource, amount in reward_resources.items():
+                    db.execute(
+                        f"UPDATE resources SET {resource}={resource}+? WHERE username=?",
+                        (amount, username)
+                    )
+
+            reward_parts = []
+            if lootbox_count:
+                reward_parts.append(f"{lootbox_count} N00Tbox" + ("es" if lootbox_count != 1 else ""))
+            reward_parts.extend(f"+{amt} {r.replace('_',' ')}" for r, amt in reward_resources.items())
+            log_event(
+                db, "build_leaderboard_reward",
+                f"{username} placed #{rank} in the Weekly Building Leaderboard! "
+                f"Earned {', '.join(reward_parts) if reward_parts else 'nothing this time'}. 🧊",
+                username
+            )
+
             db.execute(
                 "INSERT INTO weekly_build_leaderboard_archive "
-                "(week_id, rank, username, ice_blocks_total, archived_at) VALUES (?,?,?,?,?)",
-                (week_id, rank, row["username"], row["ice_blocks_total"], now),
+                "(week_id, rank, username, ice_blocks_total, archived_at, "
+                "reward_lootboxes, reward_lootbox_ids, reward_resources, notified) "
+                "VALUES (?,?,?,?,?,?,?,?,0)",
+                (week_id, rank, username, row["ice_blocks_total"], now,
+                 lootbox_count, json.dumps(lootbox_ids), json.dumps(reward_resources)),
             )
 
         db.execute("DELETE FROM weekly_build_leaderboard")
@@ -9228,7 +9324,7 @@ def resolve_weekly_build_leaderboard():
         )
         db.commit()
         db.close()
-        print(f"[BuildLeaderboard] Archived week {week_id}: {len(standings)} player(s) ranked. Now on week {week_id + 1}.")
+        print(f"[BuildLeaderboard] Archived + rewarded week {week_id}: {total_players} player(s) ranked. Now on week {week_id + 1}.")
     except Exception as e:
         print(f"[BuildLeaderboard] ERROR resolving weekly leaderboard: {e}")
 
