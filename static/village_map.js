@@ -1043,11 +1043,25 @@ function getBuildingAtScreenPos(wx, wy) {
     for (const [id, bdef] of sorted) {
         const gs = gridToScreen;
         const gx = bdef.gridX, gy = bdef.gridY, gw = bdef.width, gh = bdef.height;
-        const BOX_H = 32 + gw * 6;
         const tPt = { x: gs(gx,    gy   ).x, y: gs(gx,    gy   ).y - TILE_H / 2 };
         const rPt = { x: gs(gx+gw, gy   ).x, y: gs(gx+gw, gy   ).y - TILE_H / 2 };
         const bPt = { x: gs(gx+gw, gy+gh).x, y: gs(gx+gw, gy+gh).y - TILE_H / 2 };
         const lPt = { x: gs(gx,    gy+gh).x, y: gs(gx,    gy+gh).y - TILE_H / 2 };
+        // Hit-box height: match the sprite's actual rendered height (same
+        // spriteScale/drawHeight math drawBuilding() uses, off the same
+        // SpriteLoader cache) so tall sprites are clickable across their
+        // full visible art, not just a fixed placeholder-block-sized lower
+        // slice of it. Falls back to the old fixed placeholder-height
+        // formula only when no sprite is loaded yet for this building.
+        const sprite = SpriteLoader.get(`/static/buildings/${id}.png`);
+        let BOX_H;
+        if (sprite) {
+            const footprintWidth = rPt.x - lPt.x;
+            const spriteScale = footprintWidth / sprite.width;
+            BOX_H = sprite.height * spriteScale;
+        } else {
+            BOX_H = 32 + gw * 6;
+        }
         // Six-point outline enclosing top face + both visible walls
         const poly = [
             { x: tPt.x, y: tPt.y - BOX_H },
