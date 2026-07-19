@@ -2756,8 +2756,19 @@
       flex-shrink: 0;
     }
     @media (max-width: 768px) {
-      #chat-toggle-btn { display: none; }
-      #chat-panel { display: none !important; }
+      /* #chat-toggle-btn stays visible — it's the only mobile entry point
+         into global chat. #chat-panel becomes a fixed fullscreen overlay
+         when opened (escapes .map-area's overflow:hidden without touching
+         its layout, same no-reflow approach as the mayor dialogue) instead
+         of the 260px desktop-docked sidebar. */
+      #chat-toggle-btn { width: 44px; height: 44px; }
+      #chat-panel.open {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        z-index: 80005;
+        border-left: none;
+      }
       #chat-notif { display: none !important; }
     }
 
