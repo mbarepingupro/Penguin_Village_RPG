@@ -1590,6 +1590,18 @@
     return d.innerHTML;
   }
 
+  // escapeHtml() is only safe for text nodes -- it round-trips through
+  // textContent/innerHTML, which does NOT escape " or ', so it must never be
+  // used to build a quoted HTML attribute value. Use this instead.
+  function escapeAttr(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
   async function loadTopicSuggestions() {
     const list = document.getElementById('topic-suggestions-list');
     try {
@@ -1776,11 +1788,28 @@
     return `<div class="mh-topic-row">
       <div>${summary}</div>
       <div class="mh-topic-actions">
-        <button class="mh-topic-btn" onclick="editCatalogItemByPk(${JSON.stringify(String(pkVal))})">✏️ EDIT</button>
-        <button class="mh-topic-btn reject" onclick="deleteCatalogItem(this, ${JSON.stringify(String(pkVal))})">🗑️ DELETE</button>
+        <button class="mh-topic-btn" data-action="edit" data-pk="${escapeAttr(String(pkVal))}">✏️ EDIT</button>
+        <button class="mh-topic-btn reject" data-action="delete" data-pk="${escapeAttr(String(pkVal))}">🗑️ DELETE</button>
       </div>
     </div>`;
   }
+
+  // Delegated once on the static container -- #items-list's innerHTML gets
+  // replaced on every reload/filter switch, but the container itself never
+  // does, so this must NOT live inside renderItemsList() (that would stack a
+  // fresh listener on every re-render). Reads the raw pk back via .dataset,
+  // so no value ever needs to be embedded into an HTML attribute via
+  // JSON.stringify (the bug this replaced) or any other manual escaping.
+  document.getElementById('items-list').addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const pk = btn.dataset.pk;
+    if (btn.dataset.action === 'edit') {
+      editCatalogItemByPk(pk);
+    } else if (btn.dataset.action === 'delete') {
+      deleteCatalogItem(btn, pk);
+    }
+  });
 
   function editCatalogItemByPk(pk) {
     const meta = CATALOG_META[_itemsCatalog];
