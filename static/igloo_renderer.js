@@ -20,6 +20,50 @@ const IglooRenderer = (function () {
         mayors_portrait: '🎭', golden_fish: '🐟', combat_banner: '⚔️',
     };
 
+    // ── FURNITURE SPRITES ──────────────────────────────────────────────────
+    // Mirrors village_map.js's SpriteLoader (same cache-by-full-URL-string
+    // shape), kept as its own private copy here since this file's IIFE has
+    // no shared scope with village_map.js's. Adds explicit in-flight
+    // tracking (village_map.js doesn't need this -- its loads are either
+    // fired once at init or already de-duped by its per-frame animation
+    // loop) because _render() here is called on-demand from mouse events,
+    // which can re-invoke _drawItem() for the same item many times before
+    // a first load attempt resolves.
+    const FurnitureSprites = {
+        cache: {},
+        pending: {},
+        load: function (path) {
+            if (Object.prototype.hasOwnProperty.call(this.cache, path)) {
+                return Promise.resolve(this.cache[path]);
+            }
+            if (this.pending[path]) return this.pending[path];
+            const p = new Promise((resolve) => {
+                const img = new Image();
+                img.onload  = () => { this.cache[path] = img;  delete this.pending[path]; resolve(img); };
+                img.onerror = () => { this.cache[path] = null; delete this.pending[path]; resolve(null); };
+                img.src = path;
+            });
+            this.pending[path] = p;
+            return p;
+        },
+        get: function (path) {
+            return this.cache[path] || null;
+        },
+    };
+
+    // Cache-busting: appends ?v=<content hash> so the URL changes
+    // automatically whenever the underlying file changes (see app.py's
+    // _static_asset_versions, injected as the ASSET_VERSIONS global on the
+    // same page this script loads into). relPath is the path relative to
+    // /static/, e.g. "igloo_furniture/small_table.png". Falls back to the
+    // bare unversioned URL when relPath has no known hash -- expected for
+    // every item_id that has no PNG yet, since callers already treat a
+    // failed/absent load as a normal fallback state, not an error.
+    function _versionedAsset(relPath) {
+        const v = (typeof ASSET_VERSIONS !== 'undefined' && ASSET_VERSIONS[relPath]) || null;
+        return `/static/${relPath}` + (v ? `?v=${v}` : '');
+    }
+
     let _canvas, _ctx, _data = null;
     let _editMode = false, _pendingItem = null;
     let _hoverCell = null, _selectedId = null;
@@ -162,26 +206,66 @@ const IglooRenderer = (function () {
         const emoji = FUR_EMOJI[item.item_id] || '📦';
         const sel   = item.id === _selectedId;
         const border = sel ? '#FF7FE5' : 'rgba(0,0,0,0.35)';
+        const rotation = ((item.rotation || 0) % 360 + 360) % 360;
 
         const fp   = _footprint(item.grid_x, item.grid_y, w, h, s);
         const topF = fp.map(p => ({ x: p.x, y: p.y - BOX_H }));
 
-        _poly(_ctx, [topF[0], topF[1], fp[1], fp[0]], _shade(base, 20), border, 0.5);
-        _poly(_ctx, [topF[3], topF[2], fp[2], fp[3]], _shade(base, -15), border, 0.5);
-        _poly(_ctx, topF, _shade(base, 35), border, sel ? 2 : 0.5);
+        // Sprite override: draw PNG if loaded for this item_id, replacing
+        // the colored box + emoji entirely (same override pattern as
+        // village_map.js's drawBuilding()). Falls back silently to the
+        // existing box+emoji rendering below when no art exists yet for
+        // this item_id -- the expected state for most items today, not an
+        // error. Kicks off a load on first encounter (in-flight-guarded, so
+        // repeated renders before it resolves don't re-request it) and
+        // re-renders once it resolves either way, so a newly-loaded sprite
+        // appears without needing another user interaction to trigger it.
+        const spritePath = _versionedAsset(`igloo_furniture/${item.item_id}.png`);
+        const sprite = FurnitureSprites.get(spritePath);
+        if (sprite === null && !(spritePath in FurnitureSprites.cache) && !FurnitureSprites.pending[spritePath]) {
+            FurnitureSprites.load(spritePath).then(() => _render());
+        }
 
-        const cx = (topF[0].x + topF[1].x + topF[2].x + topF[3].x) / 4;
-        const cy = (topF[0].y + topF[1].y + topF[2].y + topF[3].y) / 4;
-        const fs = Math.max(10, Math.min(18, TW * Math.min(w, h) * 0.35));
-        const rotation = ((item.rotation || 0) % 360 + 360) % 360;
-        _ctx.save();
-        _ctx.translate(cx, cy);
-        _ctx.rotate(rotation * Math.PI / 180);
-        _ctx.font = `${fs}px sans-serif`;
-        _ctx.textAlign = 'center';
-        _ctx.textBaseline = 'middle';
-        _ctx.fillText(emoji, 0, 0);
-        _ctx.restore();
+        if (sprite) {
+            // Anchor bottom-center on the same ground-level front corner
+            // the box shape's base sits on (fp[2]); scale so the sprite's
+            // width matches the item's grid footprint width in pixels
+            // (width * TW), height scales proportionally, extending upward
+            // from that anchor.
+            const targetWidth = w * TW;
+            const spriteScale = targetWidth / sprite.width;
+            const drawWidth   = sprite.width  * spriteScale;
+            const drawHeight  = sprite.height * spriteScale;
+            const frontX = (fp[1].x + fp[3].x) / 2;
+            const frontY = fp[2].y;
+
+            _ctx.save();
+            _ctx.translate(frontX, frontY - drawHeight / 2);
+            _ctx.rotate(rotation * Math.PI / 180);
+            _ctx.imageSmoothingEnabled = false;
+            _ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+            _ctx.restore();
+
+            if (sel) {
+                _poly(_ctx, fp, null, border, 2);
+            }
+        } else {
+            _poly(_ctx, [topF[0], topF[1], fp[1], fp[0]], _shade(base, 20), border, 0.5);
+            _poly(_ctx, [topF[3], topF[2], fp[2], fp[3]], _shade(base, -15), border, 0.5);
+            _poly(_ctx, topF, _shade(base, 35), border, sel ? 2 : 0.5);
+
+            const cx = (topF[0].x + topF[1].x + topF[2].x + topF[3].x) / 4;
+            const cy = (topF[0].y + topF[1].y + topF[2].y + topF[3].y) / 4;
+            const fs = Math.max(10, Math.min(18, TW * Math.min(w, h) * 0.35));
+            _ctx.save();
+            _ctx.translate(cx, cy);
+            _ctx.rotate(rotation * Math.PI / 180);
+            _ctx.font = `${fs}px sans-serif`;
+            _ctx.textAlign = 'center';
+            _ctx.textBaseline = 'middle';
+            _ctx.fillText(emoji, 0, 0);
+            _ctx.restore();
+        }
 
         if (cat === 'special') {
             _ctx.strokeStyle = '#FFD700';
