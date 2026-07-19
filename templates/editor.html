@@ -362,6 +362,10 @@
     <span id="info-all-placed" style="display:none;">| ALL PLACED ✅</span>
   </div>
 
+  <script>
+    // {relative-path-under-static/: mtime} -- see _versionedAsset() in village_editor.js.
+    const ASSET_VERSIONS = {{ asset_versions | tojson }};
+  </script>
   <script src="/static/village_editor.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {

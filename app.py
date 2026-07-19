@@ -52,6 +52,54 @@ BUFF_NAMES = {
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
+# ── STATIC ASSET CACHE-BUSTING (map/building rendering sprites only) ───────────
+# static/buildings, static/tiles, static/items, and static/penguin_wearing are
+# all referenced by an unchanging URL (e.g. /static/buildings/hotel.png) built
+# client-side from an id, with no filename/hash change when the underlying
+# file is swapped -- so a stale browser/CDN cache can silently keep serving
+# the old bytes after a sprite replacement (see: sea_lion_pit.png). Every file
+# under these 4 directories gets a ?v=<mtime> query param so the URL changes
+# automatically whenever the file's content changes, no manual bump needed.
+_ASSET_VERSION_DIRS = ("buildings", "tiles", "items", "penguin_wearing")
+_ASSET_VERSION_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
+
+
+def _static_asset_versions():
+    """{relative-path-under-static/: mtime} for every sprite image under the
+    4 cache-busted directories, e.g. {"buildings/hotel.png": 1751234567}.
+    Skips non-image files (.gitkeep, README.md) that live alongside sprites
+    in these folders -- they're never requested, so a version for them would
+    just be dead weight in the manifest. These directories total only a few
+    dozen files, so a full walk per request is cheap -- not memoized."""
+    versions = {}
+    static_root = os.path.join(app.root_path, "static")
+    for sub in _ASSET_VERSION_DIRS:
+        base = os.path.join(static_root, sub)
+        if not os.path.isdir(base):
+            continue
+        for dirpath, _, filenames in os.walk(base):
+            for fname in filenames:
+                if not fname.lower().endswith(_ASSET_VERSION_EXTS):
+                    continue
+                full = os.path.join(dirpath, fname)
+                rel = os.path.relpath(full, static_root).replace(os.sep, "/")
+                try:
+                    versions[rel] = int(os.path.getmtime(full))
+                except OSError:
+                    pass
+    return versions
+
+
+@app.context_processor
+def _inject_asset_versions():
+    # Only the two templates that actually render the map (home.html) or the
+    # map editor (editor.html) need this -- skip the filesystem walk for
+    # every other page.
+    if request.endpoint in ("home", "editor"):
+        return {"asset_versions": _static_asset_versions()}
+    return {}
+
+
 # ── WORLD AREAS ───────────────────────────────────────────────────────────────
 WORLD_AREAS = {
     "penguin_village": {

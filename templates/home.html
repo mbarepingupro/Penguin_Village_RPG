@@ -3875,6 +3875,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 <!-- TOAST -->
 <div id="toast"></div>
 
+<script>
+  // {relative-path-under-static/: mtime}, e.g. "buildings/hotel.png" -> 1751234567.
+  // Used to cache-bust map/building/item/worn-gear sprite URLs -- see
+  // _versionedAsset() in village_map.js and below.
+  const ASSET_VERSIONS = {{ asset_versions | tojson }};
+</script>
 <script src="/static/sounds.js"></script>
 <script src="/static/effects.js"></script>
 <script src="/static/recolor.js"></script>
@@ -3884,6 +3890,17 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   <script src="/static/igloo_renderer.js"></script>
   <script src="/static/raid.js"></script>
 <script>
+  // Cache-busting: appends ?v=<mtime> so the URL changes automatically
+  // whenever the underlying file changes (see app.py's _static_asset_versions,
+  // injected above as the ASSET_VERSIONS global). This file's inline script
+  // runs in its own global scope, separate from village_map.js's IIFE (whose
+  // own copy of this helper is private to that closure), hence its own copy
+  // here. relPath is the path relative to /static/, e.g. "items/hats/party_hat.png".
+  function _versionedAsset(relPath) {
+    const v = (typeof ASSET_VERSIONS !== 'undefined' && ASSET_VERSIONS[relPath]) || null;
+    return `/static/${relPath}` + (v ? `?v=${v}` : '');
+  }
+
   function switchSidebarTab(name, btn) {
     document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.sidebar-panel').forEach(p => p.classList.remove('active'));
@@ -5195,7 +5212,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       html += `<div class="${cardClass}">`;
       if (isDragon) html += `<span class="bq-legendary-tag">👑 LEGENDARY</span>`;
       if (item.event_exclusive) html += `<span class="event-item-tag" title="Cannot be obtained elsewhere">🎪 EVENT</span>`;
-      html += `<img src="/static/items/${_slotFolder(item.slot)}/${item.id}.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display='none'">`;
+      html += `<img src="${_versionedAsset(`items/${_slotFolder(item.slot)}/${item.id}.png`)}" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display='none'">`;
       html += `<div class="bq-item-name${isExpensive ? ' expensive' : ''}">${item.name}</div>`;
       html += `<div class="bq-price${isExpensive ? ' expensive' : ''}" style="color:${tierColor};">🪙 ${item.price.toLocaleString()}</div>`;
       html += `<div class="bq-btn-row">`;
@@ -5255,7 +5272,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const shape = PLAYER_SHAPE || 'normal';
     const cfg   = (typeof SHAPE_CONFIG !== 'undefined' && SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: shape === 'tall' ? 50 : 40 };
     _drawPenguinOnCanvas(bqCanvas, PLAYER_COLOR, shape, () => {
-      const wearPath = `/static/penguin_wearing/${shape}/${_slotFolder(item.slot)}/${item.id}.png`;
+      const wearPath = _versionedAsset(`penguin_wearing/${shape}/${_slotFolder(item.slot)}/${item.id}.png`);
       const scale = Math.min(bqCanvas.width / cfg.frameWidth, bqCanvas.height / cfg.frameHeight) * 0.85;
       const dw = cfg.frameWidth * scale, dh = cfg.frameHeight * scale;
       const dx = (bqCanvas.width - dw) / 2, dy = (bqCanvas.height - dh) / 2;
@@ -5820,7 +5837,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const itemId = itemIdByArea[area];
       if (!itemId) continue;
       const folder = areaFolder[area] || area;
-      const src = `/static/penguin_wearing/${shape}/${folder}/${itemId}.png`;
+      const src = _versionedAsset(`penguin_wearing/${shape}/${folder}/${itemId}.png`);
       const cached = _penguinSpriteCache[src];
       if (cached && cached.complete && cached.naturalWidth > 0) {
         ctx.drawImage(cached, 0, 0, cfg.frameWidth, cfg.frameHeight, dx, dy, dw, dh);
@@ -10973,7 +10990,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       div.className = 'bq-card';
       div.style.cssText = 'border:2px solid #FF7FE5;background:#1a0d18;position:relative;';
       div.innerHTML = '<span style="position:absolute;top:4px;right:4px;font-size:16px;color:#FF7FE5;background:#2a1a2a;padding:2px 4px;border-radius:3px;">🎓 GIFT</span>' +
-        '<img src="/static/items/hats/party_hat.png" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display=\'none\'">' +
+        '<img src="' + _versionedAsset('items/hats/party_hat.png') + '" alt="" style="width:32px;height:32px;image-rendering:pixelated;" onerror="this.style.display=\'none\'">' +
         '<div class="bq-item-name">Party Hat</div>' +
         '<div class="bq-price" style="color:#FF7FE5;">🎁 FREE!</div>' +
         '<div class="bq-btn-row"><button id="tutorial-boutique-btn" class="bq-btn buy" style="background:#FF7FE5;color:#000;border-color:#FF7FE5;">CLAIM FREE!</button></div>';

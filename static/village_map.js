@@ -51,6 +51,22 @@ const SpriteLoader = {
     },
 };
 
+// Cache-busting: appends ?v=<mtime> so the URL changes automatically
+// whenever the underlying file changes (see app.py's _static_asset_versions,
+// injected as the ASSET_VERSIONS global). relPath is the path relative to
+// /static/, e.g. "buildings/hotel.png". Since SpriteLoader's cache is keyed
+// by the exact string passed to load()/get(), every call site must build
+// its URL through this helper so both agree on the same versioned key.
+// Falls back to the bare unversioned URL if relPath has no known mtime
+// (e.g. a file that doesn't exist -- callers already handle that via
+// onerror/fallback chains, same as before this existed). Private to this
+// file's IIFE -- home.html's own inline script (a separate global scope)
+// and village_editor.js each keep their own copy of this same helper.
+function _versionedAsset(relPath) {
+    const v = (typeof ASSET_VERSIONS !== 'undefined' && ASSET_VERSIONS[relPath]) || null;
+    return `/static/${relPath}` + (v ? `?v=${v}` : '');
+}
+
 const TILE_SPRITE_NAMES = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
 
 // ── PENGUIN RECOLORING — defined in /static/recolor.js, loaded before this file ──
@@ -74,8 +90,8 @@ async function loadPenguinSprites() {
 }
 
 async function loadAllSprites() {
-    const tileLoads     = Object.values(TILE_SPRITE_NAMES).map(name => SpriteLoader.load(`/static/tiles/${name}.png`));
-    const buildingLoads = Object.keys(buildingLayout).map(id => SpriteLoader.load(`/static/buildings/${id}.png`));
+    const tileLoads     = Object.values(TILE_SPRITE_NAMES).map(name => SpriteLoader.load(_versionedAsset(`tiles/${name}.png`)));
+    const buildingLoads = Object.keys(buildingLayout).map(id => SpriteLoader.load(_versionedAsset(`buildings/${id}.png`)));
     await Promise.all([...tileLoads, ...buildingLoads]);
     await loadPenguinSprites();
 }
@@ -203,7 +219,7 @@ function _placeholderDiamond(sx, sy, color) {
 function drawTile(sx, sy, color, tileType) {
     const spriteName = TILE_SPRITE_NAMES[tileType];
     if (spriteName) {
-        const sprite = SpriteLoader.get(`/static/tiles/${spriteName}.png`);
+        const sprite = SpriteLoader.get(_versionedAsset(`tiles/${spriteName}.png`));
         if (sprite) {
             ctx.drawImage(sprite, sx - TILE_W / 2, sy - TILE_H / 2, TILE_W, TILE_H);
             return;
@@ -213,7 +229,7 @@ function drawTile(sx, sy, color, tileType) {
 }
 
 function drawWaterTile(sx, sy, timeMs) {
-    const sprite = SpriteLoader.get('/static/tiles/water.png');
+    const sprite = SpriteLoader.get(_versionedAsset('tiles/water.png'));
     if (sprite) {
         ctx.drawImage(sprite, sx - TILE_W / 2, sy - TILE_H / 2, TILE_W, TILE_H);
         return;
@@ -313,7 +329,7 @@ function drawBuilding(id, bdef, level) {
     const BOX_H = 32 + bdef.width * 6;
 
     // Sprite override: draw PNG if loaded, skip placeholder block
-    const sprite = SpriteLoader.get(`/static/buildings/${id}.png`);
+    const sprite = SpriteLoader.get(_versionedAsset(`buildings/${id}.png`));
     if (sprite) {
         // Scale sprite to match the isometric footprint width; anchor bottom-center
         // to the raw (no TILE_H/2 offset) front corner so it sits on the tiles.
@@ -539,8 +555,8 @@ function drawPenguin(sx, sy, penguin, isBehind) {
                 const itemId = penguin.worn_items[area];
                 if (!itemId) continue;
                 const folder = _AREA_FOLDER[area] || area;
-                const wornSprite = SpriteLoader.get(`/static/penguin_wearing/${shape2}/${folder}/${itemId}.png`)
-                                || SpriteLoader.get(`/static/penguin_wearing/${folder}/${itemId}.png`);
+                const wornSprite = SpriteLoader.get(_versionedAsset(`penguin_wearing/${shape2}/${folder}/${itemId}.png`))
+                                || SpriteLoader.get(_versionedAsset(`penguin_wearing/${folder}/${itemId}.png`));
                 if (!wornSprite) continue;
                 ctx.drawImage(wornSprite, frameX2, 0, cfg2.frameWidth, cfg2.frameHeight, drawX, drawY, drawWidth, drawHeight);
             }
@@ -586,8 +602,8 @@ function drawPenguin(sx, sy, penguin, isBehind) {
             const itemId = penguin.worn_items[area];
             if (!itemId) continue;
             const folder    = _AREA_FOLDER[area] || area;
-            const shapedUrl = `/static/penguin_wearing/${shape}/${folder}/${itemId}.png`;
-            const legacyUrl = `/static/penguin_wearing/${folder}/${itemId}.png`;
+            const shapedUrl = _versionedAsset(`penguin_wearing/${shape}/${folder}/${itemId}.png`);
+            const legacyUrl = _versionedAsset(`penguin_wearing/${folder}/${itemId}.png`);
             if (!SpriteLoader.get(shapedUrl) && !SpriteLoader.get(legacyUrl)) {
                 SpriteLoader.load(shapedUrl).then(img => { if (!img) SpriteLoader.load(legacyUrl); });
             }
@@ -1053,7 +1069,7 @@ function getBuildingAtScreenPos(wx, wy) {
         // full visible art, not just a fixed placeholder-block-sized lower
         // slice of it. Falls back to the old fixed placeholder-height
         // formula only when no sprite is loaded yet for this building.
-        const sprite = SpriteLoader.get(`/static/buildings/${id}.png`);
+        const sprite = SpriteLoader.get(_versionedAsset(`buildings/${id}.png`));
         let BOX_H;
         if (sprite) {
             const footprintWidth = rPt.x - lPt.x;
