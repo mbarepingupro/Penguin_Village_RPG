@@ -58,19 +58,52 @@ app.secret_key = SECRET_KEY
 # client-side from an id, with no filename/hash change when the underlying
 # file is swapped -- so a stale browser/CDN cache can silently keep serving
 # the old bytes after a sprite replacement (see: sea_lion_pit.png). Every file
-# under these 4 directories gets a ?v=<mtime> query param so the URL changes
-# automatically whenever the file's content changes, no manual bump needed.
+# under these 4 directories gets a ?v=<content hash> query param so the URL
+# changes automatically whenever the file's content changes, no manual bump
+# needed. Deliberately NOT mtime-based: git does not preserve original commit
+# timestamps on checkout/clone -- every file touched by a given checkout gets
+# stamped with that checkout's wall-clock time regardless of its actual
+# per-file change history, which made mtime an unreliable proxy for "this
+# specific asset changed" (confirmed: unrelated sprites sharing an identical
+# on-disk mtime after a fresh clone).
 _ASSET_VERSION_DIRS = ("buildings", "tiles", "items", "penguin_wearing")
 _ASSET_VERSION_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
+_ASSET_HASH_LEN = 10
+
+# {relative-path-under-static/: ((mtime, size), hash)} -- the content hash is
+# only recomputed (i.e. the file's bytes only re-read) when its mtime or size
+# has changed since it was last hashed, so repeat requests don't re-hash every
+# asset from disk each time.
+_asset_hash_cache = {}
+
+
+def _asset_content_hash(full_path, rel_path):
+    """Short content hash (first _ASSET_HASH_LEN hex chars of an md5 of the
+    file's bytes) for one asset, memoized per path in _asset_hash_cache and
+    only recomputed when the file's (mtime, size) fingerprint changes. Unlike
+    mtime alone, this value only changes when the file's actual content does
+    -- stable across a fresh git checkout/clone, and correct even if a deploy
+    step reuses/caches files instead of doing a fresh checkout."""
+    stat = os.stat(full_path)
+    fingerprint = (stat.st_mtime, stat.st_size)
+    cached = _asset_hash_cache.get(rel_path)
+    if cached and cached[0] == fingerprint:
+        return cached[1]
+    with open(full_path, "rb") as f:
+        digest = hashlib.md5(f.read()).hexdigest()[:_ASSET_HASH_LEN]
+    _asset_hash_cache[rel_path] = (fingerprint, digest)
+    return digest
 
 
 def _static_asset_versions():
-    """{relative-path-under-static/: mtime} for every sprite image under the
-    4 cache-busted directories, e.g. {"buildings/hotel.png": 1751234567}.
-    Skips non-image files (.gitkeep, README.md) that live alongside sprites
-    in these folders -- they're never requested, so a version for them would
-    just be dead weight in the manifest. These directories total only a few
-    dozen files, so a full walk per request is cheap -- not memoized."""
+    """{relative-path-under-static/: content-hash} for every sprite image
+    under the 4 cache-busted directories, e.g. {"buildings/hotel.png":
+    "a1b2c3d4e5"}. Skips non-image files (.gitkeep, README.md) that live
+    alongside sprites in these folders -- they're never requested, so a
+    version for them would just be dead weight in the manifest. These
+    directories total only a few dozen files, so a full walk per request is
+    cheap; the per-file hash itself is memoized (see _asset_content_hash), so
+    only a changed file's bytes actually get re-read and re-hashed."""
     versions = {}
     static_root = os.path.join(app.root_path, "static")
     for sub in _ASSET_VERSION_DIRS:
@@ -84,7 +117,7 @@ def _static_asset_versions():
                 full = os.path.join(dirpath, fname)
                 rel = os.path.relpath(full, static_root).replace(os.sep, "/")
                 try:
-                    versions[rel] = int(os.path.getmtime(full))
+                    versions[rel] = _asset_content_hash(full, rel)
                 except OSError:
                     pass
     return versions
