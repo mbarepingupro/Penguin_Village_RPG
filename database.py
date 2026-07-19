@@ -396,6 +396,43 @@ def init_db():
         )
     """)
 
+    # Weekly building leaderboard -- tracks cumulative ice_blocks earned (not
+    # currently held) per player over a rotating week, independent cadence
+    # from the raid Mon/Fri/Sat/Mon schedule above. Same three-table split as
+    # the raid system: a live table for the in-progress week, an archive of
+    # resolved standings (Phase 3c reads this for reward distribution), and a
+    # single-row state table tracking the current week_id (a plain
+    # incrementing counter, not date-derived, so an inactive/empty week still
+    # advances correctly on reset instead of stalling on MAX(week_id)).
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_build_leaderboard (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            username         TEXT    NOT NULL UNIQUE,
+            ice_blocks_total INTEGER NOT NULL DEFAULT 0,
+            week_id          INTEGER NOT NULL,
+            updated_at       INTEGER NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_build_leaderboard_archive (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            week_id          INTEGER NOT NULL,
+            rank             INTEGER NOT NULL,
+            username         TEXT    NOT NULL,
+            ice_blocks_total INTEGER NOT NULL,
+            archived_at      INTEGER NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_build_leaderboard_state (
+            id      INTEGER PRIMARY KEY CHECK (id = 1),
+            week_id INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+    c.execute("INSERT OR IGNORE INTO weekly_build_leaderboard_state (id, week_id) VALUES (1, 1)")
+
     # Catalog tables -- DB-backed mirrors of what are still (as of this pass)
     # the source-of-truth dict literals in app.py (BARRACKS_SHOP,
     # BOUTIQUE_ITEMS, GEAR_TEMPLATES, SET_BONUSES). Seeded once by
@@ -802,6 +839,39 @@ def record_challenge_progress(db, metric_type, amount):
             "UPDATE weekly_challenges SET current_progress = current_progress + ? "
             "WHERE status = 'active' AND metric_type = ?",
             (amount, metric_type),
+        )
+    except Exception:
+        pass  # never raise from an instrumentation helper
+
+
+def record_build_leaderboard_progress(db, username, amount):
+    """Increment username's cumulative ice_blocks_total for the current week.
+
+    Executes on the caller's own db connection -- same fix as
+    record_challenge_progress() above (see the Session 6 SQLite-locking
+    audit): opening a second connection here would contend for the write
+    lock against /build/roll's already-open transaction on this same
+    connection. Caller owns the transaction/commit.
+
+    Tracks blocks EARNED, not blocks currently held -- donating ice_blocks
+    to a building only ever decrements resources.ice_blocks, never this
+    table, so no adjustment is needed anywhere else for donations to stay
+    out of this total.
+    """
+    if amount <= 0:
+        return
+    try:
+        import time as _time
+        row     = db.execute("SELECT week_id FROM weekly_build_leaderboard_state WHERE id=1").fetchone()
+        week_id = row["week_id"] if row else 1
+        now     = int(_time.time())
+        db.execute(
+            "INSERT INTO weekly_build_leaderboard (username, ice_blocks_total, week_id, updated_at) "
+            "VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(username) DO UPDATE SET "
+            "ice_blocks_total = ice_blocks_total + excluded.ice_blocks_total, "
+            "week_id = excluded.week_id, updated_at = excluded.updated_at",
+            (username, amount, week_id, now),
         )
     except Exception:
         pass  # never raise from an instrumentation helper

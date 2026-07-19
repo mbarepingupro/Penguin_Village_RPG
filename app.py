@@ -6,7 +6,7 @@ import datetime
 import random
 import sqlite3
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
-from database import init_db, get_db, backfill_cosmetics, record_challenge_progress
+from database import init_db, get_db, backfill_cosmetics, record_challenge_progress, record_build_leaderboard_progress
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
 from personality_config import (
@@ -9152,6 +9152,8 @@ def build_roll():
         new_free_rolls = 0
 
     db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (ice_earned, username))
+    if FEATURES.get("weekly_build_leaderboard", True):
+        record_build_leaderboard_progress(db, username, ice_earned)
     award_xp(db, username, roll)
     r = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
@@ -9169,6 +9171,60 @@ def build_roll():
         "normal_return":    normal_return,
         "energy_remaining": (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
     })
+
+
+# ── WEEKLY BUILD LEADERBOARD RESET ────────────────────────────────────────────
+# Independent cadence from the raid Mon/Fri/Sat/Mon schedule and the Sat 00:02
+# minigame-leaderboard resolution above -- default Sun 23:59 server time
+# (whatever timezone the host process runs in, same as every other cron job
+# in this file, none of which pass an explicit timezone= to add_job).
+
+def resolve_weekly_build_leaderboard():
+    """Sun 23:59 -- archives the just-ended week's final standings (ranked by
+    ice_blocks_total) into weekly_build_leaderboard_archive for Phase 3c's
+    reward distribution to read later, clears the live table, and advances
+    week_id for the week that's about to start. No rewards are granted here
+    -- that's Phase 3c's job, not this one."""
+    if not FEATURES.get("weekly_build_leaderboard", True):
+        return
+    try:
+        now = int(time.time())
+        db  = get_db()
+        state = db.execute("SELECT week_id FROM weekly_build_leaderboard_state WHERE id=1").fetchone()
+        week_id = state["week_id"] if state else 1
+
+        standings = db.execute(
+            "SELECT username, ice_blocks_total FROM weekly_build_leaderboard ORDER BY ice_blocks_total DESC"
+        ).fetchall()
+
+        for rank, row in enumerate(standings, start=1):
+            db.execute(
+                "INSERT INTO weekly_build_leaderboard_archive "
+                "(week_id, rank, username, ice_blocks_total, archived_at) VALUES (?,?,?,?,?)",
+                (week_id, rank, row["username"], row["ice_blocks_total"], now),
+            )
+
+        db.execute("DELETE FROM weekly_build_leaderboard")
+        db.execute(
+            "INSERT INTO weekly_build_leaderboard_state (id, week_id) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET week_id=excluded.week_id",
+            (week_id + 1,),
+        )
+        db.commit()
+        db.close()
+        print(f"[BuildLeaderboard] Archived week {week_id}: {len(standings)} player(s) ranked. Now on week {week_id + 1}.")
+    except Exception as e:
+        print(f"[BuildLeaderboard] ERROR resolving weekly leaderboard: {e}")
+
+
+# Registered here (rather than alongside the raid/challenge jobs above) since
+# resolve_weekly_build_leaderboard is defined much later in this file than
+# that block -- _scheduler is already running by this point, and add_job() on
+# a live BackgroundScheduler is the documented way to add jobs after start(),
+# same technique used for resolve_minigame_weekly below.
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(resolve_weekly_build_leaderboard, "cron", day_of_week="sun", hour=23, minute=59,
+                       id="resolve_build_leaderboard_weekly", misfire_grace_time=300)
 
 
 @app.route("/minigame/start", methods=["POST"])

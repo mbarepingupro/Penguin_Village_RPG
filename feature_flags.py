@@ -30,4 +30,12 @@ FEATURES = {
                                     # and the Award Hall's all-time records tab are NOT gated by
                                     # this — only the live weekly rankings + rank rewards + chat
                                     # announcement. Flip to True to go live.
+    "weekly_build_leaderboard": True,  # Tracks cumulative ice_blocks earned per player over a
+                                    # rotating week (Sun 23:59 server-time reset), gated at the
+                                    # /build/roll increment call and the reset job alike. No reward
+                                    # distribution yet -- resolve_weekly_build_leaderboard() only
+                                    # archives final standings + starts a new week_id; Phase 3c
+                                    # reads the archive to grant rewards. Flip to False to stop
+                                    # tracking (existing weekly_build_leaderboard/_archive rows are
+                                    # untouched either way).
 }
