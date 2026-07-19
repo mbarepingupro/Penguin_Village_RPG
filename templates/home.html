@@ -2286,6 +2286,82 @@
       #recenter-map-btn { bottom: 12px; right: 12px; width: 36px; height: 36px; font-size: 18px; }
     }
 
+    /* ── WEEKLY BUILD LEADERBOARD BUTTON ──
+       Anchored off .build-btn's own left:50% centering (not a fixed px from
+       the map edge) so it always sits just to the right of Build!/Free
+       Build! regardless of map-area width, never overlapping it. */
+    #build-leaderboard-widget {
+      position: absolute;
+      bottom: 16px;
+      left: calc(50% + 52px);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    #build-leaderboard-btn {
+      width: 42px;
+      height: 42px;
+      background: #252535;
+      border: 2px solid #4aafff;
+      color: #4aafff;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: serif;
+      padding: 0;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #build-leaderboard-btn:hover { background: #16324a; }
+    #build-leaderboard-countdown {
+      font-size: 13px;
+      color: #B8B8D0;
+      font-family: 'C&C Red Alert', monospace;
+      white-space: nowrap;
+      text-align: center;
+    }
+    @media (max-width: 768px) {
+      #build-leaderboard-widget { left: calc(50% + 40px); bottom: 12px; }
+      #build-leaderboard-btn { width: 38px; height: 38px; font-size: 18px; }
+      #build-leaderboard-countdown { font-size: 12px; }
+    }
+
+    /* ── WEEKLY BUILD LEADERBOARD POPUP ── same centered/fixed/scrollable
+       modal pattern as #bm-overlay/#building-modal (transform-centered,
+       position:fixed so it never touches map/canvas layout -- no reflow on
+       open or close), not the flex-centered raid-leaderboard variant. */
+    #bl-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 90040;
+      cursor: pointer;
+    }
+    #build-leaderboard-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 420px;
+      max-width: 95vw;
+      max-height: 80vh;
+      overflow: hidden;
+      background: #252535;
+      border: 3px solid #A86EFF;
+      z-index: 90041;
+      box-shadow: 0 0 30px rgba(0,0,0,0.8);
+      font-family: 'C&C Red Alert', monospace;
+    }
+    #bl-content { padding: 20px; overflow-y: auto; max-height: 80vh; cursor: default; }
+    #bl-title { color: #4aafff; font-size: 18px; text-align: center; margin-bottom: 4px; }
+    #bl-deadline { color: #8888A8; font-size: 15px; text-align: center; margin-bottom: 12px; }
+
     /* ── ATTACK MODE (Build! button repurposed during an active raid) ──
        No attack-specific sprite exists yet, so this drops the build_button_*
        PNG and keeps the same blue/red color-swap the Build button already
@@ -3288,6 +3364,12 @@
         <div class="map-area" id="map-area">
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
+          {% if features.get("weekly_build_leaderboard", True) %}
+          <div id="build-leaderboard-widget">
+            <button id="build-leaderboard-btn" title="Weekly Building Leaderboard" onclick="BuildLeaderboard.openModal()">🧊</button>
+            <span id="build-leaderboard-countdown"></span>
+          </div>
+          {% endif %}
           <button id="raid-icon-btn" title="Weekly Raid" onclick="RaidJoin.openModal()">
             <span id="raid-join-label">⚔️ JOIN RAID! ⚔️</span>
             <span id="raid-join-countdown"></span>
@@ -3769,6 +3851,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     <button id="raid-leaderboard-close" onclick="RaidJoin.closeLeaderboard()">CLOSE</button>
   </div>
 </div>
+
+{% if features.get("weekly_build_leaderboard", True) %}
+<!-- WEEKLY BUILD LEADERBOARD POPUP -->
+<div id="bl-overlay" onclick="if (event.target === this) BuildLeaderboard.closeModal()">
+  <div id="build-leaderboard-modal">
+    <div id="bl-content">
+      <span class="bm-close" onclick="BuildLeaderboard.closeModal()">✕</span>
+      <div id="bl-title">🧊 WEEKLY BUILDING LEADERBOARD</div>
+      <div id="bl-deadline"></div>
+      <div id="bl-list"></div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- LEVEL-UP MODAL -->
 <div id="lvup-overlay">
@@ -4288,6 +4384,110 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       GlobalChat.onTabChange(name);
     };
   })();
+
+  // ── WEEKLY BUILD LEADERBOARD ──────────────────────────────────────────────
+  // Map-overlay 🧊 button + live countdown next to Build!/Free Build!, and its
+  // ranking popup. Gated server-side by weekly_build_leaderboard (Phase 3a) --
+  // #build-leaderboard-btn simply won't exist in the DOM when the flag is off,
+  // so every method here defensively no-ops via that element lookup instead
+  // of re-checking the flag client-side.
+  var BuildLeaderboard = {
+    _deadlineTs: null,
+    _tickTimer: null,
+
+    init: function() {
+      if (!document.getElementById('build-leaderboard-btn')) return;
+      this._refreshDeadline();
+    },
+
+    // deadline_ts barely ever moves (only jumps forward once a week, at
+    // resolve_weekly_build_leaderboard()'s Sun 23:59 reset), so unlike
+    // RaidJoin's 30s-polled join-window countdown this only needs to
+    // re-fetch on page load and again once the local tick reaches zero --
+    // no periodic resync in between.
+    _refreshDeadline: async function() {
+      try {
+        var res  = await fetch('/build/leaderboard');
+        var data = await res.json();
+        if (data.status !== 'success') return;
+        this._deadlineTs = data.deadline_ts;
+        this._startCountdown();
+      } catch (e) {}
+    },
+
+    _startCountdown: function() {
+      if (this._tickTimer) clearInterval(this._tickTimer);
+      var self = this;
+      this._tick();
+      this._tickTimer = setInterval(function() { self._tick(); }, 1000);
+    },
+
+    // Same rendering approach as RaidJoin's "Starts in:" timer (Session 6) --
+    // local 1s tick between server resyncs, reusing its _formatCountdown
+    // (extended there with a day tier) instead of duplicating the
+    // Xd/Xh/Xm formatting logic here.
+    _tick: function() {
+      var el = document.getElementById('build-leaderboard-countdown');
+      if (!el || !this._deadlineTs) return;
+      var remaining = Math.floor(this._deadlineTs - Date.now() / 1000);
+      if (remaining <= 0) {
+        el.textContent = '0h 00m';
+        if (this._tickTimer) { clearInterval(this._tickTimer); this._tickTimer = null; }
+        this._refreshDeadline(); // pick up the new week's deadline once this one lapses
+        return;
+      }
+      el.textContent = RaidJoin._formatCountdown(remaining);
+    },
+
+    openModal: async function() {
+      var overlay = document.getElementById('bl-overlay');
+      var modal   = document.getElementById('build-leaderboard-modal');
+      var list    = document.getElementById('bl-list');
+      if (!overlay || !modal || !list) return;
+      list.innerHTML = '<div class="inv-empty">Loading…</div>';
+      overlay.style.display = 'block';
+      modal.style.display   = 'block';
+      if (window.GameSounds) GameSounds.modalOpen();
+      try {
+        var res  = await fetch('/build/leaderboard');
+        var data = await res.json();
+        if (data.status !== 'success') {
+          list.innerHTML = '<div class="inv-empty">Leaderboard unavailable.</div>';
+          return;
+        }
+        this._deadlineTs = data.deadline_ts;
+        var deadlineEl = document.getElementById('bl-deadline');
+        if (deadlineEl) {
+          var remaining = Math.max(0, Math.floor(data.deadline_ts - Date.now() / 1000));
+          deadlineEl.textContent = 'Resets in: ' + RaidJoin._formatCountdown(remaining);
+        }
+        var html = '';
+        data.entries.forEach(function(entry) {
+          var isSelf = entry.username === data.player_username;
+          var cls = 'raid-results-row' + (entry.rank <= 3 ? ' top3' : '') + (isSelf ? ' self' : '');
+          // GlobalChat._esc() -- same escaping already used for chat authors,
+          // reused here instead of a second copy since penguin_name is just
+          // as player-controlled as a chat username.
+          html += '<div class="' + cls + '">' +
+            '<span class="raid-results-rank">#' + entry.rank + '</span>' +
+            '<span class="raid-results-name"><span class="pname-hl">' + GlobalChat._esc(entry.penguin_name) + '</span>' + (isSelf ? ' (you)' : '') + '</span>' +
+            '<span class="raid-results-reward">🧊 ' + entry.ice_blocks_total.toLocaleString() + '</span>' +
+            '</div>';
+        });
+        list.innerHTML = html || '<div class="inv-empty">No one has earned ice blocks this week yet.</div>';
+      } catch (e) {
+        list.innerHTML = '<div class="inv-empty">Leaderboard unavailable.</div>';
+      }
+    },
+
+    closeModal: function() {
+      var overlay = document.getElementById('bl-overlay');
+      var modal   = document.getElementById('build-leaderboard-modal');
+      if (overlay) overlay.style.display = 'none';
+      if (modal)   modal.style.display   = 'none';
+      if (window.GameSounds) GameSounds.modalClose();
+    },
+  };
 
   // Enter key sends message
   document.addEventListener('DOMContentLoaded', function() {
@@ -10288,6 +10488,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // Map tab is active by default — trigger init now
   switchContentTab('map', null);
   updateResourceBar();
+  BuildLeaderboard.init();
 
   // ── DAILY LOGIN STREAK POPUP ──
   let _dailyPopupShown = false;

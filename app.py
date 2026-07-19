@@ -9179,6 +9179,22 @@ def build_roll():
 # (whatever timezone the host process runs in, same as every other cron job
 # in this file, none of which pass an explicit timezone= to add_job).
 
+def _next_build_leaderboard_deadline(reference_ts=None):
+    """Epoch seconds of the next Sun 23:59 server-local time at/after
+    reference_ts (default: now) -- mirrors resolve_weekly_build_leaderboard's
+    own cron trigger (day_of_week='sun', hour=23, minute=59, no explicit
+    timezone=) exactly, so the countdown shown to players never drifts from
+    when the reset job actually fires."""
+    ref = datetime.datetime.fromtimestamp(reference_ts if reference_ts is not None else time.time())
+    days_until_sunday = (6 - ref.weekday()) % 7  # Monday=0 ... Sunday=6
+    candidate = (ref + datetime.timedelta(days=days_until_sunday)).replace(
+        hour=23, minute=59, second=0, microsecond=0
+    )
+    if candidate <= ref:
+        candidate += datetime.timedelta(days=7)
+    return int(candidate.timestamp())
+
+
 def resolve_weekly_build_leaderboard():
     """Sun 23:59 -- archives the just-ended week's final standings (ranked by
     ice_blocks_total) into weekly_build_leaderboard_archive for Phase 3c's
@@ -9225,6 +9241,44 @@ def resolve_weekly_build_leaderboard():
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
     _scheduler.add_job(resolve_weekly_build_leaderboard, "cron", day_of_week="sun", hour=23, minute=59,
                        id="resolve_build_leaderboard_weekly", misfire_grace_time=300)
+
+
+@app.route("/build/leaderboard")
+def build_leaderboard_route():
+    """Current week's live standings for the 🧊 map-overlay popup, plus the
+    deadline the countdown next to it ticks down to. No podium/top-N cap --
+    unlike /minigame/leaderboard this is the live in-progress week, usually
+    small, and capping would hide a player's own row if they're ranked
+    outside the cutoff (the popup highlights that row when present)."""
+    if not FEATURES.get("weekly_build_leaderboard", True):
+        return jsonify({"status": "error", "message": "The weekly building leaderboard isn't live yet."})
+    username = session.get("username", "")
+
+    db   = get_db()
+    rows = db.execute(
+        "SELECT username, ice_blocks_total FROM weekly_build_leaderboard ORDER BY ice_blocks_total DESC"
+    ).fetchall()
+    state   = db.execute("SELECT week_id FROM weekly_build_leaderboard_state WHERE id=1").fetchone()
+    week_id = state["week_id"] if state else 1
+
+    entries = []
+    for i, row in enumerate(rows, start=1):
+        p = db.execute("SELECT penguin_name FROM penguins WHERE username=?", (row["username"],)).fetchone()
+        entries.append({
+            "rank":             i,
+            "username":         row["username"],
+            "penguin_name":     (p["penguin_name"] if p else None) or row["username"],
+            "ice_blocks_total": row["ice_blocks_total"],
+        })
+    db.close()
+
+    return jsonify({
+        "status":          "success",
+        "entries":         entries,
+        "week_id":         week_id,
+        "deadline_ts":     _next_build_leaderboard_deadline(),
+        "player_username": username,
+    })
 
 
 @app.route("/minigame/start", methods=["POST"])
