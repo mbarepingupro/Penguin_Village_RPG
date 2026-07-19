@@ -31,15 +31,15 @@ const MIN_ZOOM = 0.15, MAX_ZOOM = 3.0, ZOOM_STEP = 0.1;
 const BUILDING_DEFS = {
     hotel:         { name: "PENGUIN HOTEL",      color: "#C0392B", width: 3, height: 3 },
     sea_lion_pit:  { name: "ASH'S SEA LION PIT", color: "#2471A3", width: 6, height: 6 },
-    club_soda:     { name: "CLUB SODA",          color: "#1E8449", width: 3, height: 2 },
+    club_soda:     { name: "CLUB SODA",          color: "#1E8449", width: 3, height: 3 },
     cursed_temple: { name: "CURSED TEMPLE",      color: "#7D3C98", width: 3, height: 3 },
     parkmusement:  { name: "PARKMUSEMENT",       color: "#D4AC0D", width: 3, height: 3 },
-    guillotine:    { name: "GIL GUILLOTINE",     color: "#566573", width: 3, height: 2 },
+    guillotine:    { name: "GIL GUILLOTINE",     color: "#566573", width: 3, height: 3 },
     award_hall:    { name: "AWARD HALL",         color: "#D68910", width: 3, height: 3 },
-    bank:          { name: "PENGUIN BANK",       color: "#1A5276", width: 3, height: 2 },
+    bank:          { name: "PENGUIN BANK",       color: "#1A5276", width: 3, height: 3 },
     barracks:      { name: "PENGUIN BARRACKS",   color: "#922B21", width: 3, height: 3 },
-    horny_jail:    { name: "HORNY JAIL",         color: "#FF7FE5", width: 2, height: 2 },
-    boutique:      { name: "THE BOUTIQUE",       color: "#FF7FE5", width: 3, height: 2 },
+    horny_jail:    { name: "HORNY JAIL",         color: "#FF7FE5", width: 3, height: 3 },
+    boutique:      { name: "THE BOUTIQUE",       color: "#FF7FE5", width: 3, height: 3 },
 };
 
 const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
