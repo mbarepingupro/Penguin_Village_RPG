@@ -30,7 +30,7 @@ const MIN_ZOOM = 0.15, MAX_ZOOM = 3.0, ZOOM_STEP = 0.1;
 
 const BUILDING_DEFS = {
     hotel:         { name: "PENGUIN HOTEL",      color: "#C0392B", width: 3, height: 3 },
-    sea_lion_pit:  { name: "ASH'S SEA LION PIT", color: "#2471A3", width: 3, height: 3 },
+    sea_lion_pit:  { name: "ASH'S SEA LION PIT", color: "#2471A3", width: 6, height: 6 },
     club_soda:     { name: "CLUB SODA",          color: "#1E8449", width: 3, height: 2 },
     cursed_temple: { name: "CURSED TEMPLE",      color: "#7D3C98", width: 3, height: 3 },
     parkmusement:  { name: "PARKMUSEMENT",       color: "#D4AC0D", width: 3, height: 3 },
