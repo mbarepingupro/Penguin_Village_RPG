@@ -5145,7 +5145,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const capTs    = data.job_cap_ts    || 0;
       const complete = data.complete      || false;
       const produces = data.produces      || {};
-      const capSecs  = 8 * 3600;
+      // Derived from the server's own cap timestamp (JOB_CAP_HOURS, 12h)
+      // instead of a hardcoded duration -- was stuck at a stale 8h, capping
+      // the elapsed/earned display 4 hours before the job actually stops.
+      const capSecs  = (capTs && startTs) ? (capTs - startTs) : 0;
 
       const capLabel = complete
         ? `<span class="job-timer-complete">✓ JOB COMPLETE!</span>`
@@ -5755,15 +5758,19 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const startTs = bData.job_started_ts || 0;
       const capTs   = bData.job_cap_ts || 0;
       const complete = bData.complete || false;
+      // Derived from the server's own cap timestamp (JOB_CAP_HOURS, 12h)
+      // instead of a hardcoded duration -- see the matching fix in
+      // updateSidebarJobInfo() for why (was stuck at a stale 8h).
+      const capSecs  = (capTs && startTs) ? (capTs - startTs) : 0;
       if (startTs) {
-        startCountUp('bp-elapsed', startTs, 8 * 3600);
+        startCountUp('bp-elapsed', startTs, capSecs);
         if (_countdownTimers['bp-earned']) clearInterval(_countdownTimers['bp-earned']);
         const bpProduces = bData.produces || {};
         const BPSMULTS = {0:1.0, 1:1.25, 2:1.5, 3:1.75};
         const bpEarnedTick = () => {
           const el = document.getElementById('bp-earned');
           if (!el) { clearInterval(_countdownTimers['bp-earned']); return; }
-          const elapsed = Math.min(Math.floor(Date.now()/1000) - startTs, 8*3600);
+          const elapsed = Math.min(Math.floor(Date.now()/1000) - startTs, capSecs);
           const hrs = elapsed / 3600;
           const mult = BPSMULTS[_streamTier] || 1.0;
           const parts = Object.entries(bpProduces).filter(([,v]) => v>0).map(([k,v]) => {
