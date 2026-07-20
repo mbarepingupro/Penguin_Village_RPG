@@ -588,9 +588,12 @@
           <button class="mh-btn danger" onclick="triggerBlizzard()">🌨️ TRIGGER BLIZZARD</button>
         </div>
 
-        <!-- SPAWN COMMUNITY BOSS -- backend route (/mayor/spawn-boss) already
-             existed but had no UI anywhere; this button is the only way to
-             reach it. -->
+        <!-- SPAWN / REMOVE COMMUNITY BOSS -- backend route (/mayor/spawn-boss)
+             already existed but had no UI anywhere; this button is the only
+             way to reach it. This is the separate village-wide community
+             boss (community_boss table, fought via /combat/boss/attack) --
+             NOT the weekly raid boss managed in the RAID & CHALLENGES tab
+             below, which has its own HP/rename/force-start controls there. -->
         <div class="mh-action-card">
           <div class="mh-action-title">🐲 SPAWN COMMUNITY BOSS</div>
           <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
@@ -598,6 +601,16 @@
             is already active (must be defeated first).
           </div>
           <button class="mh-btn danger" onclick="spawnCommunityBoss()">🐲 SPAWN BOSS</button>
+        </div>
+
+        <div class="mh-action-card">
+          <div class="mh-action-title">🗑️ REMOVE COMMUNITY BOSS</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Cancels the currently active community boss fight (no defeat
+            rewards granted). Use this if one was spawned by mistake or
+            needs to be cleared out. Fails if none is active.
+          </div>
+          <button class="mh-btn danger" onclick="despawnCommunityBoss()">🗑️ REMOVE BOSS</button>
         </div>
 
       </div>
@@ -1208,6 +1221,18 @@
   async function spawnCommunityBoss() {
     const btn  = event.target;
     const data = await api('/mayor/spawn-boss', {}, btn);
+    if (data.status === 'success') {
+      toast(`✅ ${data.message}`);
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── REMOVE COMMUNITY BOSS ──
+  async function despawnCommunityBoss() {
+    const btn = event.target;
+    if (!confirm('⚠️ Remove the active community boss fight?\n\nAny in-progress participation is lost -- no defeat rewards will be granted.')) return;
+    const data = await api('/mayor/despawn-boss', {}, btn);
     if (data.status === 'success') {
       toast(`✅ ${data.message}`);
     } else {

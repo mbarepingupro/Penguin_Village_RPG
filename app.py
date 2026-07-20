@@ -4301,6 +4301,38 @@ def mayor_spawn_boss():
             db.close()
 
 
+@app.route("/mayor/despawn-boss", methods=["POST"])
+def mayor_despawn_boss():
+    key = request.args.get("key", "")
+    mayor_key = os.getenv("MAYOR_KEY", "")
+    authed = session.get("username") == "mbarepingu" or (mayor_key and key == mayor_key)
+    if not authed:
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db = None
+    try:
+        db     = get_db()
+        active = db.execute(
+            "SELECT id, name FROM community_boss WHERE defeated_at IS NULL ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if not active:
+            return jsonify({"status": "error", "message": "No active boss to remove."})
+        now = int(time.time())
+        # Same defeated_at marker every other "is a boss active" check already
+        # reads (status/attack/spawn all query WHERE defeated_at IS NULL) --
+        # no kill_rewards granted and no "the village defeated it!" event,
+        # since this is an admin cancellation, not a real victory.
+        db.execute("UPDATE community_boss SET defeated_at=? WHERE id=?", (now, active["id"]))
+        remover = session.get("username") or "mayor"
+        log_event(db, "combat", f"🛑 {active['name']} was called off by the mayor.", remover)
+        db.commit()
+        return jsonify({"status": "success", "message": f"{active['name']} has been removed."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+    finally:
+        if db:
+            db.close()
+
+
 # ── GEAR ─────────────────────────────────────────────────────────────────────
 
 @app.route("/gear/inventory")
