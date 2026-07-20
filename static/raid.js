@@ -138,10 +138,16 @@ const RaidJoin = {
     el.textContent = 'Starts in: ' + this._formatCountdown(remaining);
   },
 
+  // Day tier added for the weekly build leaderboard's multi-day countdown
+  // (join windows here never span a full day, so this branch is a no-op for
+  // this file's own callers) -- extended in place rather than forking a
+  // second formatter so both countdowns stay on one implementation.
   _formatCountdown: function(totalSeconds) {
-    var h = Math.floor(totalSeconds / 3600);
+    var d = Math.floor(totalSeconds / 86400);
+    var h = Math.floor((totalSeconds % 86400) / 3600);
     var m = Math.floor((totalSeconds % 3600) / 60);
     var s = totalSeconds % 60;
+    if (d > 0) return d + 'd ' + h + 'h';
     if (h > 0) return h + 'h ' + m + 'm';
     if (m > 0) return m + 'm ' + (s < 10 ? '0' : '') + s + 's';
     return s + 's';

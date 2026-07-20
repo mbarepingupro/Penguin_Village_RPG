@@ -111,6 +111,7 @@
     .sidebar-tab:last-child { border-right: none; }
     .sidebar-tab.active { color: var(--purple); background: var(--panel); }
     .sidebar-tab:hover:not(.active) { color: var(--pink); }
+    .sidebar-tab-energy { font-size: 15px; color: #4aff6b; margin-top: 2px; }
 
     .sidebar-panel { display: none; flex-direction: column; flex: 1; overflow-y: auto; }
     .sidebar-panel.active { display: flex; }
@@ -1791,6 +1792,9 @@
     /* ── Mobile player button (hidden on desktop) ── */
     .mobile-player-btn {
       display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
       font-family: 'C&C Red Alert', monospace;
       font-size: 16px;
       color: #A86EFF;
@@ -1803,6 +1807,8 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
+    .mobile-player-btn-row { display: flex; align-items: center; gap: 4px; }
+    .mobile-player-energy { font-size: 13px; color: #4aff6b; }
 
     /* ── touch-action for all interactive elements ── */
     button, canvas, a, [onclick], .content-tab, .sidebar-tab {
@@ -1839,7 +1845,7 @@
       .nav-logo { font-size: 16px; }
       .nav-user { display: none; }
       .nav-logout { min-height: 44px; display: flex; align-items: center; padding: 0 8px; font-size: 16px; }
-      .mobile-player-btn { display: inline-flex; align-items: center; }
+      .mobile-player-btn { display: inline-flex; }
 
       /* ── Sidebar hidden on mobile — player button handles this ── */
       .sidebar { display: none !important; }
@@ -2279,6 +2285,82 @@
     @media (max-width: 768px) {
       #recenter-map-btn { bottom: 12px; right: 12px; width: 36px; height: 36px; font-size: 18px; }
     }
+
+    /* ── WEEKLY BUILD LEADERBOARD BUTTON ──
+       Anchored off .build-btn's own left:50% centering (not a fixed px from
+       the map edge) so it always sits just to the right of Build!/Free
+       Build! regardless of map-area width, never overlapping it. */
+    #build-leaderboard-widget {
+      position: absolute;
+      bottom: 16px;
+      left: calc(50% + 52px);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    #build-leaderboard-btn {
+      width: 42px;
+      height: 42px;
+      background: #252535;
+      border: 2px solid #4aafff;
+      color: #4aafff;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: serif;
+      padding: 0;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #build-leaderboard-btn:hover { background: #16324a; }
+    #build-leaderboard-countdown {
+      font-size: 13px;
+      color: #B8B8D0;
+      font-family: 'C&C Red Alert', monospace;
+      white-space: nowrap;
+      text-align: center;
+    }
+    @media (max-width: 768px) {
+      #build-leaderboard-widget { left: calc(50% + 40px); bottom: 12px; }
+      #build-leaderboard-btn { width: 38px; height: 38px; font-size: 18px; }
+      #build-leaderboard-countdown { font-size: 12px; }
+    }
+
+    /* ── WEEKLY BUILD LEADERBOARD POPUP ── same centered/fixed/scrollable
+       modal pattern as #bm-overlay/#building-modal (transform-centered,
+       position:fixed so it never touches map/canvas layout -- no reflow on
+       open or close), not the flex-centered raid-leaderboard variant. */
+    #bl-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 90040;
+      cursor: pointer;
+    }
+    #build-leaderboard-modal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 420px;
+      max-width: 95vw;
+      max-height: 80vh;
+      overflow: hidden;
+      background: #252535;
+      border: 3px solid #A86EFF;
+      z-index: 90041;
+      box-shadow: 0 0 30px rgba(0,0,0,0.8);
+      font-family: 'C&C Red Alert', monospace;
+    }
+    #bl-content { padding: 20px; overflow-y: auto; max-height: 80vh; cursor: default; }
+    #bl-title { color: #4aafff; font-size: 18px; text-align: center; margin-bottom: 4px; }
+    #bl-deadline { color: #8888A8; font-size: 15px; text-align: center; margin-bottom: 12px; }
 
     /* ── ATTACK MODE (Build! button repurposed during an active raid) ──
        No attack-specific sprite exists yet, so this drops the build_button_*
@@ -2750,8 +2832,19 @@
       flex-shrink: 0;
     }
     @media (max-width: 768px) {
-      #chat-toggle-btn { display: none; }
-      #chat-panel { display: none !important; }
+      /* #chat-toggle-btn stays visible — it's the only mobile entry point
+         into global chat. #chat-panel becomes a fixed fullscreen overlay
+         when opened (escapes .map-area's overflow:hidden without touching
+         its layout, same no-reflow approach as the mayor dialogue) instead
+         of the 260px desktop-docked sidebar. */
+      #chat-toggle-btn { width: 44px; height: 44px; }
+      #chat-panel.open {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        z-index: 80005;
+        border-left: none;
+      }
       #chat-notif { display: none !important; }
     }
 
@@ -2939,7 +3032,10 @@
       {% if logged_in %}
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
         <button id="help-btn" onclick="resetHelpTooltips();replayTutorial()" title="Help &amp; Tutorial">❓</button>
-        <button id="mobile-player-btn" class="mobile-player-btn" onclick="openMobilePlayerPanel()">🐧 <span id="mobile-player-name">{{ penguin['username'] }}</span></button>
+        <button id="mobile-player-btn" class="mobile-player-btn" onclick="openMobilePlayerPanel()">
+          <span class="mobile-player-btn-row">🐧 <span id="mobile-player-name">{{ penguin['username'] }}</span></span>
+          <span class="mobile-player-energy" id="mobile-player-energy">⚡ {{ penguin['energy'] }}/100</span>
+        </button>
         <div class="nav-user">{{ penguin['username'] }}</div>
         <a href="/logout" class="nav-logout">LOGOUT</a>
       {% endif %}
@@ -2978,7 +3074,7 @@
     <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sidebar-tabs">
-        <button class="sidebar-tab active" onclick="switchSidebarTab('penguin', this)">PENGUIN</button>
+        <button class="sidebar-tab active" onclick="switchSidebarTab('penguin', this)">PENGUIN<div class="sidebar-tab-energy" id="sidebar-tab-energy">⚡ {{ penguin['energy'] }}/100</div></button>
         <button class="sidebar-tab" onclick="switchSidebarTab('stats', this)">STATS</button>
         <button class="sidebar-tab" onclick="switchSidebarTab('friends', this)">FRIENDS</button>
       </div>
@@ -3268,6 +3364,12 @@
         <div class="map-area" id="map-area">
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
+          {% if features.get("weekly_build_leaderboard", True) %}
+          <div id="build-leaderboard-widget">
+            <button id="build-leaderboard-btn" title="Weekly Building Leaderboard" onclick="BuildLeaderboard.openModal()">🧊</button>
+            <span id="build-leaderboard-countdown"></span>
+          </div>
+          {% endif %}
           <button id="raid-icon-btn" title="Weekly Raid" onclick="RaidJoin.openModal()">
             <span id="raid-join-label">⚔️ JOIN RAID! ⚔️</span>
             <span id="raid-join-countdown"></span>
@@ -3750,6 +3852,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   </div>
 </div>
 
+{% if features.get("weekly_build_leaderboard", True) %}
+<!-- WEEKLY BUILD LEADERBOARD POPUP -->
+<div id="bl-overlay" onclick="if (event.target === this) BuildLeaderboard.closeModal()">
+  <div id="build-leaderboard-modal">
+    <div id="bl-content">
+      <span class="bm-close" onclick="BuildLeaderboard.closeModal()">✕</span>
+      <div id="bl-title">🧊 WEEKLY BUILDING LEADERBOARD</div>
+      <div id="bl-deadline"></div>
+      <div id="bl-list"></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- LEVEL-UP MODAL -->
 <div id="lvup-overlay">
   <div id="lvup-box">
@@ -4096,9 +4212,28 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (!this._open) this.toggle();
     },
 
+    // Persisted per-account in localStorage (not just an in-memory flag) so
+    // the unread badge survives a page reload/relaunch instead of resetting
+    // to 0 every time -- otherwise the badge could only ever fire for
+    // messages that happened to arrive during the current tab's lifetime,
+    // never for anything sent while the player was away.
+    _lastReadKey: function() {
+      return 'chat_last_read_' + CURRENT_USER;
+    },
+    _getLastReadTs: function() {
+      try {
+        var v = localStorage.getItem(this._lastReadKey());
+        return v ? parseInt(v, 10) : null; // null = never tracked yet (brand-new visitor)
+      } catch (e) { return null; }
+    },
+    _setLastReadTs: function(ts) {
+      try { localStorage.setItem(this._lastReadKey(), String(ts)); } catch (e) {}
+    },
+
     _clearUnread: function() {
       this._unread = 0;
       this._hideNotif();
+      this._setLastReadTs(Math.floor(Date.now() / 1000));
       var badge = document.getElementById('chat-badge');
       if (badge) badge.style.display = 'none';
     },
@@ -4163,11 +4298,29 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     },
 
     _processUnread: function(msgs) {
-      // On the very first poll, just establish the baseline — don't count existing history as unread
+      // On the very first poll since this page load, seed _highestTs from
+      // the freshest message, then check the persisted last-read marker
+      // (localStorage, survives reloads) instead of always baselining to
+      // zero unread -- so messages sent while the player was away still
+      // show up as unread the next time they open the game.
       if (this._highestTs === 0) {
+        var self = this;
         msgs.forEach(function(m) {
-          if (m.created_at > this._highestTs) this._highestTs = m.created_at;
-        }, this);
+          if (m.created_at > self._highestTs) self._highestTs = m.created_at;
+        });
+        var lastRead = this._getLastReadTs();
+        if (lastRead === null) {
+          // Brand-new visitor, nothing to compare against yet -- baseline
+          // silently same as before rather than flagging all history unread.
+          this._setLastReadTs(this._highestTs || Math.floor(Date.now() / 1000));
+          return;
+        }
+        var missed = msgs.filter(function(m) { return m.created_at > lastRead; });
+        if (missed.length > 0 && !this._open) {
+          this._unread = missed.length;
+          this._updateBadge();
+          this._showNotif(missed[missed.length - 1]);
+        }
         return;
       }
       var newest = null;
@@ -4208,7 +4361,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           var data = await res.json();
           var msgs = data.messages || [];
           this._processUnread(msgs);
-          if (this._open) this._renderMessages(msgs);
+          if (this._open) {
+            this._renderMessages(msgs);
+            // Keep the persisted marker fresh while actively viewing, so
+            // closing the tab without hitting the ✕ close button doesn't
+            // leave a stale last-read timestamp that would wrongly flag
+            // already-seen messages as unread on the next page load.
+            this._setLastReadTs(Math.floor(Date.now() / 1000));
+          }
         }
       } catch(e) {}
     },
@@ -4269,6 +4429,110 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     };
   })();
 
+  // ── WEEKLY BUILD LEADERBOARD ──────────────────────────────────────────────
+  // Map-overlay 🧊 button + live countdown next to Build!/Free Build!, and its
+  // ranking popup. Gated server-side by weekly_build_leaderboard (Phase 3a) --
+  // #build-leaderboard-btn simply won't exist in the DOM when the flag is off,
+  // so every method here defensively no-ops via that element lookup instead
+  // of re-checking the flag client-side.
+  var BuildLeaderboard = {
+    _deadlineTs: null,
+    _tickTimer: null,
+
+    init: function() {
+      if (!document.getElementById('build-leaderboard-btn')) return;
+      this._refreshDeadline();
+    },
+
+    // deadline_ts barely ever moves (only jumps forward once a week, at
+    // resolve_weekly_build_leaderboard()'s Sun 23:59 reset), so unlike
+    // RaidJoin's 30s-polled join-window countdown this only needs to
+    // re-fetch on page load and again once the local tick reaches zero --
+    // no periodic resync in between.
+    _refreshDeadline: async function() {
+      try {
+        var res  = await fetch('/build/leaderboard');
+        var data = await res.json();
+        if (data.status !== 'success') return;
+        this._deadlineTs = data.deadline_ts;
+        this._startCountdown();
+      } catch (e) {}
+    },
+
+    _startCountdown: function() {
+      if (this._tickTimer) clearInterval(this._tickTimer);
+      var self = this;
+      this._tick();
+      this._tickTimer = setInterval(function() { self._tick(); }, 1000);
+    },
+
+    // Same rendering approach as RaidJoin's "Starts in:" timer (Session 6) --
+    // local 1s tick between server resyncs, reusing its _formatCountdown
+    // (extended there with a day tier) instead of duplicating the
+    // Xd/Xh/Xm formatting logic here.
+    _tick: function() {
+      var el = document.getElementById('build-leaderboard-countdown');
+      if (!el || !this._deadlineTs) return;
+      var remaining = Math.floor(this._deadlineTs - Date.now() / 1000);
+      if (remaining <= 0) {
+        el.textContent = '0h 00m';
+        if (this._tickTimer) { clearInterval(this._tickTimer); this._tickTimer = null; }
+        this._refreshDeadline(); // pick up the new week's deadline once this one lapses
+        return;
+      }
+      el.textContent = RaidJoin._formatCountdown(remaining);
+    },
+
+    openModal: async function() {
+      var overlay = document.getElementById('bl-overlay');
+      var modal   = document.getElementById('build-leaderboard-modal');
+      var list    = document.getElementById('bl-list');
+      if (!overlay || !modal || !list) return;
+      list.innerHTML = '<div class="inv-empty">Loading…</div>';
+      overlay.style.display = 'block';
+      modal.style.display   = 'block';
+      if (window.GameSounds) GameSounds.modalOpen();
+      try {
+        var res  = await fetch('/build/leaderboard');
+        var data = await res.json();
+        if (data.status !== 'success') {
+          list.innerHTML = '<div class="inv-empty">Leaderboard unavailable.</div>';
+          return;
+        }
+        this._deadlineTs = data.deadline_ts;
+        var deadlineEl = document.getElementById('bl-deadline');
+        if (deadlineEl) {
+          var remaining = Math.max(0, Math.floor(data.deadline_ts - Date.now() / 1000));
+          deadlineEl.textContent = 'Resets in: ' + RaidJoin._formatCountdown(remaining);
+        }
+        var html = '';
+        data.entries.forEach(function(entry) {
+          var isSelf = entry.username === data.player_username;
+          var cls = 'raid-results-row' + (entry.rank <= 3 ? ' top3' : '') + (isSelf ? ' self' : '');
+          // GlobalChat._esc() -- same escaping already used for chat authors,
+          // reused here instead of a second copy since penguin_name is just
+          // as player-controlled as a chat username.
+          html += '<div class="' + cls + '">' +
+            '<span class="raid-results-rank">#' + entry.rank + '</span>' +
+            '<span class="raid-results-name"><span class="pname-hl">' + GlobalChat._esc(entry.penguin_name) + '</span>' + (isSelf ? ' (you)' : '') + '</span>' +
+            '<span class="raid-results-reward">🧊 ' + entry.ice_blocks_total.toLocaleString() + '</span>' +
+            '</div>';
+        });
+        list.innerHTML = html || '<div class="inv-empty">No one has earned ice blocks this week yet.</div>';
+      } catch (e) {
+        list.innerHTML = '<div class="inv-empty">Leaderboard unavailable.</div>';
+      }
+    },
+
+    closeModal: function() {
+      var overlay = document.getElementById('bl-overlay');
+      var modal   = document.getElementById('build-leaderboard-modal');
+      if (overlay) overlay.style.display = 'none';
+      if (modal)   modal.style.display   = 'none';
+      if (window.GameSounds) GameSounds.modalClose();
+    },
+  };
+
   // Enter key sends message
   document.addEventListener('DOMContentLoaded', function() {
     var inp = document.getElementById('chat-input');
@@ -4277,9 +4541,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         if (e.key === 'Enter') { e.preventDefault(); GlobalChat.send(); }
       });
     }
+    // Deferred to DOMContentLoaded (rather than called inline here) because
+    // CURRENT_USER isn't declared (const, further down this same script)
+    // until after this point -- an immediate call here would have
+    // _processUnread()'s first poll reference it while still in the
+    // temporal dead zone, throwing a ReferenceError that _poll()'s catch
+    // silently swallows, breaking the very first unread-badge check on
+    // every page load. By DOMContentLoaded, the whole script (including
+    // CURRENT_USER's declaration) has already run.
+    GlobalChat.startPolling();
   });
-
-  GlobalChat.startPolling();
 
   // ── PLAYER INTERESTS ──
   var _interestTopics  = [];   // [{key, label, emoji}, ...]
@@ -4728,6 +4999,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           ? `<span style="color:#4aff6b">⚡ FULL</span>`
           : `${p.energy}/${maxE} <span style="color:#B8B8D0;font-size:16px">+10/hr</span>`;
         document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
+        const tabEnergyEl = document.getElementById('sidebar-tab-energy');
+        if (tabEnergyEl) tabEnergyEl.textContent = `⚡ ${p.energy}/${maxE}`;
+        const mobEnergyEl = document.getElementById('mobile-player-energy');
+        if (mobEnergyEl) mobEnergyEl.textContent = `⚡ ${p.energy}/${maxE}`;
         document.getElementById('stat-level').textContent = '★ LEVEL ' + p.level;
         const xpNeeded = p.xp_needed || 100;
         const xpInto   = p.xp_into   || 0;
@@ -10264,6 +10539,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // Map tab is active by default — trigger init now
   switchContentTab('map', null);
   updateResourceBar();
+  BuildLeaderboard.init();
 
   // ── DAILY LOGIN STREAK POPUP ──
   let _dailyPopupShown = false;
@@ -10366,6 +10642,31 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     label: 'OPEN',
     onClick: function() { invOpenLootbox({{ daily_lootbox_id | tojson }}); }
   });
+  {% endif %}
+
+  {% if build_leaderboard_reward %}
+  (function() {
+    // Same reusable "Open" toast pattern as daily_lootbox_awarded above --
+    // just fed from the reward resolve_weekly_build_leaderboard() already
+    // granted (see app.py's home() build_leaderboard_reward lookup) instead
+    // of a fresh grant_lootbox() call here.
+    var blr = {{ build_leaderboard_reward | tojson }};
+    var resEmojis = {fish:'🐟', herbs:'🌿', blood_gems:'💎', bones:'🦴', spell_fragments:'✨', ice_blocks:'🧊'};
+    var parts = [];
+    if (blr.lootboxes > 0) parts.push(blr.lootboxes + ' N00Tbox' + (blr.lootboxes === 1 ? '' : 'es'));
+    Object.keys(blr.resources).forEach(function(r) {
+      parts.push('+' + blr.resources[r] + ' ' + (resEmojis[r] || '') + ' ' + r.replace('_', ' '));
+    });
+    var msg = '🧊 Weekly Building Leaderboard #' + blr.rank + '! ' + (parts.join(', ') || 'Nothing this time.');
+    if (blr.lootbox_ids && blr.lootbox_ids.length) {
+      showToast(msg, 'ok', {
+        label: 'OPEN',
+        onClick: function() { invOpenLootbox(blr.lootbox_ids[0]); }
+      });
+    } else {
+      showToast(msg, 'ok');
+    }
+  })();
   {% endif %}
 
   {% endif %}

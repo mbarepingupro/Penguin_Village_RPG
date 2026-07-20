@@ -6,7 +6,7 @@ import datetime
 import random
 import sqlite3
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
-from database import init_db, get_db, backfill_cosmetics, record_challenge_progress
+from database import init_db, get_db, backfill_cosmetics, record_challenge_progress, record_build_leaderboard_progress
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
 from personality_config import (
@@ -517,6 +517,7 @@ def _event_bucket(event_type):
 
 # ── Global chat ──────────────────────────────────────────────────────────────
 _CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
+CHAT_MESSAGE_RETENTION   = 300  # keep only the newest N rows -- see run_autonomous_actions()
 # Hardcoded wordlist — expandable; basic bad-word filter applied on send
 _CHAT_BLOCKED_WORDS = frozenset({
     'fuck', 'shit', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
@@ -2120,9 +2121,15 @@ def run_autonomous_actions():
         print(f"[Autonomous] Group event error: {e}")
 
     db.commit()
-    # Prune chat messages older than 24 h to keep the table bounded
-    cutoff = now - 86400
-    db.execute("DELETE FROM chat_messages WHERE created_at < ?", (cutoff,))
+    # Keep the table bounded by count instead of a 24h age cutoff -- messages
+    # persist indefinitely until there are more than CHAT_MESSAGE_RETENTION,
+    # so a quiet period never leaves the panel empty, and only the oldest
+    # overflow gets pruned once that many have piled up.
+    db.execute(
+        "DELETE FROM chat_messages WHERE id NOT IN "
+        "(SELECT id FROM chat_messages ORDER BY id DESC LIMIT ?)",
+        (CHAT_MESSAGE_RETENTION,)
+    )
     db.commit()
     db.close()
     print(f"[Autonomous] Generated {generated} actions for {len(all_penguins)} penguins")
@@ -2840,6 +2847,34 @@ def home():
         daily_lootbox_id = grant_lootbox(username, 1, "daily_login", db=db)[0]
         daily_lootbox_awarded = True
 
+    # ── Weekly build-leaderboard reward -- one-shot login toast ─────────────
+    # resolve_weekly_build_leaderboard() (a scheduled job, not this request)
+    # already granted the lootboxes/resources and wrote them onto the
+    # player's archive row; there's no live session to stash a flag in like
+    # daily_reward/streak_reward above, so the archive row's own `notified`
+    # column is the "already shown" marker instead -- same DB-backed-marker
+    # idea as check_lifecycle_notices()'s notice_*_id columns, just scoped to
+    # a single row. Cleared here (not by the job) so it fires exactly once,
+    # on this player's next page load after the reset, however long that is.
+    build_leaderboard_reward = None
+    if FEATURES.get("weekly_build_leaderboard", True):
+        blb_row = db.execute(
+            "SELECT id, week_id, rank, ice_blocks_total, reward_lootboxes, "
+            "reward_lootbox_ids, reward_resources FROM weekly_build_leaderboard_archive "
+            "WHERE username=? AND notified=0 ORDER BY week_id DESC LIMIT 1",
+            (username,)
+        ).fetchone()
+        if blb_row:
+            build_leaderboard_reward = {
+                "rank":             blb_row["rank"],
+                "week_id":          blb_row["week_id"],
+                "ice_blocks_total": blb_row["ice_blocks_total"],
+                "lootboxes":        blb_row["reward_lootboxes"],
+                "lootbox_ids":      json.loads(blb_row["reward_lootbox_ids"] or "[]"),
+                "resources":        json.loads(blb_row["reward_resources"] or "{}"),
+            }
+            db.execute("UPDATE weekly_build_leaderboard_archive SET notified=1 WHERE id=?", (blb_row["id"],))
+
     db.commit()
     resources  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     streak_row = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
@@ -2857,6 +2892,7 @@ def home():
         daily_reward=daily_reward,
         daily_lootbox_awarded=daily_lootbox_awarded,
         daily_lootbox_id=daily_lootbox_id,
+        build_leaderboard_reward=build_leaderboard_reward,
         features=FEATURES,
         level_data=LEVEL_DATA,
         tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
@@ -4258,6 +4294,38 @@ def mayor_spawn_boss():
                   f"⚠️ {COMMUNITY_BOSS['name']} has appeared! Fight together to defeat it!", spawner)
         db.commit()
         return jsonify({"status": "success", "message": f"{COMMUNITY_BOSS['name']} has been spawned!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+    finally:
+        if db:
+            db.close()
+
+
+@app.route("/mayor/despawn-boss", methods=["POST"])
+def mayor_despawn_boss():
+    key = request.args.get("key", "")
+    mayor_key = os.getenv("MAYOR_KEY", "")
+    authed = session.get("username") == "mbarepingu" or (mayor_key and key == mayor_key)
+    if not authed:
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db = None
+    try:
+        db     = get_db()
+        active = db.execute(
+            "SELECT id, name FROM community_boss WHERE defeated_at IS NULL ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if not active:
+            return jsonify({"status": "error", "message": "No active boss to remove."})
+        now = int(time.time())
+        # Same defeated_at marker every other "is a boss active" check already
+        # reads (status/attack/spawn all query WHERE defeated_at IS NULL) --
+        # no kill_rewards granted and no "the village defeated it!" event,
+        # since this is an admin cancellation, not a real victory.
+        db.execute("UPDATE community_boss SET defeated_at=? WHERE id=?", (now, active["id"]))
+        remover = session.get("username") or "mayor"
+        log_event(db, "combat", f"🛑 {active['name']} was called off by the mayor.", remover)
+        db.commit()
+        return jsonify({"status": "success", "message": f"{active['name']} has been removed."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
     finally:
@@ -9152,6 +9220,8 @@ def build_roll():
         new_free_rolls = 0
 
     db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (ice_earned, username))
+    if FEATURES.get("weekly_build_leaderboard", True):
+        record_build_leaderboard_progress(db, username, ice_earned)
     award_xp(db, username, roll)
     r = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
@@ -9168,6 +9238,181 @@ def build_roll():
         "is_crit":          is_crit,
         "normal_return":    normal_return,
         "energy_remaining": (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+    })
+
+
+# ── WEEKLY BUILD LEADERBOARD RESET ────────────────────────────────────────────
+# Independent cadence from the raid Mon/Fri/Sat/Mon schedule and the Sat 00:02
+# minigame-leaderboard resolution above -- default Sun 23:59 server time
+# (whatever timezone the host process runs in, same as every other cron job
+# in this file, none of which pass an explicit timezone= to add_job).
+
+def _next_build_leaderboard_deadline(reference_ts=None):
+    """Epoch seconds of the next Sun 23:59 server-local time at/after
+    reference_ts (default: now) -- mirrors resolve_weekly_build_leaderboard's
+    own cron trigger (day_of_week='sun', hour=23, minute=59, no explicit
+    timezone=) exactly, so the countdown shown to players never drifts from
+    when the reset job actually fires."""
+    ref = datetime.datetime.fromtimestamp(reference_ts if reference_ts is not None else time.time())
+    days_until_sunday = (6 - ref.weekday()) % 7  # Monday=0 ... Sunday=6
+    candidate = (ref + datetime.timedelta(days=days_until_sunday)).replace(
+        hour=23, minute=59, second=0, microsecond=0
+    )
+    if candidate <= ref:
+        candidate += datetime.timedelta(days=7)
+    return int(candidate.timestamp())
+
+
+def _calculate_build_leaderboard_reward(rank, total_players):
+    """(lootbox_count, {resource_type: amount}) for a given final rank.
+
+    Podium (1-3) gets a fixed lootbox count plus random(0,100) rolls on an
+    increasing number of resource types. Ranks 4+ get no lootbox, one random
+    resource type, and a linearly-scaled amount from 50 (rank 4) down to 0
+    (last place) -- collapses to a flat 50 when rank 4 IS the last place
+    (only 4 total players), since the linear formula's own denominator
+    (total_players - 4) would otherwise be zero there."""
+    if rank == 1:
+        return 3, {r: random.randint(0, 100) for r in RESOURCE_TYPES}
+    if rank == 2:
+        return 2, {r: random.randint(0, 100) for r in random.sample(RESOURCE_TYPES, 2)}
+    if rank == 3:
+        return 1, {random.choice(RESOURCE_TYPES): random.randint(0, 100)}
+
+    non_podium_count = total_players - 3
+    if non_podium_count <= 1:
+        amount = 50
+    else:
+        amount = max(0, math.floor(50 * (1 - (rank - 4) / (total_players - 4))))
+    return 0, ({random.choice(RESOURCE_TYPES): amount} if amount > 0 else {})
+
+
+def resolve_weekly_build_leaderboard():
+    """Sun 23:59 -- archives the just-ended week's final standings (ranked by
+    ice_blocks_total) into weekly_build_leaderboard_archive, grants rank
+    rewards from those standings, clears the live table, and advances
+    week_id for the week that's about to start.
+
+    Rewards use the same helper functions/pattern as every other reward path
+    in this file -- grant_lootbox() for N00Tboxes and ensure_resources() +
+    the parameterized `UPDATE resources SET {resource}={resource}+?` used by
+    raid/igloo/minigame rewards -- never a raw INSERT bypassing them (see the
+    igloo-visit gold fix this mirrors). Each reward is logged to event_log
+    under its own event_type, and the archive row it's attached to carries
+    enough (lootbox ids + resource breakdown) for home()'s one-shot login
+    toast to reuse the exact daily-login/streak "Open" button pattern instead
+    of a new notification path.
+
+    Players who earned 0 ice_blocks this week never got a
+    weekly_build_leaderboard row to begin with (record_build_leaderboard_progress
+    only ever inserts on a positive award), so they're excluded from both the
+    standings and every reward below with no extra filtering needed here."""
+    if not FEATURES.get("weekly_build_leaderboard", True):
+        return
+    try:
+        now = int(time.time())
+        db  = get_db()
+        state = db.execute("SELECT week_id FROM weekly_build_leaderboard_state WHERE id=1").fetchone()
+        week_id = state["week_id"] if state else 1
+
+        standings = db.execute(
+            "SELECT username, ice_blocks_total FROM weekly_build_leaderboard ORDER BY ice_blocks_total DESC"
+        ).fetchall()
+        total_players = len(standings)
+
+        for rank, row in enumerate(standings, start=1):
+            username = row["username"]
+            lootbox_count, reward_resources = _calculate_build_leaderboard_reward(rank, total_players)
+
+            lootbox_ids = grant_lootbox(username, lootbox_count, "build_leaderboard_reward", db=db) \
+                if lootbox_count > 0 else []
+
+            if reward_resources:
+                ensure_resources(db, username)
+                for resource, amount in reward_resources.items():
+                    db.execute(
+                        f"UPDATE resources SET {resource}={resource}+? WHERE username=?",
+                        (amount, username)
+                    )
+
+            reward_parts = []
+            if lootbox_count:
+                reward_parts.append(f"{lootbox_count} N00Tbox" + ("es" if lootbox_count != 1 else ""))
+            reward_parts.extend(f"+{amt} {r.replace('_',' ')}" for r, amt in reward_resources.items())
+            log_event(
+                db, "build_leaderboard_reward",
+                f"{username} placed #{rank} in the Weekly Building Leaderboard! "
+                f"Earned {', '.join(reward_parts) if reward_parts else 'nothing this time'}. 🧊",
+                username
+            )
+
+            db.execute(
+                "INSERT INTO weekly_build_leaderboard_archive "
+                "(week_id, rank, username, ice_blocks_total, archived_at, "
+                "reward_lootboxes, reward_lootbox_ids, reward_resources, notified) "
+                "VALUES (?,?,?,?,?,?,?,?,0)",
+                (week_id, rank, username, row["ice_blocks_total"], now,
+                 lootbox_count, json.dumps(lootbox_ids), json.dumps(reward_resources)),
+            )
+
+        db.execute("DELETE FROM weekly_build_leaderboard")
+        db.execute(
+            "INSERT INTO weekly_build_leaderboard_state (id, week_id) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET week_id=excluded.week_id",
+            (week_id + 1,),
+        )
+        db.commit()
+        db.close()
+        print(f"[BuildLeaderboard] Archived + rewarded week {week_id}: {total_players} player(s) ranked. Now on week {week_id + 1}.")
+    except Exception as e:
+        print(f"[BuildLeaderboard] ERROR resolving weekly leaderboard: {e}")
+
+
+# Registered here (rather than alongside the raid/challenge jobs above) since
+# resolve_weekly_build_leaderboard is defined much later in this file than
+# that block -- _scheduler is already running by this point, and add_job() on
+# a live BackgroundScheduler is the documented way to add jobs after start(),
+# same technique used for resolve_minigame_weekly below.
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(resolve_weekly_build_leaderboard, "cron", day_of_week="sun", hour=23, minute=59,
+                       id="resolve_build_leaderboard_weekly", misfire_grace_time=300)
+
+
+@app.route("/build/leaderboard")
+def build_leaderboard_route():
+    """Current week's live standings for the 🧊 map-overlay popup, plus the
+    deadline the countdown next to it ticks down to. No podium/top-N cap --
+    unlike /minigame/leaderboard this is the live in-progress week, usually
+    small, and capping would hide a player's own row if they're ranked
+    outside the cutoff (the popup highlights that row when present)."""
+    if not FEATURES.get("weekly_build_leaderboard", True):
+        return jsonify({"status": "error", "message": "The weekly building leaderboard isn't live yet."})
+    username = session.get("username", "")
+
+    db   = get_db()
+    rows = db.execute(
+        "SELECT username, ice_blocks_total FROM weekly_build_leaderboard ORDER BY ice_blocks_total DESC"
+    ).fetchall()
+    state   = db.execute("SELECT week_id FROM weekly_build_leaderboard_state WHERE id=1").fetchone()
+    week_id = state["week_id"] if state else 1
+
+    entries = []
+    for i, row in enumerate(rows, start=1):
+        p = db.execute("SELECT penguin_name FROM penguins WHERE username=?", (row["username"],)).fetchone()
+        entries.append({
+            "rank":             i,
+            "username":         row["username"],
+            "penguin_name":     (p["penguin_name"] if p else None) or row["username"],
+            "ice_blocks_total": row["ice_blocks_total"],
+        })
+    db.close()
+
+    return jsonify({
+        "status":          "success",
+        "entries":         entries,
+        "week_id":         week_id,
+        "deadline_ts":     _next_build_leaderboard_deadline(),
+        "player_username": username,
     })
 
 
@@ -9609,15 +9854,15 @@ def mayor_debug_penguin_fetch():
 
 @app.route("/chat/messages")
 def chat_get_messages():
-    now    = int(time.time())
-    cutoff = now - 86400          # last 24 hours only
-    db     = get_db()
-    rows   = db.execute(
+    # No age cutoff -- messages persist until CHAT_MESSAGE_RETENTION prunes
+    # the oldest overflow (see run_autonomous_actions()), so the panel always
+    # has recent history to show instead of going empty after a quiet spell.
+    db   = get_db()
+    rows = db.execute(
         "SELECT username, message, created_at "
-        "FROM chat_messages WHERE created_at > ? "
-        "ORDER BY created_at ASC LIMIT 100",
-        (cutoff,)
+        "FROM chat_messages ORDER BY created_at DESC LIMIT 100"
     ).fetchall()
+    rows = list(reversed(rows))
     db.close()
     return jsonify({
         "messages": [
