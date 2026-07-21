@@ -43,3 +43,72 @@ body {
 #link-prompt {
   font-size: 12px;
 }
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #444;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 12px;
+  background: none;
+  border: none;
+  color: #B8B8D0;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  color: #fff;
+  border-bottom: 2px solid #4a9eff;
+}
+
+#events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 0;
+  border-bottom: 1px solid #333;
+  font-size: 12px;
+}
+
+.event-message {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.event-time {
+  color: #8888A8;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.event-share-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.event-share-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.events-empty {
+  color: #8888A8;
+  font-size: 12px;
+  text-align: center;
+  padding: 12px 0;
+  list-style: none;
+}

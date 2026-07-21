@@ -167,8 +167,36 @@ const buildBtn      = document.getElementById('build-btn');
 const attackBtn     = document.getElementById('attack-btn');
 const copyCardBtn   = document.getElementById('copy-card-btn');
 const actionResultEl = document.getElementById('action-result');
+const tabPlayerBtn  = document.getElementById('tab-player');
+const tabEventsBtn  = document.getElementById('tab-events');
+const eventsPanelEl = document.getElementById('events-panel');
+const eventsListEl  = document.getElementById('events-list');
 
 let currentUsername = null;
+let isLinked         = false;
+let activeTab         = 'player';
+
+// Which of link-prompt / player-panel / events-panel is shown depends on
+// both the active tab and the last-known linked state -- refreshPanel() and
+// the tab buttons both funnel through this instead of setting .hidden
+// directly, so the two states can't fight each other.
+function renderTabVisibility() {
+  tabPlayerBtn.classList.toggle('active', activeTab === 'player');
+  tabEventsBtn.classList.toggle('active', activeTab === 'events');
+  linkPromptEl.hidden  = !(activeTab === 'player' && !isLinked);
+  playerPanelEl.hidden = !(activeTab === 'player' && isLinked);
+  eventsPanelEl.hidden = activeTab !== 'events';
+}
+
+tabPlayerBtn.addEventListener('click', () => {
+  activeTab = 'player';
+  renderTabVisibility();
+});
+tabEventsBtn.addEventListener('click', () => {
+  activeTab = 'events';
+  renderTabVisibility();
+  loadEvents();
+});
 
 async function refreshPanel() {
   let resp, data;
@@ -184,17 +212,16 @@ async function refreshPanel() {
     return;
   }
 
+  isLinked = data.linked;
+
   if (!data.linked) {
-    playerPanelEl.hidden = true;
-    linkPromptEl.hidden = false;
     linkOpaqueEl.textContent = data.opaque_user_id || '';
     linkUrlEl.href = data.link_url;
     linkUrlEl.textContent = data.link_url;
+    renderTabVisibility();
     return;
   }
 
-  linkPromptEl.hidden = true;
-  playerPanelEl.hidden = false;
   currentUsername = data.username;
 
   statLevelEl.textContent = `Lv ${data.level}`;
@@ -211,6 +238,7 @@ async function refreshPanel() {
   attackBtn.disabled = !data.raid_active;
 
   renderPenguinFrame(data.shape, data.color);
+  renderTabVisibility();
 }
 
 async function handleBuild() {
@@ -297,3 +325,92 @@ async function handleCopyCard() {
 buildBtn.addEventListener('click', handleBuild);
 attackBtn.addEventListener('click', handleAttack);
 copyCardBtn.addEventListener('click', handleCopyCard);
+
+// ── EVENTS TAB ───────────────────────────────────────────────────────────
+// GET /extension/events/recent's response shape was checked against the
+// actual route code (it's the shared _recent_events() helper also used by
+// the site's GET /events/recent) rather than assumed: each event has
+// event_type, message, created_at, time_ago, id, username, participants --
+// no precomputed color/bucket field. The site's own color coding for this
+// exact endpoint's data lives in templates/home.html's _TICKER_COLORS map
+// (keyed by event_type, used by loadNewsTicker() -- the site's own consumer
+// of /events/recent), so that data IS present in the response (event_type
+// is the key _TICKER_COLORS needs) and is ported verbatim below rather than
+// guessed. Its own fallback ('#B8B8D0' for any event_type not in the map)
+// is kept as-is, same as the site.
+const _TICKER_COLORS = {
+  autonomous: '#B8B8D0', village: '#4aff6b', level_up: '#FF8C00',
+  achievement: '#FF8C00', combat: '#ff6b6b', job: '#4aff6b',
+  shop: '#FF7FE5', seal_shop: '#FF7FE5', igloo: '#A86EFF',
+  social: '#4a9eff', milestone: '#FF8C00', title: '#FF8C00',
+  gear_purchase: '#A86EFF', reshape: '#4a9eff', character_created: '#4aff6b',
+  donation: '#FF8C00', building_levelup: '#4aff6b', group: '#4aff6b',
+};
+
+async function loadEvents() {
+  eventsListEl.innerHTML = '<li class="events-empty">Loading...</li>';
+  let resp, data;
+  try {
+    resp = await authedFetch(`${BACKEND_ORIGIN}/extension/events/recent`);
+    data = await resp.json();
+  } catch (err) {
+    console.error('[PenguinVillage] /extension/events/recent failed:', err);
+    eventsListEl.innerHTML = '<li class="events-empty">Could not load events.</li>';
+    return;
+  }
+  if (!resp.ok) {
+    console.error('[PenguinVillage] /extension/events/recent error:', resp.status, data);
+    eventsListEl.innerHTML = '<li class="events-empty">Could not load events.</li>';
+    return;
+  }
+  renderEvents(data.events || []);
+}
+
+function renderEvents(events) {
+  eventsListEl.innerHTML = '';
+  if (!events.length) {
+    eventsListEl.innerHTML = '<li class="events-empty">No events yet.</li>';
+    return;
+  }
+  for (const ev of events) {
+    const li = document.createElement('li');
+    li.className = 'event-row';
+
+    const msgSpan = document.createElement('span');
+    msgSpan.className = 'event-message';
+    msgSpan.style.color = _TICKER_COLORS[ev.event_type] || '#B8B8D0';
+    msgSpan.textContent = ev.message;
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'event-time';
+    timeSpan.textContent = ev.time_ago;
+
+    const shareBtn = document.createElement('button');
+    shareBtn.type = 'button';
+    shareBtn.className = 'event-share-btn';
+    shareBtn.textContent = 'Share';
+    shareBtn.addEventListener('click', () => handleShareEvent(ev.id, shareBtn));
+
+    li.appendChild(msgSpan);
+    li.appendChild(timeSpan);
+    li.appendChild(shareBtn);
+    eventsListEl.appendChild(li);
+  }
+}
+
+async function handleShareEvent(eventId, btnEl) {
+  btnEl.disabled = true;
+  btnEl.textContent = '...';
+  try {
+    const resp = await authedFetch(`${BACKEND_ORIGIN}/extension/events/share/${eventId}`, { method: 'POST' });
+    const data = await resp.json();
+    btnEl.textContent = (resp.ok && data.status === 'shared') ? 'Shared!' : (data.message || 'Failed');
+  } catch (err) {
+    console.error('[PenguinVillage] /extension/events/share failed:', err);
+    btnEl.textContent = 'Failed';
+  }
+  setTimeout(() => {
+    btnEl.textContent = 'Share';
+    btnEl.disabled = false;
+  }, 2000);
+}

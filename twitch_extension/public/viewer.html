@@ -7,6 +7,11 @@
 </head>
 <body>
   <div id="panel-root">
+    <div id="tabs">
+      <button id="tab-player" class="tab-btn active" type="button">Player</button>
+      <button id="tab-events" class="tab-btn" type="button">Events</button>
+    </div>
+
     <div id="link-prompt" hidden>
       <p>Not linked yet. Visit the site and enter this code to link your account:</p>
       <p id="link-opaque-id"></p>
@@ -30,6 +35,10 @@
       </div>
 
       <p id="action-result"></p>
+    </div>
+
+    <div id="events-panel" hidden>
+      <ul id="events-list"></ul>
     </div>
   </div>
 
