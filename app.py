@@ -519,6 +519,12 @@ def _event_bucket(event_type):
 # ── Global chat ──────────────────────────────────────────────────────────────
 _CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
 CHAT_MESSAGE_RETENTION   = 300  # keep only the newest N rows -- see run_autonomous_actions()
+
+# ── Passive seals (award_passive_seals scheduler job) ────────────────────────
+# Intentionally flat for now -- tune once real alpha usage data exists, same
+# as GROUP_EVENT_CHANCE_PER_TICK and other not-yet-balanced constants.
+PASSIVE_SEALS_INTERVAL_MINUTES = 10
+PASSIVE_SEALS_AMOUNT           = 1
 # Hardcoded wordlist — expandable; basic bad-word filter applied on send
 _CHAT_BLOCKED_WORDS = frozenset({
     'fuck', 'shit', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
@@ -3499,6 +3505,60 @@ def stream_chatted():
     db.commit()
     db.close()
     return jsonify({"status": "ok"})
+
+
+def award_passive_seals():
+    """Every PASSIVE_SEALS_INTERVAL_MINUTES, while the stream is live, grant
+    PASSIVE_SEALS_AMOUNT Mayor's Seals to every penguin present/chatting
+    (stream_tier >= 2 -- set by /stream/presence and /stream/chatted, read
+    only, never written here). Writes straight to the DB rather than calling
+    the /seals/award route, mirroring run_autonomous_actions()'s loop/commit
+    pattern: one query up front, per-player try/except so a single bad row
+    can't abort the whole tick, one commit at the end."""
+    if not _stream_is_live():
+        return
+    db = get_db()
+    try:
+        usernames = [r["username"] for r in db.execute(
+            "SELECT username FROM penguins WHERE stream_tier >= 2"
+        ).fetchall()]
+    except Exception as e:
+        print(f"[PassiveSeals] Failed to load penguins: {e}")
+        db.close()
+        return
+    if not usernames:
+        db.close()
+        return
+    awarded = 0
+    for username in usernames:
+        try:
+            ensure_resources(db, username)
+            db.execute(
+                "UPDATE resources SET mayor_seals=mayor_seals+? WHERE username=?",
+                (PASSIVE_SEALS_AMOUNT, username)
+            )
+            log_event(
+                db, "admin_debug",
+                f"[PassiveSeals] Awarded {PASSIVE_SEALS_AMOUNT} Mayor's Seal(s) to {username}",
+                username
+            )
+            awarded += 1
+        except Exception as e:
+            print(f"[PassiveSeals] Error awarding to {username}: {e}")
+    db.commit()
+    db.close()
+    print(f"[PassiveSeals] Awarded seals to {awarded}/{len(usernames)} present players")
+
+
+# Registered here (rather than alongside the raid/challenge jobs above) since
+# award_passive_seals depends on _stream_is_live(), defined earlier but still
+# after that block -- _scheduler is already running by this point, and
+# add_job() on a live BackgroundScheduler is the documented way to add jobs
+# after start(), same technique used for resolve_weekly_build_leaderboard and
+# resolve_weekly_minigame_leaderboard.
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(award_passive_seals, "interval", minutes=PASSIVE_SEALS_INTERVAL_MINUTES,
+                       id="award_passive_seals", misfire_grace_time=60)
 
 
 # ── BUILDING INFO ────────────────────────────────────────────────────────────
