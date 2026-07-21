@@ -136,6 +136,22 @@ def extension_required(view_func):
     return wrapper
 
 
+def _resolve_extension_player(db, ext_auth):
+    """Resolve a penguins row from a verified Extension JWT's claims:
+    twitch_user_id first (real Twitch identity shared), falling back to the
+    manually-linked extension_opaque_id. Returns the row, or None if
+    unlinked. Shared by every /extension/* route that needs "which player is
+    this" so they can't resolve differently from one another."""
+    user_id        = ext_auth.get("user_id")
+    opaque_user_id = ext_auth.get("opaque_user_id")
+    p = None
+    if user_id:
+        p = db.execute("SELECT * FROM penguins WHERE twitch_user_id=?", (user_id,)).fetchone()
+    if not p and opaque_user_id:
+        p = db.execute("SELECT * FROM penguins WHERE extension_opaque_id=?", (opaque_user_id,)).fetchone()
+    return p
+
+
 # ── STATIC ASSET CACHE-BUSTING (map/building/igloo rendering sprites only) ─────
 # static/buildings, static/tiles, static/items, static/penguin_wearing, and
 # static/igloo_furniture are all referenced by an unchanging URL (e.g.
@@ -2751,21 +2767,28 @@ def raid_join():
     return jsonify({"status": "success", "participant_count": participant_count})
 
 
-@app.route("/raid/attack", methods=["POST"])
-def raid_attack():
-    username = session.get("username", "")
-    if not username:
-        return jsonify({"status": "error", "message": "Not logged in."})
-    if not FEATURES.get("weekly_raid", False):
-        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+def _perform_raid_attack(db, username):
+    """Shared core of a raid attack: active-raid check, join/participant-row
+    upsert (respecting raid_join_window), energy/free-roll check, damage
+    roll (calculate_attack_damage() + CP bonus), boss HP + participant
+    damage writes, XP award. Shared by /raid/attack (session auth) and
+    /extension/raid_attack (JWT auth) so the two can't drift -- caller owns
+    the db connection's commit/close, its own "not logged in" / "not linked"
+    and weekly_raid-feature checks, and (after committing) the killing-blow
+    resolve_raid() call via _maybe_resolve_defeated_raid() below -- that has
+    to happen post-commit on a fresh connection, so it can't live in here.
 
-    db   = get_db()
+    Returns (True, payload_dict, None) on success, or
+    (False, error_message, http_status) on an expected failure -- http_status
+    mirrors the specific codes this route has always used per case (409 no
+    active raid, 403 not joined, None/200 for the rest); never raises for
+    those.
+    """
     raid = db.execute(
         "SELECT * FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1"
     ).fetchone()
     if not raid:
-        db.close()
-        return jsonify({"status": "error", "message": "No raid is active right now."}), 409
+        return False, "No raid is active right now.", 409
 
     raid_id = raid["id"]
 
@@ -2781,8 +2804,7 @@ def raid_attack():
             "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
         ).fetchone()
         if not participant:
-            db.close()
-            return jsonify({"status": "error", "message": "You haven't joined this raid."}), 403
+            return False, "You haven't joined this raid.", 403
     else:
         # No join phase -- any logged-in player can attack once the raid is
         # active. total_damage_dealt still needs a raid_participants row to
@@ -2801,8 +2823,7 @@ def raid_attack():
         "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
     ).fetchone()
     if not p:
-        db.close()
-        return jsonify({"status": "error", "message": "Player not found."})
+        return False, "Player not found.", None
 
     energy       = p["energy"] or 0
     free_rolls   = p["build_free_rolls"] or 0
@@ -2811,8 +2832,7 @@ def raid_attack():
 
     if not is_free_roll:
         if energy < energy_cost:
-            db.close()
-            return jsonify({"status": "error", "message": f"Need {energy_cost} energy to attack! Rest at the hotel."})
+            return False, f"Need {energy_cost} energy to attack! Rest at the hotel.", None
         db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (energy_cost, username))
 
     roll        = random.randint(1, 20)
@@ -2845,11 +2865,9 @@ def raid_attack():
     )
     award_xp(db, username, roll)
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
-    db.commit()
-    db.close()
 
     payload = {
-        "status":               "success",
+        "raid_id":              raid_id,
         "roll":                 roll,
         "damage_dealt":         damage,
         # Breakdown so the frontend can optionally show "roll: X + CP bonus: Y
@@ -2867,14 +2885,97 @@ def raid_attack():
         "xp_earned":            roll,
         "energy_remaining":     (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
     }
+    return True, payload, None
 
-    if new_boss_hp <= 0:
-        # Resolve instantly for responsive UX rather than waiting on a scheduler
-        # tick — resolve_raid re-opens its own db handle after the commit above
-        # so it sees this attack's damage in the final ranking.
-        resolution = resolve_raid(raid_id, "defeated")
+
+def _maybe_resolve_defeated_raid(payload):
+    """Call after committing an attack's DB writes -- resolve_raid() needs to
+    see them via its own fresh connection (same reason the original inline
+    code called it post-commit: "so it sees this attack's damage in the final
+    ranking"). No-op (returns payload unchanged) unless this attack was a
+    killing blow."""
+    if payload["boss_current_hp"] <= 0:
+        resolution = resolve_raid(payload["raid_id"], "defeated")
         if resolution:
             payload["resolution"] = resolution
+    return payload
+
+
+@app.route("/raid/attack", methods=["POST"])
+def raid_attack():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if not FEATURES.get("weekly_raid", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+
+    db = get_db()
+    ok, result, http_status = _perform_raid_attack(db, username)
+    if not ok:
+        db.close()
+        resp = jsonify({"status": "error", "message": result})
+        return (resp, http_status) if http_status else resp
+    db.commit()
+    db.close()
+
+    result = _maybe_resolve_defeated_raid(result)
+
+    # Same field set/shape this route has always returned (raid_id, added to
+    # the shared helper's payload for _maybe_resolve_defeated_raid()'s use,
+    # is deliberately NOT included here).
+    payload = {
+        "status":               "success",
+        "roll":                 result["roll"],
+        "damage_dealt":         result["damage_dealt"],
+        "base_damage":          result["base_damage"],
+        "cp_bonus":             result["cp_bonus"],
+        "total_damage":         result["total_damage"],
+        "player_cp":            result["player_cp"],
+        "boss_current_hp":      result["boss_current_hp"],
+        "boss_max_hp":          result["boss_max_hp"],
+        "was_crit":             result["was_crit"],
+        "normal_return":        result["normal_return"],
+        "free_rolls_remaining": result["free_rolls_remaining"],
+        "xp_earned":            result["xp_earned"],
+        "energy_remaining":     result["energy_remaining"],
+    }
+    if "resolution" in result:
+        payload["resolution"] = result["resolution"]
+
+    return jsonify(payload)
+
+
+@app.route("/extension/raid_attack", methods=["POST"])
+@extension_required
+def extension_raid_attack():
+    db = get_db()
+    p = _resolve_extension_player(db, g.ext_auth)
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Account not linked."}), 401
+    if not FEATURES.get("weekly_raid", False):
+        db.close()
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+    username = p["username"]
+
+    ok, result, http_status = _perform_raid_attack(db, username)
+    if not ok:
+        db.close()
+        resp = jsonify({"status": "error", "message": result})
+        return (resp, http_status) if http_status else resp
+    db.commit()
+    db.close()
+
+    result = _maybe_resolve_defeated_raid(result)
+
+    payload = {
+        "status":          "success",
+        "damage_dealt":    result["damage_dealt"],
+        "boss_current_hp": result["boss_current_hp"],
+        "boss_max_hp":     result["boss_max_hp"],
+    }
+    if "resolution" in result:
+        payload["resolution"] = result["resolution"]
 
     return jsonify(payload)
 
@@ -3313,23 +3414,15 @@ def extension_summary():
     -- the panel calls /extension/link/start separately with that id to mint
     a code; this endpoint only reports status.
     """
-    ext_auth       = g.ext_auth
-    user_id        = ext_auth.get("user_id")
-    opaque_user_id = ext_auth.get("opaque_user_id")
-
     db = get_db()
-    p = None
-    if user_id:
-        p = db.execute("SELECT * FROM penguins WHERE twitch_user_id=?", (user_id,)).fetchone()
-    if not p and opaque_user_id:
-        p = db.execute("SELECT * FROM penguins WHERE extension_opaque_id=?", (opaque_user_id,)).fetchone()
+    p = _resolve_extension_player(db, g.ext_auth)
 
     if not p:
         db.close()
         return jsonify({
             "linked":         False,
             "link_url":       request.host_url.rstrip("/") + "/",
-            "opaque_user_id": opaque_user_id,
+            "opaque_user_id": g.ext_auth.get("opaque_user_id"),
         })
 
     username = p["username"]
@@ -9717,35 +9810,38 @@ def calculateIceBlockReward(roll):
     return roll
 
 
-@app.route("/build/roll", methods=["POST"])
-def build_roll():
-    username = session.get("username", "")
-    if not username:
-        return jsonify({"status": "error", "message": "Not logged in."})
+def _perform_build_roll(db, username):
+    """Shared core of a Build! roll: energy/free-roll check, roll,
+    ice_blocks credit, leaderboard progress, XP award. Shared by /build/roll
+    (session auth) and /extension/build_roll (JWT auth) so the two can't
+    drift -- caller owns the db connection's commit/close and its own
+    "not logged in" / "not linked" checks; this only handles "does this
+    username exist" and the roll itself.
 
-    db = get_db()
+    Returns (True, payload_dict) on success, (False, error_message) on an
+    expected failure (player not found, insufficient energy) -- never raises
+    for those.
+    """
     p = db.execute(
         "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
     ).fetchone()
     if not p:
-        db.close()
-        return jsonify({"status": "error", "message": "Player not found."})
+        return False, "Player not found."
 
-    energy          = p["energy"] or 0
-    free_rolls      = p["build_free_rolls"] or 0
-    energy_cost     = 5
-    is_free_roll    = free_rolls > 0
-    normal_return   = False
+    energy        = p["energy"] or 0
+    free_rolls    = p["build_free_rolls"] or 0
+    energy_cost   = 5
+    is_free_roll  = free_rolls > 0
+    normal_return = False
 
     if not is_free_roll:
         if energy < energy_cost:
-            db.close()
-            return jsonify({"status": "error", "message": f"Need {energy_cost} energy to build! Rest at the hotel."})
+            return False, f"Need {energy_cost} energy to build! Rest at the hotel."
         db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (energy_cost, username))
 
-    roll            = random.randint(1, 20)
-    ice_earned      = calculateIceBlockReward(roll)
-    is_crit         = (roll == 20 and not is_free_roll)
+    roll       = random.randint(1, 20)
+    ice_earned = calculateIceBlockReward(roll)
+    is_crit    = (roll == 20 and not is_free_roll)
 
     if is_free_roll:
         new_free_rolls = free_rolls - 1
@@ -9758,24 +9854,83 @@ def build_roll():
         new_free_rolls = 0
 
     db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (ice_earned, username))
-    if FEATURES.get("weekly_build_leaderboard", True):
+    leaderboard_updated = FEATURES.get("weekly_build_leaderboard", True)
+    if leaderboard_updated:
         record_build_leaderboard_progress(db, username, ice_earned)
     award_xp(db, username, roll)
-    r = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
+    r  = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
+
+    return True, {
+        "roll":                 roll,
+        "ice_blocks_earned":    ice_earned,
+        "ice_blocks_total":     r["ice_blocks"] if r else ice_earned,
+        "xp_earned":            roll,
+        "free_rolls_remaining": new_free_rolls,
+        "is_crit":              is_crit,
+        "normal_return":        normal_return,
+        "energy_remaining":     (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+        "leaderboard_updated":  leaderboard_updated,
+    }
+
+
+@app.route("/build/roll", methods=["POST"])
+def build_roll():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    ok, result = _perform_build_roll(db, username)
+    if not ok:
+        db.close()
+        return jsonify({"status": "error", "message": result})
     db.commit()
     db.close()
 
+    # Same field set/shape this route has always returned -- leaderboard_updated
+    # (added to the shared helper for /extension/build_roll's response) is
+    # deliberately NOT included here, so this route's response is unchanged.
     return jsonify({
         "status":           "success",
-        "roll":             roll,
-        "ice_blocks_earned": ice_earned,
-        "ice_blocks_total": r["ice_blocks"] if r else ice_earned,
-        "xp_earned":        roll,
-        "free_rolls_remaining": new_free_rolls,
-        "is_crit":          is_crit,
-        "normal_return":    normal_return,
-        "energy_remaining": (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+        "roll":             result["roll"],
+        "ice_blocks_earned": result["ice_blocks_earned"],
+        "ice_blocks_total": result["ice_blocks_total"],
+        "xp_earned":        result["xp_earned"],
+        "free_rolls_remaining": result["free_rolls_remaining"],
+        "is_crit":          result["is_crit"],
+        "normal_return":    result["normal_return"],
+        "energy_remaining": result["energy_remaining"],
+    })
+
+
+@app.route("/extension/build_roll", methods=["POST"])
+@extension_required
+def extension_build_roll():
+    db = get_db()
+    p = _resolve_extension_player(db, g.ext_auth)
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Account not linked."}), 401
+    username = p["username"]
+
+    ok, result = _perform_build_roll(db, username)
+    if not ok:
+        db.close()
+        return jsonify({"status": "error", "message": result})
+    db.commit()
+    db.close()
+
+    # Same response shape as the production /stream/build_command route, for
+    # frontend consistency across every non-website Build! trigger.
+    return jsonify({
+        "status":              "success",
+        "roll":                result["roll"],
+        "xp_earned":           result["xp_earned"],
+        "ice_blocks_earned":   result["ice_blocks_earned"],
+        "ice_blocks_total":    result["ice_blocks_total"],
+        "crit":                result["is_crit"],
+        "leaderboard_updated": result["leaderboard_updated"],
     })
 
 
