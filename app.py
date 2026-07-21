@@ -3602,6 +3602,66 @@ def stream_chatted():
     return jsonify({"status": "ok"})
 
 
+# ── STREAM BUILD ROLL ────────────────────────────────────────────────────────
+# Chat-triggered equivalent of /build/roll (see build_roll() below), fed by a
+# StreamerBot dice-roll command instead of the website's Build! button. Kept
+# fully separate from /build/roll -- no shared state or call path -- so the
+# web roll can't be affected by anything here.
+
+@app.route("/stream/build_command", methods=["POST"])
+def stream_build_command():
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "skip"})
+    try:
+        roll   = int(data.get("roll"))
+        reward = int(data.get("reward"))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "roll and reward must be integers."})
+    crit = bool(data.get("crit", False))
+
+    # Same lookup /stream/presence uses -- if this username has no penguins
+    # row, there's nothing to credit.
+    db = get_db()
+    p  = db.execute("SELECT id, stream_tier FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "skip"})
+
+    # No energy check/deduction -- stream rolls are cooldown-gated by
+    # StreamerBot itself, not the in-game energy system. /build/roll (the
+    # web path) is unaffected and still energy-gated as before.
+    #
+    # ice_blocks write mirrors build_roll()'s own UPDATE below -- there is no
+    # separate resource-write helper for ice_blocks to call instead of raw
+    # SQL (build_roll() writes it the same way); this reuses that exact
+    # statement rather than inventing a new one-off helper for a single caller.
+    db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (reward, username))
+    leaderboard_updated = FEATURES.get("weekly_build_leaderboard", True)
+    if leaderboard_updated:
+        record_build_leaderboard_progress(db, username, reward)
+    # XP tracks the raw roll, same as build_roll() -- the multiplied `reward`
+    # only drives ice_blocks/leaderboard progress, never XP.
+    award_xp(db, username, roll)
+    r = db.execute("SELECT ice_blocks FROM resources WHERE username=?", (username,)).fetchone()
+    db.commit()
+    db.close()
+
+    return jsonify({
+        "status":              "success",
+        "username":            username,
+        "roll":                roll,
+        "crit":                crit,
+        "ice_blocks_earned":   reward,
+        "ice_blocks_total":    r["ice_blocks"] if r else reward,
+        "xp_earned":           roll,
+        "leaderboard_updated": leaderboard_updated,
+    })
+
+
 def award_passive_seals(force=False):
     """Every PASSIVE_SEALS_INTERVAL_MINUTES, while the stream is live, grant
     PASSIVE_SEALS_AMOUNT Mayor's Seals to every penguin present/chatting
