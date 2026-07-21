@@ -5544,17 +5544,64 @@ def share_event_to_twitch(event_id):
     return jsonify({"status": "success"})
 
 
-@app.route("/events/recent")
-def events_recent():
-    db   = get_db()
+def _recent_events(db, limit=40):
+    """Shared core of the public event feed: same event_log query/filtering
+    (excludes admin_debug) used by both /events/recent (site) and
+    /extension/events/recent (Twitch panel), so the filtering can't drift
+    between the two. limit is a bind param, not a route constant, so the
+    panel can ask for a smaller page than the site's default."""
     rows = db.execute(
-        "SELECT * FROM event_log WHERE event_type != 'admin_debug' ORDER BY created_at DESC LIMIT 40"
+        "SELECT * FROM event_log WHERE event_type != 'admin_debug' ORDER BY created_at DESC LIMIT ?",
+        (limit,)
     ).fetchall()
-    db.close()
-    return jsonify({"events": [{
+    return [{
         **dict(r),
         "time_ago": _format_time_ago(r["created_at"])
-    } for r in rows]})
+    } for r in rows]
+
+
+@app.route("/events/recent")
+def events_recent():
+    db     = get_db()
+    events = _recent_events(db)
+    db.close()
+    return jsonify({"events": events})
+
+
+@app.route("/extension/events/recent")
+@extension_required
+def extension_events_recent():
+    # No player-resolution needed -- village-wide public feed, same content
+    # any logged-in viewer sees on-site. Capped lower than the site's default
+    # 40 (20) since this is the small fixed panel below the video, not a
+    # full-page feed.
+    db     = get_db()
+    events = _recent_events(db, limit=20)
+    db.close()
+    return jsonify({"events": events})
+
+
+@app.route("/extension/events/share/<int:event_id>", methods=["POST"])
+@extension_required
+def extension_share_event(event_id):
+    db = get_db()
+    p  = _resolve_extension_player(db, g.ext_auth)
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Account not linked."}), 401
+
+    row = db.execute("SELECT * FROM event_log WHERE id=?", (event_id,)).fetchone()
+    db.close()
+    if not row:
+        return jsonify({"status": "error", "message": "Event not found."}), 404
+
+    # Same outbound message format as the website's /events/share/<id>: the
+    # event_log row's own message field, unmodified.
+    if not notify_streamerbot(row["message"]):
+        return jsonify({"status": "error", "message": "Could not reach StreamerBot. Try again."}), 502
+
+    print(f"[ExtensionEventShare] {p['username']} shared event_id={event_id} to StreamerBot")
+    return jsonify({"status": "shared"})
 
 
 @app.route("/debug/run-autonomous", methods=["POST"])
