@@ -5012,6 +5012,8 @@ def get_events():
 @app.route("/events/share/<int:event_id>", methods=["POST"])
 def share_event_to_twitch(event_id):
     username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."}), 401
     db  = get_db()
     row = db.execute("SELECT * FROM event_log WHERE id=?", (event_id,)).fetchone()
     db.close()
