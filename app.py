@@ -40,6 +40,7 @@ DISCORD_REDIRECT_URI  = os.getenv("DISCORD_REDIRECT_URI")
 SECRET_KEY          = os.getenv("SECRET_KEY")
 MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
+STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
 
 BUFF_NAMES = {
     "double_resources": "2x Resources",
@@ -3387,10 +3388,17 @@ def _stream_is_live():
         return False
 
 
+def _streamerbot_authed():
+    provided = request.headers.get("X-StreamerBot-Secret", "")
+    return bool(STREAMERBOT_SECRET and provided == STREAMERBOT_SECRET)
+
+
 # ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
 
 @app.route("/seals/award", methods=["POST"])
 def seals_award():
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
     data     = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
     if not username:
@@ -3456,6 +3464,8 @@ def seals_buy():
 
 @app.route("/stream/presence", methods=["POST"])
 def stream_presence():
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
     data     = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
     if not username:
@@ -3474,6 +3484,8 @@ def stream_presence():
 
 @app.route("/stream/chatted", methods=["POST"])
 def stream_chatted():
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
     data     = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
     if not username:
