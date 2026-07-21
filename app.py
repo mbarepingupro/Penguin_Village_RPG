@@ -1475,7 +1475,14 @@ def get_daily_variant(monster_type_id):
 
 
 def calculate_set_bonuses(db, username):
-    """Sum up combat set bonuses from equipped gear pieces. Returns combat_power_bonus."""
+    """Sum up combat set bonuses from equipped gear pieces.
+
+    Session 8: set_bonuses' bonus_2pc_cp/bonus_3pc_cp/secret_cp columns now
+    store whole PERCENTAGE points (e.g. 5 == +5% combat power), not a flat
+    CP amount -- returns combat_power_bonus_pct, summed across every set the
+    player has 2+ pieces of. get_combat_power() applies the sum
+    multiplicatively to the base+gear CP total, the same way the festival
+    buff's +10% is already applied there."""
     equipped = db.execute(
         "SELECT set_name FROM gear WHERE username=? AND equipped=1 AND type='combat' AND set_name IS NOT NULL",
         (username,)
@@ -1518,7 +1525,7 @@ def calculate_set_bonuses(db, username):
                 active_descriptions.append(f"{set_name} SECRET: {set_data['secret']['description']}")
 
     return {
-        "combat_power_bonus": total_cp_bonus,
+        "combat_power_bonus_pct": total_cp_bonus,
         "active_bonuses": active_descriptions,
         # Keep backward compat keys at zero so get_combat_stats() doesn't crash
         "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0, "hp_bonus": 0,
@@ -1537,8 +1544,10 @@ def get_combat_power(username):
         ).fetchall()
         for item in equipped:
             cp += item["combat_power"] or 0
-        sb = calculate_set_bonuses(db, username)
-        cp += sb.get("combat_power_bonus", 0)
+        sb  = calculate_set_bonuses(db, username)
+        pct = sb.get("combat_power_bonus_pct", 0)
+        if pct:
+            cp += int(cp * pct / 100)
         for buff in get_active_buffs(db):
             if buff["buff_type"] == "festival":
                 cp = int(cp * 1.1)
@@ -5010,6 +5019,29 @@ def gear_inventory():
     })
 
 
+def _gear_required_level(db, item):
+    """Minimum player level to equip this owned gear row (0 == no gate).
+
+    Forged items (barracks_shop) are looked up by item_id, since gear.item_id
+    for those is exactly the barracks_shop.id barracks_buy() wrote. Dropped
+    items (gear_templates) don't have that -- generate_gear_drop() /
+    _generate_lootbox_gear() stamp a synthetic per-drop item_id, not the
+    template's id -- so those are looked up by name+slot+rarity instead;
+    gear.name is tmpl["name"].upper() (see generate_gear_drop()), hence the
+    case-insensitive compare."""
+    if item["item_id"]:
+        row = db.execute(
+            "SELECT required_level FROM barracks_shop WHERE id=?", (item["item_id"],)
+        ).fetchone()
+        if row:
+            return row["required_level"] or 0
+    row = db.execute(
+        "SELECT required_level FROM gear_templates WHERE UPPER(name)=UPPER(?) AND slot=? AND rarity=?",
+        (item["name"], item["slot"], item["rarity"])
+    ).fetchone()
+    return row["required_level"] if row else 0
+
+
 @app.route("/gear/equip", methods=["POST"])
 def gear_equip():
     if not FEATURES.get("gear_equip", False):
@@ -5027,6 +5059,16 @@ def gear_equip():
         db.commit()
         db.close()
         return jsonify({"status": "success", "equipped": False, "message": f"{item['name']} unequipped."})
+    if item["type"] == "combat":
+        req_level = _gear_required_level(db, item)
+        if req_level:
+            p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+            player_level = p["level"] if p else 1
+            if player_level < req_level:
+                db.close()
+                return jsonify({"status": "error",
+                                 "message": f"{item['name']} requires level {req_level} to equip "
+                                            f"(you are level {player_level})."})
     db.execute("UPDATE gear SET equipped=0 WHERE username=? AND type=? AND slot=?", (username, item["type"], item["slot"]))
     db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_id,))
     new_ach = check_achievements(db, username)
@@ -6916,6 +6958,7 @@ def barracks_shop(username):
     owned_ids = [r["item_id"] for r in owned if r["item_id"]]
     gold = get_gold(db, username)
     res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
     db.close()
     return jsonify({
         "status": "ok",
@@ -6923,6 +6966,7 @@ def barracks_shop(username):
         "owned_ids": owned_ids,
         "gold": gold,
         "resources": dict(res) if res else {},
+        "player_level": p["level"] if p else 1,
     })
 
 
@@ -8428,9 +8472,9 @@ def mayor_items_all():
 # ── gear_templates/set_bonuses -- see catalog.py for the read-side       ──
 # ── loaders these tables also back) ─────────────────────────────────────
 _CATALOG_TABLES = {
-    "barracks_shop":  {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "combat_power", "cost", "event_exclusive"]},
+    "barracks_shop":  {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "combat_power", "cost", "event_exclusive", "required_level"]},
     "boutique_items": {"pk": "id",       "columns": ["id", "name", "category", "slot", "price", "tier", "event_exclusive"]},
-    "gear_templates": {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "set_name", "combat_power"]},
+    "gear_templates": {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "set_name", "combat_power", "required_level"]},
     "set_bonuses":    {"pk": "set_name", "columns": ["set_name", "pieces_needed", "bonus_2pc_cp", "bonus_2pc_desc",
                                                       "bonus_3pc_cp", "bonus_3pc_desc", "secret_cosmetic_required",
                                                       "secret_cp", "secret_desc"]},
@@ -8468,6 +8512,7 @@ def _validate_catalog_row(catalog_name, data):
         combat_power = data.get("combat_power")
         cost  = data.get("cost") or {}
         event_exclusive = bool(data.get("event_exclusive"))
+        required_level = data.get("required_level", 1)
         if not id_ or not name:
             raise ValueError("id and name are required.")
         if not _CATALOG_ID_RE.match(id_):
@@ -8478,6 +8523,8 @@ def _validate_catalog_row(catalog_name, data):
             raise ValueError(f"rarity must be one of {sorted(_CATALOG_RARITIES)}.")
         if not isinstance(combat_power, int) or isinstance(combat_power, bool) or combat_power < 0:
             raise ValueError("combat_power must be a non-negative integer.")
+        if not isinstance(required_level, int) or isinstance(required_level, bool) or required_level < 1:
+            raise ValueError("required_level must be a positive integer.")
         if not isinstance(cost, dict) or not cost:
             raise ValueError("cost must be a non-empty resource -> amount mapping.")
         for res, amt in cost.items():
@@ -8487,7 +8534,7 @@ def _validate_catalog_row(catalog_name, data):
                 raise ValueError(f"cost[{res}] must be a positive integer.")
         return {"id": id_, "name": name, "slot": slot, "rarity": rarity,
                 "combat_power": combat_power, "cost": json.dumps(cost),
-                "event_exclusive": int(event_exclusive)}
+                "event_exclusive": int(event_exclusive), "required_level": required_level}
 
     if catalog_name == "boutique_items":
         id_   = (data.get("id") or "").strip()
@@ -8519,6 +8566,7 @@ def _validate_catalog_row(catalog_name, data):
         rarity = data.get("rarity")
         set_name = (data.get("set_name") or "").strip() or None
         combat_power = data.get("combat_power")
+        required_level = data.get("required_level", 1)
         if not id_ or not name:
             raise ValueError("id and name are required.")
         if not _CATALOG_ID_RE.match(id_):
@@ -8531,8 +8579,10 @@ def _validate_catalog_row(catalog_name, data):
             raise ValueError("set_name may only contain letters, digits, spaces, and apostrophes.")
         if not isinstance(combat_power, int) or isinstance(combat_power, bool) or combat_power < 0:
             raise ValueError("combat_power must be a non-negative integer.")
+        if not isinstance(required_level, int) or isinstance(required_level, bool) or required_level < 1:
+            raise ValueError("required_level must be a positive integer.")
         return {"id": id_, "name": name, "slot": slot, "rarity": rarity,
-                "set_name": set_name, "combat_power": combat_power}
+                "set_name": set_name, "combat_power": combat_power, "required_level": required_level}
 
     if catalog_name == "set_bonuses":
         set_name = (data.get("set_name") or "").strip()

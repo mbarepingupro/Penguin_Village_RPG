@@ -590,6 +590,13 @@ def init_db():
     _add_col(c, "penguins", "trait_social TEXT DEFAULT NULL")
     _add_col(c, "penguins", "trait_interest TEXT DEFAULT NULL")
     _add_col(c, "penguins", "trait_quirk TEXT DEFAULT NULL")
+    # Session 8: combat gear level tiers -- minimum player level to /gear/equip
+    # (not /gear/wear -- cosmetic slots stay ungated). barracks_shop mirrors
+    # the same gate for its forged items (see catalog.py's
+    # _BARRACKS_REQUIRED_LEVEL), gear_templates carries the real per-set
+    # values (see catalog.DEFAULT_GEAR_TEMPLATES).
+    _add_col(c, "gear_templates", "required_level INTEGER DEFAULT 1")
+    _add_col(c, "barracks_shop", "required_level INTEGER DEFAULT 1")
     _add_col(c, "gear", "worn INTEGER DEFAULT 0")
     _add_col(c, "gear", "listed INTEGER DEFAULT 0")
     _add_col(c, "gear", "bank_sell_price INTEGER DEFAULT 0")
@@ -753,11 +760,15 @@ def init_db():
         c.execute("UPDATE gear SET combat_power=22 WHERE name='Temple Mystic Hood'   AND type='combat'")
         c.execute("UPDATE gear SET combat_power=20 WHERE name='Temple Mystic Sandals'AND type='combat'")
         c.execute("UPDATE gear SET combat_power=25 WHERE name='Temple Mystic Robes'  AND type='combat'")
-        # Legendary monster drops (Penguin Emperor set)
-        c.execute("UPDATE gear SET combat_power=45 WHERE name=\"Emperor's Scepter\"  AND type='combat'")
-        c.execute("UPDATE gear SET combat_power=35 WHERE name=\"Emperor's Diadem\"   AND type='combat'")
-        c.execute("UPDATE gear SET combat_power=32 WHERE name=\"Emperor's Sabatons\" AND type='combat'")
-        c.execute("UPDATE gear SET combat_power=42 WHERE name=\"Emperor's Regalia\"  AND type='combat'")
+        # Legendary monster drops (Penguin Emperor set) -- Session 8 bumped
+        # these from 45/35/32/42 (total 154, the shared legendary split) to
+        # 56/43/39/52 (total 190), scaled proportionally to that same split,
+        # since Penguin Emperor kept its piece names but is now a standalone
+        # set stronger than the 5-tier ladder's legendary stage.
+        c.execute("UPDATE gear SET combat_power=56 WHERE name=\"Emperor's Scepter\"  AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=43 WHERE name=\"Emperor's Diadem\"   AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=39 WHERE name=\"Emperor's Sabatons\" AND type='combat'")
+        c.execute("UPDATE gear SET combat_power=52 WHERE name=\"Emperor's Regalia\"  AND type='combat'")
         # Barracks forged — common
         c.execute("UPDATE gear SET combat_power=4  WHERE name='Iron Sword'           AND type='combat'")
         c.execute("UPDATE gear SET combat_power=3  WHERE name='Iron Helmet'          AND type='combat'")
