@@ -3296,6 +3296,88 @@ def extension_link_redeem():
     return jsonify({"status": "success"})
 
 
+@app.route("/extension/summary")
+@extension_required
+def extension_summary():
+    """Read-only summary for the Twitch Extension panel. No mutations, no DB
+    writes -- deliberately skips ensure_resources() (INSERTs a row if missing)
+    and update_passive_energy() (writes accrued passive regen) even though
+    both are the normal path elsewhere in this file, since either would make
+    this route non-read-only; energy/ice_blocks below can be a few minutes
+    stale as a result, corrected on the player's next real action.
+
+    Resolves the player from flask.g.ext_auth (the verified JWT's claims):
+    twitch_user_id first if the viewer has shared real Twitch identity,
+    otherwise the manually-linked extension_opaque_id. If neither matches,
+    reports linked=false with a link_url and the opaque_user_id echoed back
+    -- the panel calls /extension/link/start separately with that id to mint
+    a code; this endpoint only reports status.
+    """
+    ext_auth       = g.ext_auth
+    user_id        = ext_auth.get("user_id")
+    opaque_user_id = ext_auth.get("opaque_user_id")
+
+    db = get_db()
+    p = None
+    if user_id:
+        p = db.execute("SELECT * FROM penguins WHERE twitch_user_id=?", (user_id,)).fetchone()
+    if not p and opaque_user_id:
+        p = db.execute("SELECT * FROM penguins WHERE extension_opaque_id=?", (opaque_user_id,)).fetchone()
+
+    if not p:
+        db.close()
+        return jsonify({
+            "linked":         False,
+            "link_url":       request.host_url.rstrip("/") + "/",
+            "opaque_user_id": opaque_user_id,
+        })
+
+    username = p["username"]
+
+    r = db.execute("SELECT ice_blocks FROM resources WHERE username=?", (username,)).fetchone()
+
+    # worn_items -- same type='cosmetic' AND worn=1 query _get_public_penguin()
+    # (card/profile rendering) and village_penguins() (map rendering) both
+    # already use inline; neither extracts it into a callable function, so
+    # there's nothing to import instead of this query itself. `area` is
+    # included via the same _VISUAL_AREA slot->area map those call sites use.
+    worn_rows = db.execute(
+        "SELECT item_id, slot FROM gear WHERE username=? AND type='cosmetic' AND worn=1",
+        (username,)
+    ).fetchall()
+    worn_items = [
+        {"item_id": w["item_id"], "slot": w["slot"], "area": _VISUAL_AREA.get(w["slot"])}
+        for w in worn_rows if w["item_id"]
+    ]
+
+    # raid_active -- identical single-row lookup /raid/status uses; only
+    # 'active' is a live, attackable raid (join_window/awaiting_raid/etc. are
+    # all "not yet" states there too).
+    raid_row    = db.execute("SELECT status FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    raid_active = bool(raid_row and raid_row["status"] == "active")
+
+    db.close()
+
+    # get_combat_power() manages its own connection -- called after db.close()
+    # above rather than sharing this route's connection.
+    cp = get_combat_power(username)
+
+    return jsonify({
+        "linked":          True,
+        "username":        username,
+        "level":           p["level"] or 1,
+        "cp":              cp,
+        "shape":           p["penguin_shape"] or "normal",
+        "color":           _resolve_hex_color(p["penguin_color"] or "#1a1a1a"),
+        "energy":          p["energy"] or 0,
+        "energy_max":      p["max_energy"] or 100,
+        "ice_blocks":      r["ice_blocks"] if r else 0,
+        "worn_items":      worn_items,
+        "build_available": (p["energy"] or 0) > 0,
+        "raid_active":     raid_active,
+    })
+
+
 @app.route("/reshape")
 def reshape_page():
     username = session.get("username")
