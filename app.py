@@ -3009,14 +3009,19 @@ def callback():
             headers={"Authorization": f"Bearer {access_token}", "Client-Id": TWITCH_CLIENT_ID},
             timeout=10,
         )
-        username = user_resp.json()["data"][0]["login"]
+        twitch_user = user_resp.json()["data"][0]
+        username        = twitch_user["login"]
+        twitch_user_id  = twitch_user.get("id")
     except Exception:
         return redirect("/?error=twitch_auth_failed")
     session["username"] = username
 
     db = get_db()
     try:
-        db.execute("INSERT INTO penguins (username) VALUES (?)", (username,))
+        db.execute(
+            "INSERT INTO penguins (username, twitch_user_id) VALUES (?, ?)",
+            (username, twitch_user_id)
+        )
         session["new_user"] = True
         log_event(db, "village", f"{username} joined the village! 🐧", username)
         ensure_resources(db, username)
@@ -3026,6 +3031,10 @@ def callback():
         )
     except Exception:
         session["new_user"] = False
+        # Existing account (INSERT failed on the username UNIQUE constraint) --
+        # keep twitch_user_id current on every login. Also backfills accounts
+        # created before this column existed, on their next login.
+        db.execute("UPDATE penguins SET twitch_user_id=? WHERE username=?", (twitch_user_id, username))
     ensure_player_data(db, username)
     db.commit()
     db.close()

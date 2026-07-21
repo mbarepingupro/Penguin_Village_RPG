@@ -588,6 +588,10 @@ def init_db():
     _add_col(c, "penguins", "penguin_shape TEXT DEFAULT 'normal'")
     _add_col(c, "penguins", "auth_provider TEXT DEFAULT 'twitch'")
     _add_col(c, "penguins", "discord_id TEXT DEFAULT NULL")
+    # Twitch's stable numeric user id (distinct from `username`, which is the
+    # Twitch login name and can change) -- for future Twitch Extension
+    # identity linking. See the Twitch OAuth callback in app.py.
+    _add_col(c, "penguins", "twitch_user_id TEXT DEFAULT NULL")
     _add_col(c, "resources", "ice_blocks INTEGER DEFAULT 0")
     _add_col(c, "penguins", "build_free_rolls INTEGER DEFAULT 0")
     _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")
