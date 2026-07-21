@@ -5544,17 +5544,59 @@ def share_event_to_twitch(event_id):
     return jsonify({"status": "success"})
 
 
-@app.route("/events/recent")
-def events_recent():
+def _get_recent_events(limit=40):
+    """Public village-wide event feed (excludes admin_debug) -- shared by
+    /events/recent and /extension/events/recent so the panel and the website
+    can never show different content or drift in filter/order/limit."""
     db   = get_db()
     rows = db.execute(
-        "SELECT * FROM event_log WHERE event_type != 'admin_debug' ORDER BY created_at DESC LIMIT 40"
+        "SELECT * FROM event_log WHERE event_type != 'admin_debug' ORDER BY created_at DESC LIMIT ?",
+        (limit,)
     ).fetchall()
     db.close()
-    return jsonify({"events": [{
+    return [{
         **dict(r),
         "time_ago": _format_time_ago(r["created_at"])
-    } for r in rows]})
+    } for r in rows]
+
+
+@app.route("/events/recent")
+def events_recent():
+    return jsonify({"events": _get_recent_events()})
+
+
+@app.route("/extension/events/recent")
+@extension_required
+def extension_events_recent():
+    # Village-wide public feed -- no player resolution needed, same content
+    # any logged-in viewer sees on-site.
+    return jsonify({"events": _get_recent_events()})
+
+
+@app.route("/extension/events/share/<int:event_id>", methods=["POST"])
+@extension_required
+def extension_events_share(event_id):
+    db = get_db()
+    p  = _resolve_extension_player(db, g.ext_auth)
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Account not linked."}), 401
+
+    # Same lookup share_event_to_twitch() (the website's /events/share/<id>)
+    # uses -- plain id lookup against event_log, not the admin_debug-filtered
+    # public feed above, matching that route's own behavior exactly.
+    row = db.execute("SELECT * FROM event_log WHERE id=?", (event_id,)).fetchone()
+    db.close()
+    if not row:
+        return jsonify({"status": "error", "message": "Event not found."}), 404
+
+    # Same outbound message format share_event_to_twitch() uses: the raw
+    # event_log.message column, unmodified.
+    if not notify_streamerbot(row["message"]):
+        return jsonify({"status": "error", "message": "Couldn't share, try again."}), 502
+
+    print(f"[EventShare] {p['username']} shared event_id={event_id} to StreamerBot via extension")
+    return jsonify({"status": "shared"})
 
 
 @app.route("/debug/run-autonomous", methods=["POST"])
