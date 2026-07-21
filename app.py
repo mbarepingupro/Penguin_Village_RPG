@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import base64
 import hashlib
 import os
 import re
@@ -7,7 +8,9 @@ import random
 import secrets
 import string
 import sqlite3
-from flask import Flask, jsonify, redirect, request, session, url_for, render_template
+from functools import wraps
+import jwt
+from flask import Flask, g, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db, backfill_cosmetics, record_challenge_progress, record_build_leaderboard_progress
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
@@ -44,6 +47,11 @@ MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
 STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
+# Base64-encoded shared secret from the Twitch Developer Console (Extensions ->
+# your extension -> Settings), used to verify the Extension Helper JWT sent by
+# the extension frontend. Separate trust boundary from STREAMERBOT_SECRET above.
+EXTENSION_SECRET      = os.getenv("EXTENSION_SECRET", "")
+EXTENSION_CORS_ORIGIN = os.getenv("EXTENSION_CORS_ORIGIN", "https://*.ext-twitch.tv")
 
 BUFF_NAMES = {
     "double_resources": "2x Resources",
@@ -55,6 +63,78 @@ BUFF_NAMES = {
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
+
+# ── EXTENSION CORS (scoped to /extension/* only) ────────────────────────────
+# The Twitch Extension panel runs in an iframe on a *.ext-twitch.tv origin,
+# so its fetch()es to this app are cross-origin -- unlike every other route in
+# this file, which is same-origin session-cookie auth and needs no CORS
+# headers at all. Deliberately scoped by request.path rather than applied
+# globally, so nothing outside /extension/ changes behavior. Flask handles
+# OPTIONS preflight automatically for routes that don't declare it explicitly
+# (an empty 200 before the view function ever runs), and this hook still runs
+# on that automatic response same as any other, so no separate OPTIONS route
+# is needed.
+@app.after_request
+def _extension_cors_headers(response):
+    if request.path.startswith("/extension/"):
+        response.headers["Access-Control-Allow-Origin"]  = EXTENSION_CORS_ORIGIN
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+
+def _extension_authed():
+    """Verify a Twitch Extension Helper JWT from the Authorization header
+    ("Bearer <token>"), signed HS256 with EXTENSION_SECRET (base64-decoded
+    first, per Twitch's own convention for this secret). Same shape as
+    _streamerbot_authed() (defined later in this file, alongside the other
+    StreamerBot routes) but for the Extension's shared-secret trust boundary,
+    which is separate from both session-cookie auth and STREAMERBOT_SECRET.
+    Defined up here rather than next to that sibling helper because
+    extension_required() below is used as a decorator -- decorators run at
+    module-load time, so it (and this) must already exist before
+    /extension/link/start's `@extension_required` line is reached.
+
+    Returns {"opaque_user_id", "user_id", "role"} from the token's claims on
+    success -- user_id is absent (None) unless the viewer has shared their
+    real Twitch identity with the extension, opaque_user_id is always present
+    for a valid token. Returns None on ANY failure (missing/malformed header,
+    bad signature, expired token) -- never raises. jwt.decode() verifies exp
+    by default; nothing here disables that.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[len("Bearer "):].strip()
+    if not token or not EXTENSION_SECRET:
+        return None
+    try:
+        secret_key = base64.b64decode(EXTENSION_SECRET)
+        payload    = jwt.decode(token, secret_key, algorithms=["HS256"])
+    except Exception:
+        return None
+    return {
+        "opaque_user_id": payload.get("opaque_user_id"),
+        "user_id":        payload.get("user_id"),
+        "role":           payload.get("role"),
+    }
+
+
+def extension_required(view_func):
+    """Route decorator: 401s with a JSON error if _extension_authed() finds
+    no valid Extension JWT, otherwise attaches its result to flask.g.ext_auth
+    and calls through. Mirrors the inline `if not _streamerbot_authed(): ...`
+    check used on StreamerBot routes, as a decorator instead since callers
+    need the decoded claims, not just a bool."""
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        ext_auth = _extension_authed()
+        if ext_auth is None:
+            return jsonify({"status": "error", "message": "Invalid or missing Twitch Extension token."}), 401
+        g.ext_auth = ext_auth
+        return view_func(*args, **kwargs)
+    return wrapper
+
 
 # ── STATIC ASSET CACHE-BUSTING (map/building/igloo rendering sprites only) ─────
 # static/buildings, static/tiles, static/items, static/penguin_wearing, and
@@ -3139,10 +3219,10 @@ def discord_callback():
 # Manual code-based linking for viewers the extension only knows by an opaque,
 # per-extension id (no real Twitch identity shared). /extension/link/start is
 # meant to be called from the extension panel itself, which doesn't exist yet
-# -- no JWT verification here yet either, that arrives with that panel/backend
-# in a later session. Until then this route is reachable by anyone who can
-# reach the server; the 15-minute expiry and one-time `used` flag bound how
-# much that's worth, but it is NOT yet a real identity check.
+# -- but is now gated by @extension_required (see _extension_authed() above),
+# so opaque_user_id comes from the verified JWT's own claims, never the
+# request body. The 15-minute expiry and one-time `used` flag on top of that
+# bound how long a minted code is worth anything.
 _LINK_CODE_ALPHABET  = string.ascii_uppercase + string.digits
 _LINK_CODE_LENGTH    = 6
 _LINK_CODE_TTL_SECS  = 15 * 60
@@ -3160,11 +3240,11 @@ def _generate_link_code(db):
 
 
 @app.route("/extension/link/start", methods=["POST"])
+@extension_required
 def extension_link_start():
-    data           = request.get_json(silent=True) or {}
-    opaque_user_id = data.get("opaque_user_id", "").strip()
+    opaque_user_id = g.ext_auth.get("opaque_user_id")
     if not opaque_user_id:
-        return jsonify({"status": "error", "message": "opaque_user_id required."}), 400
+        return jsonify({"status": "error", "message": "Token missing opaque_user_id."}), 400
 
     now        = int(time.time())
     expires_at = now + _LINK_CODE_TTL_SECS

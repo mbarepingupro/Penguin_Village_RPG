@@ -4,3 +4,4 @@ requests
 Pillow
 flask-apscheduler
 gunicorn
+PyJWT
