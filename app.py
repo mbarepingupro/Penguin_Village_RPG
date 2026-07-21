@@ -41,6 +41,7 @@ SECRET_KEY          = os.getenv("SECRET_KEY")
 MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
+STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
 
 BUFF_NAMES = {
     "double_resources": "2x Resources",
@@ -3399,6 +3400,32 @@ def _streamerbot_authed():
     return bool(STREAMERBOT_SECRET and provided == STREAMERBOT_SECRET)
 
 
+def notify_streamerbot(message: str):
+    """POST a plain-text message to StreamerBot's inbound webhook (STREAMERBOT_OUTBOUND_URL) --
+    outbound from the game's perspective, i.e. StreamerBot receiving, not sending. Returns True
+    on a 2xx response, False on missing config, a network error, or a non-2xx status; never raises.
+
+    Reuses STREAMERBOT_SECRET (the same value _streamerbot_authed() checks on inbound requests)
+    as the X-Game-Secret header here. Flagging rather than deciding silently: one secret now
+    authenticates both directions, so a leak on either side -- StreamerBot's inbound listener
+    config or this outbound call -- compromises both, and rotating it means updating both flows
+    together. A dedicated STREAMERBOT_OUTBOUND_SECRET would isolate that blast radius for the
+    cost of one more env var; swap to one if that tradeoff matters here.
+    """
+    if not STREAMERBOT_OUTBOUND_URL or not STREAMERBOT_SECRET:
+        return False
+    try:
+        resp = http_requests.post(
+            STREAMERBOT_OUTBOUND_URL,
+            data=message.encode("utf-8"),
+            headers={"X-Game-Secret": STREAMERBOT_SECRET, "Content-Type": "text/plain"},
+            timeout=5,
+        )
+        return resp.ok
+    except Exception:
+        return False
+
+
 # ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
 
 @app.route("/seals/award", methods=["POST"])
@@ -4984,12 +5011,16 @@ def get_events():
 
 @app.route("/events/share/<int:event_id>", methods=["POST"])
 def share_event_to_twitch(event_id):
-    # TODO StreamerBot: wire this up to the real StreamerBot integration —
-    # no StreamerBot endpoints exist in this codebase yet, so this only logs
-    # the request and returns a not-implemented response for now.
     username = session.get("username")
-    print(f"[EventShare] {username or 'anonymous'} requested Twitch share for event_id={event_id}")
-    return jsonify({"status": "not_implemented", "message": "Twitch sharing is coming soon."}), 501
+    db  = get_db()
+    row = db.execute("SELECT * FROM event_log WHERE id=?", (event_id,)).fetchone()
+    db.close()
+    if not row:
+        return jsonify({"status": "error", "message": "Event not found."}), 404
+    if not notify_streamerbot(row["message"]):
+        return jsonify({"status": "error", "message": "Could not reach StreamerBot."}), 502
+    print(f"[EventShare] {username or 'anonymous'} shared event_id={event_id} to StreamerBot")
+    return jsonify({"status": "success"})
 
 
 @app.route("/events/recent")
@@ -7363,13 +7394,12 @@ def card_image(username):
 
 @app.route("/card/<username>/share", methods=["POST"])
 def share_card_to_twitch(username):
-    # TODO StreamerBot: wire this up to the real StreamerBot integration --
-    # no StreamerBot endpoints exist in this codebase yet, so this only logs
-    # the request and returns a not-implemented response for now. Mirrors
-    # share_event_to_twitch's stub shape exactly.
     requester = session.get("username")
-    print(f"[CardShare] {requester or 'anonymous'} requested Twitch share for card username={username}")
-    return jsonify({"status": "not_implemented", "message": "Twitch sharing is coming soon."}), 501
+    link = request.host_url.rstrip("/") + f"/card/{username}/image"
+    if not notify_streamerbot(link):
+        return jsonify({"status": "error", "message": "Could not reach StreamerBot."}), 502
+    print(f"[CardShare] {requester or 'anonymous'} shared card username={username} to StreamerBot")
+    return jsonify({"status": "success"})
 
 
 _VILLAGE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout.json")
