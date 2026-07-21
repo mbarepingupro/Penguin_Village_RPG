@@ -1075,6 +1075,61 @@ _GEAR_DROP_RARITY_WEIGHTS = {
     5: {"common": 0,  "uncommon": 10, "rare": 25, "epic": 40, "legendary": 25},
 }
 
+# Gear tiers (Session "level-gate" prompt): each family in gear_templates
+# spans one of these level ranges via required_level, and monster tiers
+# (MONSTER_TYPES' "tier" field, 1-5) map 1:1 onto the same ranges. Shared
+# here so both the monster-loot roll and the N00Tbox roll derive "what tier
+# is this" the same way -- see _gear_tier_for_level()/_gear_pool_for_tier()
+# below, the reusable helpers this and future loot-pool prompts should call.
+GEAR_TIER_LEVEL_RANGES = {
+    1: (1, 5),
+    2: (6, 10),
+    3: (11, 15),
+    4: (16, 20),
+    5: (21, 30),
+}
+
+
+def _gear_tier_for_level(level):
+    """Which gear tier (1-5) a given level falls in -- used both for a
+    player's own current tier and, via an item's required_level, for that
+    item's tier. Levels below/above the configured range clamp to the
+    nearest tier rather than raising, since LEVEL_DATA is capped at 30 but
+    nothing stops a required_level of 0 or a future level increase."""
+    for tier, (lo, hi) in GEAR_TIER_LEVEL_RANGES.items():
+        if lo <= level <= hi:
+            return tier
+    return 5 if level > GEAR_TIER_LEVEL_RANGES[5][1] else 1
+
+
+def _gear_pool_for_tier(rarity, tier, db=None, max_tier=False):
+    """gear_templates items of `rarity` restricted to a gear tier.
+
+    Exact-tier match by default (monster loot: a tier-N monster only drops
+    tier-N items). Pass max_tier=True for "this tier and below" (N00Tbox:
+    capped at the player's current tier, since they can't equip anything
+    higher yet anyway).
+
+    Penguin Emperor is always excluded -- it's the level-25 standalone grind
+    target, never a random monster/N00Tbox drop (see catalog.py's
+    DEFAULT_GEAR_TEMPLATES docstring). Falls back to every non-Emperor item
+    of that rarity if the tier-restricted pool is empty (defensive only --
+    every rarity currently has exactly one item per tier, so this shouldn't
+    trigger, but a combat-victory or lootbox-open response must not 500 over
+    an admin-edited catalog gap)."""
+    items = catalog.load_gear_templates(db=db).get(rarity, [])
+    pool = []
+    for item in items:
+        if item["set_name"] == "Penguin Emperor":
+            continue
+        item_tier = _gear_tier_for_level(item["required_level"])
+        if (item_tier <= tier) if max_tier else (item_tier == tier):
+            pool.append(item)
+    if not pool:
+        pool = [i for i in items if i["set_name"] != "Penguin Emperor"]
+    return pool
+
+
 # ── SET BONUSES ───────────────────────────────────────────────────────────────
 # SET_BONUSES used to be a dict literal here -- now DB-backed via
 # catalog.load_set_bonuses() (see catalog.py / migrate_catalog_tables.py).
@@ -1689,13 +1744,21 @@ def get_combat_stats(db, username):
 def generate_gear_drop(monster_tier, db=None):
     """Generate a random gear drop for a given monster tier.
 
+    The rarity roll (common/uncommon/rare/epic/legendary) is weighted by
+    _GEAR_DROP_RARITY_WEIGHTS as before; the template within that rarity is
+    now further restricted to gear whose required_level puts it in this
+    SAME gear tier (monster tier N -> tier-N items only, exact match) via
+    _gear_pool_for_tier() -- monster tier and gear tier are the same 1-5
+    scale (see GEAR_TIER_LEVEL_RANGES). Penguin Emperor is excluded by that
+    helper regardless of tier.
+
     Pass the caller's own already-open `db` connection when calling mid-
     transaction -- see raid_settings.get_setting's docstring for why.
     """
     weights  = _GEAR_DROP_RARITY_WEIGHTS.get(monster_tier, _GEAR_DROP_RARITY_WEIGHTS[1])
     pool     = [r for r, w in weights.items() for _ in range(w)]
     rarity   = random.choice(pool)
-    tmpl     = random.choice(catalog.load_gear_templates(db=db)[rarity])
+    tmpl     = random.choice(_gear_pool_for_tier(rarity, monster_tier, db=db))
     item_id  = f"drop_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {
         "name": tmpl["name"].upper(),
@@ -1729,11 +1792,19 @@ def _roll_lootbox_rarity(db=None):
     return "common"  # float-rounding fallback
 
 
-def _generate_lootbox_gear(rarity, db=None):
+def _generate_lootbox_gear(rarity, player_tier, db=None):
     """Random gear item of an exact rarity — reuses catalog.load_gear_templates(),
-    same shape as generate_gear_drop(). Same optional-`db` convention as
-    raid_settings.get_setting()."""
-    tmpl    = random.choice(catalog.load_gear_templates(db=db)[rarity])
+    same shape as generate_gear_drop().
+
+    Unlike generate_gear_drop() (exact monster-tier match), the eligible
+    pool here is capped at player_tier AND BELOW (max_tier=True) -- a
+    N00Tbox's pool is driven by the PLAYER's current tier, not by whatever
+    triggered the box (daily login, raid reward, streak, ...), since they
+    can't equip anything above their own tier yet regardless of source. The
+    rarity roll itself (_roll_lootbox_rarity's odds) is untouched -- only
+    which templates are eligible within that rarity shrinks/grows by tier.
+    Same optional-`db` convention as raid_settings.get_setting()."""
+    tmpl    = random.choice(_gear_pool_for_tier(rarity, player_tier, db=db, max_tier=True))
     item_id = f"lootbox_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {
         "name": tmpl["name"].upper(),
@@ -1750,6 +1821,10 @@ def _generate_lootbox_gear(rarity, db=None):
 def open_lootbox(lootbox_id, username):
     """Roll + apply a lootbox's rewards (1 gear item + gold + 1 resource).
 
+    The gear tier eligible for this box is derived from the PLAYER's level
+    at OPEN time (not box["source"], not whatever level they were when the
+    box was granted) -- see _generate_lootbox_gear()'s docstring.
+
     Returns the roll result dict for the frontend to animate, or None if the
     box doesn't exist, isn't owned by username, or was already opened.
     """
@@ -1759,8 +1834,10 @@ def open_lootbox(lootbox_id, username):
         db.close()
         return None
 
+    p            = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+    player_tier  = _gear_tier_for_level(p["level"] if p else 1)
     rarity   = _roll_lootbox_rarity(db=db)
-    gear     = _generate_lootbox_gear(rarity, db=db)
+    gear     = _generate_lootbox_gear(rarity, player_tier, db=db)
     gold_range     = raid_settings.get_setting("gold_range", db=db)
     resource_range = raid_settings.get_setting("resource_range", db=db)
     gold     = random.randint(gold_range[0], gold_range[1])
