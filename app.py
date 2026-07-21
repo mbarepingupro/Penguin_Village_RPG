@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import base64
 import hashlib
 import os
 import re
@@ -7,7 +8,9 @@ import random
 import secrets
 import string
 import sqlite3
-from flask import Flask, jsonify, redirect, request, session, url_for, render_template
+from functools import wraps
+import jwt
+from flask import Flask, g, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db, backfill_cosmetics, record_challenge_progress, record_build_leaderboard_progress
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
@@ -44,6 +47,11 @@ MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
 STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
+# Base64-encoded shared secret from the Twitch Developer Console (Extensions ->
+# your extension -> Settings), used to verify the Extension Helper JWT sent by
+# the extension frontend. Separate trust boundary from STREAMERBOT_SECRET above.
+EXTENSION_SECRET      = os.getenv("EXTENSION_SECRET", "")
+EXTENSION_CORS_ORIGIN = os.getenv("EXTENSION_CORS_ORIGIN", "https://*.ext-twitch.tv")
 
 BUFF_NAMES = {
     "double_resources": "2x Resources",
@@ -55,6 +63,94 @@ BUFF_NAMES = {
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
+
+# ── EXTENSION CORS (scoped to /extension/* only) ────────────────────────────
+# The Twitch Extension panel runs in an iframe on a *.ext-twitch.tv origin,
+# so its fetch()es to this app are cross-origin -- unlike every other route in
+# this file, which is same-origin session-cookie auth and needs no CORS
+# headers at all. Deliberately scoped by request.path rather than applied
+# globally, so nothing outside /extension/ changes behavior. Flask handles
+# OPTIONS preflight automatically for routes that don't declare it explicitly
+# (an empty 200 before the view function ever runs), and this hook still runs
+# on that automatic response same as any other, so no separate OPTIONS route
+# is needed.
+@app.after_request
+def _extension_cors_headers(response):
+    if request.path.startswith("/extension/"):
+        response.headers["Access-Control-Allow-Origin"]  = EXTENSION_CORS_ORIGIN
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+
+def _extension_authed():
+    """Verify a Twitch Extension Helper JWT from the Authorization header
+    ("Bearer <token>"), signed HS256 with EXTENSION_SECRET (base64-decoded
+    first, per Twitch's own convention for this secret). Same shape as
+    _streamerbot_authed() (defined later in this file, alongside the other
+    StreamerBot routes) but for the Extension's shared-secret trust boundary,
+    which is separate from both session-cookie auth and STREAMERBOT_SECRET.
+    Defined up here rather than next to that sibling helper because
+    extension_required() below is used as a decorator -- decorators run at
+    module-load time, so it (and this) must already exist before
+    /extension/link/start's `@extension_required` line is reached.
+
+    Returns {"opaque_user_id", "user_id", "role"} from the token's claims on
+    success -- user_id is absent (None) unless the viewer has shared their
+    real Twitch identity with the extension, opaque_user_id is always present
+    for a valid token. Returns None on ANY failure (missing/malformed header,
+    bad signature, expired token) -- never raises. jwt.decode() verifies exp
+    by default; nothing here disables that.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[len("Bearer "):].strip()
+    if not token or not EXTENSION_SECRET:
+        return None
+    try:
+        secret_key = base64.b64decode(EXTENSION_SECRET)
+        payload    = jwt.decode(token, secret_key, algorithms=["HS256"])
+    except Exception:
+        return None
+    return {
+        "opaque_user_id": payload.get("opaque_user_id"),
+        "user_id":        payload.get("user_id"),
+        "role":           payload.get("role"),
+    }
+
+
+def extension_required(view_func):
+    """Route decorator: 401s with a JSON error if _extension_authed() finds
+    no valid Extension JWT, otherwise attaches its result to flask.g.ext_auth
+    and calls through. Mirrors the inline `if not _streamerbot_authed(): ...`
+    check used on StreamerBot routes, as a decorator instead since callers
+    need the decoded claims, not just a bool."""
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        ext_auth = _extension_authed()
+        if ext_auth is None:
+            return jsonify({"status": "error", "message": "Invalid or missing Twitch Extension token."}), 401
+        g.ext_auth = ext_auth
+        return view_func(*args, **kwargs)
+    return wrapper
+
+
+def _resolve_extension_player(db, ext_auth):
+    """Resolve a penguins row from a verified Extension JWT's claims:
+    twitch_user_id first (real Twitch identity shared), falling back to the
+    manually-linked extension_opaque_id. Returns the row, or None if
+    unlinked. Shared by every /extension/* route that needs "which player is
+    this" so they can't resolve differently from one another."""
+    user_id        = ext_auth.get("user_id")
+    opaque_user_id = ext_auth.get("opaque_user_id")
+    p = None
+    if user_id:
+        p = db.execute("SELECT * FROM penguins WHERE twitch_user_id=?", (user_id,)).fetchone()
+    if not p and opaque_user_id:
+        p = db.execute("SELECT * FROM penguins WHERE extension_opaque_id=?", (opaque_user_id,)).fetchone()
+    return p
+
 
 # ── STATIC ASSET CACHE-BUSTING (map/building/igloo rendering sprites only) ─────
 # static/buildings, static/tiles, static/items, static/penguin_wearing, and
@@ -2671,21 +2767,28 @@ def raid_join():
     return jsonify({"status": "success", "participant_count": participant_count})
 
 
-@app.route("/raid/attack", methods=["POST"])
-def raid_attack():
-    username = session.get("username", "")
-    if not username:
-        return jsonify({"status": "error", "message": "Not logged in."})
-    if not FEATURES.get("weekly_raid", False):
-        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+def _perform_raid_attack(db, username):
+    """Shared core of a raid attack: active-raid check, join/participant-row
+    upsert (respecting raid_join_window), energy/free-roll check, damage
+    roll (calculate_attack_damage() + CP bonus), boss HP + participant
+    damage writes, XP award. Shared by /raid/attack (session auth) and
+    /extension/raid_attack (JWT auth) so the two can't drift -- caller owns
+    the db connection's commit/close, its own "not logged in" / "not linked"
+    and weekly_raid-feature checks, and (after committing) the killing-blow
+    resolve_raid() call via _maybe_resolve_defeated_raid() below -- that has
+    to happen post-commit on a fresh connection, so it can't live in here.
 
-    db   = get_db()
+    Returns (True, payload_dict, None) on success, or
+    (False, error_message, http_status) on an expected failure -- http_status
+    mirrors the specific codes this route has always used per case (409 no
+    active raid, 403 not joined, None/200 for the rest); never raises for
+    those.
+    """
     raid = db.execute(
         "SELECT * FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1"
     ).fetchone()
     if not raid:
-        db.close()
-        return jsonify({"status": "error", "message": "No raid is active right now."}), 409
+        return False, "No raid is active right now.", 409
 
     raid_id = raid["id"]
 
@@ -2701,8 +2804,7 @@ def raid_attack():
             "SELECT 1 FROM raid_participants WHERE raid_id=? AND username=?", (raid_id, username)
         ).fetchone()
         if not participant:
-            db.close()
-            return jsonify({"status": "error", "message": "You haven't joined this raid."}), 403
+            return False, "You haven't joined this raid.", 403
     else:
         # No join phase -- any logged-in player can attack once the raid is
         # active. total_damage_dealt still needs a raid_participants row to
@@ -2721,8 +2823,7 @@ def raid_attack():
         "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
     ).fetchone()
     if not p:
-        db.close()
-        return jsonify({"status": "error", "message": "Player not found."})
+        return False, "Player not found.", None
 
     energy       = p["energy"] or 0
     free_rolls   = p["build_free_rolls"] or 0
@@ -2731,8 +2832,7 @@ def raid_attack():
 
     if not is_free_roll:
         if energy < energy_cost:
-            db.close()
-            return jsonify({"status": "error", "message": f"Need {energy_cost} energy to attack! Rest at the hotel."})
+            return False, f"Need {energy_cost} energy to attack! Rest at the hotel.", None
         db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (energy_cost, username))
 
     roll        = random.randint(1, 20)
@@ -2765,11 +2865,9 @@ def raid_attack():
     )
     award_xp(db, username, roll)
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
-    db.commit()
-    db.close()
 
     payload = {
-        "status":               "success",
+        "raid_id":              raid_id,
         "roll":                 roll,
         "damage_dealt":         damage,
         # Breakdown so the frontend can optionally show "roll: X + CP bonus: Y
@@ -2787,14 +2885,97 @@ def raid_attack():
         "xp_earned":            roll,
         "energy_remaining":     (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
     }
+    return True, payload, None
 
-    if new_boss_hp <= 0:
-        # Resolve instantly for responsive UX rather than waiting on a scheduler
-        # tick — resolve_raid re-opens its own db handle after the commit above
-        # so it sees this attack's damage in the final ranking.
-        resolution = resolve_raid(raid_id, "defeated")
+
+def _maybe_resolve_defeated_raid(payload):
+    """Call after committing an attack's DB writes -- resolve_raid() needs to
+    see them via its own fresh connection (same reason the original inline
+    code called it post-commit: "so it sees this attack's damage in the final
+    ranking"). No-op (returns payload unchanged) unless this attack was a
+    killing blow."""
+    if payload["boss_current_hp"] <= 0:
+        resolution = resolve_raid(payload["raid_id"], "defeated")
         if resolution:
             payload["resolution"] = resolution
+    return payload
+
+
+@app.route("/raid/attack", methods=["POST"])
+def raid_attack():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if not FEATURES.get("weekly_raid", False):
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+
+    db = get_db()
+    ok, result, http_status = _perform_raid_attack(db, username)
+    if not ok:
+        db.close()
+        resp = jsonify({"status": "error", "message": result})
+        return (resp, http_status) if http_status else resp
+    db.commit()
+    db.close()
+
+    result = _maybe_resolve_defeated_raid(result)
+
+    # Same field set/shape this route has always returned (raid_id, added to
+    # the shared helper's payload for _maybe_resolve_defeated_raid()'s use,
+    # is deliberately NOT included here).
+    payload = {
+        "status":               "success",
+        "roll":                 result["roll"],
+        "damage_dealt":         result["damage_dealt"],
+        "base_damage":          result["base_damage"],
+        "cp_bonus":             result["cp_bonus"],
+        "total_damage":         result["total_damage"],
+        "player_cp":            result["player_cp"],
+        "boss_current_hp":      result["boss_current_hp"],
+        "boss_max_hp":          result["boss_max_hp"],
+        "was_crit":             result["was_crit"],
+        "normal_return":        result["normal_return"],
+        "free_rolls_remaining": result["free_rolls_remaining"],
+        "xp_earned":            result["xp_earned"],
+        "energy_remaining":     result["energy_remaining"],
+    }
+    if "resolution" in result:
+        payload["resolution"] = result["resolution"]
+
+    return jsonify(payload)
+
+
+@app.route("/extension/raid_attack", methods=["POST"])
+@extension_required
+def extension_raid_attack():
+    db = get_db()
+    p = _resolve_extension_player(db, g.ext_auth)
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Account not linked."}), 401
+    if not FEATURES.get("weekly_raid", False):
+        db.close()
+        return jsonify({"status": "disabled", "message": "This feature is coming soon!"})
+    username = p["username"]
+
+    ok, result, http_status = _perform_raid_attack(db, username)
+    if not ok:
+        db.close()
+        resp = jsonify({"status": "error", "message": result})
+        return (resp, http_status) if http_status else resp
+    db.commit()
+    db.close()
+
+    result = _maybe_resolve_defeated_raid(result)
+
+    payload = {
+        "status":          "success",
+        "damage_dealt":    result["damage_dealt"],
+        "boss_current_hp": result["boss_current_hp"],
+        "boss_max_hp":     result["boss_max_hp"],
+    }
+    if "resolution" in result:
+        payload["resolution"] = result["resolution"]
 
     return jsonify(payload)
 
@@ -3139,10 +3320,10 @@ def discord_callback():
 # Manual code-based linking for viewers the extension only knows by an opaque,
 # per-extension id (no real Twitch identity shared). /extension/link/start is
 # meant to be called from the extension panel itself, which doesn't exist yet
-# -- no JWT verification here yet either, that arrives with that panel/backend
-# in a later session. Until then this route is reachable by anyone who can
-# reach the server; the 15-minute expiry and one-time `used` flag bound how
-# much that's worth, but it is NOT yet a real identity check.
+# -- but is now gated by @extension_required (see _extension_authed() above),
+# so opaque_user_id comes from the verified JWT's own claims, never the
+# request body. The 15-minute expiry and one-time `used` flag on top of that
+# bound how long a minted code is worth anything.
 _LINK_CODE_ALPHABET  = string.ascii_uppercase + string.digits
 _LINK_CODE_LENGTH    = 6
 _LINK_CODE_TTL_SECS  = 15 * 60
@@ -3160,11 +3341,11 @@ def _generate_link_code(db):
 
 
 @app.route("/extension/link/start", methods=["POST"])
+@extension_required
 def extension_link_start():
-    data           = request.get_json(silent=True) or {}
-    opaque_user_id = data.get("opaque_user_id", "").strip()
+    opaque_user_id = g.ext_auth.get("opaque_user_id")
     if not opaque_user_id:
-        return jsonify({"status": "error", "message": "opaque_user_id required."}), 400
+        return jsonify({"status": "error", "message": "Token missing opaque_user_id."}), 400
 
     now        = int(time.time())
     expires_at = now + _LINK_CODE_TTL_SECS
@@ -3214,6 +3395,80 @@ def extension_link_redeem():
     db.close()
 
     return jsonify({"status": "success"})
+
+
+@app.route("/extension/summary")
+@extension_required
+def extension_summary():
+    """Read-only summary for the Twitch Extension panel. No mutations, no DB
+    writes -- deliberately skips ensure_resources() (INSERTs a row if missing)
+    and update_passive_energy() (writes accrued passive regen) even though
+    both are the normal path elsewhere in this file, since either would make
+    this route non-read-only; energy/ice_blocks below can be a few minutes
+    stale as a result, corrected on the player's next real action.
+
+    Resolves the player from flask.g.ext_auth (the verified JWT's claims):
+    twitch_user_id first if the viewer has shared real Twitch identity,
+    otherwise the manually-linked extension_opaque_id. If neither matches,
+    reports linked=false with a link_url and the opaque_user_id echoed back
+    -- the panel calls /extension/link/start separately with that id to mint
+    a code; this endpoint only reports status.
+    """
+    db = get_db()
+    p = _resolve_extension_player(db, g.ext_auth)
+
+    if not p:
+        db.close()
+        return jsonify({
+            "linked":         False,
+            "link_url":       request.host_url.rstrip("/") + "/",
+            "opaque_user_id": g.ext_auth.get("opaque_user_id"),
+        })
+
+    username = p["username"]
+
+    r = db.execute("SELECT ice_blocks FROM resources WHERE username=?", (username,)).fetchone()
+
+    # worn_items -- same type='cosmetic' AND worn=1 query _get_public_penguin()
+    # (card/profile rendering) and village_penguins() (map rendering) both
+    # already use inline; neither extracts it into a callable function, so
+    # there's nothing to import instead of this query itself. `area` is
+    # included via the same _VISUAL_AREA slot->area map those call sites use.
+    worn_rows = db.execute(
+        "SELECT item_id, slot FROM gear WHERE username=? AND type='cosmetic' AND worn=1",
+        (username,)
+    ).fetchall()
+    worn_items = [
+        {"item_id": w["item_id"], "slot": w["slot"], "area": _VISUAL_AREA.get(w["slot"])}
+        for w in worn_rows if w["item_id"]
+    ]
+
+    # raid_active -- identical single-row lookup /raid/status uses; only
+    # 'active' is a live, attackable raid (join_window/awaiting_raid/etc. are
+    # all "not yet" states there too).
+    raid_row    = db.execute("SELECT status FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+    raid_active = bool(raid_row and raid_row["status"] == "active")
+
+    db.close()
+
+    # get_combat_power() manages its own connection -- called after db.close()
+    # above rather than sharing this route's connection.
+    cp = get_combat_power(username)
+
+    return jsonify({
+        "linked":          True,
+        "username":        username,
+        "level":           p["level"] or 1,
+        "cp":              cp,
+        "shape":           p["penguin_shape"] or "normal",
+        "color":           _resolve_hex_color(p["penguin_color"] or "#1a1a1a"),
+        "energy":          p["energy"] or 0,
+        "energy_max":      p["max_energy"] or 100,
+        "ice_blocks":      r["ice_blocks"] if r else 0,
+        "worn_items":      worn_items,
+        "build_available": (p["energy"] or 0) > 0,
+        "raid_active":     raid_active,
+    })
 
 
 @app.route("/reshape")
@@ -9555,35 +9810,38 @@ def calculateIceBlockReward(roll):
     return roll
 
 
-@app.route("/build/roll", methods=["POST"])
-def build_roll():
-    username = session.get("username", "")
-    if not username:
-        return jsonify({"status": "error", "message": "Not logged in."})
+def _perform_build_roll(db, username):
+    """Shared core of a Build! roll: energy/free-roll check, roll,
+    ice_blocks credit, leaderboard progress, XP award. Shared by /build/roll
+    (session auth) and /extension/build_roll (JWT auth) so the two can't
+    drift -- caller owns the db connection's commit/close and its own
+    "not logged in" / "not linked" checks; this only handles "does this
+    username exist" and the roll itself.
 
-    db = get_db()
+    Returns (True, payload_dict) on success, (False, error_message) on an
+    expected failure (player not found, insufficient energy) -- never raises
+    for those.
+    """
     p = db.execute(
         "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
     ).fetchone()
     if not p:
-        db.close()
-        return jsonify({"status": "error", "message": "Player not found."})
+        return False, "Player not found."
 
-    energy          = p["energy"] or 0
-    free_rolls      = p["build_free_rolls"] or 0
-    energy_cost     = 5
-    is_free_roll    = free_rolls > 0
-    normal_return   = False
+    energy        = p["energy"] or 0
+    free_rolls    = p["build_free_rolls"] or 0
+    energy_cost   = 5
+    is_free_roll  = free_rolls > 0
+    normal_return = False
 
     if not is_free_roll:
         if energy < energy_cost:
-            db.close()
-            return jsonify({"status": "error", "message": f"Need {energy_cost} energy to build! Rest at the hotel."})
+            return False, f"Need {energy_cost} energy to build! Rest at the hotel."
         db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (energy_cost, username))
 
-    roll            = random.randint(1, 20)
-    ice_earned      = calculateIceBlockReward(roll)
-    is_crit         = (roll == 20 and not is_free_roll)
+    roll       = random.randint(1, 20)
+    ice_earned = calculateIceBlockReward(roll)
+    is_crit    = (roll == 20 and not is_free_roll)
 
     if is_free_roll:
         new_free_rolls = free_rolls - 1
@@ -9596,24 +9854,83 @@ def build_roll():
         new_free_rolls = 0
 
     db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (ice_earned, username))
-    if FEATURES.get("weekly_build_leaderboard", True):
+    leaderboard_updated = FEATURES.get("weekly_build_leaderboard", True)
+    if leaderboard_updated:
         record_build_leaderboard_progress(db, username, ice_earned)
     award_xp(db, username, roll)
-    r = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
+    r  = db.execute("SELECT ice_blocks, gold FROM resources WHERE username=?", (username,)).fetchone()
     p2 = db.execute("SELECT energy FROM penguins WHERE username=?", (username,)).fetchone()
+
+    return True, {
+        "roll":                 roll,
+        "ice_blocks_earned":    ice_earned,
+        "ice_blocks_total":     r["ice_blocks"] if r else ice_earned,
+        "xp_earned":            roll,
+        "free_rolls_remaining": new_free_rolls,
+        "is_crit":              is_crit,
+        "normal_return":        normal_return,
+        "energy_remaining":     (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+        "leaderboard_updated":  leaderboard_updated,
+    }
+
+
+@app.route("/build/roll", methods=["POST"])
+def build_roll():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db = get_db()
+    ok, result = _perform_build_roll(db, username)
+    if not ok:
+        db.close()
+        return jsonify({"status": "error", "message": result})
     db.commit()
     db.close()
 
+    # Same field set/shape this route has always returned -- leaderboard_updated
+    # (added to the shared helper for /extension/build_roll's response) is
+    # deliberately NOT included here, so this route's response is unchanged.
     return jsonify({
         "status":           "success",
-        "roll":             roll,
-        "ice_blocks_earned": ice_earned,
-        "ice_blocks_total": r["ice_blocks"] if r else ice_earned,
-        "xp_earned":        roll,
-        "free_rolls_remaining": new_free_rolls,
-        "is_crit":          is_crit,
-        "normal_return":    normal_return,
-        "energy_remaining": (p2["energy"] if p2 else energy - (0 if is_free_roll else energy_cost)),
+        "roll":             result["roll"],
+        "ice_blocks_earned": result["ice_blocks_earned"],
+        "ice_blocks_total": result["ice_blocks_total"],
+        "xp_earned":        result["xp_earned"],
+        "free_rolls_remaining": result["free_rolls_remaining"],
+        "is_crit":          result["is_crit"],
+        "normal_return":    result["normal_return"],
+        "energy_remaining": result["energy_remaining"],
+    })
+
+
+@app.route("/extension/build_roll", methods=["POST"])
+@extension_required
+def extension_build_roll():
+    db = get_db()
+    p = _resolve_extension_player(db, g.ext_auth)
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Account not linked."}), 401
+    username = p["username"]
+
+    ok, result = _perform_build_roll(db, username)
+    if not ok:
+        db.close()
+        return jsonify({"status": "error", "message": result})
+    db.commit()
+    db.close()
+
+    # Same response shape as the production /stream/build_command route, for
+    # frontend consistency across every non-website Build! trigger.
+    return jsonify({
+        "status":              "success",
+        "roll":                result["roll"],
+        "xp_earned":           result["xp_earned"],
+        "ice_blocks_earned":   result["ice_blocks_earned"],
+        "ice_blocks_total":    result["ice_blocks_total"],
+        "crit":                result["is_crit"],
+        "leaderboard_updated": result["leaderboard_updated"],
     })
 
 
