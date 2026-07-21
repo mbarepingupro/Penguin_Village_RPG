@@ -444,6 +444,29 @@ def init_db():
     """)
     c.execute("INSERT OR IGNORE INTO weekly_build_leaderboard_state (id, week_id) VALUES (1, 1)")
 
+    # One-shot cross-session notification queue: /stream/build_command (a
+    # StreamerBot-triggered Build! roll, no browser fetch involved) writes a
+    # row here so the player's own open tab -- polling GET
+    # /stream/pending_animations -- can still play the normal resource-collect
+    # animation for a reward it never made the /build/roll request for. Same
+    # "DB row as the delivery marker" idea as weekly_build_leaderboard_archive's
+    # notified column above, just per-event instead of per-week.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS pending_animations (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT    NOT NULL,
+            resource_type TEXT    NOT NULL,
+            amount        INTEGER NOT NULL,
+            crit          INTEGER NOT NULL DEFAULT 0,
+            consumed      INTEGER NOT NULL DEFAULT 0,
+            created_at    INTEGER NOT NULL
+        )
+    """)
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_pending_animations_username "
+        "ON pending_animations(username, consumed)"
+    )
+
     # Catalog tables -- DB-backed mirrors of what are still (as of this pass)
     # the source-of-truth dict literals in app.py (BARRACKS_SHOP,
     # BOUTIQUE_ITEMS, GEAR_TEMPLATES, SET_BONUSES). Seeded once by
