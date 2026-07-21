@@ -3232,6 +3232,21 @@
           <div id="sb-secret-bonuses-list" style="color:#B8B8D0;font-size:16px;line-height:1.8;"></div>
         </div>
 
+        <!-- TWITCH EXTENSION LINK -->
+        <div class="sb-section">
+          <div class="sb-section-title">TWITCH EXTENSION</div>
+          <div style="color:#8888A8;font-size:16px;margin-bottom:6px;">
+            Got a link code from the Twitch Extension panel? Enter it below to connect it to this penguin.
+          </div>
+          <div class="interests-suggest-row">
+            <input class="interests-suggest-input" id="ext-link-code-input"
+                   type="text" maxlength="6" style="text-transform:uppercase;"
+                   placeholder="6-char code" autocomplete="off">
+            <button class="interests-suggest-btn" onclick="redeemExtensionLinkCode()">LINK</button>
+          </div>
+          <span class="interests-status" id="ext-link-status"></span>
+        </div>
+
 
       </div>
 
@@ -4692,6 +4707,32 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 2500);
       } else if (data.status === 'duplicate') {
         if (statusEl) statusEl.textContent = 'Already suggested recently.';
+      } else {
+        if (statusEl) statusEl.textContent = data.message || 'Error.';
+      }
+    } catch(e) {
+      if (statusEl) statusEl.textContent = 'Network error.';
+    }
+  }
+
+  async function redeemExtensionLinkCode() {
+    var input    = document.getElementById('ext-link-code-input');
+    var statusEl = document.getElementById('ext-link-status');
+    if (!input) return;
+    var code = input.value.trim();
+    if (!code) return;
+    try {
+      var res  = await fetch('/extension/link/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code })
+      });
+      var data = await res.json();
+      if (data.status === 'success') {
+        input.value = '';
+        if (statusEl) statusEl.textContent = 'Linked!';
+        if (typeof showToast === 'function') showToast('Twitch Extension linked!', 'ok');
+        setTimeout(function() { if (statusEl) statusEl.textContent = ''; }, 2500);
       } else {
         if (statusEl) statusEl.textContent = data.message || 'Error.';
       }

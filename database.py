@@ -467,6 +467,23 @@ def init_db():
         "ON pending_animations(username, consumed)"
     )
 
+    # Short-lived one-time codes for manually linking a Twitch Extension
+    # viewer (identified only by an opaque per-extension id, no shared real
+    # identity) to their existing account. /extension/link/start (called from
+    # the extension panel, once it exists) mints a row here; the player pastes
+    # the code into the site's own logged-in UI, which redeems it via
+    # /extension/link/redeem. `code` doubles as the primary key since it's
+    # already required to be unique.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS extension_link_codes (
+            code           TEXT    PRIMARY KEY,
+            opaque_user_id TEXT    NOT NULL,
+            created_at     INTEGER NOT NULL,
+            expires_at     INTEGER NOT NULL,
+            used           INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
     # Catalog tables -- DB-backed mirrors of what are still (as of this pass)
     # the source-of-truth dict literals in app.py (BARRACKS_SHOP,
     # BOUTIQUE_ITEMS, GEAR_TEMPLATES, SET_BONUSES). Seeded once by
@@ -592,6 +609,12 @@ def init_db():
     # Twitch login name and can change) -- for future Twitch Extension
     # identity linking. See the Twitch OAuth callback in app.py.
     _add_col(c, "penguins", "twitch_user_id TEXT DEFAULT NULL")
+    # Opaque per-extension viewer id from the Twitch Extension Helper JWT,
+    # linked via the code-based flow in app.py's /extension/link/* routes.
+    # Deliberately separate from twitch_user_id above -- an opaque id is only
+    # meaningful within this one extension (and isn't stable Twitch identity),
+    # so it must never be treated as interchangeable with the real Twitch id.
+    _add_col(c, "penguins", "extension_opaque_id TEXT DEFAULT NULL")
     _add_col(c, "resources", "ice_blocks INTEGER DEFAULT 0")
     _add_col(c, "penguins", "build_free_rolls INTEGER DEFAULT 0")
     _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")

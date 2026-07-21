@@ -4,6 +4,8 @@ import os
 import re
 import datetime
 import random
+import secrets
+import string
 import sqlite3
 from flask import Flask, jsonify, redirect, request, session, url_for, render_template
 from database import init_db, get_db, backfill_cosmetics, record_challenge_progress, record_build_leaderboard_progress
@@ -3131,6 +3133,87 @@ def discord_callback():
     db.close()
     session["username"] = username
     return redirect(url_for("home"))
+
+
+# ── TWITCH EXTENSION ACCOUNT LINKING ─────────────────────────────────────────
+# Manual code-based linking for viewers the extension only knows by an opaque,
+# per-extension id (no real Twitch identity shared). /extension/link/start is
+# meant to be called from the extension panel itself, which doesn't exist yet
+# -- no JWT verification here yet either, that arrives with that panel/backend
+# in a later session. Until then this route is reachable by anyone who can
+# reach the server; the 15-minute expiry and one-time `used` flag bound how
+# much that's worth, but it is NOT yet a real identity check.
+_LINK_CODE_ALPHABET  = string.ascii_uppercase + string.digits
+_LINK_CODE_LENGTH    = 6
+_LINK_CODE_TTL_SECS  = 15 * 60
+
+
+def _generate_link_code(db):
+    """A handful of collision retries -- 36^6 (~2.2 billion) codes makes an
+    actual collision vanishingly unlikely, but the check is cheap and this
+    matches the defensive style used for other id/name generation in this file."""
+    for _ in range(10):
+        code = "".join(secrets.choice(_LINK_CODE_ALPHABET) for _ in range(_LINK_CODE_LENGTH))
+        if not db.execute("SELECT 1 FROM extension_link_codes WHERE code=?", (code,)).fetchone():
+            return code
+    raise RuntimeError("Could not generate a unique extension link code")
+
+
+@app.route("/extension/link/start", methods=["POST"])
+def extension_link_start():
+    data           = request.get_json(silent=True) or {}
+    opaque_user_id = data.get("opaque_user_id", "").strip()
+    if not opaque_user_id:
+        return jsonify({"status": "error", "message": "opaque_user_id required."}), 400
+
+    now        = int(time.time())
+    expires_at = now + _LINK_CODE_TTL_SECS
+
+    db   = get_db()
+    code = _generate_link_code(db)
+    db.execute(
+        "INSERT INTO extension_link_codes (code, opaque_user_id, created_at, expires_at, used) "
+        "VALUES (?, ?, ?, ?, 0)",
+        (code, opaque_user_id, now, expires_at)
+    )
+    db.commit()
+    db.close()
+
+    return jsonify({"status": "success", "code": code, "expires_at": expires_at})
+
+
+@app.route("/extension/link/redeem", methods=["POST"])
+def extension_link_redeem():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."}), 401
+
+    data = request.get_json(silent=True) or {}
+    code = data.get("code", "").strip().upper()
+    if not code:
+        return jsonify({"status": "error", "message": "Code required."}), 400
+
+    db  = get_db()
+    row = db.execute("SELECT * FROM extension_link_codes WHERE code=?", (code,)).fetchone()
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "Invalid code."}), 404
+    if row["used"]:
+        db.close()
+        return jsonify({"status": "error", "message": "That code has already been used."}), 400
+    if row["expires_at"] < int(time.time()):
+        db.close()
+        return jsonify({"status": "error", "message": "That code has expired. Request a new one."}), 400
+
+    db.execute(
+        "UPDATE penguins SET extension_opaque_id=? WHERE username=?",
+        (row["opaque_user_id"], username)
+    )
+    db.execute("UPDATE extension_link_codes SET used=1 WHERE code=?", (code,))
+    db.commit()
+    db.close()
+
+    return jsonify({"status": "success"})
 
 
 @app.route("/reshape")
