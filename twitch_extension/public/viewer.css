@@ -5,3 +5,8 @@ body {
   background: transparent;
   color: #fff;
 }
+
+#penguin-canvas {
+  display: block;
+  image-rendering: pixelated;
+}
