@@ -41,6 +41,7 @@ SECRET_KEY          = os.getenv("SECRET_KEY")
 MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
+STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
 
 BUFF_NAMES = {
     "double_resources": "2x Resources",
@@ -1805,6 +1806,12 @@ def resolve_raid(raid_id, reason):
     db.commit()
     db.close()
 
+    # Guarded by the status='active' check at the top of this function -- a
+    # defeat (from /raid/attack) and the Monday timeout sweep can both call
+    # resolve_raid() for the same raid_id, but only the first to see 'active'
+    # gets past that check and reaches here, so this can't double-fire.
+    notify_streamerbot(_notice_plain_text(_raid_result_notice({"boss_name": raid["boss_name"], "status": new_status})))
+
     return {
         "raid_id":     raid_id,
         "boss_name":   raid["boss_name"],
@@ -2174,6 +2181,9 @@ def start_new_weekly_challenge():
         )
         db.commit()
         print(f"[WeeklyChallenge] New challenge started: {metric['label']} (threshold {metric['threshold']})")
+        notify_streamerbot(_notice_plain_text(
+            _challenge_start_notice({"metric_type": metric["id"], "threshold": metric["threshold"]})
+        ))
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR starting challenge: {e}")
     finally:
@@ -2239,6 +2249,7 @@ def evaluate_weekly_challenge():
             (new_status, challenge_id),
         )
 
+        raid_start_boss = None
         if succeeded and existing_raid:
             print(
                 f"[WeeklyChallenge] Challenge succeeded, but raid #{existing_raid['id']} is already "
@@ -2257,6 +2268,15 @@ def evaluate_weekly_challenge():
                 (challenge_id, boss_name, initial_status, now, now),
             )
             print(f"[WeeklyChallenge] Challenge succeeded! Raid unlocked: {boss_name} (status={initial_status})")
+            # Only announce "raid weekend" here when raid_join_window puts the
+            # raid in front of players immediately (status='join_window') --
+            # matches lifecycle_notices()'s own condition for when this is the
+            # first player-visible reveal. With the feature off (default,
+            # status='awaiting_raid'), the raid isn't actually visible yet;
+            # that announcement belongs to start_raid_if_unlocked()'s Saturday
+            # flip instead, same as the popup itself waits for it.
+            if initial_status == "join_window":
+                raid_start_boss = boss_name
         else:
             print(
                 f"[WeeklyChallenge] Challenge failed "
@@ -2264,6 +2284,14 @@ def evaluate_weekly_challenge():
             )
 
         db.commit()
+        notify_streamerbot(_notice_plain_text(_challenge_result_notice({
+            "status": new_status,
+            "current_progress": row["current_progress"],
+            "threshold": row["threshold"],
+            "metric_type": row["metric_type"],
+        })))
+        if raid_start_boss:
+            notify_streamerbot(_notice_plain_text(_raid_start_notice({"boss_name": raid_start_boss})))
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in evaluate_weekly_challenge: {e}")
     finally:
@@ -2306,15 +2334,22 @@ def start_raid_if_unlocked():
             return False
 
         raid = db.execute(
-            "SELECT id FROM raid_state WHERE status IN ('join_window', 'awaiting_raid') "
+            "SELECT id, status, boss_name FROM raid_state WHERE status IN ('join_window', 'awaiting_raid') "
             "ORDER BY id DESC LIMIT 1"
         ).fetchone()
         if not raid:
             print("[WeeklyChallenge] No raid pending — nothing to start")
             return False
 
-        raid_id     = raid["id"]
-        boss_max_hp = raid_settings.get_setting("boss_hp_flat", db=db)
+        raid_id      = raid["id"]
+        # 'join_window' rows were already announced by evaluate_weekly_challenge()
+        # when that row was created (raid_join_window feature on) -- this flip to
+        # 'active' is a second, silent transition for those. Only 'awaiting_raid'
+        # rows (raid_join_window off, default) are seeing the raid become
+        # player-visible for the first time here, same condition lifecycle_notices()
+        # uses to decide whether this is a first reveal.
+        first_reveal = raid["status"] == "awaiting_raid"
+        boss_max_hp  = raid_settings.get_setting("boss_hp_flat", db=db)
 
         db.execute(
             "UPDATE raid_state SET status='active', boss_max_hp=?, boss_current_hp=?, raid_start=? "
@@ -2323,6 +2358,8 @@ def start_raid_if_unlocked():
         )
         db.commit()
         print(f"[WeeklyChallenge] Raid {raid_id} started — boss HP {boss_max_hp} (flat)")
+        if first_reveal:
+            notify_streamerbot(_notice_plain_text(_raid_start_notice({"boss_name": raid["boss_name"]})))
         return True
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in start_raid_if_unlocked: {e}")
@@ -2464,6 +2501,55 @@ _CHALLENGE_START_FLAVOR = {
 }
 
 
+# Single source of truth for the copy shown in each lifecycle-notice popup
+# (see lifecycle_notices() below) -- also reused verbatim for the outbound
+# StreamerBot announcement at each transition's actual server-side trigger
+# point, so the two never drift apart.
+
+def _challenge_start_notice(challenge):
+    metric_label = _METRIC_LABELS.get(challenge["metric_type"], challenge["metric_type"])
+    return {
+        "title": "NEW WEEKLY CHALLENGE!",
+        "subtitle": _CHALLENGE_START_FLAVOR.get(challenge["metric_type"], "Let's take on this week's challenge!"),
+        "description": f"Goal: {challenge['threshold']} {metric_label}",
+    }
+
+
+def _challenge_result_notice(challenge):
+    won = challenge["status"] == "succeeded"
+    metric_label = _METRIC_LABELS.get(challenge["metric_type"], challenge["metric_type"])
+    return {
+        "title": "CHALLENGE COMPLETE!" if won else "CHALLENGE FAILED!",
+        "subtitle": "The village hit the goal! The raid begins Saturday morning!" if won
+                    else "We came up short this week. Better luck next time!",
+        "description": f"{challenge['current_progress']}/{challenge['threshold']} {metric_label}",
+    }
+
+
+def _raid_start_notice(raid):
+    return {
+        "title": "RAID WEEKEND!",
+        "subtitle": f"The {raid['boss_name']} has awoken! Join the raid before the weekend ends!",
+        "description": "Your CP influences your rolls! Gear up and attack! (e.g. 50 CP gives +5 flat to rolls)",
+    }
+
+
+def _raid_result_notice(raid):
+    won = raid["status"] == "succeeded"
+    return {
+        "title": "RAID VICTORY!" if won else "RAID DEFEATED...",
+        "subtitle": f"{raid['boss_name']} has been vanquished! Check your rewards." if won
+                    else f"{raid['boss_name']} proved too strong this time. The village regroups.",
+        "description": "",
+    }
+
+
+def _notice_plain_text(notice):
+    """Flatten a lifecycle-notice's title/subtitle/description into one plain-text
+    line for outbound channels (StreamerBot chat) that don't render structured popups."""
+    return " — ".join(p for p in (notice["title"], notice["subtitle"], notice["description"]) if p)
+
+
 @app.route("/lifecycle-notices/<username>")
 def lifecycle_notices(username):
     """One-shot popup notices for weekly-challenge/raid lifecycle transitions.
@@ -2495,23 +2581,14 @@ def lifecycle_notices(username):
     challenge = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
     if challenge:
         cid = challenge["id"]
-        metric_label = _METRIC_LABELS.get(challenge["metric_type"], challenge["metric_type"])
         if cid > (p["notice_challenge_start_id"] or 0):
-            notices.append({
-                "type": "challenge_start",
-                "title": "NEW WEEKLY CHALLENGE!",
-                "subtitle": _CHALLENGE_START_FLAVOR.get(challenge["metric_type"], "Let's take on this week's challenge!"),
-                "description": f"Goal: {challenge['threshold']} {metric_label}",
-            })
+            notices.append({"type": "challenge_start", **_challenge_start_notice(challenge)})
             updates["notice_challenge_start_id"] = cid
         if challenge["status"] in ("succeeded", "failed") and cid > (p["notice_challenge_result_id"] or 0):
             won = challenge["status"] == "succeeded"
             notices.append({
                 "type": "challenge_result_success" if won else "challenge_result_fail",
-                "title": "CHALLENGE COMPLETE!" if won else "CHALLENGE FAILED!",
-                "subtitle": "The village hit the goal! The raid begins Saturday morning!" if won
-                            else "We came up short this week. Better luck next time!",
-                "description": f"{challenge['current_progress']}/{challenge['threshold']} {metric_label}",
+                **_challenge_result_notice(challenge),
             })
             updates["notice_challenge_result_id"] = cid
 
@@ -2525,21 +2602,13 @@ def lifecycle_notices(username):
         # players can act (sign up) the moment it opens, so that still fires
         # immediately, same as before this change.
         if raid["status"] != "awaiting_raid" and rid > (p["notice_raid_start_id"] or 0):
-            notices.append({
-                "type": "raid_start",
-                "title": "RAID WEEKEND!",
-                "subtitle": f"The {raid['boss_name']} has awoken! Join the raid before the weekend ends!",
-                "description": "Your CP influences your rolls! Gear up and attack! (e.g. 50 CP gives +5 flat to rolls)",
-            })
+            notices.append({"type": "raid_start", **_raid_start_notice(raid)})
             updates["notice_raid_start_id"] = rid
         if raid["status"] in ("succeeded", "failed") and rid > (p["notice_raid_result_id"] or 0):
             won = raid["status"] == "succeeded"
             notices.append({
                 "type": "raid_result_success" if won else "raid_result_fail",
-                "title": "RAID VICTORY!" if won else "RAID DEFEATED...",
-                "subtitle": f"{raid['boss_name']} has been vanquished! Check your rewards." if won
-                            else f"{raid['boss_name']} proved too strong this time. The village regroups.",
-                "description": "",
+                **_raid_result_notice(raid),
             })
             updates["notice_raid_result_id"] = rid
 
@@ -3399,6 +3468,32 @@ def _streamerbot_authed():
     return bool(STREAMERBOT_SECRET and provided == STREAMERBOT_SECRET)
 
 
+def notify_streamerbot(message: str):
+    """POST a plain-text message to StreamerBot's inbound webhook (STREAMERBOT_OUTBOUND_URL) --
+    outbound from the game's perspective, i.e. StreamerBot receiving, not sending. Returns True
+    on a 2xx response, False on missing config, a network error, or a non-2xx status; never raises.
+
+    Reuses STREAMERBOT_SECRET (the same value _streamerbot_authed() checks on inbound requests)
+    as the X-Game-Secret header here. Flagging rather than deciding silently: one secret now
+    authenticates both directions, so a leak on either side -- StreamerBot's inbound listener
+    config or this outbound call -- compromises both, and rotating it means updating both flows
+    together. A dedicated STREAMERBOT_OUTBOUND_SECRET would isolate that blast radius for the
+    cost of one more env var; swap to one if that tradeoff matters here.
+    """
+    if not STREAMERBOT_OUTBOUND_URL or not STREAMERBOT_SECRET:
+        return False
+    try:
+        resp = http_requests.post(
+            STREAMERBOT_OUTBOUND_URL,
+            data=message.encode("utf-8"),
+            headers={"X-Game-Secret": STREAMERBOT_SECRET, "Content-Type": "text/plain"},
+            timeout=5,
+        )
+        return resp.ok
+    except Exception:
+        return False
+
+
 # ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
 
 @app.route("/seals/award", methods=["POST"])
@@ -3505,6 +3600,66 @@ def stream_chatted():
     db.commit()
     db.close()
     return jsonify({"status": "ok"})
+
+
+# ── STREAM BUILD ROLL ────────────────────────────────────────────────────────
+# Chat-triggered equivalent of /build/roll (see build_roll() below), fed by a
+# StreamerBot dice-roll command instead of the website's Build! button. Kept
+# fully separate from /build/roll -- no shared state or call path -- so the
+# web roll can't be affected by anything here.
+
+@app.route("/stream/build_command", methods=["POST"])
+def stream_build_command():
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    if not username:
+        return jsonify({"status": "skip"})
+    try:
+        roll   = int(data.get("roll"))
+        reward = int(data.get("reward"))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "roll and reward must be integers."})
+    crit = bool(data.get("crit", False))
+
+    # Same lookup /stream/presence uses -- if this username has no penguins
+    # row, there's nothing to credit.
+    db = get_db()
+    p  = db.execute("SELECT id, stream_tier FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "skip"})
+
+    # No energy check/deduction -- stream rolls are cooldown-gated by
+    # StreamerBot itself, not the in-game energy system. /build/roll (the
+    # web path) is unaffected and still energy-gated as before.
+    #
+    # ice_blocks write mirrors build_roll()'s own UPDATE below -- there is no
+    # separate resource-write helper for ice_blocks to call instead of raw
+    # SQL (build_roll() writes it the same way); this reuses that exact
+    # statement rather than inventing a new one-off helper for a single caller.
+    db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (reward, username))
+    leaderboard_updated = FEATURES.get("weekly_build_leaderboard", True)
+    if leaderboard_updated:
+        record_build_leaderboard_progress(db, username, reward)
+    # XP tracks the raw roll, same as build_roll() -- the multiplied `reward`
+    # only drives ice_blocks/leaderboard progress, never XP.
+    award_xp(db, username, roll)
+    r = db.execute("SELECT ice_blocks FROM resources WHERE username=?", (username,)).fetchone()
+    db.commit()
+    db.close()
+
+    return jsonify({
+        "status":              "success",
+        "username":            username,
+        "roll":                roll,
+        "crit":                crit,
+        "ice_blocks_earned":   reward,
+        "ice_blocks_total":    r["ice_blocks"] if r else reward,
+        "xp_earned":           roll,
+        "leaderboard_updated": leaderboard_updated,
+    })
 
 
 def award_passive_seals(force=False):
@@ -4984,12 +5139,18 @@ def get_events():
 
 @app.route("/events/share/<int:event_id>", methods=["POST"])
 def share_event_to_twitch(event_id):
-    # TODO StreamerBot: wire this up to the real StreamerBot integration —
-    # no StreamerBot endpoints exist in this codebase yet, so this only logs
-    # the request and returns a not-implemented response for now.
     username = session.get("username")
-    print(f"[EventShare] {username or 'anonymous'} requested Twitch share for event_id={event_id}")
-    return jsonify({"status": "not_implemented", "message": "Twitch sharing is coming soon."}), 501
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."}), 401
+    db  = get_db()
+    row = db.execute("SELECT * FROM event_log WHERE id=?", (event_id,)).fetchone()
+    db.close()
+    if not row:
+        return jsonify({"status": "error", "message": "Event not found."}), 404
+    if not notify_streamerbot(row["message"]):
+        return jsonify({"status": "error", "message": "Could not reach StreamerBot."}), 502
+    print(f"[EventShare] {username or 'anonymous'} shared event_id={event_id} to StreamerBot")
+    return jsonify({"status": "success"})
 
 
 @app.route("/events/recent")
@@ -7363,13 +7524,12 @@ def card_image(username):
 
 @app.route("/card/<username>/share", methods=["POST"])
 def share_card_to_twitch(username):
-    # TODO StreamerBot: wire this up to the real StreamerBot integration --
-    # no StreamerBot endpoints exist in this codebase yet, so this only logs
-    # the request and returns a not-implemented response for now. Mirrors
-    # share_event_to_twitch's stub shape exactly.
     requester = session.get("username")
-    print(f"[CardShare] {requester or 'anonymous'} requested Twitch share for card username={username}")
-    return jsonify({"status": "not_implemented", "message": "Twitch sharing is coming soon."}), 501
+    link = request.host_url.rstrip("/") + f"/card/{username}/image"
+    if not notify_streamerbot(link):
+        return jsonify({"status": "error", "message": "Could not reach StreamerBot."}), 502
+    print(f"[CardShare] {requester or 'anonymous'} shared card username={username} to StreamerBot")
+    return jsonify({"status": "success"})
 
 
 _VILLAGE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout.json")
