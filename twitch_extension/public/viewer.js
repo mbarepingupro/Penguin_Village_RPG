@@ -165,7 +165,10 @@ const statEnergyEl  = document.getElementById('stat-energy');
 const statIceEl     = document.getElementById('stat-ice-blocks');
 const buildBtn      = document.getElementById('build-btn');
 const attackBtn     = document.getElementById('attack-btn');
+const copyCardBtn   = document.getElementById('copy-card-btn');
 const actionResultEl = document.getElementById('action-result');
+
+let currentUsername = null;
 
 async function refreshPanel() {
   let resp, data;
@@ -192,6 +195,7 @@ async function refreshPanel() {
 
   linkPromptEl.hidden = true;
   playerPanelEl.hidden = false;
+  currentUsername = data.username;
 
   statLevelEl.textContent = `Lv ${data.level}`;
   statCpEl.textContent = `CP ${data.cp}`;
@@ -249,5 +253,47 @@ async function handleAttack() {
   refreshPanel();
 }
 
+// /card/<username>/image is public (no authedFetch/JWT needed).
+//
+// CORS FLAG (confirmed, not guessed): checked this route's actual response
+// headers the same way the /extension/* shapes were checked -- a direct
+// Flask test_client() GET returns Content-Disposition/Content-Type/
+// Content-Length/Cache-Control/Date/Accept-Ranges and no
+// Access-Control-Allow-Origin at all. app.py's CORS hook only covers
+// /extension/*, same gap already flagged for /static/* sprite fetches. A
+// cross-origin fetch() here will be blocked from reading the response body
+// (browser CORS policy, not this code) until the backend adds CORS to this
+// route too, or proxies card images through an /extension/-prefixed route.
+async function handleCopyCard() {
+  if (!currentUsername) return;
+  if (!navigator.clipboard || !window.ClipboardItem) {
+    copyCardBtn.textContent = 'Not supported';
+    setTimeout(() => { copyCardBtn.textContent = 'Copy Card'; }, 2000);
+    return;
+  }
+
+  copyCardBtn.disabled = true;
+  try {
+    // Passing the blob promise straight into ClipboardItem (rather than
+    // awaiting fetch()/blob() first) keeps this call inside the click's user-
+    // activation window, which navigator.clipboard.write() requires and an
+    // awaited gap can lose in some browsers.
+    const blobPromise = fetch(`${BACKEND_ORIGIN}/card/${currentUsername}/image`).then((resp) => {
+      if (!resp.ok) throw new Error(`Card image fetch failed: ${resp.status}`);
+      return resp.blob();
+    });
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
+    copyCardBtn.textContent = 'Copied!';
+  } catch (err) {
+    console.error('[PenguinVillage] Copy Card failed -- likely the /card/ CORS gap flagged above:', err);
+    copyCardBtn.textContent = 'Copy failed';
+  }
+  setTimeout(() => {
+    copyCardBtn.textContent = 'Copy Card';
+    copyCardBtn.disabled = false;
+  }, 2000);
+}
+
 buildBtn.addEventListener('click', handleBuild);
 attackBtn.addEventListener('click', handleAttack);
+copyCardBtn.addEventListener('click', handleCopyCard);
