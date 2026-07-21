@@ -3507,16 +3507,23 @@ def stream_chatted():
     return jsonify({"status": "ok"})
 
 
-def award_passive_seals():
+def award_passive_seals(force=False):
     """Every PASSIVE_SEALS_INTERVAL_MINUTES, while the stream is live, grant
     PASSIVE_SEALS_AMOUNT Mayor's Seals to every penguin present/chatting
     (stream_tier >= 2 -- set by /stream/presence and /stream/chatted, read
     only, never written here). Writes straight to the DB rather than calling
     the /seals/award route, mirroring run_autonomous_actions()'s loop/commit
     pattern: one query up front, per-player try/except so a single bad row
-    can't abort the whole tick, one commit at the end."""
-    if not _stream_is_live():
-        return
+    can't abort the whole tick, one commit at the end.
+
+    force=True skips the _stream_is_live() check. Only
+    /mayor/debug/run_passive_seals passes this, so it can be exercised
+    without a real stream running -- the scheduled production call below
+    never passes it, so normal live-gated behavior is unchanged.
+
+    Returns the list of usernames actually awarded."""
+    if not force and not _stream_is_live():
+        return []
     db = get_db()
     try:
         usernames = [r["username"] for r in db.execute(
@@ -3525,11 +3532,11 @@ def award_passive_seals():
     except Exception as e:
         print(f"[PassiveSeals] Failed to load penguins: {e}")
         db.close()
-        return
+        return []
     if not usernames:
         db.close()
-        return
-    awarded = 0
+        return []
+    awarded = []
     for username in usernames:
         try:
             ensure_resources(db, username)
@@ -3542,12 +3549,13 @@ def award_passive_seals():
                 f"[PassiveSeals] Awarded {PASSIVE_SEALS_AMOUNT} Mayor's Seal(s) to {username}",
                 username
             )
-            awarded += 1
+            awarded.append(username)
         except Exception as e:
             print(f"[PassiveSeals] Error awarding to {username}: {e}")
     db.commit()
     db.close()
-    print(f"[PassiveSeals] Awarded seals to {awarded}/{len(usernames)} present players")
+    print(f"[PassiveSeals] Awarded seals to {len(awarded)}/{len(usernames)} present players")
+    return awarded
 
 
 # Registered here (rather than alongside the raid/challenge jobs above) since
@@ -9920,6 +9928,21 @@ def mayor_debug_penguin_fetch():
             "last_login_date":ls["last_login_date"] if ls else "",
         }
     })
+
+
+# TESTING ONLY -- lets the mayor trigger award_passive_seals() on demand with
+# the _stream_is_live() check bypassed (force=True), so the passive-seals
+# flow can be verified without waiting for a real stream to go live and for
+# the 10-minute interval to tick. Not used by production code -- the actual
+# scheduled job (registered near award_passive_seals()'s definition) always
+# calls award_passive_seals() with no arguments, so this route has no effect
+# on that job's live-stream gating.
+@app.route("/mayor/debug/run_passive_seals", methods=["POST"])
+def mayor_debug_run_passive_seals():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    awarded = award_passive_seals(force=True)
+    return jsonify({"status": "success", "awarded_usernames": awarded, "count": len(awarded)})
 
 
 # ── GLOBAL CHAT ──────────────────────────────────────────────────────────────
