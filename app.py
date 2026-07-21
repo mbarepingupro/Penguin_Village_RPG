@@ -3640,6 +3640,15 @@ def stream_build_command():
     # SQL (build_roll() writes it the same way); this reuses that exact
     # statement rather than inventing a new one-off helper for a single caller.
     db.execute("UPDATE resources SET ice_blocks=ice_blocks+? WHERE username=?", (reward, username))
+    # Queue the resource-collect animation for this player's own open tab --
+    # this request came from StreamerBot, not their browser, so there's no
+    # /build/roll fetch response client-side to trigger it from. Consumed by
+    # GET /stream/pending_animations (see pending_animations in database.py).
+    db.execute(
+        "INSERT INTO pending_animations (username, resource_type, amount, crit, consumed, created_at) "
+        "VALUES (?, 'ice_blocks', ?, ?, 0, ?)",
+        (username, reward, int(crit), int(time.time()))
+    )
     leaderboard_updated = FEATURES.get("weekly_build_leaderboard", True)
     if leaderboard_updated:
         record_build_leaderboard_progress(db, username, reward)
@@ -3659,6 +3668,41 @@ def stream_build_command():
         "ice_blocks_total":    r["ice_blocks"] if r else reward,
         "xp_earned":           roll,
         "leaderboard_updated": leaderboard_updated,
+    })
+
+
+@app.route("/stream/pending_animations")
+def stream_pending_animations():
+    """For the logged-in player's own browser tab, not StreamerBot -- session-authed,
+    not _streamerbot_authed(). Hands back at most one queued animation (oldest first)
+    and marks it consumed in the same request. If several queued up (e.g. the tab was
+    closed / not polling for a while), the rest just wait for the next poll(s) --
+    intentionally not coalesced or batched here.
+    """
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."}), 401
+
+    db  = get_db()
+    row = db.execute(
+        "SELECT id, resource_type, amount, crit FROM pending_animations "
+        "WHERE username=? AND consumed=0 ORDER BY id ASC LIMIT 1",
+        (username,)
+    ).fetchone()
+    if row:
+        db.execute("UPDATE pending_animations SET consumed=1 WHERE id=?", (row["id"],))
+        db.commit()
+    db.close()
+
+    if not row:
+        return jsonify({"status": "success", "pending": None})
+    return jsonify({
+        "status": "success",
+        "pending": {
+            "resource_type": row["resource_type"],
+            "amount":        row["amount"],
+            "crit":          bool(row["crit"]),
+        },
     })
 
 

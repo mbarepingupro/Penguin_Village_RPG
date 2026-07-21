@@ -9983,6 +9983,31 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch(e) {}
   }
 
+  // Piggybacks on checkLifecycleNotices()'s own 60s poll (see the INIT block
+  // below) instead of starting a second interval -- same "check for one-shot
+  // events queued for me" shape, just for StreamerBot-triggered Build! rolls,
+  // which never fire a /build/roll fetch from this tab to animate off of.
+  async function checkPendingBuildAnimation() {
+    try {
+      const res  = await fetch('/stream/pending_animations');
+      const data = await res.json();
+      const p    = data && data.pending;
+      if (!p) return;
+      // Reuses the exact same resource-collect animation /build/roll's own
+      // click handler calls (see the Build! button handler below) -- no
+      // sourceElement (null) falls back to screen-center, effects.js already
+      // handles that. The counter-flash + updateResourceBar() refresh are
+      // built into this same call, nothing extra needed here for those.
+      if (typeof Effects !== 'undefined' && Effects.animateResourceCollection) {
+        Effects.animateResourceCollection(p.resource_type, p.amount, null);
+      }
+      const label = p.resource_type.replace(/_/g, ' ');
+      var msg = '🧊 +' + p.amount + ' ' + label + ' from the stream!';
+      if (p.crit) msg += ' CRITICAL!';
+      if (typeof showToast === 'function') showToast(msg, p.crit ? 'ok' : '');
+    } catch(e) {}
+  }
+
   // ── TRAIT POPUP ──────────────────────────────────────────────────────────
   const _tpSelected = { social: null, interest: null, quirk: null };
 
@@ -10535,10 +10560,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   startMidnightCountdowns();
   checkWelcomeBack();
   checkLifecycleNotices();
+  checkPendingBuildAnimation();
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
   setInterval(loadBuildingLevels, 300000);
-  setInterval(checkLifecycleNotices, 60000);
+  // Both share this one 60s interval rather than checkPendingBuildAnimation
+  // getting its own setInterval -- see its own comment above for why it's
+  // piggybacking on checkLifecycleNotices()'s existing poll cadence.
+  setInterval(function() { checkLifecycleNotices(); checkPendingBuildAnimation(); }, 60000);
   loadSocialMode();
   loadIglooVisits();
   loadFriendsList();
