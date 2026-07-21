@@ -9,6 +9,7 @@ let extensionJWT = null;
 window.Twitch.ext.onAuthorized((auth) => {
   extensionJWT = auth.token;
   console.log("[PenguinVillage] onAuthorized fired, JWT captured:", auth);
+  refreshPanel();
 });
 
 // Attaches the captured JWT as `Authorization: Bearer <token>` to a request
@@ -138,8 +139,115 @@ function renderPenguinFrame(shape, color) {
   img.src = `${BACKEND_ORIGIN}/static/${cfg.stripFile}`;
 }
 
-// Placeholder call -- shape/color aren't wired to /extension/summary yet
-// (endpoint wiring is a later phase), so this demos the render pipeline
-// with a non-default color chosen specifically to exercise the recolor
-// path (#1a1a1a would short-circuit it and hide the CORS issue above).
-renderPenguinFrame('normal', '#3a86ff');
+// ── SUMMARY / ACTIONS ────────────────────────────────────────────────────
+// GET /extension/summary and POST /extension/build_roll,
+// POST /extension/raid_attack were verified directly (a real Flask test
+// client run against the actual route code, not read-and-assume) before
+// wiring this. Two things that verification caught, both load-bearing here:
+//
+// 1. /extension/build_roll and /extension/raid_attack do NOT mirror their
+//    website counterparts' response shapes -- they return a materially
+//    smaller field set (e.g. no energy_remaining on either, no
+//    free_rolls_remaining, no player_cp/roll/was_crit on raid_attack). Only
+//    fields actually present in the extension responses are read below.
+// 2. Because neither action response includes updated energy/eligibility,
+//    refreshPanel() (a fresh GET /extension/summary) is what keeps energy,
+//    ice_blocks, build_available and raid_active correct after an action --
+//    not the action response itself.
+
+const linkPromptEl  = document.getElementById('link-prompt');
+const linkOpaqueEl  = document.getElementById('link-opaque-id');
+const linkUrlEl     = document.getElementById('link-url');
+const playerPanelEl = document.getElementById('player-panel');
+const statLevelEl   = document.getElementById('stat-level');
+const statCpEl      = document.getElementById('stat-cp');
+const statEnergyEl  = document.getElementById('stat-energy');
+const statIceEl     = document.getElementById('stat-ice-blocks');
+const buildBtn      = document.getElementById('build-btn');
+const attackBtn     = document.getElementById('attack-btn');
+const actionResultEl = document.getElementById('action-result');
+
+async function refreshPanel() {
+  let resp, data;
+  try {
+    resp = await authedFetch(`${BACKEND_ORIGIN}/extension/summary`);
+    data = await resp.json();
+  } catch (err) {
+    console.error('[PenguinVillage] Failed to load /extension/summary:', err);
+    return;
+  }
+  if (!resp.ok) {
+    console.error('[PenguinVillage] /extension/summary error:', resp.status, data);
+    return;
+  }
+
+  if (!data.linked) {
+    playerPanelEl.hidden = true;
+    linkPromptEl.hidden = false;
+    linkOpaqueEl.textContent = data.opaque_user_id || '';
+    linkUrlEl.href = data.link_url;
+    linkUrlEl.textContent = data.link_url;
+    return;
+  }
+
+  linkPromptEl.hidden = true;
+  playerPanelEl.hidden = false;
+
+  statLevelEl.textContent = `Lv ${data.level}`;
+  statCpEl.textContent = `CP ${data.cp}`;
+  statEnergyEl.textContent = `⚡ ${data.energy}/${data.energy_max}`;
+  statIceEl.textContent = `🧊 ${data.ice_blocks}`;
+
+  // build_available is energy > 0 server-side, not energy >= the actual 5-
+  // energy roll cost (flagged in /extension/summary's own docstring) -- so
+  // this can read enabled at 1-4 energy even though the roll itself will
+  // fail. Left as-is per the summary's documented field, not silently
+  // tightened client-side.
+  buildBtn.disabled = !data.build_available;
+  attackBtn.disabled = !data.raid_active;
+
+  renderPenguinFrame(data.shape, data.color);
+}
+
+async function handleBuild() {
+  buildBtn.disabled = true;
+  actionResultEl.textContent = 'Building...';
+  try {
+    const resp = await authedFetch(`${BACKEND_ORIGIN}/extension/build_roll`, { method: 'POST' });
+    const data = await resp.json();
+    if (!resp.ok || data.status !== 'success') {
+      actionResultEl.textContent = data.message || 'Build failed.';
+    } else {
+      actionResultEl.textContent = data.crit
+        ? `Crit! Rolled ${data.roll}, +${data.ice_blocks_earned} ice blocks, +${data.xp_earned} XP.`
+        : `Rolled ${data.roll}, +${data.ice_blocks_earned} ice blocks, +${data.xp_earned} XP.`;
+    }
+  } catch (err) {
+    console.error('[PenguinVillage] /extension/build_roll failed:', err);
+    actionResultEl.textContent = 'Could not reach the server.';
+  }
+  refreshPanel();
+}
+
+async function handleAttack() {
+  attackBtn.disabled = true;
+  actionResultEl.textContent = 'Attacking...';
+  try {
+    const resp = await authedFetch(`${BACKEND_ORIGIN}/extension/raid_attack`, { method: 'POST' });
+    const data = await resp.json();
+    if (!resp.ok || data.status !== 'success') {
+      actionResultEl.textContent = data.message || 'Attack failed.';
+    } else if (data.resolution) {
+      actionResultEl.textContent = `Dealt ${data.damage_dealt} damage -- boss defeated!`;
+    } else {
+      actionResultEl.textContent = `Dealt ${data.damage_dealt} damage. Boss HP: ${data.boss_current_hp}/${data.boss_max_hp}.`;
+    }
+  } catch (err) {
+    console.error('[PenguinVillage] /extension/raid_attack failed:', err);
+    actionResultEl.textContent = 'Could not reach the server.';
+  }
+  refreshPanel();
+}
+
+buildBtn.addEventListener('click', handleBuild);
+attackBtn.addEventListener('click', handleAttack);

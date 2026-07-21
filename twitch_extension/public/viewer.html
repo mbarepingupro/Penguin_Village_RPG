@@ -7,7 +7,29 @@
 </head>
 <body>
   <div id="panel-root">
-    <canvas id="penguin-canvas"></canvas>
+    <div id="link-prompt" hidden>
+      <p>Not linked yet. Visit the site and enter this code to link your account:</p>
+      <p id="link-opaque-id"></p>
+      <a id="link-url" href="#" target="_blank" rel="noopener"></a>
+    </div>
+
+    <div id="player-panel" hidden>
+      <canvas id="penguin-canvas"></canvas>
+
+      <div id="stats">
+        <span id="stat-level"></span>
+        <span id="stat-cp"></span>
+        <span id="stat-energy"></span>
+        <span id="stat-ice-blocks"></span>
+      </div>
+
+      <div id="actions">
+        <button id="build-btn" type="button">Build!</button>
+        <button id="attack-btn" type="button">Attack!</button>
+      </div>
+
+      <p id="action-result"></p>
+    </div>
   </div>
 
   <script src="https://extension-files.twitch.tv/helper/v1/twitch-ext.min.js"></script>

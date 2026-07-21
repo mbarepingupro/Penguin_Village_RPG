@@ -10,3 +10,36 @@ body {
   display: block;
   image-rendering: pixelated;
 }
+
+#stats {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+#actions {
+  display: flex;
+  gap: 8px;
+}
+
+#actions button {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#action-result {
+  font-size: 12px;
+  min-height: 1.4em;
+}
+
+#link-prompt {
+  font-size: 12px;
+}
