@@ -64,19 +64,31 @@ BUFF_NAMES = {
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
-# ── EXTENSION CORS (scoped to /extension/* only) ────────────────────────────
+# ── EXTENSION CORS (scoped to /extension/*, /static/*, and the card image
+#    route only) ───────────────────────────────────────────────────────────
 # The Twitch Extension panel runs in an iframe on a *.ext-twitch.tv origin,
 # so its fetch()es to this app are cross-origin -- unlike every other route in
 # this file, which is same-origin session-cookie auth and needs no CORS
-# headers at all. Deliberately scoped by request.path rather than applied
-# globally, so nothing outside /extension/ changes behavior. Flask handles
-# OPTIONS preflight automatically for routes that don't declare it explicitly
-# (an empty 200 before the view function ever runs), and this hook still runs
-# on that automatic response same as any other, so no separate OPTIONS route
-# is needed.
+# headers at all. Three cross-origin call sites the panel makes: the
+# /extension/* JWT-gated routes, GET /static/* (base walk-strip sprites, for
+# the panel's client-side recolor -- recolorPenguin() there needs
+# ctx.getImageData() on the drawn sprite, which throws SecurityError without
+# CORS permission), and GET /card/<username>/image (the Copy Card button's
+# fetch()+blob(), which the browser blocks from reading without CORS
+# regardless of the route being otherwise public/unauthenticated).
+#
+# Matched by endpoint name (card_image, static) rather than a second path
+# prefix for those two -- request.path.startswith("/card/") would also catch
+# /card/<username> (the HTML page), /card/<username>/share, /card/background/
+# equip, and /card/backgrounds/<username>, none of which the panel calls or
+# needs CORS on. /extension/ keeps its existing path-prefix check since that
+# whole tree is JWT-gated API surface with no non-extension siblings to
+# accidentally match.
 @app.after_request
 def _extension_cors_headers(response):
-    if request.path.startswith("/extension/"):
+    if (request.path.startswith("/extension/")
+            or request.endpoint == "static"
+            or request.endpoint == "card_image"):
         response.headers["Access-Control-Allow-Origin"]  = EXTENSION_CORS_ORIGIN
         response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"

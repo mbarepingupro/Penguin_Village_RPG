@@ -31,22 +31,15 @@ function authedFetch(path, options = {}) {
 // Flask app's own asset pipeline. First frame only (static pose) -- no
 // animation loop for the panel.
 
-// CORS FLAG (confirmed against app.py, not guessed): the Flask app's
-// after_request CORS hook only adds Access-Control-Allow-Origin when
-// request.path starts with "/extension/", deliberately scoped that way so
-// nothing outside /extension/ changes behavior -- /static/* (where these
-// sprites live) sends no CORS headers at all today. recolorPenguin() below
-// calls ctx.getImageData() on a canvas the sprite was drawn into, which
-// throws SecurityError for a cross-origin image the browser doesn't have
-// CORS permission for -- and setting img.crossOrigin="anonymous" (required
-// for getImageData to ever work) makes the image request itself get
-// rejected by the browser instead, since the server never answers with an
-// Allow-Origin header. Net effect: recoloring will not work against the
-// real backend until either (a) /static/* gets the same CORS treatment
-// /extension/* has, or (b) sprites are served through an /extension/-
-// prefixed route instead. Not fixing this client-side -- flagging it here
-// and via the console.error in the onerror handler below.
-const BACKEND_ORIGIN = "http://localhost:5000"; // swap for the real deployed backend origin
+// CORS: app.py's after_request hook now covers /static/* (in addition to
+// /extension/* and the card image route below) so recolorPenguin()'s
+// ctx.getImageData() call on the drawn sprite no longer taints the canvas.
+// Verified directly (Flask test_client(), not assumed): GET /static/<real
+// file>, GET /static/<missing file>, and the OPTIONS preflight for both all
+// come back with Access-Control-Allow-Origin set; no sibling route picked it
+// up as a side effect. img.crossOrigin="anonymous" below is still required
+// for getImageData() to work even with the header present -- kept as-is.
+const BACKEND_ORIGIN = "https://penguinvillagerpg-production.up.railway.app";
 
 const SHAPE_CONFIG = {
   normal: { frameWidth: 32, frameHeight: 40, stripFile: "penguin_normal.png" },
@@ -110,17 +103,17 @@ function renderPenguinFrame(shape, color) {
   ctx.imageSmoothingEnabled = false;
 
   const img = new Image();
-  // Required for getImageData() in recolorPenguin() to ever succeed on a
-  // cross-origin sprite -- see the CORS flag above. Until /static/* sends
-  // Access-Control-Allow-Origin, this makes the image request itself fail
-  // (onerror below) rather than loading tainted.
+  // Required for getImageData() in recolorPenguin() to succeed on a
+  // cross-origin sprite -- see the CORS note above. /static/* now sends
+  // Access-Control-Allow-Origin, so this should load and recolor cleanly;
+  // kept as try/catch + onerror below in case a future deploy regresses it.
   img.crossOrigin = 'anonymous';
   img.onload = () => {
     let recolored;
     try {
       recolored = recolorPenguin(img, color);
     } catch (err) {
-      console.error('[PenguinVillage] Recolor failed -- likely the /static/* CORS gap flagged above:', err);
+      console.error('[PenguinVillage] Recolor failed (CORS should be fixed -- check /static/* response headers):', err);
       recolored = img;
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -131,10 +124,7 @@ function renderPenguinFrame(shape, color) {
     );
   };
   img.onerror = () => {
-    console.error(
-      '[PenguinVillage] Sprite failed to load (expected until /static/* sends CORS headers -- see flag above):',
-      img.src
-    );
+    console.error('[PenguinVillage] Sprite failed to load:', img.src);
   };
   img.src = `${BACKEND_ORIGIN}/static/${cfg.stripFile}`;
 }
@@ -281,17 +271,12 @@ async function handleAttack() {
   refreshPanel();
 }
 
-// /card/<username>/image is public (no authedFetch/JWT needed).
-//
-// CORS FLAG (confirmed, not guessed): checked this route's actual response
-// headers the same way the /extension/* shapes were checked -- a direct
-// Flask test_client() GET returns Content-Disposition/Content-Type/
-// Content-Length/Cache-Control/Date/Accept-Ranges and no
-// Access-Control-Allow-Origin at all. app.py's CORS hook only covers
-// /extension/*, same gap already flagged for /static/* sprite fetches. A
-// cross-origin fetch() here will be blocked from reading the response body
-// (browser CORS policy, not this code) until the backend adds CORS to this
-// route too, or proxies card images through an /extension/-prefixed route.
+// /card/<username>/image is public (no authedFetch/JWT needed). app.py's
+// CORS hook now covers this route by endpoint name (card_image) in addition
+// to /extension/* and /static/* -- verified directly (Flask test_client()):
+// both the 200 (real username) and 404 (missing username) responses carry
+// Access-Control-Allow-Origin, and sibling /card/* routes (the HTML page,
+// /card/<username>/share, /card/backgrounds/<username>) do not pick it up.
 async function handleCopyCard() {
   if (!currentUsername) return;
   if (!navigator.clipboard || !window.ClipboardItem) {
@@ -313,7 +298,7 @@ async function handleCopyCard() {
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blobPromise })]);
     copyCardBtn.textContent = 'Copied!';
   } catch (err) {
-    console.error('[PenguinVillage] Copy Card failed -- likely the /card/ CORS gap flagged above:', err);
+    console.error('[PenguinVillage] Copy Card failed:', err);
     copyCardBtn.textContent = 'Copy failed';
   }
   setTimeout(() => {
