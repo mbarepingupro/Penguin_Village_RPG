@@ -2,12 +2,15 @@
 
 Replaces the 4 old combat sets (Frost Guardian, Blood Reaper, Temple Mystic,
 Penguin Emperor) with the 26 new tiered sets now baked into catalog.py's
-DEFAULT_GEAR_TEMPLATES/DEFAULT_SET_BONUSES, and backfills required_level on
-existing barracks_shop rows by rarity. The required_level COLUMN itself is
-added additively by database.py's init_db() (_add_col, same pattern as every
-other schema addition) -- this script only replaces/updates data, on the
-assumption the schema migration already ran (init_db() is called here too,
-so running this script alone is enough).
+DEFAULT_GEAR_TEMPLATES/DEFAULT_SET_BONUSES. The required_level COLUMN itself
+is added additively by database.py's init_db() (_add_col, same pattern as
+every other schema addition) -- this script only replaces/updates data, on
+the assumption the schema migration already ran (init_db() is called here
+too, so running this script alone is enough).
+
+barracks_shop's required_level is NOT this script's job (a later pass --
+see migrate_barracks_tier_levels.py -- tier-spread it properly; this script
+originally set a flat epic/legendary bump here, now superseded).
 
 A genuinely fresh database never needs this: database.py seeds straight from
 the new DEFAULT_* dicts the first time gear_templates/set_bonuses are empty
@@ -17,8 +20,7 @@ tables.py) sitting in gear_templates/set_bonuses -- that seed guard means
 those tables were never empty, so they were never re-seeded automatically.
 
 Idempotent -- safe to run more than once: old rows are deleted by set_name
-before insert, new rows use INSERT OR IGNORE (id-based), and the
-barracks_shop UPDATE is a plain conditional assignment.
+before insert, new rows use INSERT OR IGNORE (id-based).
 
 Run with: python migrate_gear_tiers.py
 """
@@ -66,9 +68,6 @@ def migrate():
              sb["secret"]["cosmetic_required"], sb["secret"]["combat_power_bonus"], sb["secret"]["description"])
         )
         sb_rows += 1
-
-    db.execute("UPDATE barracks_shop SET required_level=3 WHERE rarity='epic' AND required_level!=3")
-    db.execute("UPDATE barracks_shop SET required_level=4 WHERE rarity='legendary' AND required_level!=4")
 
     db.commit()
 

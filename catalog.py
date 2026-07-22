@@ -33,11 +33,17 @@ import os
 
 DATABASE = os.environ.get('DATABASE_PATH', 'village.db')
 
-# barracks_shop is the ungated baseline forge shop (not part of the 5-tier
-# ladder gear_templates uses), so its required_level gate is flat per
-# rarity -- reuses Tier 1's own schedule (common/uncommon/rare @1, epic @3,
-# legendary @4) since it's the earliest-available gear source.
-_BARRACKS_REQUIRED_LEVEL = {"common": 1, "uncommon": 1, "rare": 1, "epic": 3, "legendary": 4}
+# barracks_shop isn't part of the gear_templates 5-tier ladder (no set_name,
+# no family spanning multiple rarities), but each of its material families
+# is pinned to exactly one rarity, so it maps 1:1 onto one gear tier and
+# gets that tier's required_level threshold from the SAME table the 26 sets
+# use: iron/driftwood (common) -> Tier 1 @1, steel/coral (uncommon) ->
+# Tier 2 @6, crystal/aurora (rare) -> Tier 3 @11, obsidian (epic) ->
+# Tier 4 @18, mythril (legendary) -> Tier 5 @24. Spread 2/2/2/1/1 across the
+# 5 tiers -- roughly even, and matches the power progression the material
+# names already implied. Existing databases need migrate_barracks_tier_
+# levels.py to pick these up (this dict only seeds a genuinely fresh DB).
+_BARRACKS_REQUIRED_LEVEL = {"common": 1, "uncommon": 6, "rare": 11, "epic": 18, "legendary": 24}
 
 # -- Design notes preserved from the old BARRACKS_SHOP literal --
 #
