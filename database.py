@@ -878,6 +878,55 @@ def init_db():
     catalog._seed_gear_templates_if_empty(c, owns_conn=False)
     catalog._seed_set_bonuses_if_empty(c, owns_conn=False)
 
+    # Session 9: keep barracks_shop.required_level in sync with catalog.py's
+    # live _BARRACKS_REQUIRED_LEVEL every startup, not just once at seed time
+    # (_seed_barracks_shop_if_empty above only runs on a genuinely empty
+    # table, so a database seeded before this tier spread existed would
+    # otherwise keep its stale values forever). This is what the standalone
+    # migrate_barracks_tier_levels.py script used to require someone to
+    # remember to run by hand against the live database -- a step that, in
+    # practice, never happened. Cheap (5 UPDATEs, no-ops once in sync), so
+    # it's safe to run unconditionally on every boot instead.
+    try:
+        for rarity, required_level in catalog._BARRACKS_REQUIRED_LEVEL.items():
+            c.execute(
+                "UPDATE barracks_shop SET required_level=? WHERE rarity=? AND required_level!=?",
+                (required_level, rarity, required_level)
+            )
+    except Exception:
+        pass
+
+    # Session 9: retroactively unequip any currently-EQUIPPED combat gear a
+    # player's level no longer (or never did) qualify for. /gear/equip's
+    # required_level check (app.py's _gear_required_level) only fires on the
+    # ACT of equipping -- gear equipped before required_level existed, or
+    # before required_level was populated correctly (see barracks_shop sync
+    # just above), stayed equipped forever with no re-check. Mirrors
+    # _gear_required_level's own lookup order (barracks_shop by item_id
+    # first, else gear_templates by name+slot+rarity, else no gate) as a
+    # bulk SQL pass -- database.py can't import app.py (app.py imports this
+    # module, not the reverse), so this can't just call that helper.
+    try:
+        c.execute("""
+            UPDATE gear
+            SET equipped = 0
+            WHERE equipped = 1
+              AND type = 'combat'
+              AND COALESCE(
+                    (SELECT bs.required_level FROM barracks_shop bs WHERE bs.id = gear.item_id),
+                    (SELECT gt.required_level FROM gear_templates gt
+                     WHERE UPPER(gt.name) = UPPER(gear.name)
+                       AND gt.slot = gear.slot AND gt.rarity = gear.rarity
+                     LIMIT 1),
+                    1
+                  ) > COALESCE(
+                    (SELECT p.level FROM penguins p WHERE p.username = gear.username),
+                    1
+                  )
+        """)
+    except Exception:
+        pass
+
     conn.commit()
     conn.close()
 
