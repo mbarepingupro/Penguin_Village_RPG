@@ -3411,7 +3411,9 @@ def callback():
         twitch_user = user_resp.json()["data"][0]
         username        = twitch_user["login"]
         twitch_user_id  = twitch_user.get("id")
-    except Exception:
+    except Exception as e:
+        print(f"[TwitchAuth] OAuth callback failed: {type(e).__name__}: {e}")
+        import traceback; traceback.print_exc()
         return redirect("/?error=twitch_auth_failed")
     session["username"] = username
 
@@ -3486,7 +3488,9 @@ def discord_callback():
         user_data    = user_resp.json()
         discord_id   = user_data["id"]
         discord_user = user_data.get("global_name") or user_data.get("username")
-    except Exception:
+    except Exception as e:
+        print(f"[DiscordAuth] OAuth callback failed: {type(e).__name__}: {e}")
+        import traceback; traceback.print_exc()
         return redirect("/?error=discord_auth_failed")
 
     db = get_db()
