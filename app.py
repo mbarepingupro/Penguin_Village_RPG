@@ -3402,6 +3402,11 @@ def callback():
         }, timeout=10)
         access_token = token_resp.json().get("access_token")
         if not access_token:
+            try:
+                body = token_resp.json()
+            except Exception:
+                body = token_resp.text
+            print(f"[TwitchAuth] Token exchange returned no access_token: status={token_resp.status_code}, body={body}")
             raise ValueError("No access token")
         user_resp = http_requests.get(
             "https://api.twitch.tv/helix/users",
