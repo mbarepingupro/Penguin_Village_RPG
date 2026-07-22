@@ -1,5 +1,14 @@
-"""One-time DATA migration: spread barracks_shop's required_level across the
-5 gear tiers instead of the old flat per-rarity gate.
+"""SUPERSEDED as a required manual step (Session 9): this script's own UPDATE
+logic is now baked directly into database.py's init_db() (runs on every
+app boot, not just when someone remembers to run this by hand -- that
+"someone forgets" gap is exactly what let barracks_shop stay stuck on flat
+required_level values in production after this script was first written).
+Kept for reference / a one-off manual nudge if ever needed; not required
+for correctness anymore.
+
+Original docstring -- one-time DATA migration: spread barracks_shop's
+required_level across the 5 gear tiers instead of the old flat per-rarity
+gate.
 
 Context: migrate_gear_tiers.py (the combat-gear-level-tiers session) added
 required_level to barracks_shop but set it flat by rarity -- common/
