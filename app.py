@@ -164,17 +164,27 @@ def _extension_authed():
     for a valid token. Returns None on ANY failure (missing/malformed header,
     bad signature, expired token) -- never raises. jwt.decode() verifies exp
     by default; nothing here disables that.
+
+    Both failure branches below print a one-line [ExtensionAuth] diagnostic
+    (exception type/message, or "secret not set" -- never the token or
+    EXTENSION_SECRET itself) so a real-token 401 can be root-caused from logs
+    instead of guessed at. Temporary: trim once JWT verification is
+    confirmed solid against real Twitch-issued tokens in production.
     """
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
     token = auth_header[len("Bearer "):].strip()
-    if not token or not EXTENSION_SECRET:
+    if not token:
+        return None
+    if not EXTENSION_SECRET:
+        print("[ExtensionAuth] EXTENSION_SECRET is not set -- every Extension JWT will fail verification")
         return None
     try:
         secret_key = base64.b64decode(EXTENSION_SECRET)
         payload    = jwt.decode(token, secret_key, algorithms=["HS256"])
-    except Exception:
+    except Exception as e:
+        print(f"[ExtensionAuth] JWT verification failed: {type(e).__name__}: {e}")
         return None
     return {
         "opaque_user_id": payload.get("opaque_user_id"),
