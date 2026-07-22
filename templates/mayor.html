@@ -249,6 +249,7 @@
       <button class="eventlog-subtab" data-tab="raid" onclick="switchMayorTab('raid', this)">🐉 RAID &amp; CHALLENGES</button>
       <button class="eventlog-subtab" data-tab="social" onclick="switchMayorTab('social', this)">🏷️ SOCIAL</button>
       <button class="eventlog-subtab" data-tab="items" onclick="switchMayorTab('items', this)">🗃️ ITEMS</button>
+      <button class="eventlog-subtab" data-tab="buildings" onclick="switchMayorTab('buildings', this)">🏗️ BUILDINGS &amp; AWARDS</button>
     </div>
 
     <!-- ═══════════════════════ OVERVIEW ═══════════════════════ -->
@@ -943,6 +944,79 @@
       <div id="items-form-card" class="mh-action-card" style="display:none;"></div>
 
     </div><!-- /tab-items -->
+
+    <!-- ═══════════════════════ BUILDINGS & AWARDS DEBUG ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-buildings">
+
+      <div style="color:var(--dim);font-size:15px;margin-bottom:12px;">
+        Manual operator tools -- nothing here fires automatically, every
+        action below is a button you click yourself. None of these touch
+        player gold, gear, resources, XP, level, achievements, or titles --
+        only building level/donation tracking and leaderboard/milestone-
+        progress records.
+      </div>
+
+      <div class="mh-actions">
+
+        <!-- Building reset -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🏗️ BUILDING RESET</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Resets level to 1 and all donation totals to 0 for the selected
+            building, and clears its per-building 100-donated card-background
+            milestone. Only 5 of the 11 buildings are actually
+            donation-upgradeable (Sea Lion Pit, Club Soda, Parkmusement,
+            Cursed Temple, Guillotine) -- resetting any other building just
+            clears its card-background milestone, if it has one (Hotel does).
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">BUILDING</label>
+            <select class="mh-select" id="bd-building-select">
+              <option value="all">— All Buildings —</option>
+              {% for bid, b in all_buildings.items() %}
+              <option value="{{ bid }}">{{ b.name }} ({{ bid }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="mh-btn danger" onclick="bdBuildingReset()">🔄 RESET BUILDING</button>
+        </div>
+
+        <!-- Milestones reset -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🖼️ MILESTONES RESET</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Resets contribution-milestone PROGRESS only -- cosmetic frames/
+            backgrounds a player already unlocked are gear rows and stay
+            with them (out of scope here), same as achievements/titles.
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">SCOPE</label>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:16px;">
+              <label><input type="radio" name="bd-milestone-scope" value="aggregate" checked> Aggregate (100/500/1000/5000 total-donation milestones, all players)</label>
+              <label><input type="radio" name="bd-milestone-scope" value="per_building"> Per-building (100-donated card-background progress, all buildings/players)</label>
+              <label><input type="radio" name="bd-milestone-scope" value="both"> Both</label>
+            </div>
+          </div>
+          <button class="mh-btn danger" onclick="bdMilestonesReset()">🔄 RESET MILESTONES</button>
+        </div>
+
+      </div>
+
+      <div class="mh-lookup" style="margin-top:4px;">
+        <div class="mh-action-title" style="margin-bottom:10px;">🏆 LEADERBOARD RESET</div>
+        <div style="color:var(--dim);font-size:15px;margin-bottom:10px;">
+          Clears ranking/score records only -- rewards already paid out
+          (N00Tboxes, resources, gold) stay with players either way.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="mh-btn" onclick="bdLeaderboardReset('minigame_current')">🎮 MINIGAME — CURRENT WEEK</button>
+          <button class="mh-btn" onclick="bdLeaderboardReset('minigame_historical')">🎮 MINIGAME — HISTORICAL</button>
+          <button class="mh-btn" onclick="bdLeaderboardReset('build')">🧊 BUILD LEADERBOARD (current + historical)</button>
+          <button class="mh-btn danger" onclick="bdLeaderboardReset('raid')">🐉 RAID LEADERBOARD (current + historical)</button>
+        </div>
+      </div>
+
+    </div><!-- /tab-buildings -->
 
   </div><!-- /main -->
 
@@ -1679,6 +1753,57 @@
   }
 
   loadTopicSuggestions();
+
+  // ── BUILDINGS & AWARDS DEBUG ──
+  async function bdBuildingReset() {
+    const sel  = document.getElementById('bd-building-select');
+    const id   = sel.value;
+    const name = sel.options[sel.selectedIndex].text;
+    if (!confirm(`⚠️ Reset "${name}" to level 1 and zero all donations? This also clears its card-background milestone progress. Cannot be undone.`)) return;
+    const btn  = event.target;
+    const data = await api('/mayor/debug/building_reset', { building_id: id }, btn);
+    if (data.status === 'success') {
+      toast(`✅ Reset ${name}: ${data.building_upgrades_rows_reset} building row(s), `
+          + `${data.building_contributions_tracker_rows_cleared} milestone row(s) cleared.`);
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  async function bdMilestonesReset() {
+    const scope = document.querySelector('input[name="bd-milestone-scope"]:checked').value;
+    if (!confirm(`⚠️ Reset milestone progress (scope: ${scope})? Cosmetic rewards already unlocked are kept. Cannot be undone.`)) return;
+    const btn  = event.target;
+    const data = await api('/mayor/debug/milestones_reset', { scope }, btn);
+    if (data.status === 'success') {
+      toast(`✅ Milestones reset (${scope}): ${data.aggregate_rows_reset} player(s) zeroed, `
+          + `${data.per_building_rows_cleared} per-building row(s) cleared.`);
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  async function bdLeaderboardReset(target, force) {
+    const labels = {
+      minigame_current:    'the CURRENT WEEK minigame leaderboard/records',
+      minigame_historical: 'HISTORICAL minigame leaderboard records',
+      build:                'the BUILD leaderboard (current + historical)',
+      raid:                 'the RAID leaderboard (current + historical)',
+    };
+    if (!force && !confirm(`⚠️ Clear ${labels[target]}? Rewards already paid out are NOT affected -- only ranking/score records. Cannot be undone.`)) return;
+    const btn  = event.target;
+    const data = await api('/mayor/debug/leaderboard_reset', { target, force: !!force }, btn);
+    if (data.status === 'success') {
+      const parts = Object.entries(data.rows_cleared).map(([t, n]) => `${t}: ${n}`).join(', ');
+      toast(`✅ Cleared ${labels[target]} — ${parts}${data.forced ? ' (forced)' : ''}.`);
+    } else if (data.raid_live) {
+      if (confirm(`⚠️ ${data.message}\n\nProceed anyway (force)?`)) {
+        await bdLeaderboardReset(target, true);
+      }
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
 
   // ── ITEMS TAB: catalog CRUD (barracks_shop/boutique_items/gear_templates/set_bonuses) ──
   const RARITY_ORDER  = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
