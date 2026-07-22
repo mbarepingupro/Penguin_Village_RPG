@@ -2166,6 +2166,23 @@ def increment_relationship(db, user1, user2):
 
 
 def check_achievements(db, username):
+    """Re-evaluates every achievement condition and grants any newly-met
+    one. Called unconditionally from ~8 different action routes (login,
+    job collection, combat victory, gear equip, the achievements panel
+    itself, igloo visit/place, barracks purchase) -- none of them track
+    "did this specific condition just become true", they just re-check
+    everything every time. That means unlock() gets called again for
+    achievements a player already has on essentially every one of those
+    actions, forever, once a condition (like level >= 5) stays permanently
+    true.
+
+    already_unlocked is fetched once here and checked before every unlock()
+    call so that's a no-op in the overwhelmingly common case instead of an
+    attempted duplicate INSERT. INSERT OR IGNORE + the rowcount check below
+    are the remaining defense-in-depth layer for the rare concurrent-request
+    race (two requests for the same player, both past the already_unlocked
+    check before either commits) -- without the rowcount guard, a raced
+    second request would still fall through to granting the reward twice."""
     now   = int(time.time())
     p     = db.execute("SELECT level, xp FROM penguins WHERE username=?", (username,)).fetchone()
     r     = db.execute("SELECT gold, fish FROM resources WHERE username=?", (username,)).fetchone()
@@ -2174,13 +2191,26 @@ def check_achievements(db, username):
     streak = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
     prest  = db.execute("SELECT prestige FROM penguins WHERE username=?", (username,)).fetchone()
 
+    already_unlocked = {
+        row["achievement_id"] for row in
+        db.execute("SELECT achievement_id FROM achievements WHERE username=?", (username,)).fetchall()
+    }
+
     new_ach = []
     def unlock(aid):
+        if aid in already_unlocked:
+            return
         try:
-            db.execute(
-                "INSERT INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
+            cur = db.execute(
+                "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
                 (username, aid, now)
             )
+            already_unlocked.add(aid)
+            if cur.rowcount == 0:
+                # Lost a race with a concurrent request that already granted
+                # this between our SELECT above and this INSERT -- OR IGNORE
+                # no-op'd it, so skip the reward/log too (already done once).
+                return
             new_ach.append(aid)
             defn = ACHIEVEMENT_DEFS.get(aid, {})
             log_event(db, "achievement", f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username)
@@ -2281,12 +2311,31 @@ def _check_lb_achievements(db, username):
     now = int(time.time())
     new_ach = []
 
+    # Same already-unlocked pre-check + INSERT OR IGNORE + rowcount pattern
+    # as check_achievements()'s unlock() -- lb_unlock is a second, near-
+    # identical implementation writing to the same achievements table, so it
+    # carries the exact same duplicate-INSERT bug (both call sites below,
+    # combat_fight/work_collect, call this unconditionally every time,
+    # regardless of whether lb_top20 etc. are already unlocked). Its
+    # `except Exception: pass` also predates Session 3's "log real errors"
+    # fix to the sibling unlock() -- upgraded here too instead of leaving a
+    # second silently-swallowing copy of the same bug.
+    already_unlocked = {
+        row["achievement_id"] for row in
+        db.execute("SELECT achievement_id FROM achievements WHERE username=?", (username,)).fetchall()
+    }
+
     def lb_unlock(aid, gold_reward=0):
+        if aid in already_unlocked:
+            return
         try:
-            db.execute(
-                "INSERT INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
+            cur = db.execute(
+                "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
                 (username, aid, now)
             )
+            already_unlocked.add(aid)
+            if cur.rowcount == 0:
+                return
             new_ach.append(aid)
             defn = ACHIEVEMENT_DEFS.get(aid, {})
             log_event(db, "achievement",
@@ -2298,7 +2347,7 @@ def _check_lb_achievements(db, username):
                 log_event(db, "village",
                           f"🏆 {username} has reached the TOP 3 on the leaderboard!", username)
         except Exception:
-            pass
+            import traceback; traceback.print_exc()
 
     if best_rank <= 20: lb_unlock("lb_top20", 100)
     if best_rank <= 10: lb_unlock("lb_top10", 200)
@@ -3353,6 +3402,11 @@ def callback():
         }, timeout=10)
         access_token = token_resp.json().get("access_token")
         if not access_token:
+            try:
+                body = token_resp.json()
+            except Exception:
+                body = token_resp.text
+            print(f"[TwitchAuth] Token exchange returned no access_token: status={token_resp.status_code}, body={body}")
             raise ValueError("No access token")
         user_resp = http_requests.get(
             "https://api.twitch.tv/helix/users",
@@ -3362,7 +3416,9 @@ def callback():
         twitch_user = user_resp.json()["data"][0]
         username        = twitch_user["login"]
         twitch_user_id  = twitch_user.get("id")
-    except Exception:
+    except Exception as e:
+        print(f"[TwitchAuth] OAuth callback failed: {type(e).__name__}: {e}")
+        import traceback; traceback.print_exc()
         return redirect("/?error=twitch_auth_failed")
     session["username"] = username
 
@@ -3437,7 +3493,9 @@ def discord_callback():
         user_data    = user_resp.json()
         discord_id   = user_data["id"]
         discord_user = user_data.get("global_name") or user_data.get("username")
-    except Exception:
+    except Exception as e:
+        print(f"[DiscordAuth] OAuth callback failed: {type(e).__name__}: {e}")
+        import traceback; traceback.print_exc()
         return redirect("/?error=discord_auth_failed")
 
     db = get_db()
