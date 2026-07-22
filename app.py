@@ -149,7 +149,9 @@ def _extension_cors_headers(response):
 def _extension_authed():
     """Verify a Twitch Extension Helper JWT from the Authorization header
     ("Bearer <token>"), signed HS256 with EXTENSION_SECRET (base64-decoded
-    first, per Twitch's own convention for this secret). Same shape as
+    first, per Twitch's own convention for this secret -- re-padded to a
+    multiple of 4 before decoding, since Twitch sometimes hands the secret
+    out without trailing '=' padding). Same shape as
     _streamerbot_authed() (defined later in this file, alongside the other
     StreamerBot routes) but for the Extension's shared-secret trust boundary,
     which is separate from both session-cookie auth and STREAMERBOT_SECRET.
@@ -181,7 +183,13 @@ def _extension_authed():
         print("[ExtensionAuth] EXTENSION_SECRET is not set -- every Extension JWT will fail verification")
         return None
     try:
-        secret_key = base64.b64decode(EXTENSION_SECRET)
+        # Twitch sometimes hands out this secret without trailing '=' padding,
+        # which base64.b64decode() requires by default ("Incorrect padding" --
+        # confirmed via the [ExtensionAuth] log below against a real,
+        # correctly-copied secret). Re-pad to a multiple of 4 before decoding;
+        # a no-op if EXTENSION_SECRET is already correctly padded.
+        padded     = EXTENSION_SECRET + "=" * (-len(EXTENSION_SECRET) % 4)
+        secret_key = base64.b64decode(padded)
         payload    = jwt.decode(token, secret_key, algorithms=["HS256"])
     except Exception as e:
         print(f"[ExtensionAuth] JWT verification failed: {type(e).__name__}: {e}")
