@@ -52,6 +52,12 @@ STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
 # the extension frontend. Separate trust boundary from STREAMERBOT_SECRET above.
 EXTENSION_SECRET      = os.getenv("EXTENSION_SECRET", "")
 EXTENSION_CORS_ORIGIN = os.getenv("EXTENSION_CORS_ORIGIN", "https://*.ext-twitch.tv")
+# Twitch Developer Rig's Local Test origin. Only ever allowed when
+# EXTENSION_ALLOW_LOCAL_TEST=true is explicitly set -- unset/false (the
+# default, including in production) keeps it blocked. See
+# _extension_origin_allowed() below.
+EXTENSION_LOCAL_TEST_ORIGIN = "https://localhost:8080"
+EXTENSION_ALLOW_LOCAL_TEST  = os.getenv("EXTENSION_ALLOW_LOCAL_TEST", "").lower() == "true"
 
 BUFF_NAMES = {
     "double_resources": "2x Resources",
@@ -66,16 +72,17 @@ app.secret_key = SECRET_KEY
 
 # ── EXTENSION CORS (scoped to /extension/*, /static/*, and the card image
 #    route only) ───────────────────────────────────────────────────────────
-# The Twitch Extension panel runs in an iframe on a *.ext-twitch.tv origin,
-# so its fetch()es to this app are cross-origin -- unlike every other route in
-# this file, which is same-origin session-cookie auth and needs no CORS
-# headers at all. Three cross-origin call sites the panel makes: the
-# /extension/* JWT-gated routes, GET /static/* (base walk-strip sprites, for
-# the panel's client-side recolor -- recolorPenguin() there needs
-# ctx.getImageData() on the drawn sprite, which throws SecurityError without
-# CORS permission), and GET /card/<username>/image (the Copy Card button's
-# fetch()+blob(), which the browser blocks from reading without CORS
-# regardless of the route being otherwise public/unauthenticated).
+# The Twitch Extension panel runs in an iframe on a *.ext-twitch.tv origin
+# (or https://localhost:8080 during Developer Rig Local Test), so its
+# fetch()es to this app are cross-origin -- unlike every other route in this
+# file, which is same-origin session-cookie auth and needs no CORS headers at
+# all. Three cross-origin call sites the panel makes: the /extension/*
+# JWT-gated routes, GET /static/* (base walk-strip sprites, for the panel's
+# client-side recolor -- recolorPenguin() there needs ctx.getImageData() on
+# the drawn sprite, which throws SecurityError without CORS permission), and
+# GET /card/<username>/image (the Copy Card button's fetch()+blob(), which
+# the browser blocks from reading without CORS regardless of the route being
+# otherwise public/unauthenticated).
 #
 # Matched by endpoint name (card_image, static) rather than a second path
 # prefix for those two -- request.path.startswith("/card/") would also catch
@@ -84,14 +91,58 @@ app.secret_key = SECRET_KEY
 # needs CORS on. /extension/ keeps its existing path-prefix check since that
 # whole tree is JWT-gated API surface with no non-extension siblings to
 # accidentally match.
+def _origin_matches_pattern(origin, pattern):
+    """Match origin against a CORS allow-pattern that may contain a single
+    '*' wildcard for one segment (e.g. "https://*.ext-twitch.tv" matches any
+    extension-id subdomain). Plain equality if pattern has no '*'."""
+    if "*" not in pattern:
+        return origin == pattern
+    prefix, suffix = pattern.split("*", 1)
+    return origin.startswith(prefix) and origin.endswith(suffix) and len(origin) >= len(prefix) + len(suffix)
+
+
+def _extension_origin_allowed(origin):
+    """True if origin may receive CORS headers on the routes above.
+
+    Access-Control-Allow-Origin itself cannot contain a wildcard pattern --
+    browsers require it to be either the literal "*" or an exact byte-for-
+    byte match of the request's Origin header. The previous version of this
+    hook sent EXTENSION_CORS_ORIGIN's raw configured value ("https://
+    *.ext-twitch.tv") as the header verbatim, which is not valid CORS syntax
+    and silently failed browser-side for every real extension origin, not
+    just the https://localhost:8080 case that surfaced this -- confirmed via
+    a live check (real extension-shaped Origin in, literal pattern string
+    out, values don't match). This function instead decides whether to
+    reflect the real Origin back; the hook below does the reflecting.
+
+    EXTENSION_ALLOW_LOCAL_TEST=true additionally allows exactly
+    https://localhost:8080 (the Developer Rig's Local Test origin) -- opt-in
+    only, unset/false (including any production default) keeps it blocked.
+    """
+    if not origin:
+        return False
+    if _origin_matches_pattern(origin, EXTENSION_CORS_ORIGIN):
+        return True
+    if EXTENSION_ALLOW_LOCAL_TEST and origin == EXTENSION_LOCAL_TEST_ORIGIN:
+        return True
+    return False
+
+
 @app.after_request
 def _extension_cors_headers(response):
     if (request.path.startswith("/extension/")
             or request.endpoint == "static"
             or request.endpoint == "card_image"):
-        response.headers["Access-Control-Allow-Origin"]  = EXTENSION_CORS_ORIGIN
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        origin = request.headers.get("Origin", "")
+        if _extension_origin_allowed(origin):
+            response.headers["Access-Control-Allow-Origin"]  = origin
+            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            # Reflecting a specific Origin (rather than the old static value)
+            # means the response varies by request Origin -- tell any cache
+            # in front of this app not to reuse one origin's CORS response
+            # for another's request.
+            response.headers["Vary"] = "Origin"
     return response
 
 
