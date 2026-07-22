@@ -364,7 +364,16 @@ function renderEvents(events) {
     const msgSpan = document.createElement('span');
     msgSpan.className = 'event-message';
     msgSpan.style.color = _TICKER_COLORS[ev.event_type] || '#B8B8D0';
-    msgSpan.textContent = ev.message;
+    // ev.message carries inline markup (<span class="pname-hl">...</span> --
+    // see highlight_name() in personality_config.py) that the site's own
+    // news ticker also renders via innerHTML, not textContent -- .textContent
+    // here was escaping it, showing the literal "<span..." text instead of
+    // rendering it. innerHTML matches the site's existing convention for
+    // this exact field. See the [SECURITY] note in this session's report:
+    // event_log.message is not HTML-escaped end-to-end today (traced to
+    // Discord OAuth's unsanitized global_name flowing into it) -- this
+    // assumes that gets closed, it doesn't close it.
+    msgSpan.innerHTML = ev.message;
 
     const timeSpan = document.createElement('span');
     timeSpan.className = 'event-time';
