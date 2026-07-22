@@ -1698,6 +1698,7 @@
       { key: 'slot', label: 'SLOT', type: 'select', options: ['weapon', 'armor', 'helmet', 'boots'] },
       { key: 'rarity', label: 'RARITY', type: 'select', options: RARITY_ORDER },
       { key: 'combat_power', label: 'COMBAT POWER', type: 'number' },
+      { key: 'required_level', label: 'REQUIRED LEVEL (to equip)', type: 'number' },
       { key: 'cost', label: 'COST', type: 'cost' },
       { key: 'event_exclusive', label: 'EVENT EXCLUSIVE', type: 'checkbox' },
     ],
@@ -1717,16 +1718,17 @@
       { key: 'rarity', label: 'RARITY', type: 'select', options: RARITY_ORDER },
       { key: 'set_name', label: 'SET NAME (optional -- must match a Set Bonuses entry to grant a bonus)', type: 'text', optional: true },
       { key: 'combat_power', label: 'COMBAT POWER', type: 'number' },
+      { key: 'required_level', label: 'REQUIRED LEVEL (to equip)', type: 'number' },
     ],
     set_bonuses: [
-      { key: 'set_name', label: 'SET NAME (must exactly match gear_templates set_name to apply)', type: 'text', placeholder: 'Frost Guardian' },
-      { key: 'pieces_needed', label: 'PIECES NEEDED', type: 'number' },
-      { key: 'bonus_2pc_cp', label: '2PC BONUS CP', type: 'number' },
+      { key: 'set_name', label: 'SET NAME (must exactly match gear_templates set_name to apply)', type: 'text', placeholder: 'Frost' },
+      { key: 'pieces_needed', label: 'PIECES NEEDED (for the 3-4pc tier)', type: 'number' },
+      { key: 'bonus_2pc_cp', label: '2PC BONUS % (of total Combat Power, e.g. 5 = +5%)', type: 'number' },
       { key: 'bonus_2pc_desc', label: '2PC DESCRIPTION', type: 'text' },
-      { key: 'bonus_3pc_cp', label: '3PC BONUS CP', type: 'number' },
-      { key: 'bonus_3pc_desc', label: '3PC DESCRIPTION', type: 'text' },
+      { key: 'bonus_3pc_cp', label: '3-4PC BONUS % (of total Combat Power)', type: 'number' },
+      { key: 'bonus_3pc_desc', label: '3-4PC DESCRIPTION', type: 'text' },
       { key: 'secret_cosmetic_required', label: 'SECRET COSMETIC REQUIRED (optional)', type: 'text', optional: true },
-      { key: 'secret_cp', label: 'SECRET BONUS CP', type: 'number' },
+      { key: 'secret_cp', label: 'SECRET BONUS % (of total Combat Power)', type: 'number' },
       { key: 'secret_desc', label: 'SECRET DESCRIPTION', type: 'text' },
     ],
   };
@@ -1799,16 +1801,16 @@
     if (catalogName === 'barracks_shop') {
       const costStr = Object.entries(item.cost).map(([r, v]) => `${r}:${v}`).join(', ');
       summary = `<div class="mh-topic-text">${escapeHtml(item.name)} <span style="color:var(--dim);">[${escapeHtml(item.id)}]</span></div>
-        <div class="mh-topic-meta">${item.slot} · CP ${item.combat_power} · ${escapeHtml(costStr)}${item.event_exclusive ? ' · ⭐ event' : ''}</div>`;
+        <div class="mh-topic-meta">${item.slot} · CP ${item.combat_power} · Lv ${item.required_level} · ${escapeHtml(costStr)}${item.event_exclusive ? ' · ⭐ event' : ''}</div>`;
     } else if (catalogName === 'boutique_items') {
       summary = `<div class="mh-topic-text">${escapeHtml(item.name)} <span style="color:var(--dim);">[${escapeHtml(item.id)}]</span></div>
         <div class="mh-topic-meta">${item.slot} · ${item.price}g · ${item.tier}${item.event_exclusive ? ' · ⭐ event' : ''}</div>`;
     } else if (catalogName === 'gear_templates') {
       summary = `<div class="mh-topic-text">${escapeHtml(item.name)} <span style="color:var(--dim);">[${escapeHtml(item.id)}]</span></div>
-        <div class="mh-topic-meta">${item.slot} · CP ${item.combat_power}${item.set_name ? ' · SET: ' + escapeHtml(item.set_name) : ''}</div>`;
+        <div class="mh-topic-meta">${item.slot} · CP ${item.combat_power} · Lv ${item.required_level}${item.set_name ? ' · SET: ' + escapeHtml(item.set_name) : ''}</div>`;
     } else if (catalogName === 'set_bonuses') {
       summary = `<div class="mh-topic-text">${escapeHtml(item.set_name)}</div>
-        <div class="mh-topic-meta">2pc +${item.bonus_2pc_cp} · 3pc +${item.bonus_3pc_cp}${item.secret_cosmetic_required ? ' · secret: ' + escapeHtml(item.secret_cosmetic_required) : ''}</div>`;
+        <div class="mh-topic-meta">2pc +${item.bonus_2pc_cp}% · 3-4pc +${item.bonus_3pc_cp}%${item.secret_cosmetic_required ? ' · secret: ' + escapeHtml(item.secret_cosmetic_required) : ''}</div>`;
     }
     return `<div class="mh-topic-row">
       <div>${summary}</div>

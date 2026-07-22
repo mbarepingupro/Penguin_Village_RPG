@@ -33,6 +33,18 @@ import os
 
 DATABASE = os.environ.get('DATABASE_PATH', 'village.db')
 
+# barracks_shop isn't part of the gear_templates 5-tier ladder (no set_name,
+# no family spanning multiple rarities), but each of its material families
+# is pinned to exactly one rarity, so it maps 1:1 onto one gear tier and
+# gets that tier's required_level threshold from the SAME table the 26 sets
+# use: iron/driftwood (common) -> Tier 1 @1, steel/coral (uncommon) ->
+# Tier 2 @6, crystal/aurora (rare) -> Tier 3 @11, obsidian (epic) ->
+# Tier 4 @18, mythril (legendary) -> Tier 5 @24. Spread 2/2/2/1/1 across the
+# 5 tiers -- roughly even, and matches the power progression the material
+# names already implied. Existing databases need migrate_barracks_tier_
+# levels.py to pick these up (this dict only seeds a genuinely fresh DB).
+_BARRACKS_REQUIRED_LEVEL = {"common": 1, "uncommon": 6, "rare": 11, "epic": 18, "legendary": 24}
+
 # -- Design notes preserved from the old BARRACKS_SHOP literal --
 #
 # Each rarity carries one purely-cosmetic ALTERNATIVE per slot alongside the
@@ -156,63 +168,322 @@ DEFAULT_BOUTIQUE_ITEMS = {
     ],
 }
 
+# -- Session 8: combat gear level tiers --
+#
+# 26 sets replace the old 4 (Frost Guardian/Blood Reaper/Temple Mystic/
+# Penguin Emperor): 5 families x 5 rarity stages (common->legendary) + the
+# standalone Penguin Emperor set. Each family IS a level tier -- every stage
+# within a family shares that family's required_level schedule and 2pc/3pc
+# set-bonus percentages (see SET_BONUSES below), only the rarity stage
+# (name/combat_power) differs:
+#   Frost    (lvl 1-5,   T1): Icicle(C) -> Frost(U) -> Glacial(R) -> Permafrost(E) -> Absolute Zero(L)
+#   Blood    (lvl 6-10,  T2): Bone(C) -> Blood Reaper(U) -> Crimson Fury(R) -> Skullcracker(E) -> Grim Reaper(L)
+#   Storm    (lvl 11-15, T3): Squall(C) -> Storm(U) -> Tempest(R) -> Maelstrom(E) -> Godstorm(L)
+#   Sea Lion (lvl 16-20, T4): Pup(C) -> Sea Lion(U) -> Leopard Seal(R) -> Orca(E) -> Kraken(L)
+#   Temple   (lvl 21-30, T5): Acolyte(C) -> Mystic(U) -> Cursed(R) -> Forbidden(E) -> Eldritch(L)
+# required_level within a family: common/uncommon/rare share the tier's
+# floor, epic and legendary step up from there (e.g. Frost: 1/1/1/3/4).
+# combat_power per rarity is IDENTICAL across all 5 families+standalone --
+# reuses the exact per-slot split the old 4 sets already established
+# (weapon/helmet/boots/armor): common 3/2/2/3, uncommon 7/5/5/7,
+# rare 15/12/11/14, epic 28/22/20/25, legendary 45/35/32/42 -- tiers
+# differentiate by required_level, not raw power. Penguin Emperor scales
+# that same legendary split proportionally up to a 190 total (56/43/39/52),
+# required_level 25 on all 4 pieces, standalone (not part of the 5-tier
+# ladder). The 4 non-set common items below predate this pass and aren't
+# part of "the existing 4 sets" being replaced (no set_name -- never granted
+# a set bonus), so they're kept as-is with required_level=1.
 DEFAULT_GEAR_TEMPLATES = {
     "common": [
-        {"name": "Rusty Sword",  "slot": "weapon", "set_name": None, "combat_power": 3},
-        {"name": "Leather Cap",  "slot": "helmet", "set_name": None, "combat_power": 2},
-        {"name": "Worn Boots",   "slot": "boots",  "set_name": None, "combat_power": 2},
-        {"name": "Padded Vest",  "slot": "armor",  "set_name": None, "combat_power": 3},
+        {"name": "Rusty Sword",  "slot": "weapon", "set_name": None, "combat_power": 3, "required_level": 1},
+        {"name": "Leather Cap",  "slot": "helmet", "set_name": None, "combat_power": 2, "required_level": 1},
+        {"name": "Worn Boots",   "slot": "boots",  "set_name": None, "combat_power": 2, "required_level": 1},
+        {"name": "Padded Vest",  "slot": "armor",  "set_name": None, "combat_power": 3, "required_level": 1},
+        {"name": "Icicle Blade", "slot": "weapon", "set_name": "Icicle", "combat_power": 3, "required_level": 1},
+        {"name": "Icicle Helm", "slot": "helmet", "set_name": "Icicle", "combat_power": 2, "required_level": 1},
+        {"name": "Icicle Greaves", "slot": "boots", "set_name": "Icicle", "combat_power": 2, "required_level": 1},
+        {"name": "Icicle Mail", "slot": "armor", "set_name": "Icicle", "combat_power": 3, "required_level": 1},
+        {"name": "Bone Scythe", "slot": "weapon", "set_name": "Bone", "combat_power": 3, "required_level": 6},
+        {"name": "Bone Crown", "slot": "helmet", "set_name": "Bone", "combat_power": 2, "required_level": 6},
+        {"name": "Bone Stompers", "slot": "boots", "set_name": "Bone", "combat_power": 2, "required_level": 6},
+        {"name": "Bone Plate", "slot": "armor", "set_name": "Bone", "combat_power": 3, "required_level": 6},
+        {"name": "Squall Bolt", "slot": "weapon", "set_name": "Squall", "combat_power": 3, "required_level": 11},
+        {"name": "Squall Crest", "slot": "helmet", "set_name": "Squall", "combat_power": 2, "required_level": 11},
+        {"name": "Squall Treads", "slot": "boots", "set_name": "Squall", "combat_power": 2, "required_level": 11},
+        {"name": "Squall Vestments", "slot": "armor", "set_name": "Squall", "combat_power": 3, "required_level": 11},
+        {"name": "Pup Fang", "slot": "weapon", "set_name": "Pup", "combat_power": 3, "required_level": 16},
+        {"name": "Pup Hood", "slot": "helmet", "set_name": "Pup", "combat_power": 2, "required_level": 16},
+        {"name": "Pup Flippers", "slot": "boots", "set_name": "Pup", "combat_power": 2, "required_level": 16},
+        {"name": "Pup Hide", "slot": "armor", "set_name": "Pup", "combat_power": 3, "required_level": 16},
+        {"name": "Acolyte Staff", "slot": "weapon", "set_name": "Acolyte", "combat_power": 3, "required_level": 21},
+        {"name": "Acolyte Hood", "slot": "helmet", "set_name": "Acolyte", "combat_power": 2, "required_level": 21},
+        {"name": "Acolyte Sandals", "slot": "boots", "set_name": "Acolyte", "combat_power": 2, "required_level": 21},
+        {"name": "Acolyte Robes", "slot": "armor", "set_name": "Acolyte", "combat_power": 3, "required_level": 21},
     ],
     "uncommon": [
-        {"name": "Frost Blade",   "slot": "weapon", "set_name": "Frost Guardian", "combat_power": 7},
-        {"name": "Frost Helm",    "slot": "helmet", "set_name": "Frost Guardian", "combat_power": 5},
-        {"name": "Frost Greaves", "slot": "boots",  "set_name": "Frost Guardian", "combat_power": 5},
-        {"name": "Frost Mail",    "slot": "armor",  "set_name": "Frost Guardian", "combat_power": 7},
+        {"name": "Frost Blade", "slot": "weapon", "set_name": "Frost", "combat_power": 7, "required_level": 1},
+        {"name": "Frost Helm", "slot": "helmet", "set_name": "Frost", "combat_power": 5, "required_level": 1},
+        {"name": "Frost Greaves", "slot": "boots", "set_name": "Frost", "combat_power": 5, "required_level": 1},
+        {"name": "Frost Mail", "slot": "armor", "set_name": "Frost", "combat_power": 7, "required_level": 1},
+        {"name": "Blood Reaper Scythe", "slot": "weapon", "set_name": "Blood Reaper", "combat_power": 7, "required_level": 6},
+        {"name": "Blood Reaper Crown", "slot": "helmet", "set_name": "Blood Reaper", "combat_power": 5, "required_level": 6},
+        {"name": "Blood Reaper Stompers", "slot": "boots", "set_name": "Blood Reaper", "combat_power": 5, "required_level": 6},
+        {"name": "Blood Reaper Plate", "slot": "armor", "set_name": "Blood Reaper", "combat_power": 7, "required_level": 6},
+        {"name": "Storm Bolt", "slot": "weapon", "set_name": "Storm", "combat_power": 7, "required_level": 11},
+        {"name": "Storm Crest", "slot": "helmet", "set_name": "Storm", "combat_power": 5, "required_level": 11},
+        {"name": "Storm Treads", "slot": "boots", "set_name": "Storm", "combat_power": 5, "required_level": 11},
+        {"name": "Storm Vestments", "slot": "armor", "set_name": "Storm", "combat_power": 7, "required_level": 11},
+        {"name": "Sea Lion Fang", "slot": "weapon", "set_name": "Sea Lion", "combat_power": 7, "required_level": 16},
+        {"name": "Sea Lion Hood", "slot": "helmet", "set_name": "Sea Lion", "combat_power": 5, "required_level": 16},
+        {"name": "Sea Lion Flippers", "slot": "boots", "set_name": "Sea Lion", "combat_power": 5, "required_level": 16},
+        {"name": "Sea Lion Hide", "slot": "armor", "set_name": "Sea Lion", "combat_power": 7, "required_level": 16},
+        {"name": "Mystic Staff", "slot": "weapon", "set_name": "Mystic", "combat_power": 7, "required_level": 21},
+        {"name": "Mystic Hood", "slot": "helmet", "set_name": "Mystic", "combat_power": 5, "required_level": 21},
+        {"name": "Mystic Sandals", "slot": "boots", "set_name": "Mystic", "combat_power": 5, "required_level": 21},
+        {"name": "Mystic Robes", "slot": "armor", "set_name": "Mystic", "combat_power": 7, "required_level": 21},
     ],
     "rare": [
-        {"name": "Blood Reaper",    "slot": "weapon", "set_name": "Blood Reaper", "combat_power": 15},
-        {"name": "Blood Crown",     "slot": "helmet", "set_name": "Blood Reaper", "combat_power": 12},
-        {"name": "Blood Stompers",  "slot": "boots",  "set_name": "Blood Reaper", "combat_power": 11},
-        {"name": "Blood Plate",     "slot": "armor",  "set_name": "Blood Reaper", "combat_power": 14},
+        {"name": "Glacial Blade", "slot": "weapon", "set_name": "Glacial", "combat_power": 15, "required_level": 1},
+        {"name": "Glacial Helm", "slot": "helmet", "set_name": "Glacial", "combat_power": 12, "required_level": 1},
+        {"name": "Glacial Greaves", "slot": "boots", "set_name": "Glacial", "combat_power": 11, "required_level": 1},
+        {"name": "Glacial Mail", "slot": "armor", "set_name": "Glacial", "combat_power": 14, "required_level": 1},
+        {"name": "Crimson Fury Scythe", "slot": "weapon", "set_name": "Crimson Fury", "combat_power": 15, "required_level": 6},
+        {"name": "Crimson Fury Crown", "slot": "helmet", "set_name": "Crimson Fury", "combat_power": 12, "required_level": 6},
+        {"name": "Crimson Fury Stompers", "slot": "boots", "set_name": "Crimson Fury", "combat_power": 11, "required_level": 6},
+        {"name": "Crimson Fury Plate", "slot": "armor", "set_name": "Crimson Fury", "combat_power": 14, "required_level": 6},
+        {"name": "Tempest Bolt", "slot": "weapon", "set_name": "Tempest", "combat_power": 15, "required_level": 11},
+        {"name": "Tempest Crest", "slot": "helmet", "set_name": "Tempest", "combat_power": 12, "required_level": 11},
+        {"name": "Tempest Treads", "slot": "boots", "set_name": "Tempest", "combat_power": 11, "required_level": 11},
+        {"name": "Tempest Vestments", "slot": "armor", "set_name": "Tempest", "combat_power": 14, "required_level": 11},
+        {"name": "Leopard Seal Fang", "slot": "weapon", "set_name": "Leopard Seal", "combat_power": 15, "required_level": 16},
+        {"name": "Leopard Seal Hood", "slot": "helmet", "set_name": "Leopard Seal", "combat_power": 12, "required_level": 16},
+        {"name": "Leopard Seal Flippers", "slot": "boots", "set_name": "Leopard Seal", "combat_power": 11, "required_level": 16},
+        {"name": "Leopard Seal Hide", "slot": "armor", "set_name": "Leopard Seal", "combat_power": 14, "required_level": 16},
+        {"name": "Cursed Staff", "slot": "weapon", "set_name": "Cursed", "combat_power": 15, "required_level": 21},
+        {"name": "Cursed Hood", "slot": "helmet", "set_name": "Cursed", "combat_power": 12, "required_level": 21},
+        {"name": "Cursed Sandals", "slot": "boots", "set_name": "Cursed", "combat_power": 11, "required_level": 21},
+        {"name": "Cursed Robes", "slot": "armor", "set_name": "Cursed", "combat_power": 14, "required_level": 21},
     ],
     "epic": [
-        {"name": "Temple Mystic Staff",    "slot": "weapon", "set_name": "Temple Mystic", "combat_power": 28},
-        {"name": "Temple Mystic Hood",     "slot": "helmet", "set_name": "Temple Mystic", "combat_power": 22},
-        {"name": "Temple Mystic Sandals",  "slot": "boots",  "set_name": "Temple Mystic", "combat_power": 20},
-        {"name": "Temple Mystic Robes",    "slot": "armor",  "set_name": "Temple Mystic", "combat_power": 25},
+        {"name": "Permafrost Blade", "slot": "weapon", "set_name": "Permafrost", "combat_power": 28, "required_level": 3},
+        {"name": "Permafrost Helm", "slot": "helmet", "set_name": "Permafrost", "combat_power": 22, "required_level": 3},
+        {"name": "Permafrost Greaves", "slot": "boots", "set_name": "Permafrost", "combat_power": 20, "required_level": 3},
+        {"name": "Permafrost Mail", "slot": "armor", "set_name": "Permafrost", "combat_power": 25, "required_level": 3},
+        {"name": "Skullcracker Scythe", "slot": "weapon", "set_name": "Skullcracker", "combat_power": 28, "required_level": 8},
+        {"name": "Skullcracker Crown", "slot": "helmet", "set_name": "Skullcracker", "combat_power": 22, "required_level": 8},
+        {"name": "Skullcracker Stompers", "slot": "boots", "set_name": "Skullcracker", "combat_power": 20, "required_level": 8},
+        {"name": "Skullcracker Plate", "slot": "armor", "set_name": "Skullcracker", "combat_power": 25, "required_level": 8},
+        {"name": "Maelstrom Bolt", "slot": "weapon", "set_name": "Maelstrom", "combat_power": 28, "required_level": 13},
+        {"name": "Maelstrom Crest", "slot": "helmet", "set_name": "Maelstrom", "combat_power": 22, "required_level": 13},
+        {"name": "Maelstrom Treads", "slot": "boots", "set_name": "Maelstrom", "combat_power": 20, "required_level": 13},
+        {"name": "Maelstrom Vestments", "slot": "armor", "set_name": "Maelstrom", "combat_power": 25, "required_level": 13},
+        {"name": "Orca Fang", "slot": "weapon", "set_name": "Orca", "combat_power": 28, "required_level": 18},
+        {"name": "Orca Hood", "slot": "helmet", "set_name": "Orca", "combat_power": 22, "required_level": 18},
+        {"name": "Orca Flippers", "slot": "boots", "set_name": "Orca", "combat_power": 20, "required_level": 18},
+        {"name": "Orca Hide", "slot": "armor", "set_name": "Orca", "combat_power": 25, "required_level": 18},
+        {"name": "Forbidden Staff", "slot": "weapon", "set_name": "Forbidden", "combat_power": 28, "required_level": 23},
+        {"name": "Forbidden Hood", "slot": "helmet", "set_name": "Forbidden", "combat_power": 22, "required_level": 23},
+        {"name": "Forbidden Sandals", "slot": "boots", "set_name": "Forbidden", "combat_power": 20, "required_level": 23},
+        {"name": "Forbidden Robes", "slot": "armor", "set_name": "Forbidden", "combat_power": 25, "required_level": 23},
     ],
     "legendary": [
-        {"name": "Emperor's Scepter",  "slot": "weapon", "set_name": "Penguin Emperor", "combat_power": 45},
-        {"name": "Emperor's Diadem",   "slot": "helmet", "set_name": "Penguin Emperor", "combat_power": 35},
-        {"name": "Emperor's Sabatons", "slot": "boots",  "set_name": "Penguin Emperor", "combat_power": 32},
-        {"name": "Emperor's Regalia",  "slot": "armor",  "set_name": "Penguin Emperor", "combat_power": 42},
+        {"name": "Absolute Zero Blade", "slot": "weapon", "set_name": "Absolute Zero", "combat_power": 45, "required_level": 4},
+        {"name": "Absolute Zero Helm", "slot": "helmet", "set_name": "Absolute Zero", "combat_power": 35, "required_level": 4},
+        {"name": "Absolute Zero Greaves", "slot": "boots", "set_name": "Absolute Zero", "combat_power": 32, "required_level": 4},
+        {"name": "Absolute Zero Mail", "slot": "armor", "set_name": "Absolute Zero", "combat_power": 42, "required_level": 4},
+        {"name": "Grim Reaper Scythe", "slot": "weapon", "set_name": "Grim Reaper", "combat_power": 45, "required_level": 9},
+        {"name": "Grim Reaper Crown", "slot": "helmet", "set_name": "Grim Reaper", "combat_power": 35, "required_level": 9},
+        {"name": "Grim Reaper Stompers", "slot": "boots", "set_name": "Grim Reaper", "combat_power": 32, "required_level": 9},
+        {"name": "Grim Reaper Plate", "slot": "armor", "set_name": "Grim Reaper", "combat_power": 42, "required_level": 9},
+        {"name": "Godstorm Bolt", "slot": "weapon", "set_name": "Godstorm", "combat_power": 45, "required_level": 14},
+        {"name": "Godstorm Crest", "slot": "helmet", "set_name": "Godstorm", "combat_power": 35, "required_level": 14},
+        {"name": "Godstorm Treads", "slot": "boots", "set_name": "Godstorm", "combat_power": 32, "required_level": 14},
+        {"name": "Godstorm Vestments", "slot": "armor", "set_name": "Godstorm", "combat_power": 42, "required_level": 14},
+        {"name": "Kraken Fang", "slot": "weapon", "set_name": "Kraken", "combat_power": 45, "required_level": 19},
+        {"name": "Kraken Hood", "slot": "helmet", "set_name": "Kraken", "combat_power": 35, "required_level": 19},
+        {"name": "Kraken Flippers", "slot": "boots", "set_name": "Kraken", "combat_power": 32, "required_level": 19},
+        {"name": "Kraken Hide", "slot": "armor", "set_name": "Kraken", "combat_power": 42, "required_level": 19},
+        {"name": "Eldritch Staff", "slot": "weapon", "set_name": "Eldritch", "combat_power": 45, "required_level": 24},
+        {"name": "Eldritch Hood", "slot": "helmet", "set_name": "Eldritch", "combat_power": 35, "required_level": 24},
+        {"name": "Eldritch Sandals", "slot": "boots", "set_name": "Eldritch", "combat_power": 32, "required_level": 24},
+        {"name": "Eldritch Robes", "slot": "armor", "set_name": "Eldritch", "combat_power": 42, "required_level": 24},
+        {"name": "Emperor's Scepter", "slot": "weapon", "set_name": "Penguin Emperor", "combat_power": 56, "required_level": 25},
+        {"name": "Emperor's Diadem", "slot": "helmet", "set_name": "Penguin Emperor", "combat_power": 43, "required_level": 25},
+        {"name": "Emperor's Sabatons", "slot": "boots", "set_name": "Penguin Emperor", "combat_power": 39, "required_level": 25},
+        {"name": "Emperor's Regalia", "slot": "armor", "set_name": "Penguin Emperor", "combat_power": 52, "required_level": 25},
     ],
 }
 
+# Set-bonus scaling is per TIER (family), shared by all 5 rarity stages
+# within it, and mutually exclusive 2pc-vs-3pc same as before (Session 7's
+# stacking fix in calculate_set_bonuses -- only the highest piece-count tier
+# a player reaches applies). Unlike the old table, these are PERCENTAGES of
+# total combat power (not flat CP): bonus_2pc_cp/bonus_3pc_cp store whole
+# percentage points (e.g. 5 == +5%) -- see calculate_set_bonuses() in
+# app.py, which now applies the sum multiplicatively instead of adding it.
+# Frost/Blood/Storm reuse the existing "buff combat power" convention every
+# prior set already used. Sea Lion and Temple are new families -- their
+# bonus is flavored (aquatic instinct / mystic focus in the description)
+# but mechanically still combat_power_bonus, since that's the only stat
+# calculate_set_bonuses currently wires up (attack/defense/speed/hp bonus
+# are hardcoded to 0 for sets, individual-item-only). No secret-cosmetic
+# tier for any of these 26 -- the task only specced 2pc/3-4pc scaling.
 DEFAULT_SET_BONUSES = {
-    "Frost Guardian": {
+    "Icicle": {
         "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 5,  "description": "+5 Combat Power"},
-        "3pc": {"combat_power_bonus": 15, "description": "+15 Combat Power"},
-        "secret": {"cosmetic_required": "Golden Scarf", "combat_power_bonus": 10, "description": "+10 CP (secret!)"},
+        "2pc": {"combat_power_bonus": 3, "description": "+3% Combat Power"},
+        "3pc": {"combat_power_bonus": 6, "description": "+6% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Frost": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 3, "description": "+3% Combat Power"},
+        "3pc": {"combat_power_bonus": 6, "description": "+6% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Glacial": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 3, "description": "+3% Combat Power"},
+        "3pc": {"combat_power_bonus": 6, "description": "+6% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Permafrost": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 3, "description": "+3% Combat Power"},
+        "3pc": {"combat_power_bonus": 6, "description": "+6% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Absolute Zero": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 3, "description": "+3% Combat Power"},
+        "3pc": {"combat_power_bonus": 6, "description": "+6% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Bone": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 5, "description": "+5% Combat Power"},
+        "3pc": {"combat_power_bonus": 10, "description": "+10% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
     },
     "Blood Reaper": {
         "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 8,  "description": "+8 Combat Power"},
-        "3pc": {"combat_power_bonus": 20, "description": "+20 Combat Power"},
-        "secret": {"cosmetic_required": "Shadow Cloak", "combat_power_bonus": 15, "description": "+15 CP (secret!)"},
+        "2pc": {"combat_power_bonus": 5, "description": "+5% Combat Power"},
+        "3pc": {"combat_power_bonus": 10, "description": "+10% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
     },
-    "Temple Mystic": {
+    "Crimson Fury": {
         "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 12, "description": "+12 Combat Power"},
-        "3pc": {"combat_power_bonus": 25, "description": "+25 Combat Power"},
-        "secret": {"cosmetic_required": "Ancient Amulet", "combat_power_bonus": 20, "description": "+20 CP (secret!)"},
+        "2pc": {"combat_power_bonus": 5, "description": "+5% Combat Power"},
+        "3pc": {"combat_power_bonus": 10, "description": "+10% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Skullcracker": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 5, "description": "+5% Combat Power"},
+        "3pc": {"combat_power_bonus": 10, "description": "+10% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Grim Reaper": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 5, "description": "+5% Combat Power"},
+        "3pc": {"combat_power_bonus": 10, "description": "+10% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Squall": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 7, "description": "+7% Combat Power"},
+        "3pc": {"combat_power_bonus": 14, "description": "+14% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Storm": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 7, "description": "+7% Combat Power"},
+        "3pc": {"combat_power_bonus": 14, "description": "+14% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Tempest": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 7, "description": "+7% Combat Power"},
+        "3pc": {"combat_power_bonus": 14, "description": "+14% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Maelstrom": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 7, "description": "+7% Combat Power"},
+        "3pc": {"combat_power_bonus": 14, "description": "+14% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Godstorm": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 7, "description": "+7% Combat Power"},
+        "3pc": {"combat_power_bonus": 14, "description": "+14% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Pup": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 9, "description": "+9% Combat Power (Aquatic Instinct)"},
+        "3pc": {"combat_power_bonus": 18, "description": "+18% Combat Power (Aquatic Instinct)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Sea Lion": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 9, "description": "+9% Combat Power (Aquatic Instinct)"},
+        "3pc": {"combat_power_bonus": 18, "description": "+18% Combat Power (Aquatic Instinct)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Leopard Seal": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 9, "description": "+9% Combat Power (Aquatic Instinct)"},
+        "3pc": {"combat_power_bonus": 18, "description": "+18% Combat Power (Aquatic Instinct)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Orca": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 9, "description": "+9% Combat Power (Aquatic Instinct)"},
+        "3pc": {"combat_power_bonus": 18, "description": "+18% Combat Power (Aquatic Instinct)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Kraken": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 9, "description": "+9% Combat Power (Aquatic Instinct)"},
+        "3pc": {"combat_power_bonus": 18, "description": "+18% Combat Power (Aquatic Instinct)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Acolyte": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 11, "description": "+11% Combat Power (Mystic Focus)"},
+        "3pc": {"combat_power_bonus": 22, "description": "+22% Combat Power (Mystic Focus)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Mystic": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 11, "description": "+11% Combat Power (Mystic Focus)"},
+        "3pc": {"combat_power_bonus": 22, "description": "+22% Combat Power (Mystic Focus)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Cursed": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 11, "description": "+11% Combat Power (Mystic Focus)"},
+        "3pc": {"combat_power_bonus": 22, "description": "+22% Combat Power (Mystic Focus)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Forbidden": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 11, "description": "+11% Combat Power (Mystic Focus)"},
+        "3pc": {"combat_power_bonus": 22, "description": "+22% Combat Power (Mystic Focus)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
+    },
+    "Eldritch": {
+        "pieces_needed": 3,
+        "2pc": {"combat_power_bonus": 11, "description": "+11% Combat Power (Mystic Focus)"},
+        "3pc": {"combat_power_bonus": 22, "description": "+22% Combat Power (Mystic Focus)"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
     },
     "Penguin Emperor": {
         "pieces_needed": 3,
-        "2pc": {"combat_power_bonus": 15, "description": "+15 Combat Power"},
-        "3pc": {"combat_power_bonus": 35, "description": "+35 Combat Power"},
-        "secret": {"cosmetic_required": "Prestige Crown", "combat_power_bonus": 30, "description": "+30 CP (secret!)"},
+        "2pc": {"combat_power_bonus": 15, "description": "+15% Combat Power"},
+        "3pc": {"combat_power_bonus": 30, "description": "+30% Combat Power"},
+        "secret": {"cosmetic_required": None, "combat_power_bonus": 0, "description": "No secret bonus"},
     },
 }
 
@@ -234,10 +505,11 @@ def _seed_barracks_shop_if_empty(db, owns_conn):
     for rarity, items in DEFAULT_BARRACKS_SHOP.items():
         for item in items:
             db.execute(
-                "INSERT OR IGNORE INTO barracks_shop (id, name, slot, rarity, combat_power, cost, event_exclusive) "
-                "VALUES (?,?,?,?,?,?,?)",
+                "INSERT OR IGNORE INTO barracks_shop (id, name, slot, rarity, combat_power, cost, event_exclusive, required_level) "
+                "VALUES (?,?,?,?,?,?,?,?)",
                 (item["id"], item["name"], item["slot"], rarity, item["combat_power"],
-                 json.dumps(item["cost"]), int(bool(item.get("event_exclusive", False))))
+                 json.dumps(item["cost"]), int(bool(item.get("event_exclusive", False))),
+                 _BARRACKS_REQUIRED_LEVEL.get(rarity, 1))
             )
     if owns_conn:
         db.commit()
@@ -265,9 +537,10 @@ def _seed_gear_templates_if_empty(db, owns_conn):
         for item in items:
             gid = f"{_slugify(item['name'])}_{item['slot']}_{rarity}"
             db.execute(
-                "INSERT OR IGNORE INTO gear_templates (id, name, slot, rarity, set_name, combat_power) "
-                "VALUES (?,?,?,?,?,?)",
-                (gid, item["name"], item["slot"], rarity, item["set_name"], item["combat_power"])
+                "INSERT OR IGNORE INTO gear_templates (id, name, slot, rarity, set_name, combat_power, required_level) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (gid, item["name"], item["slot"], rarity, item["set_name"], item["combat_power"],
+                 item.get("required_level", 1))
             )
     if owns_conn:
         db.commit()
@@ -291,8 +564,9 @@ def _seed_set_bonuses_if_empty(db, owns_conn):
 
 
 def load_barracks_shop(db=None):
-    """Same shape as the old BARRACKS_SHOP literal: dict of
-    rarity -> list of {"id","name","slot","combat_power","cost", optionally
+    """Same shape as the old BARRACKS_SHOP literal, plus a "required_level"
+    key (Session 8): dict of rarity -> list of
+    {"id","name","slot","combat_power","cost","required_level", optionally
     "event_exclusive": True}.
 
     Pass the caller's own already-open `db` connection when calling mid-
@@ -323,6 +597,7 @@ def load_barracks_shop(db=None):
         item = {
             "id": row["id"], "name": row["name"], "slot": row["slot"],
             "combat_power": row["combat_power"], "cost": json.loads(row["cost"]),
+            "required_level": row["required_level"],
         }
         if row["event_exclusive"]:
             item["event_exclusive"] = True
@@ -355,8 +630,9 @@ def load_boutique_items(db=None):
 
 
 def load_gear_templates(db=None):
-    """Same shape as the old GEAR_TEMPLATES literal: dict of
-    rarity -> list of {"name","slot","set_name","combat_power"}. Same
+    """Same shape as the old GEAR_TEMPLATES literal, plus a "required_level"
+    key (Session 8): dict of rarity -> list of
+    {"name","slot","set_name","combat_power","required_level"}. Same
     optional-`db` convention as load_barracks_shop() -- read-only, see that
     docstring for why seeding isn't done lazily here. Note these entries
     have no stable id (a fresh item_id is generated per drop instead) --
@@ -374,6 +650,7 @@ def load_gear_templates(db=None):
         item = {
             "name": row["name"], "slot": row["slot"],
             "set_name": row["set_name"], "combat_power": row["combat_power"],
+            "required_level": row["required_level"],
         }
         result.setdefault(row["rarity"], []).append(item)
     return result

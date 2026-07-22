@@ -1126,6 +1126,61 @@ _GEAR_DROP_RARITY_WEIGHTS = {
     5: {"common": 0,  "uncommon": 10, "rare": 25, "epic": 40, "legendary": 25},
 }
 
+# Gear tiers (Session "level-gate" prompt): each family in gear_templates
+# spans one of these level ranges via required_level, and monster tiers
+# (MONSTER_TYPES' "tier" field, 1-5) map 1:1 onto the same ranges. Shared
+# here so both the monster-loot roll and the N00Tbox roll derive "what tier
+# is this" the same way -- see _gear_tier_for_level()/_gear_pool_for_tier()
+# below, the reusable helpers this and future loot-pool prompts should call.
+GEAR_TIER_LEVEL_RANGES = {
+    1: (1, 5),
+    2: (6, 10),
+    3: (11, 15),
+    4: (16, 20),
+    5: (21, 30),
+}
+
+
+def _gear_tier_for_level(level):
+    """Which gear tier (1-5) a given level falls in -- used both for a
+    player's own current tier and, via an item's required_level, for that
+    item's tier. Levels below/above the configured range clamp to the
+    nearest tier rather than raising, since LEVEL_DATA is capped at 30 but
+    nothing stops a required_level of 0 or a future level increase."""
+    for tier, (lo, hi) in GEAR_TIER_LEVEL_RANGES.items():
+        if lo <= level <= hi:
+            return tier
+    return 5 if level > GEAR_TIER_LEVEL_RANGES[5][1] else 1
+
+
+def _gear_pool_for_tier(rarity, tier, db=None, max_tier=False):
+    """gear_templates items of `rarity` restricted to a gear tier.
+
+    Exact-tier match by default (monster loot: a tier-N monster only drops
+    tier-N items). Pass max_tier=True for "this tier and below" (N00Tbox:
+    capped at the player's current tier, since they can't equip anything
+    higher yet anyway).
+
+    Penguin Emperor is always excluded -- it's the level-25 standalone grind
+    target, never a random monster/N00Tbox drop (see catalog.py's
+    DEFAULT_GEAR_TEMPLATES docstring). Falls back to every non-Emperor item
+    of that rarity if the tier-restricted pool is empty (defensive only --
+    every rarity currently has exactly one item per tier, so this shouldn't
+    trigger, but a combat-victory or lootbox-open response must not 500 over
+    an admin-edited catalog gap)."""
+    items = catalog.load_gear_templates(db=db).get(rarity, [])
+    pool = []
+    for item in items:
+        if item["set_name"] == "Penguin Emperor":
+            continue
+        item_tier = _gear_tier_for_level(item["required_level"])
+        if (item_tier <= tier) if max_tier else (item_tier == tier):
+            pool.append(item)
+    if not pool:
+        pool = [i for i in items if i["set_name"] != "Penguin Emperor"]
+    return pool
+
+
 # ── SET BONUSES ───────────────────────────────────────────────────────────────
 # SET_BONUSES used to be a dict literal here -- now DB-backed via
 # catalog.load_set_bonuses() (see catalog.py / migrate_catalog_tables.py).
@@ -1526,7 +1581,14 @@ def get_daily_variant(monster_type_id):
 
 
 def calculate_set_bonuses(db, username):
-    """Sum up combat set bonuses from equipped gear pieces. Returns combat_power_bonus."""
+    """Sum up combat set bonuses from equipped gear pieces.
+
+    Session 8: set_bonuses' bonus_2pc_cp/bonus_3pc_cp/secret_cp columns now
+    store whole PERCENTAGE points (e.g. 5 == +5% combat power), not a flat
+    CP amount -- returns combat_power_bonus_pct, summed across every set the
+    player has 2+ pieces of. get_combat_power() applies the sum
+    multiplicatively to the base+gear CP total, the same way the festival
+    buff's +10% is already applied there."""
     equipped = db.execute(
         "SELECT set_name FROM gear WHERE username=? AND equipped=1 AND type='combat' AND set_name IS NOT NULL",
         (username,)
@@ -1569,7 +1631,7 @@ def calculate_set_bonuses(db, username):
                 active_descriptions.append(f"{set_name} SECRET: {set_data['secret']['description']}")
 
     return {
-        "combat_power_bonus": total_cp_bonus,
+        "combat_power_bonus_pct": total_cp_bonus,
         "active_bonuses": active_descriptions,
         # Keep backward compat keys at zero so get_combat_stats() doesn't crash
         "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 0, "hp_bonus": 0,
@@ -1588,8 +1650,10 @@ def get_combat_power(username):
         ).fetchall()
         for item in equipped:
             cp += item["combat_power"] or 0
-        sb = calculate_set_bonuses(db, username)
-        cp += sb.get("combat_power_bonus", 0)
+        sb  = calculate_set_bonuses(db, username)
+        pct = sb.get("combat_power_bonus_pct", 0)
+        if pct:
+            cp += int(cp * pct / 100)
         for buff in get_active_buffs(db):
             if buff["buff_type"] == "festival":
                 cp = int(cp * 1.1)
@@ -1731,13 +1795,21 @@ def get_combat_stats(db, username):
 def generate_gear_drop(monster_tier, db=None):
     """Generate a random gear drop for a given monster tier.
 
+    The rarity roll (common/uncommon/rare/epic/legendary) is weighted by
+    _GEAR_DROP_RARITY_WEIGHTS as before; the template within that rarity is
+    now further restricted to gear whose required_level puts it in this
+    SAME gear tier (monster tier N -> tier-N items only, exact match) via
+    _gear_pool_for_tier() -- monster tier and gear tier are the same 1-5
+    scale (see GEAR_TIER_LEVEL_RANGES). Penguin Emperor is excluded by that
+    helper regardless of tier.
+
     Pass the caller's own already-open `db` connection when calling mid-
     transaction -- see raid_settings.get_setting's docstring for why.
     """
     weights  = _GEAR_DROP_RARITY_WEIGHTS.get(monster_tier, _GEAR_DROP_RARITY_WEIGHTS[1])
     pool     = [r for r, w in weights.items() for _ in range(w)]
     rarity   = random.choice(pool)
-    tmpl     = random.choice(catalog.load_gear_templates(db=db)[rarity])
+    tmpl     = random.choice(_gear_pool_for_tier(rarity, monster_tier, db=db))
     item_id  = f"drop_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {
         "name": tmpl["name"].upper(),
@@ -1771,11 +1843,19 @@ def _roll_lootbox_rarity(db=None):
     return "common"  # float-rounding fallback
 
 
-def _generate_lootbox_gear(rarity, db=None):
+def _generate_lootbox_gear(rarity, player_tier, db=None):
     """Random gear item of an exact rarity — reuses catalog.load_gear_templates(),
-    same shape as generate_gear_drop(). Same optional-`db` convention as
-    raid_settings.get_setting()."""
-    tmpl    = random.choice(catalog.load_gear_templates(db=db)[rarity])
+    same shape as generate_gear_drop().
+
+    Unlike generate_gear_drop() (exact monster-tier match), the eligible
+    pool here is capped at player_tier AND BELOW (max_tier=True) -- a
+    N00Tbox's pool is driven by the PLAYER's current tier, not by whatever
+    triggered the box (daily login, raid reward, streak, ...), since they
+    can't equip anything above their own tier yet regardless of source. The
+    rarity roll itself (_roll_lootbox_rarity's odds) is untouched -- only
+    which templates are eligible within that rarity shrinks/grows by tier.
+    Same optional-`db` convention as raid_settings.get_setting()."""
+    tmpl    = random.choice(_gear_pool_for_tier(rarity, player_tier, db=db, max_tier=True))
     item_id = f"lootbox_{tmpl['slot']}_{rarity}_{int(time.time())}_{random.randint(1000,9999)}"
     return {
         "name": tmpl["name"].upper(),
@@ -1792,6 +1872,10 @@ def _generate_lootbox_gear(rarity, db=None):
 def open_lootbox(lootbox_id, username):
     """Roll + apply a lootbox's rewards (1 gear item + gold + 1 resource).
 
+    The gear tier eligible for this box is derived from the PLAYER's level
+    at OPEN time (not box["source"], not whatever level they were when the
+    box was granted) -- see _generate_lootbox_gear()'s docstring.
+
     Returns the roll result dict for the frontend to animate, or None if the
     box doesn't exist, isn't owned by username, or was already opened.
     """
@@ -1801,8 +1885,10 @@ def open_lootbox(lootbox_id, username):
         db.close()
         return None
 
+    p            = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+    player_tier  = _gear_tier_for_level(p["level"] if p else 1)
     rarity   = _roll_lootbox_rarity(db=db)
-    gear     = _generate_lootbox_gear(rarity, db=db)
+    gear     = _generate_lootbox_gear(rarity, player_tier, db=db)
     gold_range     = raid_settings.get_setting("gold_range", db=db)
     resource_range = raid_settings.get_setting("resource_range", db=db)
     gold     = random.randint(gold_range[0], gold_range[1])
@@ -5061,6 +5147,29 @@ def gear_inventory():
     })
 
 
+def _gear_required_level(db, item):
+    """Minimum player level to equip this owned gear row (0 == no gate).
+
+    Forged items (barracks_shop) are looked up by item_id, since gear.item_id
+    for those is exactly the barracks_shop.id barracks_buy() wrote. Dropped
+    items (gear_templates) don't have that -- generate_gear_drop() /
+    _generate_lootbox_gear() stamp a synthetic per-drop item_id, not the
+    template's id -- so those are looked up by name+slot+rarity instead;
+    gear.name is tmpl["name"].upper() (see generate_gear_drop()), hence the
+    case-insensitive compare."""
+    if item["item_id"]:
+        row = db.execute(
+            "SELECT required_level FROM barracks_shop WHERE id=?", (item["item_id"],)
+        ).fetchone()
+        if row:
+            return row["required_level"] or 0
+    row = db.execute(
+        "SELECT required_level FROM gear_templates WHERE UPPER(name)=UPPER(?) AND slot=? AND rarity=?",
+        (item["name"], item["slot"], item["rarity"])
+    ).fetchone()
+    return row["required_level"] if row else 0
+
+
 @app.route("/gear/equip", methods=["POST"])
 def gear_equip():
     if not FEATURES.get("gear_equip", False):
@@ -5078,6 +5187,16 @@ def gear_equip():
         db.commit()
         db.close()
         return jsonify({"status": "success", "equipped": False, "message": f"{item['name']} unequipped."})
+    if item["type"] == "combat":
+        req_level = _gear_required_level(db, item)
+        if req_level:
+            p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+            player_level = p["level"] if p else 1
+            if player_level < req_level:
+                db.close()
+                return jsonify({"status": "error",
+                                 "message": f"{item['name']} requires level {req_level} to equip "
+                                            f"(you are level {player_level})."})
     db.execute("UPDATE gear SET equipped=0 WHERE username=? AND type=? AND slot=?", (username, item["type"], item["slot"]))
     db.execute("UPDATE gear SET equipped=1 WHERE id=?", (gear_id,))
     new_ach = check_achievements(db, username)
@@ -6967,6 +7086,7 @@ def barracks_shop(username):
     owned_ids = [r["item_id"] for r in owned if r["item_id"]]
     gold = get_gold(db, username)
     res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+    p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
     db.close()
     return jsonify({
         "status": "ok",
@@ -6974,6 +7094,7 @@ def barracks_shop(username):
         "owned_ids": owned_ids,
         "gold": gold,
         "resources": dict(res) if res else {},
+        "player_level": p["level"] if p else 1,
     })
 
 
@@ -8479,9 +8600,9 @@ def mayor_items_all():
 # ── gear_templates/set_bonuses -- see catalog.py for the read-side       ──
 # ── loaders these tables also back) ─────────────────────────────────────
 _CATALOG_TABLES = {
-    "barracks_shop":  {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "combat_power", "cost", "event_exclusive"]},
+    "barracks_shop":  {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "combat_power", "cost", "event_exclusive", "required_level"]},
     "boutique_items": {"pk": "id",       "columns": ["id", "name", "category", "slot", "price", "tier", "event_exclusive"]},
-    "gear_templates": {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "set_name", "combat_power"]},
+    "gear_templates": {"pk": "id",       "columns": ["id", "name", "slot", "rarity", "set_name", "combat_power", "required_level"]},
     "set_bonuses":    {"pk": "set_name", "columns": ["set_name", "pieces_needed", "bonus_2pc_cp", "bonus_2pc_desc",
                                                       "bonus_3pc_cp", "bonus_3pc_desc", "secret_cosmetic_required",
                                                       "secret_cp", "secret_desc"]},
@@ -8519,6 +8640,7 @@ def _validate_catalog_row(catalog_name, data):
         combat_power = data.get("combat_power")
         cost  = data.get("cost") or {}
         event_exclusive = bool(data.get("event_exclusive"))
+        required_level = data.get("required_level", 1)
         if not id_ or not name:
             raise ValueError("id and name are required.")
         if not _CATALOG_ID_RE.match(id_):
@@ -8529,6 +8651,8 @@ def _validate_catalog_row(catalog_name, data):
             raise ValueError(f"rarity must be one of {sorted(_CATALOG_RARITIES)}.")
         if not isinstance(combat_power, int) or isinstance(combat_power, bool) or combat_power < 0:
             raise ValueError("combat_power must be a non-negative integer.")
+        if not isinstance(required_level, int) or isinstance(required_level, bool) or required_level < 1:
+            raise ValueError("required_level must be a positive integer.")
         if not isinstance(cost, dict) or not cost:
             raise ValueError("cost must be a non-empty resource -> amount mapping.")
         for res, amt in cost.items():
@@ -8538,7 +8662,7 @@ def _validate_catalog_row(catalog_name, data):
                 raise ValueError(f"cost[{res}] must be a positive integer.")
         return {"id": id_, "name": name, "slot": slot, "rarity": rarity,
                 "combat_power": combat_power, "cost": json.dumps(cost),
-                "event_exclusive": int(event_exclusive)}
+                "event_exclusive": int(event_exclusive), "required_level": required_level}
 
     if catalog_name == "boutique_items":
         id_   = (data.get("id") or "").strip()
@@ -8570,6 +8694,7 @@ def _validate_catalog_row(catalog_name, data):
         rarity = data.get("rarity")
         set_name = (data.get("set_name") or "").strip() or None
         combat_power = data.get("combat_power")
+        required_level = data.get("required_level", 1)
         if not id_ or not name:
             raise ValueError("id and name are required.")
         if not _CATALOG_ID_RE.match(id_):
@@ -8582,8 +8707,10 @@ def _validate_catalog_row(catalog_name, data):
             raise ValueError("set_name may only contain letters, digits, spaces, and apostrophes.")
         if not isinstance(combat_power, int) or isinstance(combat_power, bool) or combat_power < 0:
             raise ValueError("combat_power must be a non-negative integer.")
+        if not isinstance(required_level, int) or isinstance(required_level, bool) or required_level < 1:
+            raise ValueError("required_level must be a positive integer.")
         return {"id": id_, "name": name, "slot": slot, "rarity": rarity,
-                "set_name": set_name, "combat_power": combat_power}
+                "set_name": set_name, "combat_power": combat_power, "required_level": required_level}
 
     if catalog_name == "set_bonuses":
         set_name = (data.get("set_name") or "").strip()
