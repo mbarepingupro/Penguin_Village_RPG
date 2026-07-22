@@ -8364,6 +8364,7 @@ def mayor_dashboard():
         recent_events=[dict(e) for e in recent_events],
         building_levels=building_levels,
         building_upgrades=BUILDING_UPGRADES,
+        all_buildings=BUILDINGS,
         buff_names=BUFF_NAMES,
         is_live=is_live,
         mayor_key=MAYOR_KEY,
@@ -10796,6 +10797,207 @@ def mayor_debug_penguin_fetch():
             "last_login_date":ls["last_login_date"] if ls else "",
         }
     })
+
+
+# ── BUILDINGS & AWARDS DEBUG ─────────────────────────────────────────────────
+# Manual operator tools -- every action here is a mayor-clicked button, no
+# automated trigger. Same auth/response/event_log pattern as
+# /mayor/debug/penguin and the Weekly Challenge/Weekend Raid debug panels
+# above (_is_mayor_authed() -> 403, admin_debug event_log entry, JSON status/
+# message). Never touches player gold, gear, resources, XP, level,
+# achievements, or titles -- only building level/donation tracking and
+# leaderboard/milestone-progress records.
+
+_ALL_BUILDING_IDS = set(BUILDINGS.keys())
+
+# building_upgrades' full set of per-resource donation columns (see
+# database.py's CREATE TABLE + the ice_blocks_donated _add_col backfill).
+_BUILDING_DONATION_COLS = (
+    "fish_donated", "herbs_donated", "gold_donated",
+    "blood_gems_donated", "bones_donated", "spell_fragments_donated",
+    "ice_blocks_donated",
+)
+
+
+@app.route("/mayor/debug/building_reset", methods=["POST"])
+def mayor_debug_building_reset():
+    """Reset one building (or all 11) to level 1 with donations zeroed, and
+    clear the per-building 100-donated card-background milestone tied to it.
+
+    Only 5 of the 11 BUILDINGS ids (BUILDING_UPGRADES' keys) actually carry a
+    building_upgrades row in practice -- the other 6 (hotel, horny_jail,
+    boutique, award_hall, barracks, bank) aren't donation-upgradeable, so
+    their building_upgrades reset is a harmless no-op (0 rows). hotel is the
+    one exception worth noting: it has no building_upgrades row but DOES have
+    its own card-background milestone (BUILDING_CARD_BACKGROUNDS), so
+    resetting it still clears something real via building_contributions_tracker."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data        = request.get_json(silent=True) or {}
+    building_id = (data.get("building_id") or "").strip()
+    if building_id != "all" and building_id not in _ALL_BUILDING_IDS:
+        return jsonify({"status": "error", "message": f"Unknown building_id '{building_id}'."})
+
+    mayor      = session.get("username") or "key-auth"
+    db         = get_db()
+    set_clause = "current_level=1, " + ", ".join(f"{c}=0" for c in _BUILDING_DONATION_COLS)
+
+    if building_id == "all":
+        levels_reset   = db.execute(f"UPDATE building_upgrades SET {set_clause}").rowcount
+        milestones_gone = db.execute("DELETE FROM building_contributions_tracker").rowcount
+        label = "ALL buildings"
+    else:
+        levels_reset   = db.execute(
+            f"UPDATE building_upgrades SET {set_clause} WHERE building_id=?", (building_id,)
+        ).rowcount
+        milestones_gone = db.execute(
+            "DELETE FROM building_contributions_tracker WHERE building_id=?", (building_id,)
+        ).rowcount
+        label = building_id
+
+    log_event(db, "admin_debug",
+              f"👑 [BUILDING DEBUG] {mayor} reset {label}: {levels_reset} building_upgrades row(s), "
+              f"{milestones_gone} building_contributions_tracker row(s) cleared",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status": "success",
+        "building_id": building_id,
+        "building_upgrades_rows_reset": levels_reset,
+        "building_contributions_tracker_rows_cleared": milestones_gone,
+    })
+
+
+@app.route("/mayor/debug/milestones_reset", methods=["POST"])
+def mayor_debug_milestones_reset():
+    """Reset the contribution-milestone tracking data (not the cosmetic
+    rewards already granted -- those live in the `gear` table as
+    type='cosmetic' rows, out of scope for this tool same as any other gear).
+
+    scope='aggregate': zeroes penguins.total_contributions for every player
+    -- the running lifetime total CONTRIBUTION_MILESTONES (100/500/1000/5000)
+    compares against.
+    scope='per_building': clears building_contributions_tracker entirely
+    (every building, every player) -- the per-building 100-donated
+    card-background progress/flag.
+    scope='both': does both."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data  = request.get_json(silent=True) or {}
+    scope = (data.get("scope") or "").strip()
+    if scope not in ("aggregate", "per_building", "both"):
+        return jsonify({"status": "error", "message": "scope must be 'aggregate', 'per_building', or 'both'."})
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    aggregate_rows    = 0
+    per_building_rows = 0
+    if scope in ("aggregate", "both"):
+        aggregate_rows = db.execute(
+            "UPDATE penguins SET total_contributions=0 WHERE total_contributions != 0"
+        ).rowcount
+    if scope in ("per_building", "both"):
+        per_building_rows = db.execute("DELETE FROM building_contributions_tracker").rowcount
+
+    log_event(db, "admin_debug",
+              f"👑 [MILESTONE DEBUG] {mayor} reset milestones (scope={scope}): "
+              f"{aggregate_rows} penguins.total_contributions row(s) zeroed, "
+              f"{per_building_rows} building_contributions_tracker row(s) cleared",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status": "success",
+        "scope": scope,
+        "aggregate_rows_reset": aggregate_rows,
+        "per_building_rows_cleared": per_building_rows,
+    })
+
+
+@app.route("/mayor/debug/leaderboard_reset", methods=["POST"])
+def mayor_debug_leaderboard_reset():
+    """Clear leaderboard/ranking records only -- never rewards already paid
+    out (those already live in gold/resources/gear/lootboxes, untouched
+    here).
+
+    target='minigame_current': minigame_scores rows in the in-progress
+    Mon->Sat week (also the Award Hall Minigames-records source for any
+    score set this week, since that tab is just MAX(score) over this table).
+    target='minigame_historical': minigame_scores rows from any earlier week.
+    target='build': weekly_build_leaderboard (live) + _archive (resolved
+    weeks) -- both website-roll and stream-roll feed the same
+    record_build_leaderboard_progress(), so there's only one table pair to
+    clear. weekly_build_leaderboard_state's week_id counter is left alone
+    (structural cadence state, not a ranking record).
+    target='raid': raid_participants (current + historical, no archive table
+    -- raid_id links each row back to its raid_state row either way). If a
+    raid is currently live (join_window/awaiting_raid/active), refuses
+    unless force=true, since clearing this would wipe that raid's live
+    damage tracking -- raid_state's own status/HP are never touched either way."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data   = request.get_json(silent=True) or {}
+    target = (data.get("target") or "").strip()
+    force  = bool(data.get("force"))
+    if target not in ("minigame_current", "minigame_historical", "build", "raid"):
+        return jsonify({"status": "error", "message": "Unknown target."})
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    rows_cleared   = {}
+    forced_through = False
+
+    if target == "minigame_current":
+        week_start, week_end = _minigame_week_bounds()
+        rows_cleared["minigame_scores"] = db.execute(
+            "DELETE FROM minigame_scores WHERE played_at >= ? AND played_at < ?",
+            (week_start, week_end)
+        ).rowcount
+
+    elif target == "minigame_historical":
+        week_start, _ = _minigame_week_bounds()
+        rows_cleared["minigame_scores"] = db.execute(
+            "DELETE FROM minigame_scores WHERE played_at < ?", (week_start,)
+        ).rowcount
+
+    elif target == "build":
+        rows_cleared["weekly_build_leaderboard"] = db.execute(
+            "DELETE FROM weekly_build_leaderboard"
+        ).rowcount
+        rows_cleared["weekly_build_leaderboard_archive"] = db.execute(
+            "DELETE FROM weekly_build_leaderboard_archive"
+        ).rowcount
+
+    elif target == "raid":
+        live_raid = db.execute(
+            "SELECT id, status, boss_name FROM raid_state "
+            "WHERE status IN ('join_window', 'awaiting_raid', 'active') "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        if live_raid and not force:
+            db.close()
+            return jsonify({
+                "status": "error",
+                "message": f"A raid is currently {live_raid['status']} ('{live_raid['boss_name']}', "
+                           f"raid #{live_raid['id']}). Clearing raid_participants now would wipe its "
+                           f"live damage tracking. Resend with force=true to proceed anyway.",
+                "raid_live": True,
+                "raid_id": live_raid["id"],
+                "raid_status": live_raid["status"],
+                "boss_name": live_raid["boss_name"],
+            })
+        forced_through = bool(live_raid and force)
+        rows_cleared["raid_participants"] = db.execute("DELETE FROM raid_participants").rowcount
+
+    log_event(db, "admin_debug",
+              f"👑 [LEADERBOARD DEBUG] {mayor} reset '{target}' leaderboard"
+              + (" (FORCED -- a raid was live)" if forced_through else "")
+              + f": {rows_cleared}",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "target": target, "rows_cleared": rows_cleared, "forced": forced_through})
 
 
 # TESTING ONLY -- lets the mayor trigger award_passive_seals() on demand with
