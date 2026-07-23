@@ -246,6 +246,7 @@
       <button class="eventlog-subtab" data-tab="players" onclick="switchMayorTab('players', this)">👥 PLAYERS</button>
       <button class="eventlog-subtab" data-tab="economy" onclick="switchMayorTab('economy', this)">💰 ECONOMY</button>
       <button class="eventlog-subtab" data-tab="announcements" onclick="switchMayorTab('announcements', this)">📢 ANNOUNCEMENTS</button>
+      <button class="eventlog-subtab" data-tab="events" onclick="switchMayorTab('events', this)">📰 EVENTS</button>
       <button class="eventlog-subtab" data-tab="raid" onclick="switchMayorTab('raid', this)">🐉 RAID &amp; CHALLENGES</button>
       <button class="eventlog-subtab" data-tab="social" onclick="switchMayorTab('social', this)">🏷️ SOCIAL</button>
       <button class="eventlog-subtab" data-tab="items" onclick="switchMayorTab('items', this)">🗃️ ITEMS</button>
@@ -497,6 +498,20 @@
           <button class="mh-btn" onclick="sendGiftGear()">⚔️ GIFT GEAR</button>
         </div>
 
+        <!-- GIFT N00TBOX -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🎁 GIFT N00TBOX</div>
+          <div class="mh-field">
+            <label class="mh-label">USERNAME (or "random")</label>
+            <input class="mh-input" type="text" id="gn-username" placeholder="username / random"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">COUNT</label>
+            <input class="mh-input" type="number" id="gn-count" value="1" min="1"/>
+          </div>
+          <button class="mh-btn" onclick="sendGiftNootbox()">🎁 GIFT N00TBOX</button>
+        </div>
+
         <!-- BUILDING BOOST -->
         <div class="mh-action-card">
           <div class="mh-action-title">🏗️ BOOST BUILDING</div>
@@ -565,19 +580,6 @@
           </div>
         </div>
 
-        <!-- ANNOUNCE -->
-        <div class="mh-action-card">
-          <div class="mh-action-title">📢 ANNOUNCE</div>
-          <div class="mh-field">
-            <label class="mh-label">MESSAGE (MAX 200 CHARS)</label>
-            <textarea class="mh-textarea" id="announce-msg" maxlength="200"
-                      oninput="document.getElementById('announce-chars').textContent=this.value.length+'/200'"
-                      placeholder="Your message to the village..."></textarea>
-            <div class="mh-charcount"><span id="announce-chars">0</span>/200</div>
-          </div>
-          <button class="mh-btn" onclick="sendAnnouncement()">📢 ANNOUNCE</button>
-        </div>
-
         <!-- BLIZZARD -->
         <div class="mh-action-card">
           <div class="mh-action-title">🌨️ TRIGGER BLIZZARD</div>
@@ -616,6 +618,54 @@
 
       </div>
     </div><!-- /tab-announcements -->
+
+    <!-- ═══════════════════════ EVENTS ═══════════════════════ -->
+    <div class="mh-tab-panel" id="mh-tab-events">
+      <div class="mh-actions">
+
+        <!-- ANNOUNCE (moved here from ANNOUNCEMENTS) -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">📢 ANNOUNCE</div>
+          <div class="mh-field">
+            <label class="mh-label">MESSAGE (MAX 200 CHARS)</label>
+            <textarea class="mh-textarea" id="announce-msg" maxlength="200"
+                      oninput="document.getElementById('announce-chars').textContent=this.value.length+'/200'"
+                      placeholder="Your message to the village..."></textarea>
+            <div class="mh-charcount"><span id="announce-chars">0</span>/200</div>
+          </div>
+          <button class="mh-btn" onclick="sendAnnouncement()">📢 ANNOUNCE</button>
+        </div>
+
+        <!-- EVENT TYPE VISIBILITY -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">👁️ EVENT TYPE VISIBILITY</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:8px;">
+            Unchecked types are hidden from every public event feed (the
+            Events tab, the news ticker, and the Twitch extension panel).
+            Doesn't affect your own view below, or the welcome-back "while
+            you were away" summary.
+          </div>
+          <div id="ev-visibility-list" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px;">
+            <div class="mh-no-buffs">Loading…</div>
+          </div>
+          <button class="mh-btn green" onclick="evSaveVisibility()">💾 SAVE VISIBILITY</button>
+          <div id="ev-visibility-result" style="margin-top:6px;font-size:16px;"></div>
+        </div>
+
+      </div>
+
+      <!-- DELETE EVENTS -->
+      <div class="mh-lookup" style="margin-top:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div class="mh-action-title" style="margin:0;">🗑️ DELETE EVENTS</div>
+          <button class="mh-btn" style="width:auto;padding:6px 12px;margin-top:0;" onclick="loadEventsList()">↻ REFRESH</button>
+        </div>
+        <div id="ev-events-list">
+          <div class="mh-no-buffs">Loading…</div>
+        </div>
+      </div>
+
+    </div><!-- /tab-events -->
 
     <!-- ═══════════════════════ RAID & CHALLENGES ═══════════════════════ -->
     <div class="mh-tab-panel" id="mh-tab-raid">
@@ -1053,6 +1103,7 @@
     if (panel) panel.classList.add('active');
     sessionStorage.setItem('mayorTab', tab);
     if (tab === 'items') loadCatalogItems(_itemsCatalog);
+    if (tab === 'events') { loadEventVisibility(); loadEventsList(); }
   }
 
   // ── CLOCK ──
@@ -1258,6 +1309,20 @@
     if (data.status === 'success') {
       toast(`✅ Gear "${name}" gifted to ${data.recipient}!`);
       document.getElementById('gg-username').value = '';
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  async function sendGiftNootbox() {
+    const btn      = event.target;
+    const username = document.getElementById('gn-username').value.trim();
+    const count    = parseInt(document.getElementById('gn-count').value, 10) || 0;
+    if (!username || count <= 0) { toast('❌ Username and a positive count required.', false); return; }
+    const data = await api('/mayor/gift/nootbox', { username, count }, btn);
+    if (data.status === 'success') {
+      toast(`✅ ${data.count} N00Tbox(es) gifted to ${data.recipient}!`);
+      document.getElementById('gn-username').value = '';
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
     }
@@ -1801,6 +1866,77 @@
       if (confirm(`⚠️ ${data.message}\n\nProceed anyway (force)?`)) {
         await bdLeaderboardReset(target, true);
       }
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── EVENTS TAB: visibility toggles + delete ──
+  let _evAllTypes = [];
+
+  async function loadEventVisibility() {
+    const container = document.getElementById('ev-visibility-list');
+    try {
+      const res  = await fetch('/mayor/events/types' + KEY_PARAM);
+      const data = await res.json();
+      if (data.status !== 'success') { container.innerHTML = '<div class="mh-no-buffs">Error loading.</div>'; return; }
+      _evAllTypes = data.all_types;
+      const hidden = new Set(data.hidden_types);
+      container.innerHTML = _evAllTypes.map(t => `
+        <label style="font-size:16px;display:flex;align-items:center;gap:6px;">
+          <input type="checkbox" class="ev-type-checkbox" value="${t}" ${hidden.has(t) ? '' : 'checked'}>
+          ${escapeHtml(t)}
+        </label>
+      `).join('');
+    } catch(e) {
+      container.innerHTML = '<div class="mh-no-buffs">Error loading.</div>';
+    }
+  }
+
+  async function evSaveVisibility() {
+    const btn      = event.target;
+    const checked   = new Set(Array.from(document.querySelectorAll('.ev-type-checkbox:checked')).map(el => el.value));
+    const hidden_types = _evAllTypes.filter(t => !checked.has(t));
+    const data = await api('/mayor/debug/event_visibility_save', { hidden_types }, btn);
+    const el = document.getElementById('ev-visibility-result');
+    if (data.status === 'success') {
+      el.innerHTML = `<span style="color:var(--green);">✅ Saved. Hidden: ${data.hidden_types.length ? data.hidden_types.join(', ') : '(none)'}</span>`;
+      toast('✅ Event visibility saved.');
+    } else {
+      el.innerHTML = `<span style="color:var(--red);">❌ ${escapeHtml(data.message || 'Error.')}</span>`;
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  async function loadEventsList() {
+    const container = document.getElementById('ev-events-list');
+    try {
+      const res  = await fetch('/mayor/events/list?limit=100' + KEY_PARAM.replace('?', '&'));
+      const data = await res.json();
+      if (data.status !== 'success') { container.innerHTML = '<div class="mh-no-buffs">Error loading.</div>'; return; }
+      if (!data.events.length) { container.innerHTML = '<div class="mh-no-buffs">No events yet.</div>'; return; }
+      container.innerHTML = data.events.map(e => `
+        <div class="mh-topic-row">
+          <div>
+            <div class="mh-topic-text">[${escapeHtml(e.event_type)}] ${escapeHtml(e.message)}</div>
+            <div class="mh-topic-meta">${e.username ? escapeHtml(e.username) + ' · ' : ''}#${e.id}</div>
+          </div>
+          <div class="mh-topic-actions">
+            <button class="mh-topic-btn reject" onclick="deleteEvent(${e.id})">🗑️ DELETE</button>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      container.innerHTML = '<div class="mh-no-buffs">Error loading.</div>';
+    }
+  }
+
+  async function deleteEvent(eventId) {
+    if (!confirm(`⚠️ Delete event #${eventId}? Cannot be undone.`)) return;
+    const data = await api('/mayor/debug/event_delete', { event_id: eventId }, null);
+    if (data.status === 'success') {
+      toast(`✅ Event #${eventId} deleted.`);
+      loadEventsList();
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
     }

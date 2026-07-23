@@ -153,6 +153,31 @@ def init_db():
         )
     """)
 
+    # Presence of a row = that event_type is hidden from the public event
+    # feeds (Events tab's /events, and the /events/recent ticker both
+    # site-side and the Twitch extension panel) -- Mayor-configurable via the
+    # Events tab of the Mayor dashboard. Absence = visible (default,
+    # unchanged behavior for any type never explicitly hidden). 'admin_debug'
+    # is seeded hidden the first time this table is ever created, to preserve
+    # /events/recent's existing hardcoded exclusion of it -- see app.py's
+    # _hidden_event_types()/_recent_events(). Seeded on TABLE CREATION, not
+    # "if empty": a mayor un-hiding admin_debug (or un-hiding everything,
+    # leaving the table legitimately empty) must survive every future
+    # init_db() call (every app restart) -- an "if empty" check can't tell
+    # that apart from "never configured yet" and would silently re-hide it
+    # on the next restart, which is exactly the bug this table-existence
+    # check avoids.
+    _hidden_event_types_is_new = c.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='hidden_event_types'"
+    ).fetchone() is None
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS hidden_event_types (
+            event_type TEXT PRIMARY KEY
+        )
+    """)
+    if _hidden_event_types_is_new:
+        c.execute("INSERT OR IGNORE INTO hidden_event_types (event_type) VALUES ('admin_debug')")
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS login_streaks (
             username TEXT PRIMARY KEY,
