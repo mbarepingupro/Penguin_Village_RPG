@@ -1759,12 +1759,13 @@
     const sel  = document.getElementById('bd-building-select');
     const id   = sel.value;
     const name = sel.options[sel.selectedIndex].text;
-    if (!confirm(`⚠️ Reset "${name}" to level 1 and zero all donations? This also clears its card-background milestone progress. Cannot be undone.`)) return;
+    if (!confirm(`⚠️ Reset "${name}" to level 1 and zero all donations? This also clears its card-background milestone progress and its Top Contributors list. Cannot be undone.`)) return;
     const btn  = event.target;
     const data = await api('/mayor/debug/building_reset', { building_id: id }, btn);
     if (data.status === 'success') {
       toast(`✅ Reset ${name}: ${data.building_upgrades_rows_reset} building row(s), `
-          + `${data.building_contributions_tracker_rows_cleared} milestone row(s) cleared.`);
+          + `${data.building_contributions_tracker_rows_cleared} milestone row(s), `
+          + `${data.building_donations_rows_cleared} donation row(s) cleared.`);
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
     }

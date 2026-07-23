@@ -10879,8 +10879,16 @@ _BUILDING_DONATION_COLS = (
 
 @app.route("/mayor/debug/building_reset", methods=["POST"])
 def mayor_debug_building_reset():
-    """Reset one building (or all 11) to level 1 with donations zeroed, and
-    clear the per-building 100-donated card-background milestone tied to it.
+    """Reset one building (or all 11) to level 1 with donations zeroed, clear
+    the per-building 100-donated card-background milestone tied to it, and
+    clear its raw donation ledger (building_donations) so the "TOP
+    CONTRIBUTORS" list -- SUM(amount) GROUP BY username over that table's
+    rows, computed live on every /building/upgrade/<id> and
+    /building/contributors/<id> call, never a cached total -- stops showing
+    pre-reset donors. building_donations is a permanent history separate
+    from building_upgrades' running totals (which level-up already zeroes)
+    and was never touched by this route before, which is exactly why a
+    "reset" building kept showing old top donators.
 
     Only 5 of the 11 BUILDINGS ids (BUILDING_UPGRADES' keys) actually carry a
     building_upgrades row in practice -- the other 6 (hotel, horny_jail,
@@ -10901,21 +10909,26 @@ def mayor_debug_building_reset():
     set_clause = "current_level=1, " + ", ".join(f"{c}=0" for c in _BUILDING_DONATION_COLS)
 
     if building_id == "all":
-        levels_reset   = db.execute(f"UPDATE building_upgrades SET {set_clause}").rowcount
+        levels_reset    = db.execute(f"UPDATE building_upgrades SET {set_clause}").rowcount
         milestones_gone = db.execute("DELETE FROM building_contributions_tracker").rowcount
+        donations_gone  = db.execute("DELETE FROM building_donations").rowcount
         label = "ALL buildings"
     else:
-        levels_reset   = db.execute(
+        levels_reset    = db.execute(
             f"UPDATE building_upgrades SET {set_clause} WHERE building_id=?", (building_id,)
         ).rowcount
         milestones_gone = db.execute(
             "DELETE FROM building_contributions_tracker WHERE building_id=?", (building_id,)
         ).rowcount
+        donations_gone  = db.execute(
+            "DELETE FROM building_donations WHERE building_id=?", (building_id,)
+        ).rowcount
         label = building_id
 
     log_event(db, "admin_debug",
               f"👑 [BUILDING DEBUG] {mayor} reset {label}: {levels_reset} building_upgrades row(s), "
-              f"{milestones_gone} building_contributions_tracker row(s) cleared",
+              f"{milestones_gone} building_contributions_tracker row(s), "
+              f"{donations_gone} building_donations row(s) cleared",
               mayor)
     db.commit()
     db.close()
@@ -10924,6 +10937,7 @@ def mayor_debug_building_reset():
         "building_id": building_id,
         "building_upgrades_rows_reset": levels_reset,
         "building_contributions_tracker_rows_cleared": milestones_gone,
+        "building_donations_rows_cleared": donations_gone,
     })
 
 
