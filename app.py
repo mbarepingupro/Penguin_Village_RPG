@@ -4487,6 +4487,10 @@ def work_start():
     today = get_today()
     advance_mission(db, username, "work_today", today)
     log_event(db, "job", f"{username} started {b['job_label']} at {b['name']}", username)
+
+    db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+    db.execute("UPDATE daily_activity_summary SET jobs_started=jobs_started+1 WHERE date=?", (today,))
+
     db.commit()
     db.close()
     return jsonify({
@@ -4514,8 +4518,9 @@ def work_collect():
         db.close()
         return jsonify({"status": "error", "message": "Invalid job state cleared."})
 
-    elapsed_secs  = int(time.time()) - (p["job_started"] or 0)
-    hours_worked  = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
+    job_started_ts = p["job_started"] or 0
+    elapsed_secs   = int(time.time()) - job_started_ts
+    hours_worked   = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
 
     player_level    = p["level"] or 1
     gathering_bonus = get_total_gathering_bonus(player_level) / 100.0
@@ -4608,6 +4613,20 @@ def work_collect():
         )
     db.execute("UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?", (username,))
     today = get_today()
+
+    db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+    db.execute("UPDATE daily_activity_summary SET jobs_collected=jobs_collected+1 WHERE date=?", (today,))
+    # job_started_ts is 0 when there's no valid start time to measure from (e.g.
+    # an admin reset cleared it while job stayed set) -- skip the duration/avg
+    # counters in that case rather than logging a bogus multi-decade duration.
+    if job_started_ts > 0:
+        worked_seconds = max(0, min(int(time.time()) - job_started_ts, int(JOB_CAP_HOURS * 3600)))
+        db.execute(
+            "UPDATE daily_activity_summary SET total_job_seconds=total_job_seconds+?, "
+            "jobs_collected_for_avg=jobs_collected_for_avg+1 WHERE date=?",
+            (worked_seconds, today)
+        )
+
     advance_mission(db, username, "collect_1", today)
     advance_mission(db, username, "collect_3", today)
     new_ach = check_achievements(db, username)
@@ -10617,6 +10636,11 @@ def minigame_complete():
         )
 
     log_event(db, "work", f"{username} played the {building_id} mini-game! Score: {score}", username)
+
+    today = get_today()
+    db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+    db.execute("UPDATE daily_activity_summary SET minigames_played=minigames_played+1 WHERE date=?", (today,))
+
     db.commit()
     db.close()
     return jsonify({"status": "success", "rewards": rewards, "level_up": level_up_info})
