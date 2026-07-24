@@ -696,6 +696,29 @@ def _event_bucket(event_type):
     return _EVENT_TYPE_BUCKETS.get(event_type, _EVENT_BUCKET_DEFAULT)
 
 
+# Every event_type this codebase actually writes to event_log (grepped from
+# every log_event()/raw INSERT INTO event_log call site) -- the full set the
+# Mayor dashboard's Events tab offers a visibility toggle for. Kept as an
+# explicit list rather than only `SELECT DISTINCT event_type FROM event_log`
+# so a type that hasn't fired yet on a given deploy still shows up as a
+# toggleable option, not just types that already have rows.
+_ALL_EVENT_TYPES = sorted([
+    "achievement", "admin_debug", "autonomous", "bank", "building_levelup",
+    "character_created", "combat", "donation", "gear_purchase", "group",
+    "igloo", "job", "level_up", "mayor", "milestone", "reshape",
+    "seal_shop", "shop", "social", "title", "village", "work",
+])
+
+
+def _hidden_event_types(db):
+    """event_types currently excluded from the public event feeds (Events
+    tab's /events, and the /events/recent ticker used by both the site and
+    the Twitch extension panel) -- Mayor-configurable via the Events tab,
+    backed by the hidden_event_types table (see database.py's init_db(),
+    which seeds 'admin_debug' hidden by default)."""
+    return {r["event_type"] for r in db.execute("SELECT event_type FROM hidden_event_types").fetchall()}
+
+
 # ── Global chat ──────────────────────────────────────────────────────────────
 _CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
 CHAT_MESSAGE_RETENTION   = 300  # keep only the newest N rows -- see run_autonomous_actions()
@@ -5773,10 +5796,15 @@ def _format_time_ago(ts):
 def get_events():
     cutoff = int(time.time()) - 86400  # last 24 hours
     db     = get_db()
-    rows   = db.execute(
-        "SELECT * FROM event_log WHERE created_at > ? ORDER BY created_at DESC LIMIT 100",
-        (cutoff,)
-    ).fetchall()
+    hidden = _hidden_event_types(db)
+    placeholders = ",".join("?" * len(hidden)) if hidden else None
+    query = "SELECT * FROM event_log WHERE created_at > ?"
+    params = [cutoff]
+    if hidden:
+        query += f" AND event_type NOT IN ({placeholders})"
+        params.extend(hidden)
+    query += " ORDER BY created_at DESC LIMIT 100"
+    rows = db.execute(query, params).fetchall()
     db.close()
     events = []
     for r in rows:
@@ -5804,14 +5832,22 @@ def share_event_to_twitch(event_id):
 
 def _recent_events(db, limit=40):
     """Shared core of the public event feed: same event_log query/filtering
-    (excludes admin_debug) used by both /events/recent (site) and
+    (excludes every type in hidden_event_types -- Mayor-configurable via the
+    Events tab, seeded with just 'admin_debug' by default, same exclusion
+    this used to hardcode) used by both /events/recent (site) and
     /extension/events/recent (Twitch panel), so the filtering can't drift
     between the two. limit is a bind param, not a route constant, so the
     panel can ask for a smaller page than the site's default."""
-    rows = db.execute(
-        "SELECT * FROM event_log WHERE event_type != 'admin_debug' ORDER BY created_at DESC LIMIT ?",
-        (limit,)
-    ).fetchall()
+    hidden = _hidden_event_types(db)
+    query  = "SELECT * FROM event_log"
+    params = []
+    if hidden:
+        placeholders = ",".join("?" * len(hidden))
+        query += f" WHERE event_type NOT IN ({placeholders})"
+        params.extend(hidden)
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+    rows = db.execute(query, params).fetchall()
     return [{
         **dict(r),
         "time_ago": _format_time_ago(r["created_at"])
@@ -8619,6 +8655,44 @@ def mayor_gift_gear():
     return jsonify({"status": "success", "recipient": username, "item_id": item_id, "slot": slot})
 
 
+@app.route("/mayor/gift/nootbox", methods=["POST"])
+def mayor_gift_nootbox():
+    """Grant unopened N00Tboxes (player_lootboxes rows) to a player -- same
+    grant_lootbox() every other reward path uses (raid podium, weekly build/
+    minigame leaderboards, daily login), source="mayor_gift" so it's
+    distinguishable in player_lootboxes if that's ever surfaced. Supports
+    "random" the same way /mayor/gift (gold/seals/resources/cosmetic) does."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data     = request.get_json(silent=True) or {}
+    username = data.get("username", "").strip()
+    count    = int(data.get("count", 1))
+    if count <= 0:
+        return jsonify({"status": "error", "message": "Count must be positive."})
+
+    db = get_db()
+    if username.lower() == "random":
+        cutoff = int(time.time()) - 86400
+        rows = db.execute(
+            "SELECT username FROM penguins WHERE last_active > ? ORDER BY RANDOM() LIMIT 1", (cutoff,)
+        ).fetchall()
+        if not rows:
+            db.close()
+            return jsonify({"status": "error", "message": "No active players in last 24h."})
+        username = rows[0]["username"]
+
+    p = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": f"Player '{username}' not found."})
+
+    lootbox_ids = grant_lootbox(username, count, "mayor_gift", db=db)
+    log_event(db, "village", f"👑 The Mayor gifted {username} {count} N00Tbox(es)! 🎁", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "recipient": username, "count": count, "lootbox_ids": lootbox_ids})
+
+
 @app.route("/mayor/items/all", methods=["GET"])
 def mayor_items_all():
     if not _is_mayor_authed():
@@ -11085,6 +11159,93 @@ def mayor_debug_run_passive_seals():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     awarded = award_passive_seals(force=True)
     return jsonify({"status": "success", "awarded_usernames": awarded, "count": len(awarded)})
+
+
+# ── MAYOR EVENTS TAB: visibility toggles + delete (event_log management) ────
+
+@app.route("/mayor/events/types", methods=["GET"])
+def mayor_events_types():
+    """Every known event_type plus which ones are currently hidden from the
+    public feeds -- populates the Events tab's visibility checkbox grid."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db = get_db()
+    hidden = _hidden_event_types(db)
+    db.close()
+    return jsonify({"status": "success", "all_types": _ALL_EVENT_TYPES, "hidden_types": sorted(hidden)})
+
+
+@app.route("/mayor/debug/event_visibility_save", methods=["POST"])
+def mayor_debug_event_visibility_save():
+    """Replace the full hidden-event-types set in one call (matches a
+    checkbox-grid UI: the mayor toggles several, then saves once) rather than
+    one-at-a-time toggling. Body: {hidden_types: [...]} -- any event_type not
+    in _ALL_EVENT_TYPES is rejected outright rather than silently ignored, so
+    a typo'd type can't get saved into the table and quietly do nothing."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data         = request.get_json(silent=True) or {}
+    hidden_types = data.get("hidden_types")
+    if not isinstance(hidden_types, list) or not all(isinstance(t, str) for t in hidden_types):
+        return jsonify({"status": "error", "message": "hidden_types must be a list of strings."})
+    unknown = [t for t in hidden_types if t not in _ALL_EVENT_TYPES]
+    if unknown:
+        return jsonify({"status": "error", "message": f"Unknown event_type(s): {', '.join(unknown)}"})
+
+    mayor = session.get("username") or "key-auth"
+    db = get_db()
+    db.execute("DELETE FROM hidden_event_types")
+    for t in hidden_types:
+        db.execute("INSERT INTO hidden_event_types (event_type) VALUES (?)", (t,))
+    log_event(db, "admin_debug",
+              f"👑 [EVENTS DEBUG] {mayor} set hidden event types: {sorted(hidden_types) or '(none)'}",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "hidden_types": sorted(hidden_types)})
+
+
+@app.route("/mayor/events/list", methods=["GET"])
+def mayor_events_list():
+    """Recent events for the Mayor's own delete-management list -- every
+    type included (including admin_debug and anything hidden from players),
+    since the mayor needs to see and be able to delete all of it regardless
+    of the public-visibility toggle above."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    limit = min(int(request.args.get("limit", 100)), 300)
+    db   = get_db()
+    rows = db.execute(
+        "SELECT id, event_type, message, username, created_at FROM event_log "
+        "ORDER BY created_at DESC LIMIT ?", (limit,)
+    ).fetchall()
+    db.close()
+    return jsonify({"status": "success", "events": [dict(r) for r in rows]})
+
+
+@app.route("/mayor/debug/event_delete", methods=["POST"])
+def mayor_debug_event_delete():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data     = request.get_json(silent=True) or {}
+    event_id = data.get("event_id")
+    if not isinstance(event_id, int):
+        return jsonify({"status": "error", "message": "event_id (integer) required."})
+
+    mayor = session.get("username") or "key-auth"
+    db  = get_db()
+    row = db.execute("SELECT event_type, message FROM event_log WHERE id=?", (event_id,)).fetchone()
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "Event not found (already deleted?)."})
+    db.execute("DELETE FROM event_log WHERE id=?", (event_id,))
+    log_event(db, "admin_debug",
+              f"👑 [EVENTS DEBUG] {mayor} deleted event #{event_id} "
+              f"({row['event_type']}): {row['message'][:80]}",
+              mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "event_id": event_id})
 
 
 # ── GLOBAL CHAT ──────────────────────────────────────────────────────────────
