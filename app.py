@@ -8558,6 +8558,54 @@ def mayor_stats():
     })
 
 
+@app.route("/mayor/stats/overview")
+def mayor_stats_overview():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    req_date = request.args.get("date", "").strip()
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', req_date):
+        req_date = get_today()
+
+    db = get_db()
+    dates = [r["date"] for r in db.execute(
+        "SELECT date FROM activity_snapshots "
+        "UNION SELECT date FROM daily_activity_summary "
+        "ORDER BY date DESC"
+    ).fetchall()]
+
+    snapshot_rows = db.execute(
+        "SELECT time_slot, active_count FROM activity_snapshots WHERE date=? ORDER BY time_slot",
+        (req_date,)
+    ).fetchall()
+
+    summary_row = db.execute(
+        "SELECT minigames_played, jobs_started, jobs_collected, total_job_seconds, "
+        "jobs_collected_for_avg FROM daily_activity_summary WHERE date=?",
+        (req_date,)
+    ).fetchone()
+    db.close()
+
+    jobs_collected_for_avg = (summary_row["jobs_collected_for_avg"] or 0) if summary_row else 0
+    total_job_seconds      = (summary_row["total_job_seconds"] or 0) if summary_row else 0
+    avg_seconds_worked = (total_job_seconds / jobs_collected_for_avg) if jobs_collected_for_avg > 0 else 0
+
+    return jsonify({
+        "status": "success",
+        "date": req_date,
+        "dates": dates,
+        "snapshots": [
+            {"time_slot": r["time_slot"], "active_count": r["active_count"]} for r in snapshot_rows
+        ],
+        "summary": {
+            "minigames_played": (summary_row["minigames_played"] or 0) if summary_row else 0,
+            "jobs_started":     (summary_row["jobs_started"] or 0) if summary_row else 0,
+            "jobs_collected":   (summary_row["jobs_collected"] or 0) if summary_row else 0,
+            "avg_seconds_worked": avg_seconds_worked,
+        },
+    })
+
+
 @app.route("/mayor/buff", methods=["POST"])
 def mayor_buff():
     if not _is_mayor_authed():
