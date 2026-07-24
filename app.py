@@ -4363,6 +4363,42 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
                        id="award_passive_seals", misfire_grace_time=60)
 
 
+def log_active_player_snapshot():
+    """Every 30 minutes on the half-hour, record a point-in-time snapshot of
+    how many penguins are currently online into activity_snapshots.
+
+    Reuses /village/penguins' exact "is online" query -- last_active within
+    the last 3 minutes (2x the 90s client ping interval) -- so this snapshot
+    always agrees with the green dots players see on the map. Also makes
+    sure today's daily_activity_summary row exists, since other activity
+    counters (minigames_played, jobs_started, etc.) accumulate into it
+    elsewhere and need a row to update."""
+    db = get_db()
+    try:
+        today = get_today()
+        now = int(time.time())
+        online_cutoff = now - 180
+        active_count = db.execute(
+            "SELECT COUNT(*) as c FROM penguins WHERE last_active > ?", (online_cutoff,)
+        ).fetchone()["c"]
+        time_slot = datetime.datetime.now().strftime("%H:%M")
+        db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+        db.execute(
+            "INSERT INTO activity_snapshots (date, time_slot, active_count) VALUES (?, ?, ?)",
+            (today, time_slot, active_count)
+        )
+        db.commit()
+    except Exception as e:
+        print(f"[ActivitySnapshot] Error logging snapshot: {e}")
+    finally:
+        db.close()
+
+
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(log_active_player_snapshot, "cron", minute="0,30",
+                       id="log_active_player_snapshot", misfire_grace_time=300)
+
+
 # ── BUILDING INFO ────────────────────────────────────────────────────────────
 
 @app.route("/building/<building_id>")
