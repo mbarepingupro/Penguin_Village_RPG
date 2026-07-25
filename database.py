@@ -567,6 +567,25 @@ def init_db():
         )
     """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS activity_snapshots (
+            date         TEXT NOT NULL,
+            time_slot    TEXT NOT NULL,
+            active_count INTEGER NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS daily_activity_summary (
+            date                    TEXT PRIMARY KEY,
+            minigames_played        INTEGER DEFAULT 0,
+            jobs_started            INTEGER DEFAULT 0,
+            jobs_collected          INTEGER DEFAULT 0,
+            total_job_seconds       INTEGER DEFAULT 0,
+            jobs_collected_for_avg  INTEGER DEFAULT 0
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")

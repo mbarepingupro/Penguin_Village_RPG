@@ -88,6 +88,13 @@
     .mh-stat-val  { color: var(--pink); font-size: 23px; margin-bottom: 4px; }
     .mh-stat-lbl  { color: var(--dim); font-size: 16px; line-height: 1.6; }
 
+    /* ── ACTIVITY CHART ── */
+    .mh-chart-card {
+      background: var(--card); border: 2px solid #2a2a3a;
+      padding: 12px; margin-bottom: 16px;
+    }
+    .mh-chart-canvas { width: 100%; height: 220px; display: block; }
+
     /* ── SECTION TITLES ── */
     .mh-section-title {
       color: var(--pink); font-size: 17px; margin-bottom: 10px;
@@ -279,6 +286,38 @@
           <div class="mh-stat-icon">⚡</div>
           <div class="mh-stat-val" id="stat-buffs">{{ active_buffs | length }}</div>
           <div class="mh-stat-lbl">ACTIVE BUFFS</div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY OVERVIEW -->
+      <div class="mh-section-title" style="margin-top:20px;">📈 ACTIVITY OVERVIEW</div>
+      <div class="mh-field" style="max-width:220px;">
+        <label class="mh-label">DATE</label>
+        <select class="mh-select" id="ov-date-select" onchange="loadOverview(this.value)"></select>
+      </div>
+      <div class="mh-chart-card">
+        <canvas id="ov-chart" class="mh-chart-canvas"></canvas>
+      </div>
+      <div class="mh-stats">
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">🎮</div>
+          <div class="mh-stat-val" id="ov-minigames">0</div>
+          <div class="mh-stat-lbl">MINIGAMES PLAYED</div>
+        </div>
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">🛠️</div>
+          <div class="mh-stat-val" id="ov-jobs-started">0</div>
+          <div class="mh-stat-lbl">JOBS STARTED</div>
+        </div>
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">📦</div>
+          <div class="mh-stat-val" id="ov-jobs-collected">0</div>
+          <div class="mh-stat-lbl">JOBS COLLECTED</div>
+        </div>
+        <div class="mh-stat-card">
+          <div class="mh-stat-icon">⏱️</div>
+          <div class="mh-stat-val" id="ov-avg-worked">0h 0m</div>
+          <div class="mh-stat-lbl">AVG TIME WORKED</div>
         </div>
       </div>
 
@@ -1104,6 +1143,7 @@
     sessionStorage.setItem('mayorTab', tab);
     if (tab === 'items') loadCatalogItems(_itemsCatalog);
     if (tab === 'events') { loadEventVisibility(); loadEventsList(); }
+    if (tab === 'overview') loadOverview(document.getElementById('ov-date-select')?.value || '');
   }
 
   // ── CLOCK ──
@@ -1570,6 +1610,137 @@
   }
   setInterval(refreshStats, 30000);
   loadAllItems();
+
+  // ── ACTIVITY OVERVIEW (date-selectable snapshot chart + daily summary) ──
+  let _ovTodayDate     = null;  // server's "today" -- captured from the first (no-date) fetch
+  let _ovPollTimer     = null;
+  let _ovLastSnapshots = [];
+
+  function ovUrl(date) {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (MAYOR_KEY) params.set('key', MAYOR_KEY);
+    const qs = params.toString();
+    return '/mayor/stats/overview' + (qs ? '?' + qs : '');
+  }
+
+  function formatHM(totalSeconds) {
+    const secs = Math.max(0, Math.round(totalSeconds || 0));
+    return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
+  }
+
+  // Plain <canvas> line chart -- the dashboard doesn't pull in a charting
+  // library anywhere else, so this avoids adding a new dependency for one chart.
+  function drawActivityChart(snapshots) {
+    const canvas = document.getElementById('ov-chart');
+    if (!canvas) return;
+    const ctx  = canvas.getContext('2d');
+    const dpr  = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth  || 600;
+    const cssH = canvas.clientHeight || 220;
+    canvas.width  = cssW * dpr;
+    canvas.height = cssH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    if (!snapshots.length) {
+      ctx.fillStyle = '#8888A8566';
+      ctx.font = "16px 'Pixelify Sans', monospace";
+      ctx.textAlign = 'center';
+      ctx.fillText('No activity data for this date yet.', cssW / 2, cssH / 2);
+      return;
+    }
+
+    const padL = 34, padR = 10, padT = 10, padB = 20;
+    const w = Math.max(1, cssW - padL - padR);
+    const h = Math.max(1, cssH - padT - padB);
+    const maxCount = Math.max(1, ...snapshots.map(s => s.active_count));
+    const stepX    = snapshots.length > 1 ? w / (snapshots.length - 1) : 0;
+    const xAt = i => padL + stepX * i;
+    const yAt = v => padT + h - (h * v / maxCount);
+
+    // y gridlines + labels
+    ctx.strokeStyle = '#2a2a3a';
+    ctx.lineWidth   = 1;
+    ctx.font        = "12px 'Pixelify Sans', monospace";
+    ctx.fillStyle   = '#8888A8566';
+    ctx.textAlign   = 'right';
+    const ySteps = 4;
+    for (let i = 0; i <= ySteps; i++) {
+      const val = Math.round(maxCount * i / ySteps);
+      const y   = yAt(val);
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + w, y);
+      ctx.stroke();
+      ctx.fillText(String(val), padL - 6, y + 4);
+    }
+
+    // line + points
+    ctx.strokeStyle = '#FF7FE5';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    snapshots.forEach((s, i) => {
+      const x = xAt(i), y = yAt(s.active_count);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.fillStyle = '#FF7FE5';
+    snapshots.forEach((s, i) => {
+      ctx.beginPath();
+      ctx.arc(xAt(i), yAt(s.active_count), 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // x labels (thinned out so they don't overlap)
+    ctx.fillStyle = '#8888A8566';
+    ctx.textAlign = 'center';
+    const labelEvery = Math.ceil(snapshots.length / 8) || 1;
+    snapshots.forEach((s, i) => {
+      if (i % labelEvery !== 0 && i !== snapshots.length - 1) return;
+      ctx.fillText(s.time_slot, xAt(i), cssH - 4);
+    });
+  }
+
+  async function loadOverview(date) {
+    try {
+      const res  = await fetch(ovUrl(date));
+      const data = await res.json();
+      if (data.status !== 'success') return;
+      if (!date) _ovTodayDate = data.date;
+
+      const sel = document.getElementById('ov-date-select');
+      if (sel) {
+        let dateList = data.dates || [];
+        if (!dateList.includes(data.date)) dateList = [data.date, ...dateList];
+        const incoming = dateList.join(',');
+        if (Array.from(sel.options).map(o => o.value).join(',') !== incoming) {
+          sel.innerHTML = dateList.map(d => `<option value="${d}">${d}</option>`).join('');
+        }
+        sel.value = data.date;
+      }
+
+      _ovLastSnapshots = data.snapshots || [];
+      drawActivityChart(_ovLastSnapshots);
+
+      const s = data.summary || {};
+      document.getElementById('ov-minigames').textContent      = s.minigames_played ?? 0;
+      document.getElementById('ov-jobs-started').textContent   = s.jobs_started ?? 0;
+      document.getElementById('ov-jobs-collected').textContent = s.jobs_collected ?? 0;
+      document.getElementById('ov-avg-worked').textContent     = formatHM(s.avg_seconds_worked);
+
+      // Only keep polling while the viewed date is today -- a past date's
+      // numbers are final and don't need refreshing.
+      const isToday = !date || (_ovTodayDate && data.date === _ovTodayDate);
+      if (isToday && !_ovPollTimer) {
+        _ovPollTimer = setInterval(() => loadOverview(_ovTodayDate), 30000);
+      } else if (!isToday && _ovPollTimer) {
+        clearInterval(_ovPollTimer);
+        _ovPollTimer = null;
+      }
+    } catch (e) {}
+  }
+  window.addEventListener('resize', () => drawActivityChart(_ovLastSnapshots));
 
   // ── RAID DEBUG ──
   function rdFormatTs(elId) {

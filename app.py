@@ -4363,6 +4363,42 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
                        id="award_passive_seals", misfire_grace_time=60)
 
 
+def log_active_player_snapshot():
+    """Every 30 minutes on the half-hour, record a point-in-time snapshot of
+    how many penguins are currently online into activity_snapshots.
+
+    Reuses /village/penguins' exact "is online" query -- last_active within
+    the last 3 minutes (2x the 90s client ping interval) -- so this snapshot
+    always agrees with the green dots players see on the map. Also makes
+    sure today's daily_activity_summary row exists, since other activity
+    counters (minigames_played, jobs_started, etc.) accumulate into it
+    elsewhere and need a row to update."""
+    db = get_db()
+    try:
+        today = get_today()
+        now = int(time.time())
+        online_cutoff = now - 180
+        active_count = db.execute(
+            "SELECT COUNT(*) as c FROM penguins WHERE last_active > ?", (online_cutoff,)
+        ).fetchone()["c"]
+        time_slot = datetime.datetime.now().strftime("%H:%M")
+        db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+        db.execute(
+            "INSERT INTO activity_snapshots (date, time_slot, active_count) VALUES (?, ?, ?)",
+            (today, time_slot, active_count)
+        )
+        db.commit()
+    except Exception as e:
+        print(f"[ActivitySnapshot] Error logging snapshot: {e}")
+    finally:
+        db.close()
+
+
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(log_active_player_snapshot, "cron", minute="0,30",
+                       id="log_active_player_snapshot", misfire_grace_time=300)
+
+
 # ── BUILDING INFO ────────────────────────────────────────────────────────────
 
 @app.route("/building/<building_id>")
@@ -4451,6 +4487,10 @@ def work_start():
     today = get_today()
     advance_mission(db, username, "work_today", today)
     log_event(db, "job", f"{username} started {b['job_label']} at {b['name']}", username)
+
+    db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+    db.execute("UPDATE daily_activity_summary SET jobs_started=jobs_started+1 WHERE date=?", (today,))
+
     db.commit()
     db.close()
     return jsonify({
@@ -4478,8 +4518,9 @@ def work_collect():
         db.close()
         return jsonify({"status": "error", "message": "Invalid job state cleared."})
 
-    elapsed_secs  = int(time.time()) - (p["job_started"] or 0)
-    hours_worked  = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
+    job_started_ts = p["job_started"] or 0
+    elapsed_secs   = int(time.time()) - job_started_ts
+    hours_worked   = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
 
     player_level    = p["level"] or 1
     gathering_bonus = get_total_gathering_bonus(player_level) / 100.0
@@ -4572,6 +4613,20 @@ def work_collect():
         )
     db.execute("UPDATE penguins SET job=NULL, job_started=0, job_duration=0 WHERE username=?", (username,))
     today = get_today()
+
+    db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+    db.execute("UPDATE daily_activity_summary SET jobs_collected=jobs_collected+1 WHERE date=?", (today,))
+    # job_started_ts is 0 when there's no valid start time to measure from (e.g.
+    # an admin reset cleared it while job stayed set) -- skip the duration/avg
+    # counters in that case rather than logging a bogus multi-decade duration.
+    if job_started_ts > 0:
+        worked_seconds = max(0, min(int(time.time()) - job_started_ts, int(JOB_CAP_HOURS * 3600)))
+        db.execute(
+            "UPDATE daily_activity_summary SET total_job_seconds=total_job_seconds+?, "
+            "jobs_collected_for_avg=jobs_collected_for_avg+1 WHERE date=?",
+            (worked_seconds, today)
+        )
+
     advance_mission(db, username, "collect_1", today)
     advance_mission(db, username, "collect_3", today)
     new_ach = check_achievements(db, username)
@@ -8503,6 +8558,54 @@ def mayor_stats():
     })
 
 
+@app.route("/mayor/stats/overview")
+def mayor_stats_overview():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+
+    req_date = request.args.get("date", "").strip()
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', req_date):
+        req_date = get_today()
+
+    db = get_db()
+    dates = [r["date"] for r in db.execute(
+        "SELECT date FROM activity_snapshots "
+        "UNION SELECT date FROM daily_activity_summary "
+        "ORDER BY date DESC"
+    ).fetchall()]
+
+    snapshot_rows = db.execute(
+        "SELECT time_slot, active_count FROM activity_snapshots WHERE date=? ORDER BY time_slot",
+        (req_date,)
+    ).fetchall()
+
+    summary_row = db.execute(
+        "SELECT minigames_played, jobs_started, jobs_collected, total_job_seconds, "
+        "jobs_collected_for_avg FROM daily_activity_summary WHERE date=?",
+        (req_date,)
+    ).fetchone()
+    db.close()
+
+    jobs_collected_for_avg = (summary_row["jobs_collected_for_avg"] or 0) if summary_row else 0
+    total_job_seconds      = (summary_row["total_job_seconds"] or 0) if summary_row else 0
+    avg_seconds_worked = (total_job_seconds / jobs_collected_for_avg) if jobs_collected_for_avg > 0 else 0
+
+    return jsonify({
+        "status": "success",
+        "date": req_date,
+        "dates": dates,
+        "snapshots": [
+            {"time_slot": r["time_slot"], "active_count": r["active_count"]} for r in snapshot_rows
+        ],
+        "summary": {
+            "minigames_played": (summary_row["minigames_played"] or 0) if summary_row else 0,
+            "jobs_started":     (summary_row["jobs_started"] or 0) if summary_row else 0,
+            "jobs_collected":   (summary_row["jobs_collected"] or 0) if summary_row else 0,
+            "avg_seconds_worked": avg_seconds_worked,
+        },
+    })
+
+
 @app.route("/mayor/buff", methods=["POST"])
 def mayor_buff():
     if not _is_mayor_authed():
@@ -10581,6 +10684,11 @@ def minigame_complete():
         )
 
     log_event(db, "work", f"{username} played the {building_id} mini-game! Score: {score}", username)
+
+    today = get_today()
+    db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
+    db.execute("UPDATE daily_activity_summary SET minigames_played=minigames_played+1 WHERE date=?", (today,))
+
     db.commit()
     db.close()
     return jsonify({"status": "success", "rewards": rewards, "level_up": level_up_info})
