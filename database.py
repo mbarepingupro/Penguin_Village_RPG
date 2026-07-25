@@ -586,6 +586,17 @@ def init_db():
         )
     """)
 
+    # Single-row settings for mayor debug toggles (e.g. Force Live) -- a real
+    # table rather than a module-level global, since the app runs with
+    # --workers 2 and an in-memory flag wouldn't stay consistent across
+    # worker processes. `id` is pinned to 1 so there's ever only one row.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS debug_settings (
+            id         INTEGER PRIMARY KEY CHECK (id = 1),
+            force_live INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")

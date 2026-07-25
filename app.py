@@ -4087,16 +4087,60 @@ def _twitch_helix_streams_live(user_login="mbarepingu"):
         return False
 
 
-def check_stream_live():
-    """Check Twitch live status and apply the live<->offline stream_tier
-    edge-trigger (bump everyone to at least tier 1 on going live, reset
-    everyone to tier 0 on going offline). Shared by the /islive frontend
-    poll and the scheduled server-side check below, so the offline reset
-    fires on schedule even with no browser tab open to poll /islive."""
-    global _stream_was_live
-    live = _twitch_helix_streams_live()
+def _ensure_debug_settings_row(db):
+    db.execute("INSERT OR IGNORE INTO debug_settings (id, force_live) VALUES (1, 0)")
 
+
+def get_force_live(db=None):
+    """Whether the mayor's Force Live debug override is on. Backed by the
+    debug_settings table rather than a module-level global, since the app
+    runs with --workers 2 and an in-memory flag wouldn't stay consistent
+    across worker processes.
+
+    Pass the caller's own already-open `db` when calling from inside another
+    function's transaction, same convention as raid_settings.get_setting --
+    avoids opening a second connection mid-write. Omit `db` for a standalone
+    read (opens/closes its own)."""
+    owns_conn = db is None
+    if owns_conn:
+        db = get_db()
+    _ensure_debug_settings_row(db)
+    row = db.execute("SELECT force_live FROM debug_settings WHERE id=1").fetchone()
+    if owns_conn:
+        db.close()
+    return bool(row["force_live"]) if row else False
+
+
+def set_force_live(db, enabled):
+    """Write the Force Live override. Caller owns commit/close (matches
+    get_force_live's db-passing convention)."""
+    _ensure_debug_settings_row(db)
+    db.execute("UPDATE debug_settings SET force_live=? WHERE id=1", (1 if enabled else 0,))
+
+
+def _compute_live(db):
+    """True if either the mayor's Force Live override is on, or Twitch Helix
+    reports a real live stream. Checked in that order so the override always
+    wins without even touching the Twitch API -- used by both
+    check_stream_live() and _stream_is_live()."""
+    if get_force_live(db):
+        return True
+    return _twitch_helix_streams_live()
+
+
+def check_stream_live():
+    """Check live status (real Twitch, or the Force Live override) and apply
+    the live<->offline stream_tier edge-trigger (bump everyone to at least
+    tier 1 on going live, reset everyone to tier 0 on going offline). Shared
+    by the /islive frontend poll and the scheduled server-side check below,
+    so the offline reset fires on schedule even with no browser tab open to
+    poll /islive. Checking the override in here too means the scheduled job
+    naturally skips its real Twitch API call while Force Live is on, instead
+    of potentially flipping state back based on the actual stream status."""
+    global _stream_was_live
     db = get_db()
+    live = _compute_live(db)
+
     if live and _stream_was_live is False:
         # Stream just came online — bump all players to at least tier 1
         db.execute("UPDATE penguins SET stream_tier=1 WHERE stream_tier=0")
@@ -4124,7 +4168,11 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
 
 
 def _stream_is_live():
-    return _twitch_helix_streams_live()
+    db = get_db()
+    try:
+        return _compute_live(db)
+    finally:
+        db.close()
 
 
 def _streamerbot_authed():
@@ -8574,6 +8622,7 @@ def mayor_dashboard():
         raid_participant_count = db.execute(
             "SELECT COUNT(*) as cnt FROM raid_participants WHERE raid_id=?", (current_raid["id"],)
         ).fetchone()["cnt"]
+    force_live = get_force_live(db)
     db.close()
 
     is_live = _stream_is_live()
@@ -8589,6 +8638,7 @@ def mayor_dashboard():
         all_buildings=BUILDINGS,
         buff_names=BUFF_NAMES,
         is_live=is_live,
+        force_live=force_live,
         mayor_key=MAYOR_KEY,
         cosmetic_slots=COSMETIC_SLOTS,
         current_challenge=dict(current_challenge) if current_challenge else None,
@@ -11340,6 +11390,38 @@ def mayor_debug_run_passive_seals():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     awarded = award_passive_seals(force=True)
     return jsonify({"status": "success", "awarded_usernames": awarded, "count": len(awarded)})
+
+
+# DEBUG TOOL -- lets the mayor force the app to treat the stream as live (or
+# stop forcing it) without an actual Twitch stream running, so live-gated
+# features (stream bonuses, tier multipliers, the #twitch-link red dot) can
+# be tested on demand. Persisted in debug_settings (see get_force_live()),
+# not a module-level global, so it stays consistent across --workers 2
+# worker processes. check_stream_live()/_stream_is_live() check this
+# override before ever calling the real Twitch API -- see _compute_live().
+@app.route("/mayor/debug/force_live", methods=["POST"])
+def mayor_debug_force_live():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data    = request.get_json(silent=True) or {}
+    enabled = bool(data.get("enabled"))
+    mayor   = session.get("username") or "key-auth"
+
+    global _stream_was_live
+    db = get_db()
+    set_force_live(db, enabled)
+    if enabled:
+        # Same "stream just came online" tier-bump /islive uses
+        db.execute("UPDATE penguins SET stream_tier=1 WHERE stream_tier=0")
+    else:
+        # Same reset-to-tier-0 /islive uses when a stream ends
+        db.execute("UPDATE penguins SET stream_tier=0, last_chatted=0")
+    _stream_was_live = enabled
+    log_event(db, "admin_debug",
+              f"👑 [DEBUG] {mayor} {'enabled' if enabled else 'disabled'} Force Live", mayor)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "force_live": enabled})
 
 
 # ── MAYOR EVENTS TAB: visibility toggles + delete (event_log management) ────

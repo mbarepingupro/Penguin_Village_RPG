@@ -1105,6 +1105,28 @@
         </div>
       </div>
 
+      <!-- Force Live -->
+      <div class="mh-lookup" style="margin-top:4px;">
+        <div class="mh-action-title" style="margin-bottom:10px;">📡 STREAM DEBUG — FORCE LIVE</div>
+        <div style="color:var(--dim);font-size:15px;margin-bottom:10px;">
+          Overrides the real Twitch live-check everywhere in the app
+          (/islive, stream_tier bonuses, the #twitch-link red dot) so
+          live-only features can be tested without an actual stream running.
+          Takes priority over the real Twitch status until turned off --
+          remember to turn it back off when you're done testing.
+        </div>
+        <div style="margin-bottom:10px;font-size:16px;">
+          Status:
+          <span id="force-live-status" style="color:{% if force_live %}#4aff6b{% else %}#8888A8566{% endif %};">
+            {% if force_live %}🟢 FORCED LIVE{% else %}⚫ OFF (real Twitch status){% endif %}
+          </span>
+        </div>
+        <button class="mh-btn{% if force_live %} danger{% endif %}" id="force-live-btn"
+                data-enabled="{{ 'true' if force_live else 'false' }}" onclick="toggleForceLive()">
+          {% if force_live %}🔴 TURN FORCE LIVE OFF{% else %}🟢 TURN FORCE LIVE ON{% endif %}
+        </button>
+      </div>
+
     </div><!-- /tab-buildings -->
 
   </div><!-- /main -->
@@ -2037,6 +2059,24 @@
       if (confirm(`⚠️ ${data.message}\n\nProceed anyway (force)?`)) {
         await bdLeaderboardReset(target, true);
       }
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  async function toggleForceLive() {
+    const btn      = document.getElementById('force-live-btn');
+    const statusEl = document.getElementById('force-live-status');
+    const enabling = btn.dataset.enabled !== 'true';
+    const data     = await api('/mayor/debug/force_live', { enabled: enabling }, btn);
+    if (data.status === 'success') {
+      const on = data.force_live;
+      btn.dataset.enabled = String(on);
+      btn.textContent = on ? '🔴 TURN FORCE LIVE OFF' : '🟢 TURN FORCE LIVE ON';
+      btn.classList.toggle('danger', on);
+      statusEl.textContent = on ? '🟢 FORCED LIVE' : '⚫ OFF (real Twitch status)';
+      statusEl.style.color = on ? '#4aff6b' : '#8888A8566';
+      toast(on ? '✅ Force Live is now ON.' : '✅ Force Live is now OFF.');
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
     }
