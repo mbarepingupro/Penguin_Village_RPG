@@ -517,6 +517,14 @@ def get_all_earned_titles(db, username):
 STREAM_RATES      = {0: 1.0, 1: 1.25, 2: 1.50, 3: 1.75}
 _stream_was_live  = None  # tracks previous live state to detect transitions
 
+# Cached Twitch app-access token (client-credentials grant) used for Helix
+# calls below -- see _get_twitch_app_token(). Replaces the old static
+# TWITCH_APP_TOKEN env var, which nothing ever refreshed and had expired,
+# silently making every Helix call (and therefore every "is live?" check)
+# fail.
+_twitch_app_token        = None
+_twitch_app_token_expiry = 0
+
 # ── VILLAGE BUILDING UPGRADES ────────────────────────────────────────────────
 BUILDING_UPGRADES = {
     "sea_lion_pit": {
@@ -4019,18 +4027,74 @@ def leaderboard_category(category):
     })
 
 
-@app.route("/islive")
-def islive():
-    global _stream_was_live
+def _get_twitch_app_token(force_refresh=False):
+    """App-access token for Twitch Helix (client-credentials grant), cached
+    in memory with its expiry so this only hits the OAuth endpoint once per
+    token lifetime instead of on every Helix call. force_refresh=True skips
+    the cache -- used after Helix returns 401, since that means the token
+    has gone stale/been revoked server-side, not just expired past our own
+    clock.
+    """
+    global _twitch_app_token, _twitch_app_token_expiry
+    now = int(time.time())
+    if not force_refresh and _twitch_app_token and now < _twitch_app_token_expiry:
+        return _twitch_app_token
     try:
-        res  = http_requests.get(
-            "https://api.twitch.tv/helix/streams?user_login=mbarepingu",
-            headers={"Client-Id": TWITCH_CLIENT_ID,
-                     "Authorization": f"Bearer {os.getenv('TWITCH_APP_TOKEN', '')}"}
+        res  = http_requests.post("https://id.twitch.tv/oauth2/token", data={
+            "client_id":     TWITCH_CLIENT_ID,
+            "client_secret": TWITCH_CLIENT_SECRET,
+            "grant_type":    "client_credentials",
+        }, timeout=10)
+        data  = res.json()
+        token = data.get("access_token")
+        if token:
+            _twitch_app_token = token
+            # expires_in is seconds from now; refresh a bit early to avoid
+            # racing the actual expiry.
+            _twitch_app_token_expiry = now + max(0, int(data.get("expires_in", 0)) - 60)
+        else:
+            print(f"[TwitchAuth] App token request returned no access_token: status={res.status_code}, body={data}")
+    except Exception as e:
+        print(f"[TwitchAuth] Failed to obtain app token: {type(e).__name__}: {e}")
+    return _twitch_app_token or ""
+
+
+def _twitch_helix_streams_live(user_login="mbarepingu"):
+    """GET /helix/streams for `user_login`, True if it has an active stream.
+    Uses the cached app token from _get_twitch_app_token(); on a 401 (stale
+    or revoked token) forces one refresh and retries once before giving up.
+    Shared by /islive, check_stream_live(), and _stream_is_live() so the
+    token/retry handling lives in exactly one place."""
+    token = _get_twitch_app_token()
+    try:
+        res = http_requests.get(
+            "https://api.twitch.tv/helix/streams",
+            params={"user_login": user_login},
+            headers={"Client-Id": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"},
+            timeout=5,
         )
-        live = len(res.json().get("data", [])) > 0
-    except Exception:
-        live = False
+        if res.status_code == 401:
+            token = _get_twitch_app_token(force_refresh=True)
+            res = http_requests.get(
+                "https://api.twitch.tv/helix/streams",
+                params={"user_login": user_login},
+                headers={"Client-Id": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"},
+                timeout=5,
+            )
+        return len(res.json().get("data", [])) > 0
+    except Exception as e:
+        print(f"[TwitchAuth] Helix streams check failed: {type(e).__name__}: {e}")
+        return False
+
+
+def check_stream_live():
+    """Check Twitch live status and apply the live<->offline stream_tier
+    edge-trigger (bump everyone to at least tier 1 on going live, reset
+    everyone to tier 0 on going offline). Shared by the /islive frontend
+    poll and the scheduled server-side check below, so the offline reset
+    fires on schedule even with no browser tab open to poll /islive."""
+    global _stream_was_live
+    live = _twitch_helix_streams_live()
 
     db = get_db()
     if live and _stream_was_live is False:
@@ -4042,20 +4106,25 @@ def islive():
     _stream_was_live = live
     db.commit()
     db.close()
-    return jsonify({"live": live})
+    return live
+
+
+@app.route("/islive")
+def islive():
+    return jsonify({"live": check_stream_live()})
+
+
+# Registered alongside the other scheduler jobs near award_passive_seals()'s
+# definition -- runs the same live-check + stream_tier edge-trigger as
+# /islive, every 5 minutes, so a stream ending doesn't leave everyone's tier
+# stuck until the next browser tab happens to poll /islive.
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(check_stream_live, "interval", minutes=5,
+                       id="check_stream_live", misfire_grace_time=60)
 
 
 def _stream_is_live():
-    try:
-        res = http_requests.get(
-            "https://api.twitch.tv/helix/streams?user_login=mbarepingu",
-            headers={"Client-Id": TWITCH_CLIENT_ID,
-                     "Authorization": f"Bearer {os.getenv('TWITCH_APP_TOKEN', '')}"},
-            timeout=3
-        )
-        return len(res.json().get("data", [])) > 0
-    except Exception:
-        return False
+    return _twitch_helix_streams_live()
 
 
 def _streamerbot_authed():
@@ -4166,6 +4235,8 @@ def stream_presence():
     username = data.get("username", "").strip()
     if not username:
         return jsonify({"status": "skip"})
+    if not _stream_is_live():
+        return jsonify({"status": "skip", "reason": "not_live"})
     db = get_db()
     p  = db.execute("SELECT id, stream_tier FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
@@ -4186,6 +4257,8 @@ def stream_chatted():
     username = data.get("username", "").strip()
     if not username:
         return jsonify({"status": "skip"})
+    if not _stream_is_live():
+        return jsonify({"status": "skip", "reason": "not_live"})
     db = get_db()
     p  = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:
