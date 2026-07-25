@@ -3031,6 +3031,7 @@
     <div class="nav-right">
       {% if logged_in %}
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
+        <button id="music-mute-btn" onclick="toggleMusicMute()" title="Toggle music" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🎵</button>
         <button id="help-btn" onclick="resetHelpTooltips();replayTutorial()" title="Help &amp; Tutorial">❓</button>
         <button id="mobile-player-btn" class="mobile-player-btn" onclick="openMobilePlayerPanel()">
           <span class="mobile-player-btn-row">🐧 <span id="mobile-player-name">{{ penguin['username'] }}</span></span>
@@ -3041,6 +3042,12 @@
       {% endif %}
     </div>
   </nav>
+
+  <!-- Looping village background music. Lives at page level (outside any
+       content-panel/tab), so switchContentTab() never touches it -- it just
+       keeps playing across tabs. TODO: swap `src` here when entering the
+       combat tab, once combat gets its own track; no logic for that yet. -->
+  <audio id="villageMusic" src="/static/sounds/village_map_theme.mp3" loop preload="none" style="display:none;"></audio>
 
   <div id="stream-live-banner">
     <span class="live-dot-banner"></span>
@@ -11878,16 +11885,61 @@ _setVH();
 window.addEventListener('resize', _setVH);
 window.addEventListener('orientationchange', function() { setTimeout(_setVH, 150); });
 
-// iOS AudioContext — resume on first touch
-document.addEventListener('touchstart', function _iosAudio() {
+// ── VILLAGE BACKGROUND MUSIC ────────────────────────────────────────────────
+// Fully independent of GameSounds/sounds.js (separate element, volume, and
+// mute preference) -- this only shares the page's first-interaction gesture
+// with the iOS AudioContext unlock below, nothing else.
+(function() {
+  var MUSIC_VOLUME = 0.4;
+  var MUTE_KEY      = 'music_muted';
+
+  function isMusicMuted() {
+    try { return localStorage.getItem(MUTE_KEY) === 'true'; } catch (e) { return false; }
+  }
+  function setMusicMuted(muted) {
+    try { localStorage.setItem(MUTE_KEY, String(muted)); } catch (e) {}
+  }
+  function updateMusicBtn() {
+    var btn = document.getElementById('music-mute-btn');
+    if (btn) btn.textContent = isMusicMuted() ? '🔇' : '🎵';
+  }
+
+  window.startVillageMusic = function() {
+    var el = document.getElementById('villageMusic');
+    if (!el || isMusicMuted()) return;
+    el.volume = MUSIC_VOLUME;
+    el.play().catch(function() {}); // still blocked (e.g. no gesture yet) -- ignore
+  };
+
+  window.toggleMusicMute = function() {
+    var muted = !isMusicMuted();
+    setMusicMuted(muted);
+    updateMusicBtn();
+    var el = document.getElementById('villageMusic');
+    if (el) { if (muted) el.pause(); else window.startVillageMusic(); }
+    return muted;
+  };
+
+  updateMusicBtn();
+})();
+
+// iOS AudioContext — resume on first touch (also on first click, so desktop
+// gets the same unlock) -- also where the village music track gets its
+// first, user-gesture-gated play() call, since autoplay-with-sound is
+// blocked otherwise.
+function _firstInteractionAudioUnlock() {
   if (window.GameSounds) {
     try {
       var ctx = GameSounds.getCtx ? GameSounds.getCtx() : null;
       if (ctx && ctx.state === 'suspended') ctx.resume();
     } catch(e) {}
   }
-  document.removeEventListener('touchstart', _iosAudio);
-}, { once: true, passive: true });
+  if (window.startVillageMusic) window.startVillageMusic();
+  document.removeEventListener('touchstart', _firstInteractionAudioUnlock);
+  document.removeEventListener('click', _firstInteractionAudioUnlock);
+}
+document.addEventListener('touchstart', _firstInteractionAudioUnlock, { once: true, passive: true });
+document.addEventListener('click', _firstInteractionAudioUnlock, { once: true });
 
 // ── Mobile player panel ───────────────────────────────────────────────────────
 
