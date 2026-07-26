@@ -2373,9 +2373,16 @@
     .build-btn.attack-mode.defeated,
     .build-btn.attack-mode.defeated:hover { background: #303045; color: #8888A8; cursor: not-allowed; }
 
-    /* ── D20 ROLL ANIMATION OVERLAY ── */
+    /* ── D20 ROLL ANIMATION OVERLAY ──
+       Anchored above .build-btn (bottom:16px, height:80px, left:50% +
+       translateX(-50%)) rather than inset:0/flex-centered on the whole
+       #map-area -- on shorter map heights, centering on the full map put
+       the die/result right on top of the button. bottom:110px clears the
+       80px button plus a margin. Shared by both Build and Attack rolls
+       (see showD20() in the "Build Button + d20 Roll Animation" script
+       below), so this one fix covers both. */
     #d20-overlay {
-      position: absolute; inset: 0; z-index: 65;
+      position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); z-index: 65;
       display: none; align-items: center; justify-content: center;
       background: rgba(0,0,0,0.52); pointer-events: none;
     }
@@ -2443,6 +2450,10 @@
     #d20-die.popping { animation: d20Pop 210ms ease-out forwards; }
 
     @media (max-width: 768px) {
+      /* .build-btn is bottom:12px/height:64px on mobile (see .build-btn's
+         own @media override below) -- 90px clears it with the same ~14px
+         margin as the desktop bottom:110px above. */
+      #d20-overlay { bottom: 90px; }
       #d20-die { width: 120px; height: 120px; }
       #d20-face-text { font-size: 28px; }
     }
