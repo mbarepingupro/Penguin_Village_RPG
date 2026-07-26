@@ -1739,9 +1739,21 @@ def check_cosmetic_sets(username, db=None):
             })
     return active_bonuses
 
-def update_passive_energy(username):
-    """Lazy 10-energy/hr passive regen. Manages its own DB connection."""
-    db = get_db()
+def update_passive_energy(username, db=None):
+    """Lazy 10-energy/hr passive regen.
+
+    Pass the caller's own already-open `db` when calling mid-transaction
+    (same optional-db convention as grant_lootbox/get_force_live) -- opening
+    a second connection here would contend for the write lock against
+    whatever transaction the caller already has open, the same class of bug
+    documented on record_challenge_progress's docstring (Session 6 SQLite-
+    locking audit: silently blocks for the full busy-timeout, then never
+    actually writes). Caller owns commit in that case. Omit `db` for a
+    top-level caller with nothing open yet (unchanged from before: opens/
+    commits/closes its own)."""
+    owns_conn = db is None
+    if owns_conn:
+        db = get_db()
     try:
         penguin = db.execute(
             "SELECT energy, max_energy, last_energy_update FROM penguins WHERE username=?",
@@ -1753,7 +1765,8 @@ def update_passive_energy(username):
         last_update = penguin["last_energy_update"] or 0
         if last_update == 0:
             db.execute("UPDATE penguins SET last_energy_update=? WHERE username=?", (now, username))
-            db.commit()
+            if owns_conn:
+                db.commit()
             return
         energy_to_add = int((now - last_update) / 3600.0 * 10)
         if energy_to_add > 0:
@@ -1763,9 +1776,11 @@ def update_passive_energy(username):
                 "UPDATE penguins SET energy=?, last_energy_update=? WHERE username=?",
                 (new_energy, now, username)
             )
-            db.commit()
+            if owns_conn:
+                db.commit()
     finally:
-        db.close()
+        if owns_conn:
+            db.close()
 
 
 # Per-tier win-chance steepness -- tune during balance-pass, target-curve
@@ -3031,6 +3046,12 @@ def _perform_raid_attack(db, username):
     active raid, 403 not joined, None/200 for the rest); never raises for
     those.
     """
+    # Flush any accrued passive regen before reading energy below -- neither
+    # /raid/attack nor /extension/raid_attack did this before, so a player
+    # attacking without some other route (home, /active ping, etc.) having
+    # run first could see/spend a stale (too-low) energy value.
+    update_passive_energy(username, db=db)
+
     raid = db.execute(
         "SELECT * FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1"
     ).fetchone()
@@ -3799,8 +3820,9 @@ def profile(username):
             "xp":              xp_val,
             "xp_into":         xp_into,
             "xp_needed":       xp_needed,
-            "energy":          p["energy"],
-            "max_energy":      p["max_energy"] or 100,
+            "energy":              p["energy"],
+            "max_energy":          p["max_energy"] or 100,
+            "last_energy_update":  p["last_energy_update"] or 0,
             "gold":            r["gold"] if r else 0,
             "prestige":        p["prestige"] or 0,
             "breed":           p["breed"] or "classic_black",
@@ -5262,6 +5284,9 @@ def boss_attack():
         data     = request.get_json(silent=True) or {}
         username = session.get("username", "")
 
+        # This route didn't flush accrued passive regen before, so a player
+        # could see/spend a stale (too-low) energy value here.
+        update_passive_energy(username)
         db  = get_db()
         p   = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
         if not p:
@@ -10465,6 +10490,12 @@ def _perform_build_roll(db, username):
     expected failure (player not found, insufficient energy) -- never raises
     for those.
     """
+    # Flush any accrued passive regen before reading energy below -- neither
+    # /build/roll nor /extension/build_roll did this before, so a player
+    # rolling without some other route (home, /active ping, etc.) having run
+    # first could see/spend a stale (too-low) energy value.
+    update_passive_energy(username, db=db)
+
     p = db.execute(
         "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
     ).fetchone()
@@ -10764,6 +10795,9 @@ def minigame_start():
     if building_id not in MINIGAME_BUILDING_IDS:
         return jsonify({"status": "error", "message": "No mini-game at this building."})
 
+    # This route didn't flush accrued passive regen before, so a player
+    # could see/spend a stale (too-low) energy value here.
+    update_passive_energy(username)
     db = get_db()
     p  = db.execute("SELECT energy, job FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:

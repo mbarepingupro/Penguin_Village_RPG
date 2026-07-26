@@ -1728,6 +1728,13 @@
     .sb-next-lv   { color: #A86EFF; font-size: 16px; margin-bottom: 2px; }
     .sb-next-prev { color: #B8B8D0; font-size: 16px; }
 
+    /* ── SIDEBAR ENERGY NEXT-TICK ──
+       Distinct from the Hotel Rest daily-cap "Resets in: Xh Ym" countdown --
+       this is the only indicator for when passive energy regen (+10/hr)
+       next ticks, computed client-side (see updateEnergyNextTick()) so
+       players stop confusing the two. */
+    .sb-energy-next { color: #8888A8; font-size: 16px; margin-top: 2px; }
+
     /* ── EVENT LOG ── */
     .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .event-row { display: flex; gap: 8px; padding: 6px 10px; border-left: 3px solid; font-size: 17px; line-height: 1.8; align-items: baseline; }
@@ -3174,6 +3181,10 @@
           </div>
           <div class="bar-wrap">
             <div class="bar-fill" id="energy-bar" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
+          </div>
+          <div class="sb-energy-next" id="energy-next-wrap" style="display:none;"
+               title="Passive regen: +10 energy every hour, one point every 6 minutes.">
+            next +10 in <span id="energy-next-tick"></span>
           </div>
           <div class="stat-row">
             <span class="stat-lbl">STATUS</span>
@@ -5094,6 +5105,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           ? `<span style="color:#4aff6b">⚡ FULL</span>`
           : `${p.energy}/${maxE} <span style="color:#B8B8D0;font-size:16px">+10/hr</span>`;
         document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
+        updateEnergyNextTick(p.energy, maxE, p.last_energy_update || 0);
         const tabEnergyEl = document.getElementById('sidebar-tab-energy');
         if (tabEnergyEl) tabEnergyEl.textContent = `⚡ ${p.energy}/${maxE}`;
         const mobEnergyEl = document.getElementById('mobile-player-energy');
@@ -5187,6 +5199,31 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       }
       loadSecretBonuses();
     } catch(e) {}
+  }
+
+  // Only genuine "next energy tick" indicator in the game -- computed
+  // client-side from energy/max_energy/last_energy_update. Passive regen
+  // is flushed lazily server-side (only when some route calls
+  // update_passive_energy(), never proactively), so this predicts forward
+  // from whatever last_energy_update reference point the last /profile
+  // fetch returned rather than assuming a fixed schedule. Deliberately
+  // separate from the Hotel Rest daily-cap "Resets in: Xh Ym" countdown --
+  // that one resets at midnight and has nothing to do with energy regen;
+  // this is the only timer that does.
+  function updateEnergyNextTick(energy, maxEnergy, lastUpdate) {
+    const wrap = document.getElementById('energy-next-wrap');
+    if (!wrap) return;
+    if (energy >= maxEnergy || !lastUpdate) {
+      wrap.style.display = 'none';
+      return;
+    }
+    const now             = Math.floor(Date.now() / 1000);
+    const intervalsPassed = Math.floor(Math.max(0, now - lastUpdate) / 360); // 360s = 1 energy point at 10/hr
+    const nextTickTs      = lastUpdate + (intervalsPassed + 1) * 360;
+    wrap.style.display = '';
+    // onComplete re-syncs with the server (which actually flushes the
+    // accrued point) rather than optimistically incrementing client-side.
+    startCountdown('energy-next-tick', nextTickTs, () => refreshStats());
   }
 
   async function updateResourceBar() {
@@ -5308,6 +5345,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   // ── COUNTDOWN TIMERS ──
   const _countdownTimers = {};
+
+  // Seed the energy next-tick indicator from the server-rendered values so
+  // it's correct on first paint instead of waiting on the first
+  // refreshStats() round-trip (same reasoning as #stat-energy/#energy-bar,
+  // which are also server-rendered directly rather than left blank until
+  // JS runs). Must come after _countdownTimers above -- startCountdown()
+  // (called via updateEnergyNextTick()) reads it. Still inside the
+  // logged_in-gated block opened earlier in this script, so `penguin`
+  // is defined here.
+  updateEnergyNextTick(
+    {{ penguin['energy'] | tojson }},
+    {{ (penguin['max_energy'] or 100) | tojson }},
+    {{ (penguin['last_energy_update'] or 0) | tojson }}
+  );
 
   function getMidnightTs() {
     const now = new Date();
