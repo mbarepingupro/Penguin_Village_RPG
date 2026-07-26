@@ -5088,6 +5088,8 @@ def combat_fight():
         is_first_kill = False
         combat_level_ups = []
         consolation_level_ups = []
+        daily_complete = False
+        daily_lootbox_ids = []
 
         if fight["victory"]:
             rdef = mtype["rewards"]
@@ -5150,6 +5152,30 @@ def combat_fight():
             )
             record_challenge_progress(db, "monsters_killed", 1)
             _check_lb_achievements(db, username)
+
+            # Daily "all monsters defeated" bonus -- only fires the instant
+            # the set actually completes, not on every kill once it's
+            # already complete. "Unlocked" mirrors /combat/monsters/
+            # <username>'s own locked gate (player_level < min_level) so a
+            # monster the player hasn't reached yet doesn't block
+            # completion. monster_id is guaranteed not already in
+            # killed_today_after minus itself, since the "Already defeated
+            # today" check above already rejected a repeat fight.
+            unlocked_type_ids = {
+                tid for tid, mt in MONSTER_TYPES.items() if p["level"] >= mt["min_level"]
+            }
+            killed_today_after = {
+                row["monster_id"] for row in db.execute(
+                    "SELECT monster_id FROM monster_kills WHERE username=? AND killed_date=?",
+                    (username, today)
+                )
+            }
+            killed_today_before = killed_today_after - {monster_id}
+            was_complete_before = unlocked_type_ids.issubset(killed_today_before)
+            daily_complete = (not was_complete_before) and unlocked_type_ids.issubset(killed_today_after)
+            if daily_complete:
+                daily_lootbox_ids = grant_lootbox(username, 1, "daily_monsters_complete", db=db)
+                log_event(db, "combat", f"{username} defeated every unlocked monster today! 🏆", username)
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
             _, consolation_level_ups = award_xp(db, username, consolation_xp)
@@ -5170,11 +5196,14 @@ def combat_fight():
             "monster_icon":     variant["icon"],
             "is_first_kill":    is_first_kill,
             "level_ups":        combat_level_ups or consolation_level_ups,
+            "daily_complete":   daily_complete,
         }
         if fight["victory"]:
             resp["rewards"] = rewards
         else:
             resp["consolation_xp"] = consolation_xp
+        if daily_lootbox_ids:
+            resp["lootbox_ids"] = daily_lootbox_ids
         return jsonify(resp)
 
     except Exception as e:

@@ -8339,6 +8339,26 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         queueCelebration({type:'first_kill', icon:'⚔️', title:'FIRST KILL!', subtitle:'Monster Defeated!', description:'You slew a monster for the first time. The village is safer!', rewards:fkRewards, mayorQuote:'Blood and feathers everywhere. Glorious! The village is proud of you!'});
       }, 200);
     }
+    if (data.daily_complete && data.lootbox_ids && data.lootbox_ids.length) {
+      setTimeout(function() {
+        queueCelebration({
+          type:        'daily_monsters_complete',
+          icon:        '🏆',
+          title:       'ALL MONSTERS DEFEATED!',
+          subtitle:    "Today's hunt is complete!",
+          description: 'Every unlocked monster has fallen to you today. The village sleeps easy tonight.',
+          mayorQuote:  'Every last beast, cleared out in a single day? The barracks owes YOU a drink, penguin!',
+          rewards:     [{text:'🎁 +1 N00Tbox', color:'#FF7FE5'}],
+        });
+        // Same reusable "Open" toast pattern as daily_lootbox_awarded/
+        // build_leaderboard_reward -- targets the exact box just granted
+        // (same as RaidJoin.openLootboxesNow()) rather than only the count.
+        showToast('🏆 All unlocked monsters defeated today! +1 N00Tbox awarded!', 'ok', {
+          label: 'OPEN NOW',
+          onClick: function() { invOpenLootbox(data.lootbox_ids[0]); }
+        });
+      }, 200);
+    }
     refreshStats();
     if (data.level_ups && data.level_ups.length) {
       setTimeout(function() {
