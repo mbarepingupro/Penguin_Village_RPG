@@ -675,6 +675,24 @@
           <button class="mh-btn" onclick="sendAnnouncement()">📢 ANNOUNCE</button>
         </div>
 
+        <!-- PATCH NOTES -- same delivery mechanism as ANNOUNCE (mayor_messages
+             + lifecycle_notices()'s one-shot popup), but with a title and an
+             uncapped multi-line body instead of one 200-char message. -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">📋 PATCH NOTES</div>
+          <div class="mh-field">
+            <label class="mh-label">TITLE</label>
+            <input class="mh-input" type="text" id="patch-notes-title" maxlength="200"
+                   placeholder="e.g. Update 1.4 — Igloo Overlays"/>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">BODY</label>
+            <textarea class="mh-textarea" id="patch-notes-body" style="min-height:120px;"
+                      placeholder="What's new this update..."></textarea>
+          </div>
+          <button class="mh-btn" onclick="sendPatchNotes()">📋 PATCH NOTES</button>
+        </div>
+
         <!-- EVENT TYPE VISIBILITY -->
         <div class="mh-action-card">
           <div class="mh-action-title">👁️ EVENT TYPE VISIBILITY</div>
@@ -1400,6 +1418,22 @@
       toast('✅ Announcement sent!');
       document.getElementById('announce-msg').value = '';
       document.getElementById('announce-chars').textContent = '0';
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── PATCH NOTES ──
+  async function sendPatchNotes() {
+    const btn   = event.target;
+    const title = document.getElementById('patch-notes-title').value.trim();
+    const body  = document.getElementById('patch-notes-body').value.trim();
+    if (!title || !body) { toast('❌ Title and body required.', false); return; }
+    const data = await api('/mayor/patch-notes', { title, body }, btn);
+    if (data.status === 'success') {
+      toast('✅ Patch notes sent!');
+      document.getElementById('patch-notes-title').value = '';
+      document.getElementById('patch-notes-body').value = '';
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
     }

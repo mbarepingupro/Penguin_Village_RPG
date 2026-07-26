@@ -1682,6 +1682,28 @@
       50%      { opacity: 1; }
     }
 
+    /* ── PATCH NOTES (celebration overlay, patch_notes type only) ──
+       Same popup frame as every other celebration -- just a taller max-width
+       and a scrollable body box instead of the plain centered description,
+       since body can be long/multi-line. */
+    .celeb-content-patch { max-width: 620px; }
+    .celeb-patch-body {
+      width: 100%; max-height: 240px; overflow-y: auto;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px; color: #D8D8F0; line-height: 1.7;
+      text-align: left; white-space: pre-wrap;
+      background: #14141f; border: 1px solid #3A3A5A;
+      padding: 10px 12px;
+      animation: fadeIn 0.3s ease 0.5s both;
+    }
+    .celeb-close-btn {
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px; color: #A86EFF;
+      background: transparent; border: 2px solid #A86EFF;
+      padding: 8px 22px; margin-top: 6px; cursor: pointer;
+    }
+    .celeb-close-btn:hover { background: #A86EFF; color: #1C1C2E; }
+
     @media (max-width: 768px) {
       .lu-penguin { width: 96px; height: 96px; }
       .lu-text { font-size: 33px; }
@@ -9819,6 +9841,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "A tough loss, but the village doesn\'t give up. Next time, penguins.",
         "Not this time. Lick your wounds and get ready for the next fight.",
       ],
+      patch_notes: [
+        "Fresh off the presses! Read up, penguins — I don\'t write these for my health.",
+        "The village keeps changing. Try to keep up, would you?",
+        "New patch, new village. Scroll down, it\'s worth your time.",
+      ],
     };
     var pool = quotes[type] || quotes.level_up;
     var hash = 0;
@@ -9848,6 +9875,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     var description = config.description || '';
     var rewards     = config.rewards || [];
     var mayorQuote  = config.mayorQuote || getMayorCelebrationQuote(type, config.context);
+    var isPatchNotes = type === 'patch_notes';
 
     var overlay = document.createElement('div');
     overlay.className = 'celebration-overlay';
@@ -9861,13 +9889,27 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       rewardsHtml += '</div>';
     }
 
+    // Patch notes can be long/multi-line -- same popup frame as every other
+    // celebration, but the body goes in a scrollable box instead of the
+    // plain centered description, and the footer is a real CLOSE button
+    // instead of "click anywhere / auto-dismiss after 8s" (see the dismiss
+    // wiring below), since scrolling/selecting a long body would otherwise
+    // close the popup by accident.
+    var bodyHtml = (isPatchNotes && config.body)
+      ? '<div class="celeb-patch-body">' + String(config.body).replace(/\n/g, '<br>') + '</div>'
+      : '';
+    var footerHtml = isPatchNotes
+      ? '<button type="button" class="celeb-close-btn">✕ CLOSE</button>'
+      : '<div class="celeb-continue">TAP TO CONTINUE</div>';
+
     overlay.innerHTML =
       '<div class="celeb-confetti-container"></div>' +
-      '<div class="celeb-content">' +
+      '<div class="celeb-content' + (isPatchNotes ? ' celeb-content-patch' : '') + '">' +
         '<div class="celeb-icon">' + icon + '</div>' +
         '<div class="celeb-title">' + title + '</div>' +
         (subtitle    ? '<div class="celeb-subtitle">'    + subtitle    + '</div>' : '') +
         (description ? '<div class="celeb-description">' + description + '</div>' : '') +
+        bodyHtml +
         rewardsHtml +
         '<div class="celeb-mayor">' +
           '<img src="/static/mayor_logo.png" class="celeb-mayor-portrait" alt="Mayor" />' +
@@ -9876,7 +9918,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
             '<div class="celeb-mayor-message">' + mayorQuote + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="celeb-continue">TAP TO CONTINUE</div>' +
+        footerHtml +
       '</div>';
 
     document.body.appendChild(overlay);
@@ -9893,8 +9935,17 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         if (onDismiss) onDismiss();
       }, 300);
     }
-    overlay.addEventListener('click', dismiss);
-    setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
+    if (isPatchNotes) {
+      // Explicit close only -- no whole-overlay click-dismiss (would fire
+      // while scrolling/selecting the body) and no auto-timeout (unlike
+      // every other celebration type, patch notes shouldn't vanish while
+      // still being read).
+      var closeBtn = overlay.querySelector('.celeb-close-btn');
+      if (closeBtn) closeBtn.addEventListener('click', function(e) { e.stopPropagation(); dismiss(); });
+    } else {
+      overlay.addEventListener('click', dismiss);
+      setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
+    }
   }
 
   function processLvupQueue() {
@@ -10167,6 +10218,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     raid_start:               '⚔️',
     raid_result_success:      '🎉',
     raid_result_fail:         '💀',
+    announcement:             '📢',
+    patch_notes:              '📋',
   };
 
   async function checkLifecycleNotices() {
@@ -10180,6 +10233,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           title: n.title,
           subtitle: n.subtitle,
           description: n.description || '',
+          // patch_notes only -- body can be long/multi-line, rendered in a
+          // scrollable box by showCelebration()'s patch_notes branch
+          // instead of the plain centered description other types use.
+          body: n.body || '',
         });
       });
     } catch(e) {}

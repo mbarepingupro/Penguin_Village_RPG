@@ -2910,25 +2910,71 @@ def _notice_plain_text(notice):
     return " — ".join(p for p in (notice["title"], notice["subtitle"], notice["description"]) if p)
 
 
+def _mayor_message_notices(db, p, updates):
+    """Announcement/patch-notes one-shot notices -- same "latest row vs.
+    per-player marker" shape as the weekly_challenges/raid_state notices in
+    lifecycle_notices() below, just against mayor_messages instead. Mutates
+    `updates` in place with any marker columns that need advancing so the
+    caller only issues one UPDATE. Deliberately independent of the
+    weekly_raid feature flag (announcements/patch notes always run,
+    regardless of whether raid content is enabled).
+
+    patch_notes carries its full body in "body" (can be long/multi-line --
+    the frontend renders it in a scrollable box instead of the plain
+    centered description other notice types use); announcement has no
+    title (title=None in mayor_messages), so its message text becomes the
+    popup's subtitle instead.
+    """
+    notices = []
+
+    ann = db.execute(
+        "SELECT * FROM mayor_messages WHERE type='announcement' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if ann and ann["id"] > (p["last_seen_announcement_id"] or 0):
+        notices.append({
+            "type":        "announcement",
+            "title":       ann["title"] or "MAYOR'S ANNOUNCEMENT",
+            "subtitle":    ann["body"],
+            "description": "",
+        })
+        updates["last_seen_announcement_id"] = ann["id"]
+
+    patch = db.execute(
+        "SELECT * FROM mayor_messages WHERE type='patch_notes' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if patch and patch["id"] > (p["last_seen_patch_notes_id"] or 0):
+        notices.append({
+            "type":        "patch_notes",
+            "title":       patch["title"],
+            "subtitle":    "",
+            "description": "",
+            "body":        patch["body"],
+        })
+        updates["last_seen_patch_notes_id"] = patch["id"]
+
+    return notices
+
+
 @app.route("/lifecycle-notices/<username>")
 def lifecycle_notices(username):
-    """One-shot popup notices for weekly-challenge/raid lifecycle transitions.
+    """One-shot popup notices for weekly-challenge/raid lifecycle transitions,
+    plus mayor announcements/patch notes (see _mayor_message_notices() --
+    those run regardless of the weekly_raid flag checked below).
 
-    Compares the latest weekly_challenges/raid_state rows against the
-    per-player "last delivered" markers and returns only what this specific
-    player hasn't seen yet, then advances those markers -- so a transition
-    (challenge started, challenge resolved, raid weekend opened, raid
-    resolved) is surfaced to each player exactly once, however often they
-    poll. Only looks at the single latest row of each table (not a full
-    history), matching how far back the existing welcome-back summary looks.
+    Compares the latest weekly_challenges/raid_state/mayor_messages rows
+    against the per-player "last delivered" markers and returns only what
+    this specific player hasn't seen yet, then advances those markers -- so
+    a transition (challenge started, challenge resolved, raid weekend
+    opened, raid resolved, new announcement, new patch notes) is surfaced to
+    each player exactly once, however often they poll. Only looks at the
+    single latest row of each table (not a full history), matching how far
+    back the existing welcome-back summary looks.
     """
-    if not FEATURES.get("weekly_raid", False):
-        return jsonify({"notices": []})
-
     db = get_db()
     p = db.execute(
         "SELECT notice_challenge_start_id, notice_challenge_result_id, "
-        "notice_raid_start_id, notice_raid_result_id FROM penguins WHERE username=?",
+        "notice_raid_start_id, notice_raid_result_id, "
+        "last_seen_announcement_id, last_seen_patch_notes_id FROM penguins WHERE username=?",
         (username,)
     ).fetchone()
     if not p:
@@ -2938,39 +2984,42 @@ def lifecycle_notices(username):
     notices = []
     updates = {}
 
-    challenge = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
-    if challenge:
-        cid = challenge["id"]
-        if cid > (p["notice_challenge_start_id"] or 0):
-            notices.append({"type": "challenge_start", **_challenge_start_notice(challenge)})
-            updates["notice_challenge_start_id"] = cid
-        if challenge["status"] in ("succeeded", "failed") and cid > (p["notice_challenge_result_id"] or 0):
-            won = challenge["status"] == "succeeded"
-            notices.append({
-                "type": "challenge_result_success" if won else "challenge_result_fail",
-                **_challenge_result_notice(challenge),
-            })
-            updates["notice_challenge_result_id"] = cid
+    if FEATURES.get("weekly_raid", False):
+        challenge = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
+        if challenge:
+            cid = challenge["id"]
+            if cid > (p["notice_challenge_start_id"] or 0):
+                notices.append({"type": "challenge_start", **_challenge_start_notice(challenge)})
+                updates["notice_challenge_start_id"] = cid
+            if challenge["status"] in ("succeeded", "failed") and cid > (p["notice_challenge_result_id"] or 0):
+                won = challenge["status"] == "succeeded"
+                notices.append({
+                    "type": "challenge_result_success" if won else "challenge_result_fail",
+                    **_challenge_result_notice(challenge),
+                })
+                updates["notice_challenge_result_id"] = cid
 
-    raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
-    if raid:
-        rid = raid["id"]
-        # 'awaiting_raid' (raid_join_window off, default) means the boss
-        # hasn't spawned yet -- the raid isn't actually raidable until
-        # Saturday's status='active' flip, so don't announce "raid weekend"
-        # early. 'join_window' (legacy, raid_join_window on) already means
-        # players can act (sign up) the moment it opens, so that still fires
-        # immediately, same as before this change.
-        if raid["status"] != "awaiting_raid" and rid > (p["notice_raid_start_id"] or 0):
-            notices.append({"type": "raid_start", **_raid_start_notice(raid)})
-            updates["notice_raid_start_id"] = rid
-        if raid["status"] in ("succeeded", "failed") and rid > (p["notice_raid_result_id"] or 0):
-            won = raid["status"] == "succeeded"
-            notices.append({
-                "type": "raid_result_success" if won else "raid_result_fail",
-                **_raid_result_notice(raid),
-            })
-            updates["notice_raid_result_id"] = rid
+        raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+        if raid:
+            rid = raid["id"]
+            # 'awaiting_raid' (raid_join_window off, default) means the boss
+            # hasn't spawned yet -- the raid isn't actually raidable until
+            # Saturday's status='active' flip, so don't announce "raid weekend"
+            # early. 'join_window' (legacy, raid_join_window on) already means
+            # players can act (sign up) the moment it opens, so that still fires
+            # immediately, same as before this change.
+            if raid["status"] != "awaiting_raid" and rid > (p["notice_raid_start_id"] or 0):
+                notices.append({"type": "raid_start", **_raid_start_notice(raid)})
+                updates["notice_raid_start_id"] = rid
+            if raid["status"] in ("succeeded", "failed") and rid > (p["notice_raid_result_id"] or 0):
+                won = raid["status"] == "succeeded"
+                notices.append({
+                    "type": "raid_result_success" if won else "raid_result_fail",
+                    **_raid_result_notice(raid),
+                })
+                updates["notice_raid_result_id"] = rid
+
+    notices.extend(_mayor_message_notices(db, p, updates))
 
     if updates:
         set_clause = ", ".join(f"{k}=?" for k in updates)
@@ -9348,9 +9397,36 @@ def mayor_announce():
         return jsonify({"status": "error", "message": "message required."})
     db = get_db()
     log_event(db, "mayor", f"📢 {message}", MAYOR_USERNAME)
+    # Also deliverable as a one-shot popup via lifecycle_notices() -- see
+    # mayor_messages/_mayor_message_notices(). title=None; the popup uses
+    # the message itself as its subtitle (see checkLifecycleNotices()).
+    db.execute(
+        "INSERT INTO mayor_messages (type, title, body, created_at) VALUES (?,?,?,?)",
+        ("announcement", None, message, int(time.time()))
+    )
     db.commit()
     db.close()
     return jsonify({"status": "success", "message": message})
+
+
+@app.route("/mayor/patch-notes", methods=["POST"])
+def mayor_patch_notes():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data  = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()[:200]
+    body  = (data.get("body") or "").strip()  # no length cap -- patch notes can be long/multi-line
+    if not title or not body:
+        return jsonify({"status": "error", "message": "title and body required."})
+    db = get_db()
+    log_event(db, "mayor", f"📋 Patch Notes: {title}", MAYOR_USERNAME)
+    db.execute(
+        "INSERT INTO mayor_messages (type, title, body, created_at) VALUES (?,?,?,?)",
+        ("patch_notes", title, body, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "title": title})
 
 
 @app.route("/mayor/blizzard", methods=["POST"])

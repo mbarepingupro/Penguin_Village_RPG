@@ -597,6 +597,21 @@ def init_db():
         )
     """)
 
+    # Mayor-authored broadcasts (announcements + patch notes), delivered as
+    # one-shot popups via lifecycle_notices() -- see penguins.last_seen_
+    # announcement_id/last_seen_patch_notes_id below, same "latest row vs.
+    # per-player marker" pattern as the weekly_challenges/raid_state notices
+    # already in that function.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS mayor_messages (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            type       TEXT NOT NULL,
+            title      TEXT DEFAULT NULL,
+            body       TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -697,6 +712,12 @@ def init_db():
     _add_col(c, "penguins", "notice_challenge_result_id INTEGER DEFAULT 0")
     _add_col(c, "penguins", "notice_raid_start_id INTEGER DEFAULT 0")
     _add_col(c, "penguins", "notice_raid_result_id INTEGER DEFAULT 0")
+    # Same "last delivered" marker pattern as the notice_* columns above, but
+    # for mayor_messages (announcements/patch notes) -- nullable since a
+    # brand-new row has never seen any message yet, same as never having
+    # seen a challenge/raid (both compared with `or 0` at read time).
+    _add_col(c, "penguins", "last_seen_announcement_id INTEGER DEFAULT NULL")
+    _add_col(c, "penguins", "last_seen_patch_notes_id INTEGER DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:
