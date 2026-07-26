@@ -785,15 +785,23 @@
     .igloo-hdr-btn.done { border-color: #4aff6b; color: #4aff6b; }
     .igloo-hdr-btn.done:hover { background: #4aff6b; color: var(--dark); }
     .igloo-body { display: flex; flex: 1; overflow: hidden; }
-    .igloo-canvas-col { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: hidden; }
-    .igloo-canvas-wrap { flex: 1; overflow: auto; background: #0a1220; display: flex; padding: 16px; }
+    /* position:relative anchors the edit-panel/room-bar overlays and the
+       toggle buttons below -- they're absolutely positioned inside this,
+       not flex siblings, so #igloo-canvas-wrap always gets full available
+       width/height regardless of whether either overlay is open. */
+    .igloo-canvas-wrap { position: relative; flex: 1; min-width: 0; overflow: auto; background: #0a1220; display: flex; padding: 16px; }
     #igloo-canvas { image-rendering: pixelated; cursor: default; display: block; margin: auto; }
     #igloo-canvas.placing { cursor: crosshair; }
+    /* Bottom overlay (was a permanent flex sibling eating canvas height) --
+       toggled via the 🎨 ROOM button, only shown in edit mode. */
     .igloo-room-bar {
-      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 30;
+      display: none; align-items: center; gap: 20px; flex-wrap: wrap;
       background: var(--panel); border-top: 2px solid var(--purple);
-      padding: 10px 16px; flex-shrink: 0;
+      padding: 10px 16px; max-height: 55%; overflow-y: auto;
+      box-shadow: 0 -6px 16px rgba(0,0,0,0.4);
     }
+    .igloo-room-bar.visible { display: flex; }
     .igloo-room-bar-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .igloo-room-bar-label { color: #8888A8; font-size: 16px; flex-shrink: 0; }
     .igloo-bar-upgrade-btn {
@@ -820,10 +828,14 @@
     }
     .igloo-bar-paint-toggle:hover { border-color: #4aff6b; color: #4aff6b; }
     .igloo-bar-paint-toggle.active { border-color: #4aff6b; color: #4aff6b; background: rgba(74,255,107,0.1); }
+    /* Right-edge overlay (was a permanent flex sibling eating canvas width)
+       -- toggled via the 🛋️ ITEMS button, only shown in edit mode. */
     .igloo-edit-panel {
-      width: 210px; flex-shrink: 0; background: var(--panel);
+      position: absolute; top: 0; right: 0; bottom: 0; z-index: 30;
+      width: 210px; background: var(--panel);
       border-left: 2px solid var(--purple); overflow-y: auto;
       display: none; flex-direction: column;
+      box-shadow: -6px 0 16px rgba(0,0,0,0.4);
     }
     .igloo-edit-panel.visible { display: flex; }
     .igloo-edit-section-title {
@@ -868,6 +880,25 @@
       flex-shrink: 0; font-size: 16px; color: #4aff6b;
     }
     .igloo-status-bar.visible { display: flex; }
+
+    /* Edit-mode-only toggle buttons for the two overlays above -- pinned to
+       #igloo-canvas-wrap's top-LEFT edge (not top-right: #igloo-edit-panel
+       spans the full right-hand height, top:0 to bottom:0, so anchoring the
+       buttons on that side would put them under/behind its own header
+       whenever it's open). Only shown while iglooStartEdit() is active (see
+       .visible, added/removed alongside #igloo-done-btn). */
+    .igloo-overlay-toggles {
+      position: absolute; top: 8px; left: 8px; z-index: 32;
+      display: none; flex-direction: column; gap: 6px;
+    }
+    .igloo-overlay-toggles.visible { display: flex; }
+    .igloo-overlay-toggle-btn {
+      background: var(--dark); border: 2px solid var(--purple); color: var(--purple);
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 6px 10px; cursor: pointer; white-space: nowrap;
+    }
+    .igloo-overlay-toggle-btn:hover { background: var(--purple); color: var(--dark); }
+    .igloo-overlay-toggle-btn.active { background: var(--purple); color: var(--dark); }
 
     /* ── COMBAT TAB ── */
     .combat-header { background:var(--dark); border-bottom:2px solid var(--purple); padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
@@ -3504,20 +3535,25 @@
           </div>
         </div>
         <div class="igloo-body">
-          <div class="igloo-canvas-col">
-            <div class="igloo-canvas-wrap">
-              <canvas id="igloo-canvas"></canvas>
+          <div class="igloo-canvas-wrap">
+            <canvas id="igloo-canvas"></canvas>
+
+            <div id="igloo-overlay-toggles" class="igloo-overlay-toggles">
+              <button id="igloo-items-toggle" class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('items')">🛋️ ITEMS</button>
+              <button id="igloo-room-toggle"  class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('room')">🎨 ROOM</button>
             </div>
+
+            <div id="igloo-edit-panel" class="igloo-edit-panel">
+              <div class="igloo-edit-section-title">📦 MY FURNITURE</div>
+              <div class="igloo-subsection-label">PLACED</div>
+              <div id="igloo-placed-list" class="igloo-items-list"></div>
+              <div class="igloo-subsection-label">AVAILABLE</div>
+              <div id="igloo-avail-list"  class="igloo-items-list"></div>
+              <div class="igloo-edit-divider"></div>
+              <div id="igloo-room-options"></div>
+            </div>
+
             <div id="igloo-room-bar" class="igloo-room-bar"></div>
-          </div>
-          <div id="igloo-edit-panel" class="igloo-edit-panel">
-            <div class="igloo-edit-section-title">📦 MY FURNITURE</div>
-            <div class="igloo-subsection-label">PLACED</div>
-            <div id="igloo-placed-list" class="igloo-items-list"></div>
-            <div class="igloo-subsection-label">AVAILABLE</div>
-            <div id="igloo-avail-list"  class="igloo-items-list"></div>
-            <div class="igloo-edit-divider"></div>
-            <div id="igloo-room-options"></div>
           </div>
         </div>
         <div id="igloo-status-bar" class="igloo-status-bar">
@@ -8697,8 +8733,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.onPaintCell = iglooPaintFloorCell;
       IglooRenderer.onWallClick = iglooPaintWallCell;
 
-      // Own-igloo room bar (upgrade + floor/wall paint) -- always visible,
-      // independent of edit mode; hidden only while visiting another player.
+      // Own-igloo room bar (upgrade + floor/wall paint) -- populated up
+      // front so it's ready the moment the player opens it via the 🎨 ROOM
+      // toggle in edit mode. Visibility itself is class-driven (.visible,
+      // see iglooTogglePanel()/iglooStartEdit()/iglooFinishEdit()); clearing
+      // any leftover inline style here just undoes loadVisitedIgloo()'s
+      // display:none override in case the player is returning from a visit.
       const roomBarEl = document.getElementById('igloo-room-bar');
       if (roomBarEl) roomBarEl.style.display = '';
       iglooRenderRoomBar();
@@ -8782,12 +8822,37 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch(e) { showToast('Error saving tune.', 'err'); }
   }
 
+  // Toggles the ITEMS (furniture) or ROOM (floor/wall paint) overlay --
+  // independent of each other, both dismissible so #igloo-canvas-wrap can
+  // get its full width/height back at any time during edit mode.
+  function iglooTogglePanel(which) {
+    const panelId = which === 'items' ? 'igloo-edit-panel' : 'igloo-room-bar';
+    const btnId   = which === 'items' ? 'igloo-items-toggle' : 'igloo-room-toggle';
+    const panelEl = document.getElementById(panelId);
+    const btnEl   = document.getElementById(btnId);
+    if (!panelEl || !btnEl) return;
+    const opening = !panelEl.classList.contains('visible');
+    panelEl.classList.toggle('visible', opening);
+    btnEl.classList.toggle('active', opening);
+  }
+
+  function iglooCloseOverlayPanels() {
+    document.getElementById('igloo-edit-panel').classList.remove('visible');
+    document.getElementById('igloo-room-bar').classList.remove('visible');
+    document.getElementById('igloo-items-toggle').classList.remove('active');
+    document.getElementById('igloo-room-toggle').classList.remove('active');
+  }
+
   function iglooStartEdit() {
     if (!_iglooData) return;
     _iglooEditMode = true;
     document.getElementById('igloo-edit-btn').style.display = 'none';
     document.getElementById('igloo-done-btn').style.display = '';
-    document.getElementById('igloo-edit-panel').classList.add('visible');
+    document.getElementById('igloo-overlay-toggles').classList.add('visible');
+    // ITEMS opens by default (the usual reason to enter edit mode is to
+    // place furniture) -- ROOM stays closed until toggled on, keeping the
+    // canvas as unobstructed as possible right away.
+    iglooTogglePanel('items');
     IglooRenderer.setEditMode(true);
     document.getElementById('igloo-room-title').textContent = '✏️ EDITING IGLOO';
     iglooRenderEditPanel();
@@ -8798,7 +8863,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _iglooPlacingItemId = null;
     document.getElementById('igloo-edit-btn').style.display = '';
     document.getElementById('igloo-done-btn').style.display = 'none';
-    document.getElementById('igloo-edit-panel').classList.remove('visible');
+    document.getElementById('igloo-overlay-toggles').classList.remove('visible');
+    iglooCloseOverlayPanels();
     document.getElementById('igloo-status-bar').classList.remove('visible');
     IglooRenderer.setEditMode(false);
     document.getElementById('igloo-room-title').textContent = iglooRoomTitle(_iglooData);
@@ -8864,9 +8930,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   const IGLOO_FLOORS_CLIENT  = { ice:{name:'Ice Floor',color:'#b8d8e8',cost:null}, wood:{name:'Wood Floor',color:'#8B7355',cost:{gold:300}}, stone:{name:'Stone Floor',color:'#B8B8D0',cost:{gold:500}}, carpet:{name:'Red Carpet',color:'#8B2252',cost:{gold:1000}}, marble:{name:'Marble',color:'#e8e8e8',cost:{gold:2500}}, dark:{name:'Dark Wood',color:'#3a2a1a',cost:{gold:1500}} };
   const IGLOO_WALLS_CLIENT   = { snow:{name:'Snow',color:'#dce8f0',cost:null}, wood:{name:'Wood',color:'#a0784a',cost:{gold:300}}, brick:{name:'Brick',color:'#8B4513',cost:{gold:800}}, crystal:{name:'Crystal',color:'#88c8e8',cost:{gold:2000}}, dark_stone:{name:'Dark Stone',color:'#4a4a4a',cost:{gold:1500}} };
 
-  // Always-visible bar under the canvas: room-upgrade + floor/wall painting.
-  // Rendered regardless of edit mode; hidden entirely while visiting another
-  // player's igloo (see loadVisitedIgloo / the "back to my igloo" handler).
+  // Room-upgrade + floor/wall painting overlay, shown via the 🎨 ROOM toggle
+  // in edit mode (see iglooTogglePanel()). Content is rendered regardless of
+  // edit mode so it's ready the moment the player opens it; hidden entirely
+  // while visiting another player's igloo (see loadVisitedIgloo / the "back
+  // to my igloo" handler), which also clears its content.
   function iglooRenderRoomBar() {
     const data = _iglooData;
     const el = document.getElementById('igloo-room-bar');
@@ -10397,7 +10465,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
       document.getElementById('igloo-edit-btn').style.display    = 'none';
       document.getElementById('igloo-doorbell-btn').style.display = 'none';
-      document.getElementById('igloo-edit-panel').classList.remove('visible');
+      document.getElementById('igloo-done-btn').style.display = 'none';
+      document.getElementById('igloo-overlay-toggles').classList.remove('visible');
+      iglooCloseOverlayPanels();
       const visitRoomBarEl = document.getElementById('igloo-room-bar');
       if (visitRoomBarEl) { visitRoomBarEl.style.display = 'none'; visitRoomBarEl.innerHTML = ''; }
 
