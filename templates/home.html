@@ -8128,7 +8128,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } else if (playerEnergy < m.energy_cost) {
       btnHtml = `<button class="fight-btn low-energy" disabled title="Need ${m.energy_cost} energy">⚡ NEED ${m.energy_cost} ENERGY</button>`;
     } else {
-      btnHtml = `<button class="fight-btn" onclick="fightMonster('${m.type}',this)">⚔️ FIGHT</button>`;
+      btnHtml = `<button class="fight-btn" onclick="fightMonster('${m.type}',this)">⚔️ FIGHT &nbsp; ⚡${m.energy_cost}</button>`;
     }
     const rp      = m.rewards_preview;
     const resText = rp.resources ? `<span>${rp.resources}</span>` : '';
