@@ -961,191 +961,191 @@ MONSTER_TYPES = {
     "crab": {
         "tier": 1, "min_level": 1, "combat_power": 15,
         "variants": ["Snow Crab", "Hermit Crab", "Giant Crab"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [50, 100], "xp": [45, 75], "resources": {"fish": [20, 50]}, "gear_drop_chance": 0.25},
     },
     "bat": {
         "tier": 1, "min_level": 1, "combat_power": 25,
         "variants": ["Ice Bat", "Cave Bat", "Frost Wing"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"herbs": [20, 40]}, "gear_drop_chance": 0.25},
     },
     "rat": {
         "tier": 1, "min_level": 1, "combat_power": 5,
         "variants": ["Frost Rat", "Sewer Rat", "Snow Mouse"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [25, 75], "xp": [30, 60], "resources": {"bones": [10, 30]}, "gear_drop_chance": 0.20},
     },
     "shell_lurker": {
         "tier": 1, "min_level": 1, "combat_power": 12,
         "variants": ["Tide Shell", "Giant Conch", "Lurking Shell"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [40, 90], "xp": [36, 66], "resources": {"fish": [10, 40]}, "gear_drop_chance": 0.20},
     },
     "ice_squid": {
         "tier": 1, "min_level": 1, "combat_power": 18,
         "variants": ["Baby Squid", "Frost Squid", "Ink Specter"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [50, 90], "xp": [36, 66], "resources": {"fish": [20, 40], "herbs": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "frost_beetle": {
         "tier": 1, "min_level": 1, "combat_power": 8,
         "variants": ["Tunnel Bug", "Ice Crawler", "Crystal Grub"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [30, 70], "xp": [30, 60], "resources": {"bones": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "pufferfish": {
         "tier": 1, "min_level": 1, "combat_power": 22,
         "variants": ["Toxic Puffer", "Spiky Fish", "Blowfish"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [40, 80], "xp": [36, 66], "resources": {"fish": [20, 50], "herbs": [10, 20]}, "gear_drop_chance": 0.25},
     },
     # ── TIER 2 — FROZEN FRONTIER (level 6) ───────────────────────────────────
     "wolf": {
         "tier": 2, "min_level": 5, "combat_power": 42,
         "variants": ["Blizzard Wolf", "Shadow Wolf", "Arctic Dire Wolf"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [100, 200], "xp": [90, 150], "resources": {"bones": [30, 60], "blood_gems": [10, 20]}, "gear_drop_chance": 0.20},
     },
     "snowman": {
         "tier": 2, "min_level": 5, "combat_power": 82,
         "variants": ["Cursed Snowman", "Frost Golem", "Ice Construct"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [110, 210], "xp": [96, 156], "resources": {"spell_fragments": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "shadow_penguin": {
         "tier": 2, "min_level": 5, "combat_power": 72,
         "variants": ["Shadow Penguin", "Dark Penguin", "Void Waddle"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [110, 190], "xp": [84, 144], "resources": {"blood_gems": [20, 40]}, "gear_drop_chance": 0.22},
     },
     "ice_hawk": {
         "tier": 2, "min_level": 5, "combat_power": 32,
         "variants": ["Storm Hawk", "Tundra Raptor", "Frozen Eagle"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [90, 180], "xp": [84, 135], "resources": {"herbs": [30, 60]}, "gear_drop_chance": 0.20},
     },
     "frost_scorpion": {
         "tier": 2, "min_level": 5, "combat_power": 62,
         "variants": ["Ice Stinger", "Polar Pincer", "Frost Venom"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [100, 190], "xp": [90, 144], "resources": {"blood_gems": [10, 30], "bones": [20, 40]}, "gear_drop_chance": 0.18},
     },
     "snow_bear": {
         "tier": 2, "min_level": 5, "combat_power": 92,
         "variants": ["Snowfield Cub", "Frost Grizzly", "Avalanche Bear"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [125, 225], "xp": [105, 165], "resources": {"bones": [40, 80]}, "gear_drop_chance": 0.18},
     },
     "frost_wraith": {
         "tier": 2, "min_level": 5, "combat_power": 52,
         "variants": ["Ice Spirit", "Chilling Specter", "Pale Phantom"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [110, 200], "xp": [90, 150], "resources": {"spell_fragments": [10, 30]}, "gear_drop_chance": 0.22},
     },
     # ── TIER 3 — SHADOW TERRITORY (level 11) ─────────────────────────────────
     "ice_spider": {
         "tier": 3, "min_level": 10, "combat_power": 133,
         "variants": ["Web Creeper", "Frost Widow", "Icy Spinner"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [175, 300], "xp": [120, 195], "resources": {"herbs": [40, 80], "bones": [30, 50]}, "gear_drop_chance": 0.15},
     },
     "frost_shark": {
         "tier": 3, "min_level": 10, "combat_power": 146,
         "variants": ["Glacier Fin", "Deep Frostbite", "Ice Jaw"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [190, 310], "xp": [126, 204], "resources": {"fish": [60, 120]}, "gear_drop_chance": 0.15},
     },
     "tundra_boar": {
         "tier": 3, "min_level": 10, "combat_power": 126,
         "variants": ["Frozen Tusker", "Blizzard Hog", "Snow Crusher"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [165, 290], "xp": [114, 186], "resources": {"bones": [50, 90]}, "gear_drop_chance": 0.15},
     },
     "living_iceblock": {
         "tier": 3, "min_level": 10, "combat_power": 160,
         "variants": ["Frostcube", "Crystalline Mass", "Cryo Entity"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"spell_fragments": [30, 50]}, "gear_drop_chance": 0.14},
     },
     "cursed_owl": {
         "tier": 3, "min_level": 10, "combat_power": 140,
         "variants": ["Night Eye", "Shadow Talon", "Hexed Feather"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [175, 300], "xp": [126, 195], "resources": {"spell_fragments": [20, 50], "herbs": [30, 60]}, "gear_drop_chance": 0.16},
     },
     "glacier_croc": {
         "tier": 3, "min_level": 10, "combat_power": 153,
         "variants": ["Tundra Jaws", "Frost Maw", "Ice Scale"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [190, 315], "xp": [129, 201], "resources": {"fish": [50, 100], "bones": [30, 60]}, "gear_drop_chance": 0.14},
     },
     "night_stalker": {
         "tier": 3, "min_level": 10, "combat_power": 167,
         "variants": ["Shadow Creeper", "Dusk Hunter", "Void Walker"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [200, 325], "xp": [135, 210], "resources": {"blood_gems": [30, 60]}, "gear_drop_chance": 0.15},
     },
     # ── TIER 4 — CURSED DEPTHS (level 16) ────────────────────────────────────
     "golem": {
         "tier": 4, "min_level": 15, "combat_power": 180,
         "variants": ["Stone Golem", "Crystal Golem", "Ancient Guardian"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [275, 425], "xp": [180, 270], "resources": {"bones": [60, 120], "blood_gems": [30, 60]}, "gear_drop_chance": 0.12},
     },
     "serpent": {
         "tier": 4, "min_level": 15, "combat_power": 203,
         "variants": ["Sea Serpent", "Ice Wyrm", "Frost Leviathan"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [290, 450], "xp": [186, 285], "resources": {"fish": [80, 150], "spell_fragments": [30, 50]}, "gear_drop_chance": 0.12},
     },
     "druid": {
         "tier": 4, "min_level": 15, "combat_power": 168,
         "variants": ["Dark Druid", "Cursed Shaman", "Shadow Priest"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [275, 425], "xp": [186, 276], "resources": {"spell_fragments": [50, 90], "herbs": [50, 90]}, "gear_drop_chance": 0.14},
     },
     "ice_drake": {
         "tier": 4, "min_level": 15, "combat_power": 215,
         "variants": ["Frost Whelp", "Arctic Drake", "Glacial Serpent"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [300, 475], "xp": [195, 300], "resources": {"blood_gems": [40, 80], "spell_fragments": [20, 40]}, "gear_drop_chance": 0.12},
     },
     "fallen_knight": {
         "tier": 4, "min_level": 15, "combat_power": 192,
         "variants": ["Lost Paladin", "Cursed Champion", "Hollow Warden"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [290, 460], "xp": [186, 285], "resources": {"bones": [50, 100], "blood_gems": [20, 50]}, "gear_drop_chance": 0.12},
     },
     "blizzard_elemental": {
         "tier": 4, "min_level": 15, "combat_power": 227,
         "variants": ["Storm Core", "Blizzard Wraith", "Polar Force"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [310, 490], "xp": [195, 300], "resources": {"spell_fragments": [40, 80]}, "gear_drop_chance": 0.12},
     },
     # ── TIER 5 — THE ABYSS (level 26) ────────────────────────────────────────
     "elite_frostbear": {
         "tier": 5, "min_level": 25, "combat_power": 264,
         "variants": ["Frostbear Alpha", "Glacial Ursine", "Permafrost Beast"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [450, 700], "xp": [270, 420], "resources": {"blood_gems": [60, 120], "bones": [80, 150]}, "gear_drop_chance": 0.10},
     },
     "frost_demon": {
         "tier": 5, "min_level": 25, "combat_power": 269,
         "variants": ["Frost Wraith Lord", "Infernal Ice", "Arctic Demon"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [500, 750], "xp": [300, 450], "resources": {"blood_gems": [80, 140], "spell_fragments": [50, 100]}, "gear_drop_chance": 0.10},
     },
     "ancient_wyrm": {
         "tier": 5, "min_level": 25, "combat_power": 273,
         "variants": ["Void Dragon", "Ancient Serpent", "Deep Abyss"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [550, 800], "xp": [330, 495], "resources": {"spell_fragments": [80, 150], "blood_gems": [50, 100]}, "gear_drop_chance": 0.08},
     },
     "deaths_herald": {
         "tier": 5, "min_level": 25, "combat_power": 278,
         "variants": ["Death Knight", "The Reaper", "End Bringer"],
-        "energy_cost": 25,
+        "energy_cost": 15,
         "rewards": {"gold": [600, 900], "xp": [360, 540], "resources": {"blood_gems": [100, 180], "bones": [100, 180]}, "gear_drop_chance": 0.08},
     },
 }
@@ -1739,9 +1739,21 @@ def check_cosmetic_sets(username, db=None):
             })
     return active_bonuses
 
-def update_passive_energy(username):
-    """Lazy 10-energy/hr passive regen. Manages its own DB connection."""
-    db = get_db()
+def update_passive_energy(username, db=None):
+    """Lazy 10-energy/hr passive regen.
+
+    Pass the caller's own already-open `db` when calling mid-transaction
+    (same optional-db convention as grant_lootbox/get_force_live) -- opening
+    a second connection here would contend for the write lock against
+    whatever transaction the caller already has open, the same class of bug
+    documented on record_challenge_progress's docstring (Session 6 SQLite-
+    locking audit: silently blocks for the full busy-timeout, then never
+    actually writes). Caller owns commit in that case. Omit `db` for a
+    top-level caller with nothing open yet (unchanged from before: opens/
+    commits/closes its own)."""
+    owns_conn = db is None
+    if owns_conn:
+        db = get_db()
     try:
         penguin = db.execute(
             "SELECT energy, max_energy, last_energy_update FROM penguins WHERE username=?",
@@ -1753,7 +1765,8 @@ def update_passive_energy(username):
         last_update = penguin["last_energy_update"] or 0
         if last_update == 0:
             db.execute("UPDATE penguins SET last_energy_update=? WHERE username=?", (now, username))
-            db.commit()
+            if owns_conn:
+                db.commit()
             return
         energy_to_add = int((now - last_update) / 3600.0 * 10)
         if energy_to_add > 0:
@@ -1763,9 +1776,11 @@ def update_passive_energy(username):
                 "UPDATE penguins SET energy=?, last_energy_update=? WHERE username=?",
                 (new_energy, now, username)
             )
-            db.commit()
+            if owns_conn:
+                db.commit()
     finally:
-        db.close()
+        if owns_conn:
+            db.close()
 
 
 # Per-tier win-chance steepness -- tune during balance-pass, target-curve
@@ -2895,25 +2910,71 @@ def _notice_plain_text(notice):
     return " — ".join(p for p in (notice["title"], notice["subtitle"], notice["description"]) if p)
 
 
+def _mayor_message_notices(db, p, updates):
+    """Announcement/patch-notes one-shot notices -- same "latest row vs.
+    per-player marker" shape as the weekly_challenges/raid_state notices in
+    lifecycle_notices() below, just against mayor_messages instead. Mutates
+    `updates` in place with any marker columns that need advancing so the
+    caller only issues one UPDATE. Deliberately independent of the
+    weekly_raid feature flag (announcements/patch notes always run,
+    regardless of whether raid content is enabled).
+
+    patch_notes carries its full body in "body" (can be long/multi-line --
+    the frontend renders it in a scrollable box instead of the plain
+    centered description other notice types use); announcement has no
+    title (title=None in mayor_messages), so its message text becomes the
+    popup's subtitle instead.
+    """
+    notices = []
+
+    ann = db.execute(
+        "SELECT * FROM mayor_messages WHERE type='announcement' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if ann and ann["id"] > (p["last_seen_announcement_id"] or 0):
+        notices.append({
+            "type":        "announcement",
+            "title":       ann["title"] or "MAYOR'S ANNOUNCEMENT",
+            "subtitle":    ann["body"],
+            "description": "",
+        })
+        updates["last_seen_announcement_id"] = ann["id"]
+
+    patch = db.execute(
+        "SELECT * FROM mayor_messages WHERE type='patch_notes' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if patch and patch["id"] > (p["last_seen_patch_notes_id"] or 0):
+        notices.append({
+            "type":        "patch_notes",
+            "title":       patch["title"],
+            "subtitle":    "",
+            "description": "",
+            "body":        patch["body"],
+        })
+        updates["last_seen_patch_notes_id"] = patch["id"]
+
+    return notices
+
+
 @app.route("/lifecycle-notices/<username>")
 def lifecycle_notices(username):
-    """One-shot popup notices for weekly-challenge/raid lifecycle transitions.
+    """One-shot popup notices for weekly-challenge/raid lifecycle transitions,
+    plus mayor announcements/patch notes (see _mayor_message_notices() --
+    those run regardless of the weekly_raid flag checked below).
 
-    Compares the latest weekly_challenges/raid_state rows against the
-    per-player "last delivered" markers and returns only what this specific
-    player hasn't seen yet, then advances those markers -- so a transition
-    (challenge started, challenge resolved, raid weekend opened, raid
-    resolved) is surfaced to each player exactly once, however often they
-    poll. Only looks at the single latest row of each table (not a full
-    history), matching how far back the existing welcome-back summary looks.
+    Compares the latest weekly_challenges/raid_state/mayor_messages rows
+    against the per-player "last delivered" markers and returns only what
+    this specific player hasn't seen yet, then advances those markers -- so
+    a transition (challenge started, challenge resolved, raid weekend
+    opened, raid resolved, new announcement, new patch notes) is surfaced to
+    each player exactly once, however often they poll. Only looks at the
+    single latest row of each table (not a full history), matching how far
+    back the existing welcome-back summary looks.
     """
-    if not FEATURES.get("weekly_raid", False):
-        return jsonify({"notices": []})
-
     db = get_db()
     p = db.execute(
         "SELECT notice_challenge_start_id, notice_challenge_result_id, "
-        "notice_raid_start_id, notice_raid_result_id FROM penguins WHERE username=?",
+        "notice_raid_start_id, notice_raid_result_id, "
+        "last_seen_announcement_id, last_seen_patch_notes_id FROM penguins WHERE username=?",
         (username,)
     ).fetchone()
     if not p:
@@ -2923,39 +2984,42 @@ def lifecycle_notices(username):
     notices = []
     updates = {}
 
-    challenge = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
-    if challenge:
-        cid = challenge["id"]
-        if cid > (p["notice_challenge_start_id"] or 0):
-            notices.append({"type": "challenge_start", **_challenge_start_notice(challenge)})
-            updates["notice_challenge_start_id"] = cid
-        if challenge["status"] in ("succeeded", "failed") and cid > (p["notice_challenge_result_id"] or 0):
-            won = challenge["status"] == "succeeded"
-            notices.append({
-                "type": "challenge_result_success" if won else "challenge_result_fail",
-                **_challenge_result_notice(challenge),
-            })
-            updates["notice_challenge_result_id"] = cid
+    if FEATURES.get("weekly_raid", False):
+        challenge = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
+        if challenge:
+            cid = challenge["id"]
+            if cid > (p["notice_challenge_start_id"] or 0):
+                notices.append({"type": "challenge_start", **_challenge_start_notice(challenge)})
+                updates["notice_challenge_start_id"] = cid
+            if challenge["status"] in ("succeeded", "failed") and cid > (p["notice_challenge_result_id"] or 0):
+                won = challenge["status"] == "succeeded"
+                notices.append({
+                    "type": "challenge_result_success" if won else "challenge_result_fail",
+                    **_challenge_result_notice(challenge),
+                })
+                updates["notice_challenge_result_id"] = cid
 
-    raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
-    if raid:
-        rid = raid["id"]
-        # 'awaiting_raid' (raid_join_window off, default) means the boss
-        # hasn't spawned yet -- the raid isn't actually raidable until
-        # Saturday's status='active' flip, so don't announce "raid weekend"
-        # early. 'join_window' (legacy, raid_join_window on) already means
-        # players can act (sign up) the moment it opens, so that still fires
-        # immediately, same as before this change.
-        if raid["status"] != "awaiting_raid" and rid > (p["notice_raid_start_id"] or 0):
-            notices.append({"type": "raid_start", **_raid_start_notice(raid)})
-            updates["notice_raid_start_id"] = rid
-        if raid["status"] in ("succeeded", "failed") and rid > (p["notice_raid_result_id"] or 0):
-            won = raid["status"] == "succeeded"
-            notices.append({
-                "type": "raid_result_success" if won else "raid_result_fail",
-                **_raid_result_notice(raid),
-            })
-            updates["notice_raid_result_id"] = rid
+        raid = db.execute("SELECT * FROM raid_state ORDER BY id DESC LIMIT 1").fetchone()
+        if raid:
+            rid = raid["id"]
+            # 'awaiting_raid' (raid_join_window off, default) means the boss
+            # hasn't spawned yet -- the raid isn't actually raidable until
+            # Saturday's status='active' flip, so don't announce "raid weekend"
+            # early. 'join_window' (legacy, raid_join_window on) already means
+            # players can act (sign up) the moment it opens, so that still fires
+            # immediately, same as before this change.
+            if raid["status"] != "awaiting_raid" and rid > (p["notice_raid_start_id"] or 0):
+                notices.append({"type": "raid_start", **_raid_start_notice(raid)})
+                updates["notice_raid_start_id"] = rid
+            if raid["status"] in ("succeeded", "failed") and rid > (p["notice_raid_result_id"] or 0):
+                won = raid["status"] == "succeeded"
+                notices.append({
+                    "type": "raid_result_success" if won else "raid_result_fail",
+                    **_raid_result_notice(raid),
+                })
+                updates["notice_raid_result_id"] = rid
+
+    notices.extend(_mayor_message_notices(db, p, updates))
 
     if updates:
         set_clause = ", ".join(f"{k}=?" for k in updates)
@@ -3031,6 +3095,12 @@ def _perform_raid_attack(db, username):
     active raid, 403 not joined, None/200 for the rest); never raises for
     those.
     """
+    # Flush any accrued passive regen before reading energy below -- neither
+    # /raid/attack nor /extension/raid_attack did this before, so a player
+    # attacking without some other route (home, /active ping, etc.) having
+    # run first could see/spend a stale (too-low) energy value.
+    update_passive_energy(username, db=db)
+
     raid = db.execute(
         "SELECT * FROM raid_state WHERE status='active' ORDER BY id DESC LIMIT 1"
     ).fetchone()
@@ -3799,8 +3869,9 @@ def profile(username):
             "xp":              xp_val,
             "xp_into":         xp_into,
             "xp_needed":       xp_needed,
-            "energy":          p["energy"],
-            "max_energy":      p["max_energy"] or 100,
+            "energy":              p["energy"],
+            "max_energy":          p["max_energy"] or 100,
+            "last_energy_update":  p["last_energy_update"] or 0,
             "gold":            r["gold"] if r else 0,
             "prestige":        p["prestige"] or 0,
             "breed":           p["breed"] or "classic_black",
@@ -5088,6 +5159,8 @@ def combat_fight():
         is_first_kill = False
         combat_level_ups = []
         consolation_level_ups = []
+        daily_complete = False
+        daily_lootbox_ids = []
 
         if fight["victory"]:
             rdef = mtype["rewards"]
@@ -5150,6 +5223,30 @@ def combat_fight():
             )
             record_challenge_progress(db, "monsters_killed", 1)
             _check_lb_achievements(db, username)
+
+            # Daily "all monsters defeated" bonus -- only fires the instant
+            # the set actually completes, not on every kill once it's
+            # already complete. "Unlocked" mirrors /combat/monsters/
+            # <username>'s own locked gate (player_level < min_level) so a
+            # monster the player hasn't reached yet doesn't block
+            # completion. monster_id is guaranteed not already in
+            # killed_today_after minus itself, since the "Already defeated
+            # today" check above already rejected a repeat fight.
+            unlocked_type_ids = {
+                tid for tid, mt in MONSTER_TYPES.items() if p["level"] >= mt["min_level"]
+            }
+            killed_today_after = {
+                row["monster_id"] for row in db.execute(
+                    "SELECT monster_id FROM monster_kills WHERE username=? AND killed_date=?",
+                    (username, today)
+                )
+            }
+            killed_today_before = killed_today_after - {monster_id}
+            was_complete_before = unlocked_type_ids.issubset(killed_today_before)
+            daily_complete = (not was_complete_before) and unlocked_type_ids.issubset(killed_today_after)
+            if daily_complete:
+                daily_lootbox_ids = grant_lootbox(username, 1, "daily_monsters_complete", db=db)
+                log_event(db, "combat", f"{username} defeated every unlocked monster today! 🏆", username)
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
             _, consolation_level_ups = award_xp(db, username, consolation_xp)
@@ -5170,11 +5267,14 @@ def combat_fight():
             "monster_icon":     variant["icon"],
             "is_first_kill":    is_first_kill,
             "level_ups":        combat_level_ups or consolation_level_ups,
+            "daily_complete":   daily_complete,
         }
         if fight["victory"]:
             resp["rewards"] = rewards
         else:
             resp["consolation_xp"] = consolation_xp
+        if daily_lootbox_ids:
+            resp["lootbox_ids"] = daily_lootbox_ids
         return jsonify(resp)
 
     except Exception as e:
@@ -5233,6 +5333,9 @@ def boss_attack():
         data     = request.get_json(silent=True) or {}
         username = session.get("username", "")
 
+        # This route didn't flush accrued passive regen before, so a player
+        # could see/spend a stale (too-low) energy value here.
+        update_passive_energy(username)
         db  = get_db()
         p   = db.execute("SELECT level, energy FROM penguins WHERE username=?", (username,)).fetchone()
         if not p:
@@ -9294,9 +9397,36 @@ def mayor_announce():
         return jsonify({"status": "error", "message": "message required."})
     db = get_db()
     log_event(db, "mayor", f"📢 {message}", MAYOR_USERNAME)
+    # Also deliverable as a one-shot popup via lifecycle_notices() -- see
+    # mayor_messages/_mayor_message_notices(). title=None; the popup uses
+    # the message itself as its subtitle (see checkLifecycleNotices()).
+    db.execute(
+        "INSERT INTO mayor_messages (type, title, body, created_at) VALUES (?,?,?,?)",
+        ("announcement", None, message, int(time.time()))
+    )
     db.commit()
     db.close()
     return jsonify({"status": "success", "message": message})
+
+
+@app.route("/mayor/patch-notes", methods=["POST"])
+def mayor_patch_notes():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data  = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()[:200]
+    body  = (data.get("body") or "").strip()  # no length cap -- patch notes can be long/multi-line
+    if not title or not body:
+        return jsonify({"status": "error", "message": "title and body required."})
+    db = get_db()
+    log_event(db, "mayor", f"📋 Patch Notes: {title}", MAYOR_USERNAME)
+    db.execute(
+        "INSERT INTO mayor_messages (type, title, body, created_at) VALUES (?,?,?,?)",
+        ("patch_notes", title, body, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "title": title})
 
 
 @app.route("/mayor/blizzard", methods=["POST"])
@@ -10436,6 +10566,12 @@ def _perform_build_roll(db, username):
     expected failure (player not found, insufficient energy) -- never raises
     for those.
     """
+    # Flush any accrued passive regen before reading energy below -- neither
+    # /build/roll nor /extension/build_roll did this before, so a player
+    # rolling without some other route (home, /active ping, etc.) having run
+    # first could see/spend a stale (too-low) energy value.
+    update_passive_energy(username, db=db)
+
     p = db.execute(
         "SELECT energy, build_free_rolls FROM penguins WHERE username=?", (username,)
     ).fetchone()
@@ -10735,6 +10871,9 @@ def minigame_start():
     if building_id not in MINIGAME_BUILDING_IDS:
         return jsonify({"status": "error", "message": "No mini-game at this building."})
 
+    # This route didn't flush accrued passive regen before, so a player
+    # could see/spend a stale (too-low) energy value here.
+    update_passive_energy(username)
     db = get_db()
     p  = db.execute("SELECT energy, job FROM penguins WHERE username=?", (username,)).fetchone()
     if not p:

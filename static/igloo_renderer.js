@@ -198,6 +198,19 @@ const IglooRenderer = (function () {
         }
     }
 
+    // Returns the cached sprite for `path` (or null if not yet resolved, or
+    // confirmed missing), kicking off a load on first encounter -- same
+    // in-flight-guarded lazy-load behavior _drawItem() used to do inline,
+    // extracted here since rotation support below now tries two candidate
+    // paths (directional variant, then base) per item instead of one.
+    function _getOrLoadSprite(path) {
+        const sprite = FurnitureSprites.get(path);
+        if (sprite === null && !(path in FurnitureSprites.cache) && !FurnitureSprites.pending[path]) {
+            FurnitureSprites.load(path).then(() => _render());
+        }
+        return sprite;
+    }
+
     function _drawItem(item, s) {
         const defn = IGLOO_FURNITURE_CLIENT[item.item_id] || {};
         const w = item.width || 1, h = item.height || 1;
@@ -220,11 +233,24 @@ const IglooRenderer = (function () {
         // repeated renders before it resolves don't re-request it) and
         // re-renders once it resolves either way, so a newly-loaded sprite
         // appears without needing another user interaction to trigger it.
-        const spritePath = _versionedAsset(`igloo_furniture/${item.item_id}.png`);
-        const sprite = FurnitureSprites.get(spritePath);
-        if (sprite === null && !(spritePath in FurnitureSprites.cache) && !FurnitureSprites.pending[spritePath]) {
-            FurnitureSprites.load(spritePath).then(() => _render());
-        }
+        //
+        // Rotation: a directional variant (e.g. small_table_r90.png) is
+        // tried first and drawn as-is -- the art itself already depicts
+        // that orientation, so no transform is applied. Session 7 confirmed
+        // the 4-way rotation cycle was only ever meant as a cosmetic toggle,
+        // not true directional rendering, so most items have no _r{N}
+        // variants yet and fall back to the single base sprite: rotated
+        // in-plane for 90° (unchanged from before -- still not quite right
+        // for front-facing art, but no better single-image approximation
+        // exists), and horizontally mirrored via scale(-1,1) for 180°/270°
+        // instead of a literal spin, which reads as "facing the other way"
+        // rather than "upside down" for roughly front-facing/symmetric
+        // furniture. Neither is a substitute for real directional art.
+        const directionalPath = _versionedAsset(`igloo_furniture/${item.item_id}_r${rotation}.png`);
+        const basePath        = _versionedAsset(`igloo_furniture/${item.item_id}.png`);
+        const directionalSprite = _getOrLoadSprite(directionalPath);
+        const sprite = directionalSprite || _getOrLoadSprite(basePath);
+        const isDirectional = !!directionalSprite;
 
         if (sprite) {
             // Anchor bottom-center on the same ground-level front corner
@@ -241,7 +267,13 @@ const IglooRenderer = (function () {
 
             _ctx.save();
             _ctx.translate(frontX, frontY - drawHeight / 2);
-            _ctx.rotate(rotation * Math.PI / 180);
+            if (isDirectional) {
+                // Art already depicts this exact rotation -- no transform.
+            } else if (rotation === 180 || rotation === 270) {
+                _ctx.scale(-1, 1);
+            } else if (rotation === 90) {
+                _ctx.rotate(rotation * Math.PI / 180);
+            }
             _ctx.imageSmoothingEnabled = false;
             _ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
             _ctx.restore();

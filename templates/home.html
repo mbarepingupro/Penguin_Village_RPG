@@ -785,15 +785,23 @@
     .igloo-hdr-btn.done { border-color: #4aff6b; color: #4aff6b; }
     .igloo-hdr-btn.done:hover { background: #4aff6b; color: var(--dark); }
     .igloo-body { display: flex; flex: 1; overflow: hidden; }
-    .igloo-canvas-col { display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: hidden; }
-    .igloo-canvas-wrap { flex: 1; overflow: auto; background: #0a1220; display: flex; padding: 16px; }
+    /* position:relative anchors the edit-panel/room-bar overlays and the
+       toggle buttons below -- they're absolutely positioned inside this,
+       not flex siblings, so #igloo-canvas-wrap always gets full available
+       width/height regardless of whether either overlay is open. */
+    .igloo-canvas-wrap { position: relative; flex: 1; min-width: 0; overflow: auto; background: #0a1220; display: flex; padding: 16px; }
     #igloo-canvas { image-rendering: pixelated; cursor: default; display: block; margin: auto; }
     #igloo-canvas.placing { cursor: crosshair; }
+    /* Bottom overlay (was a permanent flex sibling eating canvas height) --
+       toggled via the 🎨 ROOM button, only shown in edit mode. */
     .igloo-room-bar {
-      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 30;
+      display: none; align-items: center; gap: 20px; flex-wrap: wrap;
       background: var(--panel); border-top: 2px solid var(--purple);
-      padding: 10px 16px; flex-shrink: 0;
+      padding: 10px 16px; max-height: 55%; overflow-y: auto;
+      box-shadow: 0 -6px 16px rgba(0,0,0,0.4);
     }
+    .igloo-room-bar.visible { display: flex; }
     .igloo-room-bar-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .igloo-room-bar-label { color: #8888A8; font-size: 16px; flex-shrink: 0; }
     .igloo-bar-upgrade-btn {
@@ -820,10 +828,14 @@
     }
     .igloo-bar-paint-toggle:hover { border-color: #4aff6b; color: #4aff6b; }
     .igloo-bar-paint-toggle.active { border-color: #4aff6b; color: #4aff6b; background: rgba(74,255,107,0.1); }
+    /* Right-edge overlay (was a permanent flex sibling eating canvas width)
+       -- toggled via the 🛋️ ITEMS button, only shown in edit mode. */
     .igloo-edit-panel {
-      width: 210px; flex-shrink: 0; background: var(--panel);
+      position: absolute; top: 0; right: 0; bottom: 0; z-index: 30;
+      width: 210px; background: var(--panel);
       border-left: 2px solid var(--purple); overflow-y: auto;
       display: none; flex-direction: column;
+      box-shadow: -6px 0 16px rgba(0,0,0,0.4);
     }
     .igloo-edit-panel.visible { display: flex; }
     .igloo-edit-section-title {
@@ -868,6 +880,25 @@
       flex-shrink: 0; font-size: 16px; color: #4aff6b;
     }
     .igloo-status-bar.visible { display: flex; }
+
+    /* Edit-mode-only toggle buttons for the two overlays above -- pinned to
+       #igloo-canvas-wrap's top-LEFT edge (not top-right: #igloo-edit-panel
+       spans the full right-hand height, top:0 to bottom:0, so anchoring the
+       buttons on that side would put them under/behind its own header
+       whenever it's open). Only shown while iglooStartEdit() is active (see
+       .visible, added/removed alongside #igloo-done-btn). */
+    .igloo-overlay-toggles {
+      position: absolute; top: 8px; left: 8px; z-index: 32;
+      display: none; flex-direction: column; gap: 6px;
+    }
+    .igloo-overlay-toggles.visible { display: flex; }
+    .igloo-overlay-toggle-btn {
+      background: var(--dark); border: 2px solid var(--purple); color: var(--purple);
+      font-family: 'C&C Red Alert', monospace; font-size: 16px;
+      padding: 6px 10px; cursor: pointer; white-space: nowrap;
+    }
+    .igloo-overlay-toggle-btn:hover { background: var(--purple); color: var(--dark); }
+    .igloo-overlay-toggle-btn.active { background: var(--purple); color: var(--dark); }
 
     /* ── COMBAT TAB ── */
     .combat-header { background:var(--dark); border-bottom:2px solid var(--purple); padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
@@ -1651,6 +1682,28 @@
       50%      { opacity: 1; }
     }
 
+    /* ── PATCH NOTES (celebration overlay, patch_notes type only) ──
+       Same popup frame as every other celebration -- just a taller max-width
+       and a scrollable body box instead of the plain centered description,
+       since body can be long/multi-line. */
+    .celeb-content-patch { max-width: 620px; }
+    .celeb-patch-body {
+      width: 100%; max-height: 240px; overflow-y: auto;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px; color: #D8D8F0; line-height: 1.7;
+      text-align: left; white-space: pre-wrap;
+      background: #14141f; border: 1px solid #3A3A5A;
+      padding: 10px 12px;
+      animation: fadeIn 0.3s ease 0.5s both;
+    }
+    .celeb-close-btn {
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px; color: #A86EFF;
+      background: transparent; border: 2px solid #A86EFF;
+      padding: 8px 22px; margin-top: 6px; cursor: pointer;
+    }
+    .celeb-close-btn:hover { background: #A86EFF; color: #1C1C2E; }
+
     @media (max-width: 768px) {
       .lu-penguin { width: 96px; height: 96px; }
       .lu-text { font-size: 33px; }
@@ -1696,6 +1749,13 @@
     .sb-next-unlock:hover { background: #252525; }
     .sb-next-lv   { color: #A86EFF; font-size: 16px; margin-bottom: 2px; }
     .sb-next-prev { color: #B8B8D0; font-size: 16px; }
+
+    /* ── SIDEBAR ENERGY NEXT-TICK ──
+       Distinct from the Hotel Rest daily-cap "Resets in: Xh Ym" countdown --
+       this is the only indicator for when passive energy regen (+10/hr)
+       next ticks, computed client-side (see updateEnergyNextTick()) so
+       players stop confusing the two. */
+    .sb-energy-next { color: #8888A8; font-size: 16px; margin-top: 2px; }
 
     /* ── EVENT LOG ── */
     .eventlog-panel { padding: 12px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 3px; }
@@ -2373,9 +2433,16 @@
     .build-btn.attack-mode.defeated,
     .build-btn.attack-mode.defeated:hover { background: #303045; color: #8888A8; cursor: not-allowed; }
 
-    /* ── D20 ROLL ANIMATION OVERLAY ── */
+    /* ── D20 ROLL ANIMATION OVERLAY ──
+       Anchored above .build-btn (bottom:16px, height:80px, left:50% +
+       translateX(-50%)) rather than inset:0/flex-centered on the whole
+       #map-area -- on shorter map heights, centering on the full map put
+       the die/result right on top of the button. bottom:110px clears the
+       80px button plus a margin. Shared by both Build and Attack rolls
+       (see showD20() in the "Build Button + d20 Roll Animation" script
+       below), so this one fix covers both. */
     #d20-overlay {
-      position: absolute; inset: 0; z-index: 65;
+      position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); z-index: 65;
       display: none; align-items: center; justify-content: center;
       background: rgba(0,0,0,0.52); pointer-events: none;
     }
@@ -2443,6 +2510,10 @@
     #d20-die.popping { animation: d20Pop 210ms ease-out forwards; }
 
     @media (max-width: 768px) {
+      /* .build-btn is bottom:12px/height:64px on mobile (see .build-btn's
+         own @media override below) -- 90px clears it with the same ~14px
+         margin as the desktop bottom:110px above. */
+      #d20-overlay { bottom: 90px; }
       #d20-die { width: 120px; height: 120px; }
       #d20-face-text { font-size: 28px; }
     }
@@ -3133,6 +3204,10 @@
           <div class="bar-wrap">
             <div class="bar-fill" id="energy-bar" style="width:{{ penguin['energy'] }}%; background:#4aff6b;"></div>
           </div>
+          <div class="sb-energy-next" id="energy-next-wrap" style="display:none;"
+               title="Passive regen: +10 energy every hour, one point every 6 minutes.">
+            next +10 in <span id="energy-next-tick"></span>
+          </div>
           <div class="stat-row">
             <span class="stat-lbl">STATUS</span>
             {% if penguin['job'] %}
@@ -3493,20 +3568,25 @@
           </div>
         </div>
         <div class="igloo-body">
-          <div class="igloo-canvas-col">
-            <div class="igloo-canvas-wrap">
-              <canvas id="igloo-canvas"></canvas>
+          <div class="igloo-canvas-wrap">
+            <canvas id="igloo-canvas"></canvas>
+
+            <div id="igloo-overlay-toggles" class="igloo-overlay-toggles">
+              <button id="igloo-items-toggle" class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('items')">🛋️ ITEMS</button>
+              <button id="igloo-room-toggle"  class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('room')">🎨 ROOM</button>
             </div>
+
+            <div id="igloo-edit-panel" class="igloo-edit-panel">
+              <div class="igloo-edit-section-title">📦 MY FURNITURE</div>
+              <div class="igloo-subsection-label">PLACED</div>
+              <div id="igloo-placed-list" class="igloo-items-list"></div>
+              <div class="igloo-subsection-label">AVAILABLE</div>
+              <div id="igloo-avail-list"  class="igloo-items-list"></div>
+              <div class="igloo-edit-divider"></div>
+              <div id="igloo-room-options"></div>
+            </div>
+
             <div id="igloo-room-bar" class="igloo-room-bar"></div>
-          </div>
-          <div id="igloo-edit-panel" class="igloo-edit-panel">
-            <div class="igloo-edit-section-title">📦 MY FURNITURE</div>
-            <div class="igloo-subsection-label">PLACED</div>
-            <div id="igloo-placed-list" class="igloo-items-list"></div>
-            <div class="igloo-subsection-label">AVAILABLE</div>
-            <div id="igloo-avail-list"  class="igloo-items-list"></div>
-            <div class="igloo-edit-divider"></div>
-            <div id="igloo-room-options"></div>
           </div>
         </div>
         <div id="igloo-status-bar" class="igloo-status-bar">
@@ -5047,6 +5127,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           ? `<span style="color:#4aff6b">⚡ FULL</span>`
           : `${p.energy}/${maxE} <span style="color:#B8B8D0;font-size:16px">+10/hr</span>`;
         document.getElementById('energy-bar').style.width = Math.round((p.energy / maxE) * 100) + '%';
+        updateEnergyNextTick(p.energy, maxE, p.last_energy_update || 0);
         const tabEnergyEl = document.getElementById('sidebar-tab-energy');
         if (tabEnergyEl) tabEnergyEl.textContent = `⚡ ${p.energy}/${maxE}`;
         const mobEnergyEl = document.getElementById('mobile-player-energy');
@@ -5140,6 +5221,31 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       }
       loadSecretBonuses();
     } catch(e) {}
+  }
+
+  // Only genuine "next energy tick" indicator in the game -- computed
+  // client-side from energy/max_energy/last_energy_update. Passive regen
+  // is flushed lazily server-side (only when some route calls
+  // update_passive_energy(), never proactively), so this predicts forward
+  // from whatever last_energy_update reference point the last /profile
+  // fetch returned rather than assuming a fixed schedule. Deliberately
+  // separate from the Hotel Rest daily-cap "Resets in: Xh Ym" countdown --
+  // that one resets at midnight and has nothing to do with energy regen;
+  // this is the only timer that does.
+  function updateEnergyNextTick(energy, maxEnergy, lastUpdate) {
+    const wrap = document.getElementById('energy-next-wrap');
+    if (!wrap) return;
+    if (energy >= maxEnergy || !lastUpdate) {
+      wrap.style.display = 'none';
+      return;
+    }
+    const now             = Math.floor(Date.now() / 1000);
+    const intervalsPassed = Math.floor(Math.max(0, now - lastUpdate) / 360); // 360s = 1 energy point at 10/hr
+    const nextTickTs      = lastUpdate + (intervalsPassed + 1) * 360;
+    wrap.style.display = '';
+    // onComplete re-syncs with the server (which actually flushes the
+    // accrued point) rather than optimistically incrementing client-side.
+    startCountdown('energy-next-tick', nextTickTs, () => refreshStats());
   }
 
   async function updateResourceBar() {
@@ -5261,6 +5367,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   // ── COUNTDOWN TIMERS ──
   const _countdownTimers = {};
+
+  // Seed the energy next-tick indicator from the server-rendered values so
+  // it's correct on first paint instead of waiting on the first
+  // refreshStats() round-trip (same reasoning as #stat-energy/#energy-bar,
+  // which are also server-rendered directly rather than left blank until
+  // JS runs). Must come after _countdownTimers above -- startCountdown()
+  // (called via updateEnergyNextTick()) reads it. Still inside the
+  // logged_in-gated block opened earlier in this script, so `penguin`
+  // is defined here.
+  updateEnergyNextTick(
+    {{ penguin['energy'] | tojson }},
+    {{ (penguin['max_energy'] or 100) | tojson }},
+    {{ (penguin['last_energy_update'] or 0) | tojson }}
+  );
 
   function getMidnightTs() {
     const now = new Date();
@@ -8081,7 +8201,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } else if (playerEnergy < m.energy_cost) {
       btnHtml = `<button class="fight-btn low-energy" disabled title="Need ${m.energy_cost} energy">⚡ NEED ${m.energy_cost} ENERGY</button>`;
     } else {
-      btnHtml = `<button class="fight-btn" onclick="fightMonster('${m.type}',this)">⚔️ FIGHT</button>`;
+      btnHtml = `<button class="fight-btn" onclick="fightMonster('${m.type}',this)">⚔️ FIGHT &nbsp; ⚡${m.energy_cost}</button>`;
     }
     const rp      = m.rewards_preview;
     const resText = rp.resources ? `<span>${rp.resources}</span>` : '';
@@ -8290,6 +8410,26 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           if (data.rewards.xp)   fkRewards.push({text:'⭐ +'+data.rewards.xp+' XP',     color:'#4aff6b'});
         }
         queueCelebration({type:'first_kill', icon:'⚔️', title:'FIRST KILL!', subtitle:'Monster Defeated!', description:'You slew a monster for the first time. The village is safer!', rewards:fkRewards, mayorQuote:'Blood and feathers everywhere. Glorious! The village is proud of you!'});
+      }, 200);
+    }
+    if (data.daily_complete && data.lootbox_ids && data.lootbox_ids.length) {
+      setTimeout(function() {
+        queueCelebration({
+          type:        'daily_monsters_complete',
+          icon:        '🏆',
+          title:       'ALL MONSTERS DEFEATED!',
+          subtitle:    "Today's hunt is complete!",
+          description: 'Every unlocked monster has fallen to you today. The village sleeps easy tonight.',
+          mayorQuote:  'Every last beast, cleared out in a single day? The barracks owes YOU a drink, penguin!',
+          rewards:     [{text:'🎁 +1 N00Tbox', color:'#FF7FE5'}],
+        });
+        // Same reusable "Open" toast pattern as daily_lootbox_awarded/
+        // build_leaderboard_reward -- targets the exact box just granted
+        // (same as RaidJoin.openLootboxesNow()) rather than only the count.
+        showToast('🏆 All unlocked monsters defeated today! +1 N00Tbox awarded!', 'ok', {
+          label: 'OPEN NOW',
+          onClick: function() { invOpenLootbox(data.lootbox_ids[0]); }
+        });
       }, 200);
     }
     refreshStats();
@@ -8686,8 +8826,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.onPaintCell = iglooPaintFloorCell;
       IglooRenderer.onWallClick = iglooPaintWallCell;
 
-      // Own-igloo room bar (upgrade + floor/wall paint) -- always visible,
-      // independent of edit mode; hidden only while visiting another player.
+      // Own-igloo room bar (upgrade + floor/wall paint) -- populated up
+      // front so it's ready the moment the player opens it via the 🎨 ROOM
+      // toggle in edit mode. Visibility itself is class-driven (.visible,
+      // see iglooTogglePanel()/iglooStartEdit()/iglooFinishEdit()); clearing
+      // any leftover inline style here just undoes loadVisitedIgloo()'s
+      // display:none override in case the player is returning from a visit.
       const roomBarEl = document.getElementById('igloo-room-bar');
       if (roomBarEl) roomBarEl.style.display = '';
       iglooRenderRoomBar();
@@ -8771,12 +8915,37 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch(e) { showToast('Error saving tune.', 'err'); }
   }
 
+  // Toggles the ITEMS (furniture) or ROOM (floor/wall paint) overlay --
+  // independent of each other, both dismissible so #igloo-canvas-wrap can
+  // get its full width/height back at any time during edit mode.
+  function iglooTogglePanel(which) {
+    const panelId = which === 'items' ? 'igloo-edit-panel' : 'igloo-room-bar';
+    const btnId   = which === 'items' ? 'igloo-items-toggle' : 'igloo-room-toggle';
+    const panelEl = document.getElementById(panelId);
+    const btnEl   = document.getElementById(btnId);
+    if (!panelEl || !btnEl) return;
+    const opening = !panelEl.classList.contains('visible');
+    panelEl.classList.toggle('visible', opening);
+    btnEl.classList.toggle('active', opening);
+  }
+
+  function iglooCloseOverlayPanels() {
+    document.getElementById('igloo-edit-panel').classList.remove('visible');
+    document.getElementById('igloo-room-bar').classList.remove('visible');
+    document.getElementById('igloo-items-toggle').classList.remove('active');
+    document.getElementById('igloo-room-toggle').classList.remove('active');
+  }
+
   function iglooStartEdit() {
     if (!_iglooData) return;
     _iglooEditMode = true;
     document.getElementById('igloo-edit-btn').style.display = 'none';
     document.getElementById('igloo-done-btn').style.display = '';
-    document.getElementById('igloo-edit-panel').classList.add('visible');
+    document.getElementById('igloo-overlay-toggles').classList.add('visible');
+    // ITEMS opens by default (the usual reason to enter edit mode is to
+    // place furniture) -- ROOM stays closed until toggled on, keeping the
+    // canvas as unobstructed as possible right away.
+    iglooTogglePanel('items');
     IglooRenderer.setEditMode(true);
     document.getElementById('igloo-room-title').textContent = '✏️ EDITING IGLOO';
     iglooRenderEditPanel();
@@ -8787,7 +8956,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _iglooPlacingItemId = null;
     document.getElementById('igloo-edit-btn').style.display = '';
     document.getElementById('igloo-done-btn').style.display = 'none';
-    document.getElementById('igloo-edit-panel').classList.remove('visible');
+    document.getElementById('igloo-overlay-toggles').classList.remove('visible');
+    iglooCloseOverlayPanels();
     document.getElementById('igloo-status-bar').classList.remove('visible');
     IglooRenderer.setEditMode(false);
     document.getElementById('igloo-room-title').textContent = iglooRoomTitle(_iglooData);
@@ -8853,9 +9023,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   const IGLOO_FLOORS_CLIENT  = { ice:{name:'Ice Floor',color:'#b8d8e8',cost:null}, wood:{name:'Wood Floor',color:'#8B7355',cost:{gold:300}}, stone:{name:'Stone Floor',color:'#B8B8D0',cost:{gold:500}}, carpet:{name:'Red Carpet',color:'#8B2252',cost:{gold:1000}}, marble:{name:'Marble',color:'#e8e8e8',cost:{gold:2500}}, dark:{name:'Dark Wood',color:'#3a2a1a',cost:{gold:1500}} };
   const IGLOO_WALLS_CLIENT   = { snow:{name:'Snow',color:'#dce8f0',cost:null}, wood:{name:'Wood',color:'#a0784a',cost:{gold:300}}, brick:{name:'Brick',color:'#8B4513',cost:{gold:800}}, crystal:{name:'Crystal',color:'#88c8e8',cost:{gold:2000}}, dark_stone:{name:'Dark Stone',color:'#4a4a4a',cost:{gold:1500}} };
 
-  // Always-visible bar under the canvas: room-upgrade + floor/wall painting.
-  // Rendered regardless of edit mode; hidden entirely while visiting another
-  // player's igloo (see loadVisitedIgloo / the "back to my igloo" handler).
+  // Room-upgrade + floor/wall painting overlay, shown via the 🎨 ROOM toggle
+  // in edit mode (see iglooTogglePanel()). Content is rendered regardless of
+  // edit mode so it's ready the moment the player opens it; hidden entirely
+  // while visiting another player's igloo (see loadVisitedIgloo / the "back
+  // to my igloo" handler), which also clears its content.
   function iglooRenderRoomBar() {
     const data = _iglooData;
     const el = document.getElementById('igloo-room-bar');
@@ -9669,6 +9841,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "A tough loss, but the village doesn\'t give up. Next time, penguins.",
         "Not this time. Lick your wounds and get ready for the next fight.",
       ],
+      patch_notes: [
+        "Fresh off the presses! Read up, penguins — I don\'t write these for my health.",
+        "The village keeps changing. Try to keep up, would you?",
+        "New patch, new village. Scroll down, it\'s worth your time.",
+      ],
     };
     var pool = quotes[type] || quotes.level_up;
     var hash = 0;
@@ -9698,6 +9875,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     var description = config.description || '';
     var rewards     = config.rewards || [];
     var mayorQuote  = config.mayorQuote || getMayorCelebrationQuote(type, config.context);
+    var isPatchNotes = type === 'patch_notes';
 
     var overlay = document.createElement('div');
     overlay.className = 'celebration-overlay';
@@ -9711,13 +9889,27 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       rewardsHtml += '</div>';
     }
 
+    // Patch notes can be long/multi-line -- same popup frame as every other
+    // celebration, but the body goes in a scrollable box instead of the
+    // plain centered description, and the footer is a real CLOSE button
+    // instead of "click anywhere / auto-dismiss after 8s" (see the dismiss
+    // wiring below), since scrolling/selecting a long body would otherwise
+    // close the popup by accident.
+    var bodyHtml = (isPatchNotes && config.body)
+      ? '<div class="celeb-patch-body">' + String(config.body).replace(/\n/g, '<br>') + '</div>'
+      : '';
+    var footerHtml = isPatchNotes
+      ? '<button type="button" class="celeb-close-btn">✕ CLOSE</button>'
+      : '<div class="celeb-continue">TAP TO CONTINUE</div>';
+
     overlay.innerHTML =
       '<div class="celeb-confetti-container"></div>' +
-      '<div class="celeb-content">' +
+      '<div class="celeb-content' + (isPatchNotes ? ' celeb-content-patch' : '') + '">' +
         '<div class="celeb-icon">' + icon + '</div>' +
         '<div class="celeb-title">' + title + '</div>' +
         (subtitle    ? '<div class="celeb-subtitle">'    + subtitle    + '</div>' : '') +
         (description ? '<div class="celeb-description">' + description + '</div>' : '') +
+        bodyHtml +
         rewardsHtml +
         '<div class="celeb-mayor">' +
           '<img src="/static/mayor_logo.png" class="celeb-mayor-portrait" alt="Mayor" />' +
@@ -9726,7 +9918,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
             '<div class="celeb-mayor-message">' + mayorQuote + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="celeb-continue">TAP TO CONTINUE</div>' +
+        footerHtml +
       '</div>';
 
     document.body.appendChild(overlay);
@@ -9743,8 +9935,17 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         if (onDismiss) onDismiss();
       }, 300);
     }
-    overlay.addEventListener('click', dismiss);
-    setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
+    if (isPatchNotes) {
+      // Explicit close only -- no whole-overlay click-dismiss (would fire
+      // while scrolling/selecting the body) and no auto-timeout (unlike
+      // every other celebration type, patch notes shouldn't vanish while
+      // still being read).
+      var closeBtn = overlay.querySelector('.celeb-close-btn');
+      if (closeBtn) closeBtn.addEventListener('click', function(e) { e.stopPropagation(); dismiss(); });
+    } else {
+      overlay.addEventListener('click', dismiss);
+      setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
+    }
   }
 
   function processLvupQueue() {
@@ -10017,6 +10218,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     raid_start:               '⚔️',
     raid_result_success:      '🎉',
     raid_result_fail:         '💀',
+    announcement:             '📢',
+    patch_notes:              '📋',
   };
 
   async function checkLifecycleNotices() {
@@ -10030,6 +10233,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           title: n.title,
           subtitle: n.subtitle,
           description: n.description || '',
+          // patch_notes only -- body can be long/multi-line, rendered in a
+          // scrollable box by showCelebration()'s patch_notes branch
+          // instead of the plain centered description other types use.
+          body: n.body || '',
         });
       });
     } catch(e) {}
@@ -10386,7 +10593,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
       document.getElementById('igloo-edit-btn').style.display    = 'none';
       document.getElementById('igloo-doorbell-btn').style.display = 'none';
-      document.getElementById('igloo-edit-panel').classList.remove('visible');
+      document.getElementById('igloo-done-btn').style.display = 'none';
+      document.getElementById('igloo-overlay-toggles').classList.remove('visible');
+      iglooCloseOverlayPanels();
       const visitRoomBarEl = document.getElementById('igloo-room-bar');
       if (visitRoomBarEl) { visitRoomBarEl.style.display = 'none'; visitRoomBarEl.innerHTML = ''; }
 
