@@ -7403,75 +7403,62 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     return html;
   }
 
-  let _invGearRarity = sessionStorage.getItem('invGearRarity') || 'common';
+  let _invGearSlot = sessionStorage.getItem('invGearSlot') || COMBAT_SLOTS[0].key;
 
-  function switchInvGearRarity(rarity, btn) {
-    _invGearRarity = rarity;
-    sessionStorage.setItem('invGearRarity', rarity);
+  function switchInvGearSlot(slot, btn) {
+    _invGearSlot = slot;
+    sessionStorage.setItem('invGearSlot', slot);
     document.querySelectorAll('#inv-body .eventlog-subtab').forEach(t => t.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderInventory();
   }
 
   function renderCombatGearTab() {
-    const COMBAT_SLOTS = [
-      { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
-      { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
-      { key: 'helmet', label: 'HELMET', icon: '⛑️' },
-      { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
-    ];
-
-    // Inventory tabs always show all 5 rarities, regardless of whether the
-    // player owns anything in that tier yet (empty state is fine) -- unlike
-    // the Barracks shop tabs, which only show rarities actually stocked.
+    // Inventory tabs always show all 4 slots, regardless of whether the
+    // player owns anything for that slot yet (empty state is fine) --
+    // unlike the Barracks shop tabs, which only show slots actually
+    // stocked (in practice always all 4, but mirrors that function's guard).
     let tabsHtml = `<div class="eventlog-subtabs" style="margin-bottom:10px;">`;
-    for (const rarity of RARITY_ORDER) {
-      const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
-      const activeCls = rarity === _invGearRarity ? ' active' : '';
-      tabsHtml += `<button class="eventlog-subtab${activeCls}" data-rarity="${rarity}" onclick="switchInvGearRarity('${rarity}', this)">${rh.label}</button>`;
+    for (const slot of COMBAT_SLOTS) {
+      const activeCls = slot.key === _invGearSlot ? ' active' : '';
+      tabsHtml += `<button class="eventlog-subtab${activeCls}" data-slot="${slot.key}" onclick="switchInvGearSlot('${slot.key}', this)">${slot.icon} ${slot.label}</button>`;
     }
     tabsHtml += `</div>`;
 
-    const rarityItems = _invGearData.filter(g => (g.rarity || 'common') === _invGearRarity);
+    const slotItems = _sortGearByLevelThenRarity(_invGearData.filter(g => g.slot === _invGearSlot));
 
     let html = '';
-    for (const slot of COMBAT_SLOTS) {
-      const items = rarityItems.filter(g => g.slot === slot.key);
-      if (items.length === 0) continue;
-      html += `<div class="inv-slot-group"><div class="inv-slot-title">${slot.icon} ${slot.label}</div>`;
-      for (const item of items) {
-        const rc         = _invRarityClass(item);
-        const isEquipped = !!item.equipped;
-        const isWorn     = !!item.worn;
-        const statsLine  = item.combat_power ? `<div class="inv-item-stats" style="color:#FF8C00">CP: +${item.combat_power}</div>` : '';
-        const setLine    = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
-        const statusHtml = [
-          isEquipped ? `<span style="color:#FF8C00">⚡ EQUIPPED</span>` : '',
-          isWorn     ? `<span style="color:#A86EFF">👁 WORN</span>`     : '',
-        ].filter(Boolean).join(' ');
+    for (const item of slotItems) {
+      const rc         = _invRarityClass(item);
+      const isEquipped = !!item.equipped;
+      const isWorn     = !!item.worn;
+      const statsLine  = item.combat_power ? `<div class="inv-item-stats" style="color:#FF8C00">CP: +${item.combat_power}</div>` : '';
+      const setLine    = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
+      const statusHtml = [
+        isEquipped ? `<span style="color:#FF8C00">⚡ EQUIPPED</span>` : '',
+        isWorn     ? `<span style="color:#A86EFF">👁 WORN</span>`     : '',
+      ].filter(Boolean).join(' ');
 
-        const equipBtn = isEquipped
-          ? `<button class="inv-btn equip-action active" onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ UNEQUIP</button>`
-          : `<button class="inv-btn equip-action"        onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ EQUIP</button>`;
+      const equipBtn = isEquipped
+        ? `<button class="inv-btn equip-action active" onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ UNEQUIP</button>`
+        : `<button class="inv-btn equip-action"        onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ EQUIP</button>`;
 
-        const wearBtn = isWorn
-          ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})" ontouchend="event.preventDefault();invUnwearAction(${item.id})">👁 UNWEAR</button>`
-          : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`;
+      const wearBtn = isWorn
+        ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})" ontouchend="event.preventDefault();invUnwearAction(${item.id})">👁 UNWEAR</button>`
+        : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`;
 
-        const eventBadge = item.event_exclusive
-          ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
-        html += `<div class="inv-item ${rc}">
-          <div class="inv-item-info">
-            <div class="inv-item-name">${item.name}${eventBadge}</div>
-            ${statsLine}${setLine}
-            ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
-          </div>
-          <div class="inv-btn-pair">${equipBtn}${wearBtn}</div>
-        </div>`;
-      }
-      html += `</div>`;
+      const eventBadge = item.event_exclusive
+        ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
+      html += `<div class="inv-item ${rc}">
+        <div class="inv-item-info">
+          <div class="inv-item-name">${item.name}${eventBadge}</div>
+          ${statsLine}${setLine}
+          ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
+        </div>
+        <div class="inv-btn-pair">${equipBtn}${wearBtn}</div>
+      </div>`;
     }
-    if (!html) html = '<div class="inv-empty">No combat gear owned in this rarity yet.</div>';
+    if (!html) html = '<div class="inv-empty">No combat gear owned in this slot yet.</div>';
     return tabsHtml + html;
   }
 
@@ -8051,9 +8038,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   const _RESOURCE_ICONS = { gold: '🪙', bones: '🦴', blood_gems: '💎', spell_fragments: '✨', fish: '🐟', herbs: '🌿' };
 
-  // Rank order for rarity sub-tabs everywhere they appear (Barracks shop,
-  // inventory Combat tab) -- common..legendary, NOT alphabetical (which
-  // would misorder as common/epic/legendary/rare/uncommon).
+  // Rank order for rarity -- common..legendary, NOT alphabetical (which
+  // would misorder as common/epic/legendary/rare/uncommon). Still used for
+  // the Bank sell-to-bank rarity tabs (switchBankSellRarity), and now also
+  // as the tiebreak sort key within a slot in the Barracks shop / inventory
+  // Combat tab (see _sortGearByLevelThenRarity below) now that those tab
+  // over COMBAT_SLOTS instead of rarity.
   const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   const RARITY_HEADERS = {
     common:    { label: 'COMMON',    color: '#B8B8D0' },
@@ -8063,8 +8053,29 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     legendary: { label: 'LEGENDARY', color: '#FF8C00' },
   };
 
-  let _barracksShopData   = null;
-  let _barracksShopRarity = sessionStorage.getItem('barracksShopRarity') || 'common';
+  // Shared slot tabs for combat gear -- Barracks shop and the inventory
+  // Combat tab both tab over this instead of RARITY_ORDER now.
+  const COMBAT_SLOTS = [
+    { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
+    { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
+    { key: 'helmet', label: 'HELMET', icon: '⛑️' },
+    { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
+  ];
+
+  // Ascending by required_level, then by RARITY_ORDER position (common
+  // first) as the tiebreak for items at the same level -- shared sort for
+  // both the Barracks shop and inventory Combat tab now that slot, not
+  // rarity, is the primary tab in both.
+  function _sortGearByLevelThenRarity(items) {
+    return items.slice().sort((a, b) => {
+      const lvlDiff = (a.required_level || 0) - (b.required_level || 0);
+      if (lvlDiff !== 0) return lvlDiff;
+      return RARITY_ORDER.indexOf(a.rarity || 'common') - RARITY_ORDER.indexOf(b.rarity || 'common');
+    });
+  }
+
+  let _barracksShopData = null;
+  let _barracksShopSlot = sessionStorage.getItem('barracksShopSlot') || COMBAT_SLOTS[0].key;
 
   async function loadBarracksShop() {
     const container = document.getElementById('barracks-shop-content');
@@ -8079,9 +8090,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     }
   }
 
-  function switchBarracksShopRarity(rarity, btn) {
-    _barracksShopRarity = rarity;
-    sessionStorage.setItem('barracksShopRarity', rarity);
+  function switchBarracksShopSlot(slot, btn) {
+    _barracksShopSlot = slot;
+    sessionStorage.setItem('barracksShopSlot', slot);
     document.querySelectorAll('#barracks-shop-content .eventlog-subtab').forEach(t => t.classList.remove('active'));
     if (btn) btn.classList.add('active');
     _renderBarracksShop();
@@ -8097,14 +8108,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const ownedIds = data.owned_ids || [];
     const shop = data.shop || {};
     const playerLevel = data.player_level || 1;
-    const slotIcons = { weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'🥾' };
+    const slotIcons = Object.fromEntries(COMBAT_SLOTS.map(s => [s.key, s.icon]));
 
-    // Only tab over rarities that actually have items in the shop right now
-    // -- e.g. don't render an empty EPIC/LEGENDARY tab before those tiers
-    // are wired in -- ordered common->legendary, not object key order.
-    const availableRarities = RARITY_ORDER.filter(r => shop[r] && shop[r].length);
-    if (!availableRarities.includes(_barracksShopRarity)) {
-      _barracksShopRarity = availableRarities[0] || 'common';
+    // shop is keyed by rarity (dict of rarity -> item list, items carry no
+    // rarity field of their own) -- flatten it into one list, stamping
+    // each item's bucket rarity onto it, so slot filtering/sorting below
+    // can work across all rarities at once.
+    const allItems = [];
+    for (const rarity of RARITY_ORDER) {
+      for (const item of (shop[rarity] || [])) allItems.push({ ...item, rarity });
+    }
+
+    // Only tab over slots that actually have items in the shop right now
+    // -- ordered weapon->boots (COMBAT_SLOTS), not object key order.
+    const availableSlots = COMBAT_SLOTS.filter(s => allItems.some(it => it.slot === s.key));
+    if (!availableSlots.some(s => s.key === _barracksShopSlot)) {
+      _barracksShopSlot = (availableSlots[0] && availableSlots[0].key) || COMBAT_SLOTS[0].key;
     }
 
     const resLine = `🪙 ${gold.toLocaleString()} &nbsp; 🦴 ${res_.bones||0} &nbsp; 💎 ${res_.blood_gems||0} &nbsp; ✨ ${res_.spell_fragments||0}`;
@@ -8113,14 +8132,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     html += `<div style="color:#FF8C00;font-size:16px;margin-bottom:10px;line-height:2;">${resLine}</div>`;
 
     html += `<div class="eventlog-subtabs" style="margin-bottom:10px;">`;
-    for (const rarity of availableRarities) {
-      const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
-      const activeCls = rarity === _barracksShopRarity ? ' active' : '';
-      html += `<button class="eventlog-subtab${activeCls}" data-rarity="${rarity}" onclick="switchBarracksShopRarity('${rarity}', this)">${rh.label}</button>`;
+    for (const slot of availableSlots) {
+      const activeCls = slot.key === _barracksShopSlot ? ' active' : '';
+      html += `<button class="eventlog-subtab${activeCls}" data-slot="${slot.key}" onclick="switchBarracksShopSlot('${slot.key}', this)">${slot.icon} ${slot.label}</button>`;
     }
     html += `</div>`;
 
-    const items = shop[_barracksShopRarity] || [];
+    const items = _sortGearByLevelThenRarity(allItems.filter(it => it.slot === _barracksShopSlot));
     items.forEach(item => {
       const owned = ownedIds.includes(item.id);
       const reqLevel = item.required_level || 1;
@@ -8158,7 +8176,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       </div>`;
     });
     if (items.length === 0) {
-      html += '<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">No items in this rarity yet.</div>';
+      html += '<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">No items in this slot yet.</div>';
     }
 
     container.innerHTML = html;
@@ -9838,11 +9856,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const list = document.getElementById('bk-bank-sell-list');
     if (!tabs || !list) return;
 
-    // Same shape as switchInvGearRarity/renderCombatGearTab: all 5 rarity
-    // tabs always shown (this is the player's own inventory, like the
-    // Combat gear tab -- not the Barracks shop's availableRarities-only
-    // behavior), each tab filters the already-fetched _bkBankSellData
-    // client-side rather than re-fetching.
+    // All 5 rarity tabs always shown (this is the player's own inventory,
+    // unlike the Barracks shop's availableRarities-only behavior); each tab
+    // filters the already-fetched _bkBankSellData client-side rather than
+    // re-fetching. Rarity stays the primary grouping here even though the
+    // Barracks shop / inventory Combat tab (renderCombatGearTab) now tab
+    // over COMBAT_SLOTS instead -- this is a separate, untouched flow.
     tabs.innerHTML = RARITY_ORDER.map(rarity => {
       const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
       const activeCls = rarity === _bkBankSellRarity ? ' active' : '';

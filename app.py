@@ -5497,7 +5497,6 @@ def gear_inventory():
     gold    = get_gold(db, username)
     r       = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     sb      = calculate_set_bonuses(db, username)
-    db.close()
     player_cp = get_combat_power(username)
     gear_list = []
     for g in rows:
@@ -5515,7 +5514,21 @@ def gear_inventory():
             gd["bank_sellable"]   = False
             gd["event_exclusive"] = False
             gd["bank_sell_value"] = 0
+        # required_level: the client sorts combat gear cards ascending by
+        # level within a slot tab (see _sortGearByLevelThenRarity in
+        # home.html) -- best-effort per item like the pricing lookups above,
+        # since a bad catalog/template lookup must not 500 the whole
+        # response. Cosmetic items have no level gate, so skip the lookup
+        # (and its DB round-trip) for those -- _gear_required_level's
+        # gear_templates fallback is combat-only anyway.
+        if gd["type"] == "combat":
+            try:
+                gd["required_level"] = _gear_required_level(db, g)
+            except Exception as e:
+                print(f"[gear_inventory] required_level lookup failed for gear id={gd.get('id')}: {e}")
+                gd["required_level"] = 0
         gear_list.append(gd)
+    db.close()
     return jsonify({
         "gear":        gear_list,
         "gold":        gold,
