@@ -860,6 +860,39 @@
       box-shadow: -6px 0 16px rgba(0,0,0,0.4);
     }
     .igloo-edit-panel.visible { display: flex; }
+    /* Base hidden state -- a bare <div> defaults to display:block, and this
+       element is only ever meant to exist on mobile (see .visible inside
+       the @media block below); without this it'd render as a stray empty
+       flex item inside .igloo-canvas-wrap on desktop. */
+    #igloo-picker-backdrop { display: none; }
+    @media (max-width: 768px) {
+      /* Mobile: the same two overlays (still toggled via .visible, still
+         populated by the unchanged iglooRenderEditPanel()/
+         iglooRenderRoomBar()) become a single centered, dimmed modal
+         instead of the permanent side panel/bottom bar above, which eats
+         too much of a small screen while editing -- reuses the fixed/
+         transform-centered pattern from #bm-overlay/#building-modal rather
+         than inventing a new one. right/bottom reset to auto since the
+         desktop rules above pin them (right:0/bottom:0) to anchor the
+         panel edges there; left set, they'd fight top/left below. */
+      .igloo-edit-panel, .igloo-room-bar {
+        position: fixed; top: 50%; left: 50%; right: auto; bottom: auto;
+        transform: translate(-50%, -50%);
+        width: 90vw; max-width: 380px; max-height: 75vh;
+        border: 3px solid var(--purple); box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        z-index: 90043;
+        /* .igloo-canvas-wrap (their DOM parent) sets touch-action:none for
+           its own pinch/pan handling -- re-enable vertical scrolling here
+           so the modal's own overflow-y:auto content (furniture list,
+           palette) still scrolls natively with one finger. */
+        touch-action: pan-y;
+      }
+      #igloo-picker-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.7); z-index: 90042; cursor: pointer;
+      }
+      #igloo-picker-backdrop.visible { display: block; }
+    }
     .igloo-edit-section-title {
       color: var(--purple); font-size: 17px; padding: 8px 10px;
       border-bottom: 1px solid var(--purple); flex-shrink: 0;
@@ -3612,6 +3645,11 @@
             <canvas id="igloo-canvas"></canvas>
 
             <button id="igloo-zoom-fit-btn" class="igloo-overlay-toggle-btn igloo-zoom-fit-btn" onclick="iglooResetZoom()" title="Fit to screen">🔍 FIT</button>
+
+            <!-- Mobile-only dim backdrop for the ITEMS/ROOM picker modals below
+                 (desktop leaves them as the permanent side panel/bottom bar, no
+                 backdrop involved -- see the @media block on .igloo-edit-panel). -->
+            <div id="igloo-picker-backdrop" onclick="iglooCloseOverlayPanels()"></div>
 
             <div id="igloo-overlay-toggles" class="igloo-overlay-toggles">
               <button id="igloo-items-toggle" class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('items')">🛋️ ITEMS</button>
@@ -8972,8 +9010,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   // Toggles the ITEMS (furniture) or ROOM (floor/wall paint) overlay --
-  // independent of each other, both dismissible so #igloo-canvas-wrap can
-  // get its full width/height back at any time during edit mode.
+  // independent of each other on desktop, both dismissible so
+  // #igloo-canvas-wrap can get its full width/height back at any time
+  // during edit mode. On mobile the same two elements render as a single
+  // centered modal instead (see the @media block on .igloo-edit-panel), so
+  // there they're mutually exclusive -- opening one closes the other
+  // rather than stacking two modals.
   function iglooTogglePanel(which) {
     const panelId = which === 'items' ? 'igloo-edit-panel' : 'igloo-room-bar';
     const btnId   = which === 'items' ? 'igloo-items-toggle' : 'igloo-room-toggle';
@@ -8981,8 +9023,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const btnEl   = document.getElementById(btnId);
     if (!panelEl || !btnEl) return;
     const opening = !panelEl.classList.contains('visible');
+    if (opening && _iglooIsMobile()) iglooCloseOverlayPanels();
     panelEl.classList.toggle('visible', opening);
     btnEl.classList.toggle('active', opening);
+    iglooUpdatePickerBackdrop();
   }
 
   function iglooCloseOverlayPanels() {
@@ -8990,6 +9034,19 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('igloo-room-bar').classList.remove('visible');
     document.getElementById('igloo-items-toggle').classList.remove('active');
     document.getElementById('igloo-room-toggle').classList.remove('active');
+    iglooUpdatePickerBackdrop();
+  }
+
+  // Mobile-only dim backdrop behind the ITEMS/ROOM modal -- shown whenever
+  // either panel is visible there, tapping it closes both (via
+  // iglooCloseOverlayPanels). No-op element on desktop (stays display:none,
+  // see its base CSS rule), so this is harmless to call unconditionally.
+  function iglooUpdatePickerBackdrop() {
+    const backdrop = document.getElementById('igloo-picker-backdrop');
+    if (!backdrop) return;
+    const anyOpen = document.getElementById('igloo-edit-panel').classList.contains('visible')
+      || document.getElementById('igloo-room-bar').classList.contains('visible');
+    backdrop.classList.toggle('visible', anyOpen && _iglooIsMobile());
   }
 
   function iglooStartEdit() {
@@ -9192,6 +9249,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('igloo-status-text').textContent =
       `PLACING ${(defn.name || itemId).toUpperCase()} — CLICK A GRID CELL`;
     iglooRenderEditPanel();
+    // Mobile: close the picker modal so the full canvas is visible to tap
+    // a cell -- placing mode itself (_iglooPlacingItemId, set above) stays
+    // active, only the picker UI closes. No-op on desktop (panel stays put).
+    if (_iglooIsMobile()) iglooCloseOverlayPanels();
   }
 
   async function iglooOnCellClick(gx, gy) {
@@ -9271,6 +9332,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomBar();
       refreshStats();
+      if (_iglooIsMobile()) iglooCloseOverlayPanels();
     } catch(e) { showToast('Error changing floor.', 'err'); }
   }
 
@@ -9290,6 +9352,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomBar();
       refreshStats();
+      if (_iglooIsMobile()) iglooCloseOverlayPanels();
     } catch(e) { showToast('Error changing walls.', 'err'); }
   }
 
@@ -9314,6 +9377,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _iglooPaintBrush = typeId;
     IglooRenderer.setPaintBrush(typeId);
     iglooRenderRoomBar();
+    // Mobile: close the picker modal so the full canvas is visible to tap
+    // cells to paint -- paint mode itself (_iglooPaintMode, set by
+    // iglooTogglePaint before this) stays active, only the picker UI
+    // closes. No-op on desktop (bar stays put).
+    if (_iglooIsMobile()) iglooCloseOverlayPanels();
   }
 
   async function iglooPaintFloorCell(gx, gy, floorType) {
@@ -9432,6 +9500,15 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   function _iglooWrapTouchStart(e) {
     if (!_iglooIsMobile()) return;
+    // The ITEMS/ROOM picker modal and its backdrop are DOM descendants of
+    // .igloo-canvas-wrap (same as the canvas), so touches inside them
+    // bubble up here too -- bail out so scrolling the modal's furniture
+    // list (or a plain tap on the backdrop to close it) never gets
+    // mistaken for a canvas pinch/pan gesture.
+    if (e.target.closest && e.target.closest('.igloo-edit-panel, .igloo-room-bar, #igloo-picker-backdrop')) {
+      _iglooGesture = null;
+      return;
+    }
     if (e.touches.length === 2) {
       const [t0, t1] = e.touches;
       _iglooGesture = {
