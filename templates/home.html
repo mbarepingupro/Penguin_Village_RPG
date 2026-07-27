@@ -792,6 +792,28 @@
     .igloo-canvas-wrap { position: relative; flex: 1; min-width: 0; overflow: auto; background: #0a1220; display: flex; padding: 16px; }
     #igloo-canvas { image-rendering: pixelated; cursor: default; display: block; margin: auto; }
     #igloo-canvas.placing { cursor: crosshair; }
+    @media (max-width: 768px) {
+      /* #igloo-canvas is sized to native pixel dimensions directly in
+         igloo_renderer.js's _render() (canvas.width/height set from
+         room_size), with no CSS scaling by default -- on narrow viewports
+         that's routinely wider than the screen. iglooApplyMobileTransform()
+         (see the "IGLOO MOBILE FIT/ZOOM/PAN" JS below) scales it down to
+         fit here via a CSS transform and layers pinch-zoom/pan on top.
+         overflow:hidden + touch-action:none replace the desktop scrollbar
+         (overflow:auto above) with that custom pan instead, since letting
+         the browser's own scroll/pinch-zoom fight our transform would just
+         desync the two. */
+      .igloo-canvas-wrap { overflow: hidden; touch-action: none; }
+      #igloo-canvas { transform-origin: center center; }
+      /* bottom-LEFT, not top-right: #igloo-edit-panel is also anchored
+         top:0/right:0 in this same positioning context (see its own
+         comment above), so any right-edge corner overlaps it whenever the
+         ITEMS panel is open. Bottom-left stays clear of both that and the
+         top-left .igloo-overlay-toggles stack. */
+      .igloo-zoom-fit-btn {
+        display: block; position: absolute; bottom: 8px; left: 8px; z-index: 33;
+      }
+    }
     /* Bottom overlay (was a permanent flex sibling eating canvas height) --
        toggled via the 🎨 ROOM button, only shown in edit mode. */
     .igloo-room-bar {
@@ -899,6 +921,13 @@
     }
     .igloo-overlay-toggle-btn:hover { background: var(--purple); color: var(--dark); }
     .igloo-overlay-toggle-btn.active { background: var(--purple); color: var(--dark); }
+
+    /* Mobile-only "fit to screen" reset button -- unlike .igloo-overlay-
+       toggles above, this isn't edit-mode-gated (zoom/pan applies whether
+       or not the player is editing), so it's its own element rather than a
+       third button inside that group. Hidden on desktop, which never
+       scales/pans #igloo-canvas at all (see the @media block below). */
+    .igloo-zoom-fit-btn { display: none; }
 
     /* ── COMBAT TAB ── */
     .combat-header { background:var(--dark); border-bottom:2px solid var(--purple); padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
@@ -3582,6 +3611,8 @@
           <div class="igloo-canvas-wrap">
             <canvas id="igloo-canvas"></canvas>
 
+            <button id="igloo-zoom-fit-btn" class="igloo-overlay-toggle-btn igloo-zoom-fit-btn" onclick="iglooResetZoom()" title="Fit to screen">🔍 FIT</button>
+
             <div id="igloo-overlay-toggles" class="igloo-overlay-toggles">
               <button id="igloo-items-toggle" class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('items')">🛋️ ITEMS</button>
               <button id="igloo-room-toggle"  class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('room')">🎨 ROOM</button>
@@ -4156,7 +4187,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (!panel) return;
     panel.classList.add('active');
     if (name === 'missions')  loadMissions();
-    if (name === 'igloo')     loadIgloo();
+    if (name === 'igloo') {
+      loadIgloo();
+      // No-op via loadIgloo() itself on first open (iglooResetZoom() there
+      // covers it) -- this instead re-fits an *already*-loaded igloo tab
+      // reopened after the wrap's available space could've changed size
+      // while the player was on a different tab (sidebar toggle, rotation).
+      requestAnimationFrame(() => iglooApplyMobileTransform());
+    }
     if (name === 'combat')    loadCombat();
     if (name === 'awards')    loadAwards();
     if (name === 'eventlog')  loadEventLog();
@@ -8852,6 +8890,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const roomBarEl = document.getElementById('igloo-room-bar');
       if (roomBarEl) roomBarEl.style.display = '';
       iglooRenderRoomBar();
+      iglooResetZoom();
     } catch(e) { showToast('Error loading igloo.', 'err'); }
   }
 
@@ -9315,8 +9354,172 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       iglooRenderRoomBar();
       document.getElementById('igloo-room-title').textContent =
         _iglooEditMode ? '✏️ EDITING IGLOO' : iglooRoomTitle(data);
+      // Preserve the player's current zoom/pan (unlike loadIgloo's full
+      // reset) -- this only needs to reclamp in case a room upgrade just
+      // changed the canvas's native size out from under it.
+      iglooApplyMobileTransform();
     } catch(e) {}
   }
+
+  // ── IGLOO MOBILE FIT/ZOOM/PAN ──
+  // #igloo-canvas is sized to native pixel dimensions directly in
+  // igloo_renderer.js's _render() (canvas.width/height set from
+  // room_size), with no CSS scaling. On mobile that's routinely wider than
+  // the viewport, so this scales it down to fit .igloo-canvas-wrap via a
+  // CSS transform and layers pinch-zoom/single-finger-pan on top.
+  // Click-to-canvas coordinate conversion for painting/placement
+  // (_onClick/_onMouseMove in igloo_renderer.js) already derives from
+  // getBoundingClientRect() vs. canvas.width/height, so it stays correct
+  // under whatever scale/pan this applies without that file needing to
+  // know this exists.
+  const IGLOO_MOBILE_MQ = window.matchMedia('(max-width: 768px)');
+  const IGLOO_MAX_ZOOM  = 3;
+  let _iglooFitScale = 1, _iglooZoom = 1, _iglooPanX = 0, _iglooPanY = 0;
+  let _iglooGesture  = null; // in-progress touch gesture, see _iglooWrapTouchStart
+
+  function _iglooIsMobile() { return IGLOO_MOBILE_MQ.matches; }
+
+  // Recomputes the fit scale from the wrap's current available space and
+  // the canvas's current native size, reclamps pan for the (possibly new)
+  // scale, and writes the result to #igloo-canvas.style.transform. Safe to
+  // call anytime, including before the canvas has data -- on desktop (or
+  // with nothing loaded yet) it just clears/skips the transform.
+  function iglooApplyMobileTransform() {
+    const canvas = document.getElementById('igloo-canvas');
+    const wrap   = document.querySelector('.igloo-canvas-wrap');
+    if (!canvas || !wrap) return;
+    if (!_iglooIsMobile()) {
+      canvas.style.transform = '';
+      return;
+    }
+    if (!canvas.width || !canvas.height) return;
+
+    const wrapStyle = getComputedStyle(wrap);
+    let availW = wrap.clientWidth  - parseFloat(wrapStyle.paddingLeft) - parseFloat(wrapStyle.paddingRight);
+    const availH = wrap.clientHeight - parseFloat(wrapStyle.paddingTop) - parseFloat(wrapStyle.paddingBottom);
+    // Visiting a friend's igloo adds #igloo-host-sprite as a flex sibling
+    // of the canvas inside the wrap (see _showIglooHostSprite) -- subtract
+    // its width too, or the fit calc would size the canvas as if it had
+    // the sprite panel's space to itself and overflow into it.
+    const hostSprite = document.getElementById('igloo-host-sprite');
+    if (hostSprite) availW -= hostSprite.getBoundingClientRect().width;
+    if (availW <= 0 || availH <= 0) return;
+
+    _iglooFitScale = Math.min(1, availW / canvas.width, availH / canvas.height);
+    const scale = _iglooFitScale * _iglooZoom;
+
+    const renderedW = canvas.width  * scale, renderedH = canvas.height * scale;
+    const maxPanX = Math.max(0, (renderedW - availW) / 2);
+    const maxPanY = Math.max(0, (renderedH - availH) / 2);
+    _iglooPanX = Math.max(-maxPanX, Math.min(maxPanX, _iglooPanX));
+    _iglooPanY = Math.max(-maxPanY, Math.min(maxPanY, _iglooPanY));
+
+    canvas.style.transform = `translate(${_iglooPanX}px, ${_iglooPanY}px) scale(${scale})`;
+  }
+
+  // Bound to the 🔍 FIT button -- also called on every fresh igloo load
+  // (own or visited) so a previous session's zoom/pan never carries over.
+  function iglooResetZoom() {
+    _iglooZoom = 1;
+    _iglooPanX = 0;
+    _iglooPanY = 0;
+    iglooApplyMobileTransform();
+  }
+
+  function _iglooTouchDist(t0, t1) {
+    return Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+  }
+
+  function _iglooWrapTouchStart(e) {
+    if (!_iglooIsMobile()) return;
+    if (e.touches.length === 2) {
+      const [t0, t1] = e.touches;
+      _iglooGesture = {
+        type: 'pinch',
+        startDist: _iglooTouchDist(t0, t1),
+        startZoom: _iglooZoom,
+        startPanX: _iglooPanX,
+        startPanY: _iglooPanY,
+        midX: (t0.clientX + t1.clientX) / 2,
+        midY: (t0.clientY + t1.clientY) / 2,
+      };
+      e.preventDefault();
+    } else if (e.touches.length === 1) {
+      const t = e.touches[0];
+      _iglooGesture = {
+        type: 'pan',
+        startX: t.clientX, startY: t.clientY,
+        startPanX: _iglooPanX, startPanY: _iglooPanY,
+        moved: false,
+      };
+      // Deliberately not preventDefault()'d yet -- a plain tap (one that
+      // never crosses the move threshold in _iglooWrapTouchMove below)
+      // must still produce the browser's normal synthetic click on
+      // #igloo-canvas, since that's what drives placement/painting.
+    } else {
+      _iglooGesture = null;
+    }
+  }
+
+  function _iglooWrapTouchMove(e) {
+    if (!_iglooGesture || !_iglooIsMobile()) return;
+    const wrap = document.querySelector('.igloo-canvas-wrap');
+    if (!wrap) return;
+
+    if (_iglooGesture.type === 'pinch' && e.touches.length === 2) {
+      e.preventDefault();
+      const [t0, t1] = e.touches;
+      if (_iglooGesture.startDist <= 0) return;
+      const ratio = _iglooTouchDist(t0, t1) / _iglooGesture.startDist;
+      _iglooZoom = Math.max(1, Math.min(IGLOO_MAX_ZOOM, _iglooGesture.startZoom * ratio));
+
+      // Keep the point under the pinch midpoint fixed on screen as zoom
+      // changes, using the gesture-*start* scale ratio each time (rather
+      // than the previous frame's) so rounding error can't accumulate.
+      const r = _iglooZoom / _iglooGesture.startZoom;
+      const rect = wrap.getBoundingClientRect();
+      const wrapStyle = getComputedStyle(wrap);
+      const availW = wrap.clientWidth  - parseFloat(wrapStyle.paddingLeft) - parseFloat(wrapStyle.paddingRight);
+      const availH = wrap.clientHeight - parseFloat(wrapStyle.paddingTop)  - parseFloat(wrapStyle.paddingBottom);
+      const midX = _iglooGesture.midX - rect.left - parseFloat(wrapStyle.paddingLeft);
+      const midY = _iglooGesture.midY - rect.top  - parseFloat(wrapStyle.paddingTop);
+      const dx0 = midX - availW / 2, dy0 = midY - availH / 2;
+      _iglooPanX = dx0 * (1 - r) + _iglooGesture.startPanX * r;
+      _iglooPanY = dy0 * (1 - r) + _iglooGesture.startPanY * r;
+      iglooApplyMobileTransform();
+    } else if (_iglooGesture.type === 'pan' && e.touches.length === 1) {
+      const t = e.touches[0];
+      const dx = t.clientX - _iglooGesture.startX, dy = t.clientY - _iglooGesture.startY;
+      if (!_iglooGesture.moved && Math.hypot(dx, dy) < 8) return; // still a possible tap
+      _iglooGesture.moved = true;
+      e.preventDefault();
+      _iglooPanX = _iglooGesture.startPanX + dx;
+      _iglooPanY = _iglooGesture.startPanY + dy;
+      iglooApplyMobileTransform();
+    }
+  }
+
+  function _iglooWrapTouchEnd(e) {
+    if (e.touches.length === 0) {
+      _iglooGesture = null;
+    } else if (e.touches.length === 1) {
+      // Dropped from a pinch to a single finger -- restart as a pan from
+      // here rather than snapping back to the old pinch anchor.
+      const t = e.touches[0];
+      _iglooGesture = { type: 'pan', startX: t.clientX, startY: t.clientY, startPanX: _iglooPanX, startPanY: _iglooPanY, moved: true };
+    }
+  }
+
+  (function iglooInitMobileGestures() {
+    const wrap = document.querySelector('.igloo-canvas-wrap');
+    if (!wrap) return;
+    wrap.addEventListener('touchstart',  _iglooWrapTouchStart, { passive: false });
+    wrap.addEventListener('touchmove',   _iglooWrapTouchMove,  { passive: false });
+    wrap.addEventListener('touchend',    _iglooWrapTouchEnd);
+    wrap.addEventListener('touchcancel', _iglooWrapTouchEnd);
+    IGLOO_MOBILE_MQ.addEventListener('change', iglooResetZoom);
+    window.addEventListener('resize', iglooApplyMobileTransform);
+  })();
 
   // ── BANK ──
   // Must match the expiry sweep threshold in app.py's bank_shop() route
@@ -10618,6 +10821,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
       _showIglooHostSprite(username, data.host_color, data.host_shape, data.host_worn_items);
       showVisitingHeader(username);
+      // After #igloo-host-sprite is in the DOM, so iglooApplyMobileTransform
+      // (via iglooResetZoom) can measure and subtract its width when it
+      // computes the available space for the canvas on mobile.
+      iglooResetZoom();
 
       // Play the host's custom doorbell chiptune, if they've set one -- no
       // default/fallback sound plays when they haven't (per spec). Stash it
