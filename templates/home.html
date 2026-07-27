@@ -1831,6 +1831,14 @@
     }
     #toast.ok  { border-color: #4aff6b; color: #4aff6b; }
     #toast.err { border-color: #ff6b6b; color: #ff6b6b; }
+    /* Roll-result variant — used only by the build/attack roll button's
+       onSettle toast (showD20 in the "Build Button + d20 Roll Animation"
+       script), which would otherwise land under #toast's default
+       bottom:40px, right on top of .build-btn and the #d20-overlay die
+       (footprint up to ~290px, see #d20-overlay's own comment). Every other
+       showToast() call site is unaffected since this only applies when the
+       4th `extraClass` arg is passed. */
+    #toast.toast-roll-result { bottom: 320px; }
     .toast-action-btn {
       font-family: 'C&C Red Alert', monospace; font-size: 15px;
       margin-left: 10px; padding: 3px 10px; border: 2px solid currentColor;
@@ -2516,6 +2524,9 @@
       #d20-overlay { bottom: 90px; }
       #d20-die { width: 120px; height: 120px; }
       #d20-face-text { font-size: 28px; }
+      /* Mobile d20 footprint is ~90-210px (90px overlay + 120px die) --
+         240px clears it with the same margin as the desktop rule above. */
+      #toast.toast-roll-result { bottom: 240px; }
     }
 
     /* ── OVERWORLD PANEL ── */
@@ -4947,8 +4958,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // "OPEN" on a N00Tbox-award toast) without forcing the player to act --
   // the toast still auto-dismisses on its own, same as a plain toast, and
   // the box just stays unopened in inventory if ignored.
+  // Optional 4th arg `extraClass` adds another class alongside `type` (e.g.
+  // "toast-roll-result" so the build/attack roll button can lift the toast
+  // above the d20 die animation) without touching #toast's default position
+  // used by every other call site. It's not "reset" explicitly -- className
+  // is fully rebuilt from `type`/`extraClass` on every call, so the next
+  // plain showToast() naturally drops it.
   let _toastTimer = null;
-  function showToast(text, type, action) {
+  function showToast(text, type, action, extraClass) {
     const el = document.getElementById('toast');
     el.innerHTML = '';
     el.appendChild(document.createTextNode(text));
@@ -4964,7 +4981,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       };
       el.appendChild(btn);
     }
-    el.className = type || '';
+    el.className = [type, extraClass].filter(Boolean).join(' ');
     el.style.display = 'block';
     if (_toastTimer) clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => { el.style.display = 'none'; }, action ? 6000 : 3500);
@@ -12488,7 +12505,7 @@ async function _loadMobileTab(tabName) {
         var msg = '⚔️ ' + data.damage_dealt + ' damage! (roll ' + data.roll + ')';
         if (isCrit)                  msg += ' CRITICAL! 5 free rolls!';
         else if (data.normal_return) msg += ' Free rolls used up.';
-        showToast(msg, isCrit ? 'ok' : '');
+        showToast(msg, isCrit ? 'ok' : '', null, 'toast-roll-result');
         if (typeof Effects !== 'undefined' && data.xp_earned) Effects.animateXPGain(data.xp_earned, btn);
 
         if (data.boss_current_hp <= 0) {
@@ -12519,7 +12536,7 @@ async function _loadMobileTab(tabName) {
         var msg = '🧊 ×' + data.ice_blocks_earned + ' Ice Blocks! (roll ' + data.roll + ')';
         if (data.is_crit)         msg += ' CRITICAL! 5 free rolls!';
         else if (data.normal_return) msg += ' Free rolls used up.';
-        showToast(msg, data.is_crit ? 'ok' : '');
+        showToast(msg, data.is_crit ? 'ok' : '', null, 'toast-roll-result');
       }
       setBtnState(data.free_rolls_remaining || 0);
       if (typeof refreshStats === 'function') refreshStats();
