@@ -10543,67 +10543,6 @@ def bank_sell_to_bank():
     })
 
 
-@app.route("/bank/shop")
-def bank_shop():
-    username = request.args.get("username", "")
-    now      = int(time.time())
-    db       = get_db()
-    # Expire items older than 30 days: the buyback window is over, so the
-    # item leaves the economy for good -- DELETE the row. (This used to
-    # UPDATE username to NULL, which violated gear.username's NOT NULL
-    # constraint and 500'd this whole tab the moment ANY bank item aged past
-    # the window; a NULL-username row would also have been unreachable dead
-    # weight, since every gear query filters by username.) The sweep is
-    # best-effort: if it ever fails, log and still serve the shop (with
-    # stale items) rather than crash the tab.
-    try:
-        db.execute(
-            "DELETE FROM gear "
-            "WHERE username='__bank__' AND bank_listed_at > 0 AND bank_listed_at < ?",
-            (now - 30 * 86400,)
-        )
-        db.commit()
-    except Exception as e:
-        print(f"[BankShop] expiry sweep failed (serving shop anyway): {e}")
-        db.rollback()
-    rows = db.execute(
-        "SELECT * FROM gear WHERE username='__bank__' ORDER BY bank_listed_at DESC"
-    ).fetchall()
-    db.close()
-    return jsonify({"items": [dict(r) for r in rows]})
-
-
-@app.route("/bank/shop-buy/<int:gear_id>", methods=["POST"])
-def bank_shop_buy(gear_id):
-    data     = request.get_json(silent=True) or {}
-    username = session.get("username", "")
-    db       = get_db()
-
-    g = db.execute(
-        "SELECT * FROM gear WHERE id=? AND username='__bank__'", (gear_id,)
-    ).fetchone()
-    if not g:
-        db.close()
-        return jsonify({"status": "error", "message": "Item no longer available."})
-
-    ensure_resources(db, username)
-    res = db.execute("SELECT gold FROM resources WHERE username=?", (username,)).fetchone()
-    if not res or res["gold"] < g["bank_sell_price"]:
-        db.close()
-        return jsonify({"status": "error", "message": f"You need {g['bank_sell_price']} 🪙 gold."})
-
-    db.execute("UPDATE resources SET gold=gold-? WHERE username=?", (g["bank_sell_price"], username))
-    db.execute(
-        "UPDATE gear SET username=?, bank_sell_price=0, bank_listed_at=0 WHERE id=?",
-        (username, gear_id)
-    )
-    log_event(db, "bank",
-        f"🏦 {username} bought {g['name']} from the Penguin Bank for {g['bank_sell_price']} gold!", username)
-    db.commit()
-    db.close()
-    return jsonify({"status": "success", "message": f"Bought {g['name']}!"})
-
-
 MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine")
 
 # Mirrors templates/home.html's MINIGAME_LABELS -- kept as a separate copy

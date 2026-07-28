@@ -3746,7 +3746,6 @@
             <button class="bank-tab" onclick="switchBankTab('trade', this)">TRADE</button>
             <button class="bank-tab" onclick="switchBankTab('mine', this)">MY OFFERS</button>
             <button class="bank-tab" onclick="switchBankTab('bank-sell', this)">SELL TO BANK</button>
-            <button class="bank-tab" onclick="switchBankTab('shop', this)">ITEMS ON SALE</button>
           </div>
           <div class="bank-body">
             <!-- Browse -->
@@ -3839,12 +3838,6 @@
                 <div class="bank-sell-col-right" id="bk-bank-sell-col-right">
                   <!-- placeholder -->
                 </div>
-              </div>
-            </div>
-            <!-- Items on Sale (bank shop) -->
-            <div class="bank-sub-panel" id="bk-shop">
-              <div id="bk-shop-list" class="bank-listing-list">
-                <div class="bank-empty">SELECT THE TAB TO LOAD</div>
               </div>
             </div>
           </div>
@@ -9657,10 +9650,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   })();
 
   // ── BANK ──
-  // Must match the expiry sweep threshold in app.py's bank_shop() route
-  // (30 * 86400 there too) -- how long a bank-shop listing stays buyable
-  // before it's hard-deleted.
-  const BANK_SHOP_EXPIRY_SECONDS = 30 * 86400;
   let _bkGearCache     = [];
   let _bkBankSellData     = [];                                              // last-fetched sellable gear, cached for re-render on tab switch
   let _bkBankSellRarity   = sessionStorage.getItem('bkBankSellRarity') || 'common';
@@ -9687,7 +9676,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (tab === 'sell')      bankLoadSellItems();
     if (tab === 'mine')      bankLoadMyListings();
     if (tab === 'bank-sell') bankLoadBankSell();
-    if (tab === 'shop')      bankLoadShop();
   }
 
   async function bankLoadBrowse() {
@@ -9964,58 +9952,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         bankLoadBankSell();
         await refreshStats();
         if (data.was_equipped_or_worn) await refreshPenguinDisplay();
-      } else { showToast(data.message || 'Error.', 'err'); }
-    } catch(e) { showToast('Error.', 'err'); }
-  }
-
-  async function bankLoadShop() {
-    const list = document.getElementById('bk-shop-list');
-    if (!list) return;
-    list.innerHTML = '<div class="bank-empty">LOADING...</div>';
-    try {
-      const r    = await fetch(`/bank/shop?username=${encodeURIComponent(CURRENT_USER)}`);
-      const data = await r.json();
-      const items = data.items || [];
-      if (!items.length) {
-        list.innerHTML = '<div class="bank-empty">NO ITEMS FOR SALE RIGHT NOW</div>';
-        return;
-      }
-      const now = Date.now() / 1000;
-      list.innerHTML = items.map(g => {
-        const rc       = bankRarityClass(g.rarity);
-        const secsLeft = Math.max(1, (g.bank_listed_at + BANK_SHOP_EXPIRY_SECONDS) - now);
-        // Days once there's more than a day left, hours for the final day --
-        // same "Xh ago"/"Xd ago" granularity convention used elsewhere.
-        const leftStr  = secsLeft >= 86400
-          ? `${Math.ceil(secsLeft / 86400)}d left`
-          : `${Math.max(1, Math.ceil(secsLeft / 3600))}h left`;
-        return `<div class="bank-listing">
-          <div class="bank-listing-info">
-            <div class="bank-listing-offer"><span class="${rc}">${g.name}</span> <span style="color:#8888A8">(${g.slot || '?'}, ${g.rarity || 'common'})</span></div>
-            ${g.combat_power ? `<div style="color:#B8B8D0;font-size:16px;">CP ${g.combat_power}${g.set_name ? ' · ' + g.set_name : ''}</div>` : ''}
-            <div class="bank-listing-meta">🏦 Bank · ${leftStr}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="color:#4aff6b;font-size:16px;margin-bottom:4px;">${g.bank_sell_price} 🪙</div>
-            <button class="bank-accept-btn" onclick="bankBuyFromShop(${g.id})">BUY</button>
-          </div>
-        </div>`;
-      }).join('');
-    } catch(e) { list.innerHTML = '<div class="bank-empty">ERROR LOADING</div>'; }
-  }
-
-  async function bankBuyFromShop(gearId) {
-    try {
-      const r    = await fetch(`/bank/shop-buy/${gearId}`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({username: CURRENT_USER})
-      });
-      const data = await r.json();
-      if (data.status === 'success') {
-        showToast(data.message, 'ok');
-        if (window.GameSounds) GameSounds.purchase();
-        bankLoadShop();
-        refreshStats();
       } else { showToast(data.message || 'Error.', 'err'); }
     } catch(e) { showToast('Error.', 'err'); }
   }
