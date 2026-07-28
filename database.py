@@ -661,10 +661,10 @@ def init_db():
     _add_col(c, "penguins", "trait_interest TEXT DEFAULT NULL")
     _add_col(c, "penguins", "trait_quirk TEXT DEFAULT NULL")
     # Session 8: combat gear level tiers -- minimum player level to /gear/equip
-    # (not /gear/wear -- cosmetic slots stay ungated). barracks_shop mirrors
-    # the same gate for its forged items (see catalog.py's
-    # _BARRACKS_REQUIRED_LEVEL), gear_templates carries the real per-set
-    # values (see catalog.DEFAULT_GEAR_TEMPLATES).
+    # (not /gear/wear -- cosmetic slots stay ungated). Session 10 gave
+    # barracks_shop its own full 5-tier spread per rarity too (each item
+    # carries its own required_level -- see catalog.DEFAULT_BARRACKS_SHOP),
+    # mirroring gear_templates' per-set values (catalog.DEFAULT_GEAR_TEMPLATES).
     _add_col(c, "gear_templates", "required_level INTEGER DEFAULT 1")
     _add_col(c, "barracks_shop", "required_level INTEGER DEFAULT 1")
     _add_col(c, "gear", "worn INTEGER DEFAULT 0")
@@ -954,21 +954,41 @@ def init_db():
     catalog._seed_gear_templates_if_empty(c, owns_conn=False)
     catalog._seed_set_bonuses_if_empty(c, owns_conn=False)
 
-    # Session 9: keep barracks_shop.required_level in sync with catalog.py's
-    # live _BARRACKS_REQUIRED_LEVEL every startup, not just once at seed time
+    # Session 10: self-heal barracks_shop against catalog.py's live
+    # DEFAULT_BARRACKS_SHOP every startup, not just once at seed time
     # (_seed_barracks_shop_if_empty above only runs on a genuinely empty
-    # table, so a database seeded before this tier spread existed would
-    # otherwise keep its stale values forever). This is what the standalone
-    # migrate_barracks_tier_levels.py script used to require someone to
-    # remember to run by hand against the live database -- a step that, in
-    # practice, never happened. Cheap (5 UPDATEs, no-ops once in sync), so
-    # it's safe to run unconditionally on every boot instead.
+    # table). Session 9 already learned this lesson once for required_level
+    # alone (see migrate_barracks_tier_levels.py -- a *manual* migration
+    # script nobody remembered to run in practice, now doubly obsolete) --
+    # this generalizes the fix: a database seeded before each rarity spread
+    # across all 5 gear tiers only has 1 tier's worth of rows per rarity (32
+    # total, vs. the current 112), and its 20 pre-existing rows' now-
+    # corrected combat_power/required_level (see catalog.py's own comment on
+    # DEFAULT_BARRACKS_SHOP for why those changed) would otherwise stay
+    # stale forever too. INSERT OR IGNORE adds whatever rows (by id) are
+    # missing; the UPDATE syncs every already-present row's combat_power/
+    # cost/required_level to the catalog's current values -- a no-op once in
+    # sync, same cheap-and-safe-to-run-unconditionally reasoning as Session
+    # 9's. rarity/slot/name never change for an existing id, so those aren't
+    # included in the UPDATE.
     try:
-        for rarity, required_level in catalog._BARRACKS_REQUIRED_LEVEL.items():
-            c.execute(
-                "UPDATE barracks_shop SET required_level=? WHERE rarity=? AND required_level!=?",
-                (required_level, rarity, required_level)
-            )
+        import json
+        for rarity, items in catalog.DEFAULT_BARRACKS_SHOP.items():
+            for item in items:
+                cost_json = json.dumps(item["cost"])
+                c.execute(
+                    "INSERT OR IGNORE INTO barracks_shop "
+                    "(id, name, slot, rarity, combat_power, cost, event_exclusive, required_level) "
+                    "VALUES (?,?,?,?,?,?,?,?)",
+                    (item["id"], item["name"], item["slot"], rarity, item["combat_power"],
+                     cost_json, int(bool(item.get("event_exclusive", False))), item["required_level"])
+                )
+                c.execute(
+                    "UPDATE barracks_shop SET combat_power=?, cost=?, required_level=? "
+                    "WHERE id=? AND (combat_power!=? OR cost!=? OR required_level!=?)",
+                    (item["combat_power"], cost_json, item["required_level"],
+                     item["id"], item["combat_power"], cost_json, item["required_level"])
+                )
     except Exception:
         pass
 
