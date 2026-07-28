@@ -7411,6 +7411,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     return html;
   }
 
+  // Shared slot tabs for combat gear -- Barracks shop and the inventory
+  // Combat tab both tab over this instead of RARITY_ORDER now. Declared here
+  // (rather than down by RARITY_ORDER/RARITY_HEADERS, where this used to
+  // live) because _invGearSlot's initializer below is a top-level `let` that
+  // reads COMBAT_SLOTS[0] immediately when this script runs -- a `const`
+  // declared further down is in the temporal dead zone at that point and
+  // throws ReferenceError, which previously aborted the rest of this
+  // <script> block (including the switchContentTab('map', null) call much
+  // further down that initializes the village map on page load).
+  const COMBAT_SLOTS = [
+    { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
+    { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
+    { key: 'helmet', label: 'HELMET', icon: '⛑️' },
+    { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
+  ];
+
   let _invGearSlot = sessionStorage.getItem('invGearSlot') || COMBAT_SLOTS[0].key;
 
   function switchInvGearSlot(slot, btn) {
@@ -8060,15 +8076,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     epic:      { label: 'EPIC',      color: '#A86EFF' },
     legendary: { label: 'LEGENDARY', color: '#FF8C00' },
   };
-
-  // Shared slot tabs for combat gear -- Barracks shop and the inventory
-  // Combat tab both tab over this instead of RARITY_ORDER now.
-  const COMBAT_SLOTS = [
-    { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
-    { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
-    { key: 'helmet', label: 'HELMET', icon: '⛑️' },
-    { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
-  ];
 
   // Ascending by required_level, then by RARITY_ORDER position (common
   // first) as the tiebreak for items at the same level -- shared sort for
