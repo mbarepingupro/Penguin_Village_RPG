@@ -1376,42 +1376,6 @@
     }
     .igloo-result-ok:hover { background: #4aff6b; color: #181820; }
 
-    /* ── LEVEL-UP MODAL ── */
-    /* z-index 90038: auto-triggered, but can still appear while
-       #mobile-player-overlay (80000) is open. */
-    #lvup-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.92); z-index: 90038;
-      align-items: center; justify-content: center;
-    }
-    #lvup-overlay.show { display: flex; }
-    #lvup-box {
-      background: #252535; border: 3px solid #A86EFF;
-      padding: 22px 20px; max-width: 380px; width: 92%;
-      font-family: 'C&C Red Alert', monospace;
-      animation: popIn 0.25s ease;
-    }
-    #lvup-box.milestone-glow {
-      animation: milestoneGlow 1.2s infinite;
-    }
-    @keyframes milestoneGlow {
-      0%,100% { border-color: #A86EFF; box-shadow: 0 0 10px #A86EFF44; }
-      50%     { border-color: #FF7FE5; box-shadow: 0 0 20px #FF7FE577; }
-    }
-    .lvup-title     { font-size: 23px; margin-bottom: 6px; text-align: center; }
-    .lvup-level     { color: #fff; font-size: 17px; margin-bottom: 4px; text-align: center; }
-    .lvup-bonus     { color: #4aff6b; font-size: 17px; margin-bottom: 6px; text-align: center; }
-    .lvup-divider   { border: none; border-top: 2px solid #A86EFF; margin: 10px 0; }
-    .lvup-reward-hdr { color: #B8B8D0; font-size: 16px; margin-bottom: 6px; }
-    .lvup-reward-row { font-size: 17px; line-height: 2.2; }
-    .lvup-collect-btn {
-      display: block; width: 100%; margin-top: 14px;
-      background: none; border: 2px solid #A86EFF;
-      color: #A86EFF; font-family: 'C&C Red Alert', monospace;
-      font-size: 17px; padding: 10px; cursor: pointer;
-    }
-    .lvup-collect-btn:hover { background: #A86EFF; color: #181820; }
-
     /* ── BANK PANEL ── */
     .bank-panel { display: flex; flex-direction: column; height: 100%; }
     .bank-tabs {
@@ -1514,111 +1478,148 @@
     @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
     @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
 
-    .level-up-overlay {
+    /* Player/building level-up: walk-in (player only) -> "LEVEL {old}" ->
+       digit-roll odometer to {new} -> walk-out (player only) -> holds,
+       click-gated dismiss (no auto-timeout, unlike every other celebration
+       type below). See playPlayerLevelUpCelebration()/
+       playBuildingLevelUpCelebration() and their dispatch inside
+       showCelebration(). */
+    .lvcel-overlay {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.85);
-      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.88);
       z-index: 99999;
-      animation: fadeIn 0.3s ease;
-      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.3s ease;
     }
-    .lu-confetti-container {
-      position: absolute; inset: 0;
-      pointer-events: none; overflow: hidden;
+    .lvcel-overlay.show { opacity: 1; }
+    .lvcel-overlay.dismissing { opacity: 0; }
+    .lvcel-overlay.clickable { cursor: pointer; }
+
+    /* Confetti confined to the top portion of the screen only */
+    .lvcel-confetti-zone {
+      position: absolute; top: 0; left: 0; right: 0; height: 40vh;
+      overflow: hidden; pointer-events: none; z-index: 1;
     }
-    .lu-content {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 8px; z-index: 1;
-    }
-    .lu-penguin {
-      width: 128px; height: 128px;
-      image-rendering: pixelated;
-      animation: penguinBounceIn 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards;
-      transform: translateY(100vh);
-    }
-    @keyframes penguinBounceIn {
-      0%   { transform: translateY(100vh); }
-      70%  { transform: translateY(-10px); }
-      100% { transform: translateY(0); }
-    }
-    .lu-text {
-      font-family: 'C&C Red Alert', monospace;
-      font-size: 47px; color: #FF8C00;
-      text-shadow: 0 0 20px rgba(255,140,0,0.6);
-      animation: luTextPopIn 0.5s ease-out 0.5s forwards;
-      opacity: 0; transform: scale(0);
-    }
-    @keyframes luTextPopIn {
-      0%   { opacity: 0; transform: scale(0); }
-      70%  { opacity: 1; transform: scale(1.2); }
-      100% { opacity: 1; transform: scale(1); }
-    }
-    .lu-level-transition {
-      position: relative; height: 60px;
+
+    .lvcel-stage {
+      position: absolute; inset: 0; z-index: 2;
       display: flex; align-items: center; justify-content: center;
-      margin: 10px 0;
     }
-    .lu-lv-prefix {
+    .lvcel-sprite-anchor {
+      position: absolute; left: 50%; top: 58%;
+    }
+
+    .lvcel-penguin-canvas {
+      position: absolute; bottom: 0;
+      transform: translate(-50%, 0);
+      image-rendering: pixelated;
+      filter: drop-shadow(0 8px 10px rgba(0,0,0,0.5));
+      max-width: none !important;
+      max-height: none !important;
+      display: block !important;
+    }
+
+    .lvcel-building-img, .lvcel-building-fallback {
+      position: absolute; bottom: 0; left: 50%;
+      transform: translate(-50%, 0) scale(0.6);
+      opacity: 0;
+      transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s ease;
+      image-rendering: pixelated;
+      filter: drop-shadow(0 10px 14px rgba(0,0,0,0.55));
+      max-width: none !important;
+      max-height: none !important;
+      display: block !important;
+    }
+    .lvcel-building-img.in, .lvcel-building-fallback.in {
+      transform: translate(-50%, 0) scale(1);
+      opacity: 1;
+    }
+    .lvcel-building-fallback {
+      width: 220px; height: 220px;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 16px;
+      border: 3px solid rgba(0,0,0,0.5);
       font-family: 'C&C Red Alert', monospace;
-      font-size: 23px; color: #B8B8D0; margin-right: 8px;
-      animation: fadeIn 0.3s ease 1.2s forwards; opacity: 0;
+      font-size: 18px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
     }
-    .lu-old-level {
-      position: absolute;
+
+    /* `bottom` is set inline in px by JS once the sprite's rendered height
+       is known (a CSS `bottom: 100%` here would resolve against the
+       anchor's own box, which is 0-height, and land the text on top of
+       the sprite instead of above it). */
+    .lvcel-text-wrap {
+      position: absolute; left: 50%; bottom: 0;
+      transform: translate(-50%, 0);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      opacity: 0;
+      white-space: nowrap;
+    }
+    .lvcel-text-wrap.in {
+      opacity: 1;
+      animation: lvcelTextPop 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes lvcelTextPop {
+      0%   { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+      70%  { transform: translate(-50%, 0) scale(1.15); opacity: 1; }
+      100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    }
+    .lvcel-level-label {
       font-family: 'C&C Red Alert', monospace;
-      font-size: 80px; color: #A86EFF;
-      animation: luOldLevelOut 0.8s ease-in 1.2s forwards;
+      font-size: 30px; color: #FF7FE5;
+      text-shadow: 0 0 14px rgba(255,127,229,0.7);
     }
-    @keyframes luOldLevelOut {
-      0%   { transform: scale(1); opacity: 1; }
-      50%  { transform: scale(1.5) translateY(-20px); opacity: 0.5; }
-      100% { transform: scale(2) translateY(-40px); opacity: 0; }
+
+    .lvcel-odometer { display: flex; gap: 4px; }
+    .lvcel-odo-digit {
+      position: relative;
+      width: 46px; height: 62px;
+      overflow: hidden;
+      background: #1C1C2E; border: 2px solid #A86EFF;
+      box-shadow: 0 0 16px rgba(168,110,255,0.35);
     }
-    .lu-new-level {
-      position: absolute;
-      font-family: 'C&C Red Alert', monospace;
-      font-size: 80px; color: #FF8C00;
-      text-shadow: 0 0 30px rgba(255,140,0,0.8);
-      animation: luNewLevelIn 0.8s ease-out 1.6s forwards; opacity: 0;
+    .lvcel-odo-digit.roll-flash {
+      animation: lvcelOdoFlash 0.4s ease;
     }
-    @keyframes luNewLevelIn {
-      0%   { transform: scale(0.3) translateY(30px); opacity: 0; }
-      60%  { transform: scale(1.2); opacity: 1; }
-      100% { transform: scale(1); opacity: 1; }
+    @keyframes lvcelOdoFlash {
+      0%   { box-shadow: 0 0 4px rgba(255,140,0,0.2); border-color: #A86EFF; }
+      40%  { box-shadow: 0 0 26px rgba(255,140,0,0.9); border-color: #FF8C00; }
+      100% { box-shadow: 0 0 16px rgba(168,110,255,0.35); border-color: #A86EFF; }
     }
-    .lu-bonus {
-      font-family: 'C&C Red Alert', monospace;
-      font-size: 17px; color: #4aff6b;
-      animation: fadeIn 0.3s ease 2.0s forwards; opacity: 0;
-    }
-    .lu-milestone-tag {
-      font-family: 'C&C Red Alert', monospace;
-      font-size: 27px; color: #FF8C00;
-      animation: luTextPopIn 0.5s ease-out 2.0s forwards; opacity: 0;
-      margin-top: 12px;
-    }
-    .lu-rewards {
+    .lvcel-odo-strip {
+      position: absolute; left: 0; top: 0; width: 100%;
       display: flex; flex-direction: column;
-      align-items: center; gap: 6px; margin-top: 8px;
+      transition: transform 0.65s cubic-bezier(0.22,1,0.36,1);
     }
-    .lu-reward {
+    .lvcel-odo-digit-val {
+      height: 62px; line-height: 62px;
+      text-align: center; font-size: 44px; color: #FF8C00;
+      text-shadow: 0 0 12px rgba(255,140,0,0.6);
       font-family: 'C&C Red Alert', monospace;
-      font-size: 17px; color: #FF7FE5;
-      opacity: 0; animation: luRewardSlideIn 0.4s ease-out forwards;
     }
-    @keyframes luRewardSlideIn {
-      0%   { opacity: 0; transform: translateX(-20px); }
-      100% { opacity: 1; transform: translateX(0); }
-    }
-    .lu-continue {
+
+    .lvcel-prompt {
+      position: absolute; left: 50%; bottom: 6%;
+      transform: translateX(-50%);
+      z-index: 3;
       font-family: 'C&C Red Alert', monospace;
-      font-size: 16px; color: #B8B8D0; margin-top: 24px;
-      animation: luPulseFade 1.5s ease-in-out 3.5s infinite; opacity: 0;
+      font-size: 15px; color: #B8B8D0;
+      opacity: 0; pointer-events: none;
     }
-    @keyframes luPulseFade {
-      0%, 100% { opacity: 0.4; }
+    .lvcel-prompt.show {
+      opacity: 1;
+      animation: lvcelPulse 1.4s ease-in-out infinite;
+    }
+    @keyframes lvcelPulse {
+      0%, 100% { opacity: 0.35; }
       50%      { opacity: 1; }
     }
+
+    @media (max-width: 768px) {
+      .lvcel-level-label { font-size: 22px; }
+      .lvcel-odo-digit { width: 34px; height: 46px; }
+      .lvcel-odo-digit-val { height: 46px; line-height: 46px; font-size: 32px; }
+    }
+
     .confetti-piece {
       position: absolute; top: -10px; pointer-events: none;
       animation: confettiFall linear infinite;
@@ -1765,13 +1766,6 @@
       padding: 8px 22px; margin-top: 6px; cursor: pointer;
     }
     .celeb-close-btn:hover { background: #A86EFF; color: #1C1C2E; }
-
-    @media (max-width: 768px) {
-      .lu-penguin { width: 96px; height: 96px; }
-      .lu-text { font-size: 33px; }
-      .lu-old-level, .lu-new-level { font-size: 60px; }
-      .lu-reward { font-size: 16px; }
-    }
 
     /* ── LEVELS TAB ── */
     .levels-panel { display: flex; flex-direction: column; height: 100%; }
@@ -2011,8 +2005,7 @@
       #building-modal,
       .inv-body,
       .seal-shop-box,
-      .wb-box,
-      #lvup-box {
+      .wb-box {
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
       }
@@ -2040,9 +2033,6 @@
       .wb-box {
         width: 95%; max-width: none; max-height: 85vh; overflow-y: auto;
       }
-      #lvup-box {
-        width: 95%; max-width: none; max-height: 85vh; overflow-y: auto;
-      }
       .cosmetic-modal-box { width: 95%; max-width: none; }
       .seal-shop-box { width: 95%; max-width: none; max-height: 85vh; }
       .streak-modal-box { width: 95%; max-width: none; max-height: 85vh; overflow-y: auto; }
@@ -2067,7 +2057,6 @@
       .title-modal-close { min-height: 44px; }
       .seal-shop-close { min-height: 44px; }
       .cosmetic-modal-close { min-height: 44px; }
-      .lvup-collect-btn { min-height: 44px; }
       .wb-collect-btn { min-height: 44px; }
 
       /* ── Social buttons ── */
@@ -4048,17 +4037,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 </div>
 {% endif %}
 
-<!-- LEVEL-UP MODAL -->
-<div id="lvup-overlay">
-  <div id="lvup-box">
-    <div id="lvup-title" class="lvup-title" style="color:#A86EFF;">LEVEL UP!</div>
-    <div id="lvup-level" class="lvup-level"></div>
-    <div id="lvup-bonus" class="lvup-bonus"></div>
-    <div id="lvup-rewards"></div>
-    <button class="lvup-collect-btn" onclick="lvupDismiss()">COLLECT</button>
-  </div>
-</div>
-
 <!-- WELCOME BACK MODAL -->
 <div id="wb-overlay">
   <div class="wb-box">
@@ -5558,14 +5536,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         Effects.animateEarned(data.earned, btn);
         if (data.level_ups && data.level_ups.length) {
           data.level_ups.forEach(function(lu) {
-            var rws = [];
-            if (lu.reward) {
-              (lu.reward.cosmetics||[]).forEach(function(c){ rws.push({text:'🎁 '+c, color:'#FF7FE5'}); });
-              if (lu.reward.gold)       rws.push({text:'🪙 +'+lu.reward.gold+' Gold',       color:'#FF8C00'});
-              if (lu.reward.max_energy) rws.push({text:'⚡ +'+lu.reward.max_energy+' Max Energy', color:'#4aff6b'});
-              if (lu.reward.title)      rws.push({text:'📛 '+lu.reward.title,                color:'#A86EFF'});
-            }
-            queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+lu.level+' Reached!', rewards:rws});
+            queueCelebration({type:'level_up', oldLevel: lu.level - 1, newLevel: lu.level});
           });
         }
         if (data.new_title) {
@@ -6689,13 +6660,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         }
         if (data.level_ups && data.level_ups.length) {
           data.level_ups.forEach(function(lu) {
-            var rws = [];
-            if (lu.reward) {
-              (lu.reward.cosmetics||[]).forEach(function(c){ rws.push({text:'🎁 '+c, color:'#FF7FE5'}); });
-              if (lu.reward.gold)       rws.push({text:'🪙 +'+lu.reward.gold+' Gold',       color:'#FF8C00'});
-              if (lu.reward.max_energy) rws.push({text:'⚡ +'+lu.reward.max_energy+' Max Energy', color:'#4aff6b'});
-            }
-            queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+lu.level+' Reached!', rewards:rws});
+            queueCelebration({type:'level_up', oldLevel: lu.level - 1, newLevel: lu.level});
           });
         }
         if (data.milestone_unlocked) {
@@ -6707,11 +6672,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           queueCelebration({type:'milestone', icon:'🖼️', title:'CARD BACKGROUND UNLOCKED!', subtitle:bg.name||'New Background', description:(bg.description||'')+' Go to VIEW CARD to equip it!'});
         }
         if (data.level_up) {
-          if (window.GameSounds) GameSounds.buildingLevelUp();
-          setTimeout(() => showToast(`🏗️ Building upgraded to Level ${data.building_level}!`, 'ok'), 400);
-          const modal = document.getElementById('building-modal');
-          if (modal) Effects.flashElement(modal, '#FF7FE5', 3);
-          if (anchor) Effects.confettiBurst(anchor, 16);
+          queueCelebration({type:'building_level_up', buildingId: _currentDonateBuilding, oldLevel: data.building_level - 1, newLevel: data.building_level});
           loadBuildingLevels();
         }
         await refreshStats();
@@ -7720,7 +7681,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           if (parts.length) _flyEmojiCollection(parts);
           if (cData.level_up && cData.level_up.leveled) {
             setTimeout(function() {
-              queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+cData.level_up.level+' Reached!', rewards:[]});
+              queueCelebration({type:'level_up', oldLevel: cData.level_up.level - 1, newLevel: cData.level_up.level});
             }, 800);
           }
           await refreshStats();
@@ -7776,13 +7737,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         closeBuildingPanel();
         if (data.level_ups && data.level_ups.length) {
           data.level_ups.forEach(function(lu) {
-            var rws = [];
-            if (lu.reward) {
-              (lu.reward.cosmetics||[]).forEach(function(c){ rws.push({text:'🎁 '+c, color:'#FF7FE5'}); });
-              if (lu.reward.gold)       rws.push({text:'🪙 +'+lu.reward.gold+' Gold',       color:'#FF8C00'});
-              if (lu.reward.max_energy) rws.push({text:'⚡ +'+lu.reward.max_energy+' Max Energy', color:'#4aff6b'});
-            }
-            queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+lu.level+' Reached!', rewards:rws});
+            queueCelebration({type:'level_up', oldLevel: lu.level - 1, newLevel: lu.level});
           });
         }
       } else {
@@ -8572,13 +8527,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (data.level_ups && data.level_ups.length) {
       setTimeout(function() {
         data.level_ups.forEach(function(lu) {
-          var rws = [];
-          if (lu.reward) {
-            (lu.reward.cosmetics||[]).forEach(function(c){ rws.push({text:'🎁 '+c, color:'#FF7FE5'}); });
-            if (lu.reward.gold)       rws.push({text:'🪙 +'+lu.reward.gold+' Gold',       color:'#FF8C00'});
-            if (lu.reward.max_energy) rws.push({text:'⚡ +'+lu.reward.max_energy+' Max Energy', color:'#4aff6b'});
-          }
-          queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+lu.level+' Reached!', rewards:rws});
+          queueCelebration({type:'level_up', oldLevel: lu.level - 1, newLevel: lu.level});
         });
       }, 400);
     }
@@ -9957,9 +9906,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   // ── LEVEL-UP CELEBRATION OVERLAY ──
-  let _luCelebQueue = [];
-  let _luCelebShowing = false;
-
   function playLevelUpFanfare() {
     if (window.GameSounds) GameSounds.levelUp();
   }
@@ -9985,77 +9931,314 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     }
   }
 
-  function showLevelUpOverlay(oldLevel, newLevel, rewards, onDismiss) {
-    const isBig = [10, 20, 30].includes(newLevel);
-    const totalBonus = Object.keys(LEVEL_DATA_CONFIG)
-      .filter(k => parseInt(k) <= newLevel)
-      .reduce((sum, k) => sum + (LEVEL_DATA_CONFIG[k].gathering_bonus || 0), 0);
+  // Player: confetti -> penguin walks in from off-screen left to center
+  // (using the same recolor + worn-item compositing as the village map's
+  // drawPenguin(), just scaled way up) -> "LEVEL {old}" -> digit-roll
+  // odometer to {new} -> walks out off-screen right -> holds (confetti
+  // keeps going) until clicked. Building: same shell, no walking -- the
+  // building's PNG (or a colored placeholder if art is missing, same
+  // fallback convention as the village map) sits centered the whole time.
+  // Both dispatched from showCelebration() below so they still go through
+  // queueCelebration()'s serialization with every other celebration type.
+  const LVCEL_WALK_FRAME_COUNT = 2;
+  const LVCEL_WALK_FRAME_MS    = 400; // matches the village map's walk cycle
+  const LVCEL_WALK_SPEED       = 650; // px/sec, consistent pace across screen sizes
 
-    let rewardsHTML = '';
-    if (rewards && rewards.length > 0) {
-      if (isBig) rewardsHTML += '<div class="lu-milestone-tag">🏆 MAJOR MILESTONE!</div>';
-      rewardsHTML += '<div class="lu-rewards">';
-      let delay = 0;
-      rewards.forEach(r => {
-        if (!r) return;
-        (r.cosmetics || []).forEach(c => {
-          rewardsHTML += `<div class="lu-reward" style="color:#FF7FE5;animation-delay:${2.0 + delay * 0.2}s">🎁 ${c}</div>`;
-          delay++;
-        });
-        if (r.gold)       { rewardsHTML += `<div class="lu-reward" style="color:#FF8C00;animation-delay:${2.0 + delay * 0.2}s">🪙 +${r.gold} Gold</div>`; delay++; }
-        if (r.max_energy) { rewardsHTML += `<div class="lu-reward" style="color:#4aff6b;animation-delay:${2.0 + delay * 0.2}s">⚡ +${r.max_energy} Max Energy</div>`; delay++; }
-        if (r.title)      { rewardsHTML += `<div class="lu-reward" style="color:#A86EFF;animation-delay:${2.0 + delay * 0.2}s">📛 ${r.title}</div>`; delay++; }
-      });
-      rewardsHTML += '</div>';
+  function _lvcelSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // Shares _penguinSpriteCache with _drawPenguinOnCanvas/_drawSidebarWornItems
+  // so worn-item sprites already loaded for the sidebar preview are reused
+  // instead of re-fetched.
+  function _lvcelLoadImage(src) {
+    return new Promise((resolve) => {
+      const cached = _penguinSpriteCache[src];
+      if (cached && cached.complete && cached.naturalWidth > 0) { resolve(cached); return; }
+      const img = cached || new Image();
+      _penguinSpriteCache[src] = img;
+      img.onload  = () => resolve(img);
+      img.onerror = () => resolve(null);
+      if (!img.src) img.src = src;
+      else if (img.complete && img.naturalWidth > 0) resolve(img);
+    });
+  }
+
+  // Same conversion refreshPenguinDisplay() uses to build VillageMap's
+  // mapWorn object: _cosmeticCache (slot-keyed) -> {area: item_id}.
+  function _lvcelCurrentPlayerWornItems() {
+    const worn = {};
+    (_cosmeticCache || []).forEach(function(c) {
+      if (c.worn) { const a = _SLOT_TO_AREA[c.slot]; if (a) worn[a] = c.item_id; }
+    });
+    return worn;
+  }
+
+  async function _lvcelLoadWornSprites(shape, wornItems) {
+    const areaFolder = window._AREA_FOLDER || { head: 'hats', body: 'outfits', feet: 'footwear', hand: 'accessories' };
+    const out = {};
+    for (const area of ['body', 'feet', 'hand', 'head']) {
+      const itemId = wornItems[area];
+      if (!itemId) continue;
+      const folder = areaFolder[area] || area;
+      let img = await _lvcelLoadImage(_versionedAsset(`penguin_wearing/${shape}/${folder}/${itemId}.png`));
+      if (!img) img = await _lvcelLoadImage(_versionedAsset(`penguin_wearing/${folder}/${itemId}.png`));
+      if (img) out[area] = img;
     }
+    return out;
+  }
 
+  function _lvcelDrawPenguinFrame(canvas, recoloredStrip, wornSprites, cfg, animFrame, facingRight, scale) {
+    const drawWidth  = cfg.frameWidth  * scale;
+    const drawHeight = cfg.frameHeight * scale;
+    canvas.width  = drawWidth;
+    canvas.height = drawHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, drawWidth, drawHeight);
+    ctx.save();
+    if (!facingRight) {
+      ctx.translate(drawWidth, 0);
+      ctx.scale(-1, 1);
+    }
+    const frameX = animFrame * cfg.frameWidth;
+    ctx.drawImage(recoloredStrip, frameX, 0, cfg.frameWidth, cfg.frameHeight, 0, 0, drawWidth, drawHeight);
+    for (const area of ['body', 'feet', 'hand', 'head']) {
+      const sprite = wornSprites[area];
+      if (!sprite) continue;
+      ctx.drawImage(sprite, frameX, 0, cfg.frameWidth, cfg.frameHeight, 0, 0, drawWidth, drawHeight);
+    }
+    ctx.restore();
+  }
+
+  function _lvcelWalkDuration(distancePx) { return Math.abs(distancePx) / LVCEL_WALK_SPEED * 1000; }
+
+  // canvas.style.left is a center-offset from .lvcel-sprite-anchor, which
+  // itself sits at the horizontal middle of the screen -- so fromX/toX of 0
+  // is dead center, and clearing the screen edge means going past half the
+  // viewport width, not just one sprite-width.
+  function _lvcelWalk(canvas, recoloredStrip, wornSprites, cfg, scale, fromX, toX, facingRight) {
+    const durationMs = _lvcelWalkDuration(toX - fromX);
+    return new Promise((resolve) => {
+      const start = performance.now();
+      let lastFrame = -1;
+      function tick(now) {
+        const elapsed = now - start;
+        const t = Math.min(1, elapsed / durationMs);
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        canvas.style.left = (fromX + (toX - fromX) * eased) + 'px';
+        const frame = Math.floor(elapsed / LVCEL_WALK_FRAME_MS) % LVCEL_WALK_FRAME_COUNT;
+        if (frame !== lastFrame) {
+          lastFrame = frame;
+          _lvcelDrawPenguinFrame(canvas, recoloredStrip, wornSprites, cfg, frame, facingRight, scale);
+        }
+        if (t < 1) requestAnimationFrame(tick);
+        else resolve();
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+
+  // Digit-roll odometer: one strip per digit column, listing every digit
+  // the wheel passes through from old to new (wrapping 9->0 like a real
+  // odometer, never rolling backwards), then transitioned up to land on
+  // the final value.
+  function _lvcelBuildOdometerColumn(oldDigit, newDigit) {
+    const col = document.createElement('div');
+    col.className = 'lvcel-odo-digit';
+    const strip = document.createElement('div');
+    strip.className = 'lvcel-odo-strip';
+    let d = oldDigit;
+    const seq = [d];
+    while (d !== newDigit) { d = (d + 1) % 10; seq.push(d); }
+    seq.forEach(v => {
+      const s = document.createElement('div');
+      s.className = 'lvcel-odo-digit-val';
+      s.textContent = String(v);
+      strip.appendChild(s);
+    });
+    col.appendChild(strip);
+    return { col, strip, steps: seq.length - 1 };
+  }
+
+  function _lvcelBuildOdometer(oldVal, newVal) {
+    const wrap = document.createElement('div');
+    wrap.className = 'lvcel-odometer';
+    const maxLen = Math.max(String(oldVal).length, String(newVal).length);
+    const oldStr = String(oldVal).padStart(maxLen, '0');
+    const newStr = String(newVal).padStart(maxLen, '0');
+    const columns = [];
+    for (let i = 0; i < maxLen; i++) {
+      const { col, strip, steps } = _lvcelBuildOdometerColumn(parseInt(oldStr[i], 10), parseInt(newStr[i], 10));
+      wrap.appendChild(col);
+      columns.push({ col, strip, steps });
+    }
+    return { el: wrap, columns };
+  }
+
+  async function _lvcelRollOdometer(odometer) {
+    const DIGIT_H = window.innerWidth < 768 ? 46 : 62;
+    odometer.el.getBoundingClientRect(); // force layout before transitioning
+    await _lvcelSleep(20);
+    let maxDelay = 0;
+    odometer.columns.forEach(({ strip, steps, col }, i) => {
+      const delay = i * 90;
+      maxDelay = Math.max(maxDelay, delay);
+      setTimeout(() => { strip.style.transform = `translateY(-${steps * DIGIT_H}px)`; }, delay);
+      setTimeout(() => {
+        col.classList.add('roll-flash');
+        setTimeout(() => col.classList.remove('roll-flash'), 400);
+      }, delay + 650);
+    });
+    await _lvcelSleep(maxDelay + 650 + 150);
+  }
+
+  function _lvcelCreateShell() {
     const overlay = document.createElement('div');
-    overlay.className = 'level-up-overlay';
-    overlay.innerHTML = `
-      <div class="lu-confetti-container"></div>
-      <div class="lu-content">
-        <img id="lu-penguin-img" src="/static/penguin_${PLAYER_SHAPE}_static.png" class="lu-penguin" alt="Penguin" />
-        <div class="lu-text">LEVEL UP!</div>
-        <div class="lu-level-transition">
-          <span class="lu-lv-prefix">LV</span>
-          <span class="lu-old-level">${oldLevel}</span>
-          <span class="lu-new-level">${newLevel}</span>
-        </div>
-        <div class="lu-bonus">+5% Gathering Speed (total: +${totalBonus}%)</div>
-        ${rewardsHTML}
-        <div class="lu-continue">TAP TO CONTINUE</div>
-      </div>`;
+    overlay.className = 'lvcel-overlay';
+    const confettiZone = document.createElement('div');
+    confettiZone.className = 'lvcel-confetti-zone';
+    const stage = document.createElement('div');
+    stage.className = 'lvcel-stage';
+    const prompt = document.createElement('div');
+    prompt.className = 'lvcel-prompt';
+    prompt.textContent = 'TAP TO CONTINUE';
+    overlay.appendChild(confettiZone);
+    overlay.appendChild(stage);
+    overlay.appendChild(prompt);
     document.body.appendChild(overlay);
-    _applyPenguinColorToImg(document.getElementById('lu-penguin-img'), PLAYER_COLOR);
-    startConfetti(overlay.querySelector('.lu-confetti-container'));
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    startConfetti(confettiZone);
+    return { overlay, stage, prompt };
+  }
 
-    if (isBig) playMilestoneImpact();
+  // Click-gated only -- no auto-dismiss timeout, unlike every other
+  // celebration type (see showCelebration()'s 8s setTimeout below).
+  function _lvcelArmDismiss(overlay, prompt, onDismiss) {
+    prompt.classList.add('show');
+    overlay.classList.add('clickable');
+    overlay.addEventListener('click', function onClick() {
+      overlay.removeEventListener('click', onClick);
+      overlay.classList.remove('clickable');
+      overlay.classList.add('dismissing');
+      setTimeout(() => { overlay.remove(); if (onDismiss) onDismiss(); }, 300);
+    });
+  }
+
+  async function playPlayerLevelUpCelebration(oldLevel, newLevel, onDone) {
+    const shape = PLAYER_SHAPE || 'normal';
+    const cfg = (window.SHAPE_CONFIG && window.SHAPE_CONFIG[shape])
+      || { frameWidth: 32, frameHeight: shape === 'tall' ? 50 : 40, stripFile: `penguin_${shape}.png` };
+    const [baseStrip, wornSprites] = await Promise.all([
+      _lvcelLoadImage(`/static/${cfg.stripFile}`),
+      _lvcelLoadWornSprites(shape, _lvcelCurrentPlayerWornItems()),
+    ]);
+    if (!baseStrip) { if (onDone) onDone(); return; }
+    const recoloredStrip = (typeof getRecoloredSprite === 'function')
+      ? getRecoloredSprite(`penguin_${shape}`, baseStrip, PLAYER_COLOR)
+      : baseStrip;
+
+    const { overlay, stage, prompt } = _lvcelCreateShell();
+    const anchor = document.createElement('div');
+    anchor.className = 'lvcel-sprite-anchor';
+    stage.appendChild(anchor);
+
+    const scale = window.innerWidth < 768 ? 4.5 : 6.5;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'lvcel-penguin-canvas';
+    anchor.appendChild(canvas);
+    _lvcelDrawPenguinFrame(canvas, recoloredStrip, wornSprites, cfg, 0, true, scale);
+
+    const drawWidth  = cfg.frameWidth * scale;
+    const halfW      = window.innerWidth / 2;
+    const offLeftX   = -(halfW + drawWidth / 2 + 60);
+    const offRightX  =  (halfW + drawWidth / 2 + 60);
+
+    // Walk in from off-screen left to center
+    await _lvcelWalk(canvas, recoloredStrip, wornSprites, cfg, scale, offLeftX, 0, true);
+
     playLevelUpFanfare();
 
-    const dismiss = () => {
-      if (!overlay.parentNode) return;
-      overlay.style.animation = 'fadeOut 0.3s ease forwards';
-      setTimeout(() => { overlay.remove(); if (onDismiss) onDismiss(); }, 300);
-    };
-    overlay.addEventListener('click', dismiss);
-    setTimeout(() => { if (overlay.parentNode) dismiss(); }, 8000);
+    // "LEVEL {current level}" appears once the penguin stops, anchored
+    // above the sprite's actual rendered height (not the map's tiny one).
+    const textWrap = document.createElement('div');
+    textWrap.className = 'lvcel-text-wrap';
+    textWrap.style.bottom = (cfg.frameHeight * scale + 22) + 'px';
+    const label = document.createElement('div');
+    label.className = 'lvcel-level-label';
+    label.textContent = 'LEVEL';
+    const odometer = _lvcelBuildOdometer(oldLevel, oldLevel);
+    textWrap.appendChild(label);
+    textWrap.appendChild(odometer.el);
+    anchor.appendChild(textWrap);
+    requestAnimationFrame(() => textWrap.classList.add('in'));
+    await _lvcelSleep(550);
+
+    // Roll old -> new
+    const rollOdo = _lvcelBuildOdometer(oldLevel, newLevel);
+    textWrap.replaceChild(rollOdo.el, odometer.el);
+    await _lvcelRollOdometer(rollOdo);
+    await _lvcelSleep(600);
+
+    // Continue walking in the same direction, off-screen to the right --
+    // the full journey is left edge -> right edge, not a there-and-back.
+    await _lvcelWalk(canvas, recoloredStrip, wornSprites, cfg, scale, 0, offRightX, true);
+
+    _lvcelArmDismiss(overlay, prompt, onDone);
   }
 
-  // ── LEVEL-UP MODAL ──
-  let _lvupQueue = [];
+  async function playBuildingLevelUpCelebration(oldLevel, newLevel, buildingId, onDone) {
+    const { overlay, stage, prompt } = _lvcelCreateShell();
+    const anchor = document.createElement('div');
+    anchor.className = 'lvcel-sprite-anchor';
+    stage.appendChild(anchor);
 
-  function showLevelUpModal(levelUps) {
-    if (!levelUps || !levelUps.length) return;
-    _luCelebQueue = _luCelebQueue.concat(levelUps);
-    if (!_luCelebShowing) _processLuCelebQueue();
-  }
+    const sprite = await _lvcelLoadImage(_versionedAsset(`buildings/${buildingId}.png`));
+    let spriteEl, spriteHeight;
+    if (sprite) {
+      // Reuse the Image element that already finished loading instead of
+      // creating a fresh <img> and reassigning src (a second fetch of the
+      // same resource).
+      spriteEl = sprite;
+      spriteEl.className = 'lvcel-building-img';
+      spriteHeight = window.innerWidth < 768 ? 180 : 260;
+      const scale = spriteHeight / sprite.naturalHeight;
+      spriteEl.style.height = spriteHeight + 'px';
+      spriteEl.style.width  = (sprite.naturalWidth * scale) + 'px';
+    } else {
+      // Same colored-placeholder fallback convention as the village map's
+      // drawBuilding() when a building has no PNG art yet.
+      const cfg = (window.BUILDING_CFG && window.BUILDING_CFG[buildingId])
+        || { color: '#566573', name: buildingId.replace(/_/g, ' ').toUpperCase() };
+      spriteEl = document.createElement('div');
+      spriteEl.className = 'lvcel-building-fallback';
+      spriteEl.style.background = cfg.color;
+      spriteEl.textContent = cfg.name;
+      spriteHeight = 220;
+    }
+    anchor.appendChild(spriteEl);
+    requestAnimationFrame(() => spriteEl.classList.add('in'));
+    await _lvcelSleep(450);
 
-  function _processLuCelebQueue() {
-    if (!_luCelebQueue.length) { _luCelebShowing = false; return; }
-    _luCelebShowing = true;
-    const entry = _luCelebQueue.shift();
-    const { level, reward, big_milestone } = entry;
-    showLevelUpOverlay(level - 1, level, reward ? [reward] : [], _processLuCelebQueue);
+    playMilestoneImpact();
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'lvcel-text-wrap';
+    textWrap.style.bottom = (spriteHeight + 22) + 'px';
+    const label = document.createElement('div');
+    label.className = 'lvcel-level-label';
+    label.textContent = 'LEVEL';
+    const odometer = _lvcelBuildOdometer(oldLevel, oldLevel);
+    textWrap.appendChild(label);
+    textWrap.appendChild(odometer.el);
+    anchor.appendChild(textWrap);
+    requestAnimationFrame(() => textWrap.classList.add('in'));
+    await _lvcelSleep(550);
+
+    const rollOdo = _lvcelBuildOdometer(oldLevel, newLevel);
+    textWrap.replaceChild(rollOdo.el, odometer.el);
+    await _lvcelRollOdometer(rollOdo);
+    await _lvcelSleep(600);
+
+    _lvcelArmDismiss(overlay, prompt, onDone);
   }
 
   // ── UNIVERSAL CELEBRATION SYSTEM ──
@@ -10148,8 +10331,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   function playCelebrationSound(type) {
     if (!window.GameSounds) return;
-    if (type === 'level_up')                        GameSounds.levelUp();
-    else if (type === 'achievement' || type === 'title') GameSounds.achievement();
+    if (type === 'achievement' || type === 'title') GameSounds.achievement();
     else if (type === 'first_kill')                 GameSounds.firstKill();
     else if (type === 'milestone')                  GameSounds.buildingLevelUp();
     else if (type === 'challenge_start' || type === 'raid_start') GameSounds.mayorAppears();
@@ -10160,7 +10342,21 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   function showCelebration(config, onDismiss) {
-    var type        = config.type || 'level_up';
+    var type = config.type || 'level_up';
+
+    // Player/building level-up bypass the mayor-portrait popup entirely --
+    // walk-in/odometer/walk-out (player) or the same shell without walking
+    // (building) instead. Still called from queueCelebration() below so it
+    // stays serialized with every other celebration type.
+    if (type === 'level_up') {
+      playPlayerLevelUpCelebration(config.oldLevel, config.newLevel, onDismiss);
+      return;
+    }
+    if (type === 'building_level_up') {
+      playBuildingLevelUpCelebration(config.oldLevel, config.newLevel, config.buildingId, onDismiss);
+      return;
+    }
+
     var icon        = config.icon  || '🎉';
     var title       = config.title || 'ACHIEVEMENT!';
     var subtitle    = config.subtitle || '';
@@ -10238,75 +10434,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       overlay.addEventListener('click', dismiss);
       setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
     }
-  }
-
-  function processLvupQueue() {
-    if (!_lvupQueue.length) return;
-    renderLvupEntry(_lvupQueue.shift());
-  }
-
-  function renderLvupEntry(entry) {
-    const { level, reward, big_milestone } = entry;
-    const titleEl = document.getElementById('lvup-title');
-    const box     = document.getElementById('lvup-box');
-
-    if (big_milestone) {
-      titleEl.textContent = '🏆 MAJOR MILESTONE!';
-      titleEl.style.color = '#FF8C00';
-      titleEl.style.fontSize = '13px';
-      box.classList.add('milestone-glow');
-    } else {
-      titleEl.textContent = 'LEVEL UP!';
-      titleEl.style.color = '#A86EFF';
-      titleEl.style.fontSize = '14px';
-      box.classList.remove('milestone-glow');
-    }
-
-    const totalBonus = Object.keys(LEVEL_DATA_CONFIG)
-      .filter(k => parseInt(k) <= level)
-      .reduce((sum, k) => sum + (LEVEL_DATA_CONFIG[k].gathering_bonus || 0), 0);
-
-    document.getElementById('lvup-level').textContent = 'Level ' + level + ' reached!';
-    document.getElementById('lvup-bonus').textContent = '+5% gathering speed (total: +' + totalBonus + '%)';
-
-    let rewardHtml = '';
-    if (reward) {
-      rewardHtml += '<hr class="lvup-divider"><div class="lvup-reward-hdr">REWARDS:</div>';
-      for (const c of (reward.cosmetics || [])) {
-        rewardHtml += `<div class="lvup-reward-row" style="color:#FF7FE5;">🎁 ${c}</div>`;
-      }
-      if (reward.gold) {
-        rewardHtml += `<div class="lvup-reward-row" style="color:#FF8C00;">🪙 +${reward.gold} GOLD</div>`;
-      }
-      if (reward.max_energy) {
-        rewardHtml += `<div class="lvup-reward-row" style="color:#4aff6b;">⚡ +${reward.max_energy} MAX ENERGY</div>`;
-      }
-      if (reward.title) {
-        rewardHtml += `<div class="lvup-reward-row" style="color:#A86EFF;">📛 New title: ${reward.title}</div>`;
-      }
-      if (level === 30) {
-        rewardHtml += `<div class="lvup-reward-row" style="color:#FF7FE5;margin-top:6px;">PRESTIGE IS NOW AVAILABLE</div>`;
-      }
-    }
-    document.getElementById('lvup-rewards').innerHTML = rewardHtml;
-    document.getElementById('lvup-overlay').classList.add('show');
-
-    if (window.GameSounds) GameSounds.levelUp();
-    if (box) {
-      const _lvupCycleColors = ['#A86EFF', '#FF7FE5', '#FF8C00', '#4aff6b'];
-      let _lvupCi = 0;
-      const _lvupCyc = setInterval(() => {
-        box.style.borderColor = _lvupCycleColors[_lvupCi % _lvupCycleColors.length];
-        _lvupCi++;
-      }, 200);
-      setTimeout(() => { clearInterval(_lvupCyc); box.style.borderColor = ''; }, 2000);
-    }
-  }
-
-  function lvupDismiss() {
-    document.getElementById('lvup-overlay').classList.remove('show');
-    document.getElementById('lvup-box').classList.remove('milestone-glow');
-    setTimeout(() => processLvupQueue(), 300);
   }
 
   // ── LEVELS TAB ──
@@ -10806,13 +10933,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (data.level_ups && data.level_ups.length) {
         setTimeout(function() {
           data.level_ups.forEach(function(lu) {
-            var rws = [];
-            if (lu.reward) {
-              (lu.reward.cosmetics||[]).forEach(function(c){ rws.push({text:'🎁 '+c, color:'#FF7FE5'}); });
-              if (lu.reward.gold)       rws.push({text:'🪙 +'+lu.reward.gold+' Gold',       color:'#FF8C00'});
-              if (lu.reward.max_energy) rws.push({text:'⚡ +'+lu.reward.max_energy+' Max Energy', color:'#4aff6b'});
-            }
-            queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+lu.level+' Reached!', rewards:rws});
+            queueCelebration({type:'level_up', oldLevel: lu.level - 1, newLevel: lu.level});
           });
         }, 600);
       }
@@ -11697,7 +11818,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           if (data.earned.xp)    parts.push('+' + data.earned.xp + ' XP');
           if (parts.length) _flyEmojiCollection(parts);
           if (data.level_ups && data.level_ups.length) {
-            setTimeout(function() { queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+data.level_ups[0].level+' Reached!', rewards:[]}); }, 800);
+            setTimeout(function() { queueCelebration({type:'level_up', oldLevel: data.level_ups[0].level - 1, newLevel: data.level_ups[0].level}); }, 800);
           }
         }
       } catch(e) {}
@@ -12226,7 +12347,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   // ── Level-up overlay helper ───────────────────────────────────────────────
   function _showLevelUp(lvlData) {
-    queueCelebration({type:'level_up', icon:'⬆️', title:'LEVEL UP!', subtitle:'Level '+(lvlData.level||'?')+' Reached!', rewards:[]});
+    var lvl = lvlData.level || 0;
+    queueCelebration({type:'level_up', oldLevel: lvl - 1, newLevel: lvl});
   }
 
   function replayTutorial() {
@@ -12330,31 +12452,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   loadDismissedHelp();
 
   // Reshape name input → live preview update
-  // ── PENGUIN COLOR HELPERS ─────────────────────────────────────────────────
-
-  function _applyPenguinColorToImg(imgEl, color) {
-    if (!imgEl || imgEl.tagName !== 'IMG') return;
-    if (!color || color === '#1a1a1a' || !color.startsWith('#')) return;
-    function doRecolor() {
-      const nw = imgEl.naturalWidth  || 64;
-      const nh = imgEl.naturalHeight || 80;
-      const canvas = document.createElement('canvas');
-      canvas.width  = nw;
-      canvas.height = nh;
-      canvas.className = imgEl.className;
-      if (imgEl.id) canvas.id = imgEl.id + '-canvas';
-      const attrStyle = imgEl.getAttribute('style');
-      if (attrStyle) canvas.setAttribute('style', attrStyle);
-      canvas.style.imageRendering = 'pixelated';
-      try {
-        const recolored = (typeof recolorPenguin === 'function') ? recolorPenguin(imgEl, color) : imgEl;
-        canvas.getContext('2d').drawImage(recolored, 0, 0);
-        if (imgEl.parentNode) imgEl.parentNode.replaceChild(canvas, imgEl);
-      } catch(e) {}
-    }
-    if (imgEl.complete && imgEl.naturalWidth > 0) doRecolor();
-    else imgEl.addEventListener('load', doRecolor);
-  }
 
   function _initPenguinColors() {
     const color = PLAYER_COLOR;
