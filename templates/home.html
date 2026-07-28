@@ -9506,7 +9506,15 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (hostSprite) availW -= hostSprite.getBoundingClientRect().width;
     if (availW <= 0 || availH <= 0) return;
 
-    _iglooFitScale = Math.min(1, availW / canvas.width, availH / canvas.height);
+    // Fit-to-screen, not just shrink-if-oversized: the previous Math.min(1, ...)
+    // cap meant a room smaller than the available space (the common case --
+    // canvas is native pixel size, e.g. 288x204 for a starter 6x6 room) never
+    // scaled up at all, rendering tiny with a lot of blank space around it.
+    // #igloo-canvas has image-rendering:pixelated, so scaling up stays crisp
+    // (blocky, not blurry) -- this is meant to look like pixel art, not a
+    // photo. Bounded by whichever axis is tighter, so it always fits inside
+    // availW x availH without overflowing either one.
+    _iglooFitScale = Math.min(availW / canvas.width, availH / canvas.height);
     const scale = _iglooFitScale * _iglooZoom;
 
     const renderedW = canvas.width  * scale, renderedH = canvas.height * scale;
