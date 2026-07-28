@@ -3315,6 +3315,11 @@ def raid_results(raid_id):
         "SELECT username, total_damage_dealt, reward_summary FROM raid_participants "
         "WHERE raid_id=? ORDER BY total_damage_dealt DESC", (raid_id,)
     ).fetchall()
+    # Same podium_size resolve_raid() itself reads (~line 2069) -- passed
+    # through as `db` since get_setting() may seed this key's default row on
+    # first read, and this connection is still open/uncommitted.
+    podium_size = raid_settings.get_setting("rank_reward_podium_size", db=db)
+    db.commit()
     db.close()
 
     leaderboard = []
@@ -3323,6 +3328,11 @@ def raid_results(raid_id):
         leaderboard.append({
             "rank": rank, "username": r["username"],
             "total_damage_dealt": r["total_damage_dealt"], "reward": reward,
+            # Reward TYPE only, not an amount -- non-podium amounts depend on
+            # final participant count and aren't decided until resolve_raid()
+            # runs. Mirrors resolve_raid()'s own rank<=podium_size split
+            # (~line 2077) without rolling anything live here.
+            "reward_type": "🎁 N00Tboxes" if rank <= podium_size else "Resources",
         })
 
     return jsonify({
@@ -3451,6 +3461,38 @@ def home():
             }
             db.execute("UPDATE weekly_build_leaderboard_archive SET notified=1 WHERE id=?", (blb_row["id"],))
 
+    # ── Weekly raid reward -- one-shot login toast ───────────────────────────
+    # Same idea as the build-leaderboard block above: resolve_raid() (fired
+    # from /raid/attack on the killing blow, or the Monday timeout sweep --
+    # not this request) already granted the reward and wrote it onto the
+    # participant's raid_participants row; there's no live session to stash a
+    # flag in for players who weren't the one triggering resolve_raid(), so
+    # that row's own `notified` column is the "already shown" marker instead.
+    # ORDER BY raid_id DESC LIMIT 1 means only the single most recent
+    # unnotified raid ever surfaces here, same "most recent only" tradeoff
+    # the build-leaderboard version above already accepts -- a player who
+    # somehow missed two raids' worth of rewards only gets toasted for the
+    # latest one, the older row just stays notified=0 forever. Anyone
+    # actively polling at the exact moment their raid resolves already saw
+    # this via RaidJoin.showResults(); this is only for everyone who logs in
+    # later and would otherwise never find out.
+    raid_reward = None
+    if FEATURES.get("weekly_raid", False):
+        raid_row = db.execute(
+            "SELECT rp.id, rp.reward_summary, rs.boss_name, rs.status "
+            "FROM raid_participants rp JOIN raid_state rs ON rs.id = rp.raid_id "
+            "WHERE rp.username=? AND rp.notified=0 AND rp.reward_summary IS NOT NULL "
+            "ORDER BY rp.raid_id DESC LIMIT 1",
+            (username,)
+        ).fetchone()
+        if raid_row:
+            raid_reward = {
+                "boss_name": raid_row["boss_name"],
+                "status":    raid_row["status"],
+                "reward":    json.loads(raid_row["reward_summary"] or "{}"),
+            }
+            db.execute("UPDATE raid_participants SET notified=1 WHERE id=?", (raid_row["id"],))
+
     db.commit()
     resources  = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     streak_row = db.execute("SELECT current_streak FROM login_streaks WHERE username=?", (username,)).fetchone()
@@ -3469,6 +3511,7 @@ def home():
         daily_lootbox_awarded=daily_lootbox_awarded,
         daily_lootbox_id=daily_lootbox_id,
         build_leaderboard_reward=build_leaderboard_reward,
+        raid_reward=raid_reward,
         features=FEATURES,
         level_data=LEVEL_DATA,
         tutorial_completed=bool(penguin["tutorial_completed"]) if penguin["tutorial_completed"] else False,
@@ -5497,7 +5540,6 @@ def gear_inventory():
     gold    = get_gold(db, username)
     r       = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     sb      = calculate_set_bonuses(db, username)
-    db.close()
     player_cp = get_combat_power(username)
     gear_list = []
     for g in rows:
@@ -5515,7 +5557,21 @@ def gear_inventory():
             gd["bank_sellable"]   = False
             gd["event_exclusive"] = False
             gd["bank_sell_value"] = 0
+        # required_level: the client sorts combat gear cards ascending by
+        # level within a slot tab (see _sortGearByLevelThenRarity in
+        # home.html) -- best-effort per item like the pricing lookups above,
+        # since a bad catalog/template lookup must not 500 the whole
+        # response. Cosmetic items have no level gate, so skip the lookup
+        # (and its DB round-trip) for those -- _gear_required_level's
+        # gear_templates fallback is combat-only anyway.
+        if gd["type"] == "combat":
+            try:
+                gd["required_level"] = _gear_required_level(db, g)
+            except Exception as e:
+                print(f"[gear_inventory] required_level lookup failed for gear id={gd.get('id')}: {e}")
+                gd["required_level"] = 0
         gear_list.append(gd)
+    db.close()
     return jsonify({
         "gear":        gear_list,
         "gold":        gold,
@@ -10847,6 +10903,13 @@ def build_leaderboard_route():
             "username":         row["username"],
             "penguin_name":     (p["penguin_name"] if p else None) or row["username"],
             "ice_blocks_total": row["ice_blocks_total"],
+            # Reward TYPE only, not an amount -- non-podium amounts depend on
+            # final player count and are genuinely unknown until
+            # resolve_weekly_build_leaderboard() runs Sunday night. Mirrors
+            # _calculate_build_leaderboard_reward's own rank<=3 podium cutoff
+            # without calling that function (it rolls random amounts, not
+            # something a live, still-changing standings view should do).
+            "reward_type": "🎁 N00Tboxes + Resources" if i <= 3 else "Resources",
         })
     db.close()
 

@@ -792,6 +792,28 @@
     .igloo-canvas-wrap { position: relative; flex: 1; min-width: 0; overflow: auto; background: #0a1220; display: flex; padding: 16px; }
     #igloo-canvas { image-rendering: pixelated; cursor: default; display: block; margin: auto; }
     #igloo-canvas.placing { cursor: crosshair; }
+    @media (max-width: 768px) {
+      /* #igloo-canvas is sized to native pixel dimensions directly in
+         igloo_renderer.js's _render() (canvas.width/height set from
+         room_size), with no CSS scaling by default -- on narrow viewports
+         that's routinely wider than the screen. iglooApplyMobileTransform()
+         (see the "IGLOO MOBILE FIT/ZOOM/PAN" JS below) scales it down to
+         fit here via a CSS transform and layers pinch-zoom/pan on top.
+         overflow:hidden + touch-action:none replace the desktop scrollbar
+         (overflow:auto above) with that custom pan instead, since letting
+         the browser's own scroll/pinch-zoom fight our transform would just
+         desync the two. */
+      .igloo-canvas-wrap { overflow: hidden; touch-action: none; }
+      #igloo-canvas { transform-origin: center center; }
+      /* bottom-LEFT, not top-right: #igloo-edit-panel is also anchored
+         top:0/right:0 in this same positioning context (see its own
+         comment above), so any right-edge corner overlaps it whenever the
+         ITEMS panel is open. Bottom-left stays clear of both that and the
+         top-left .igloo-overlay-toggles stack. */
+      .igloo-zoom-fit-btn {
+        display: block; position: absolute; bottom: 8px; left: 8px; z-index: 33;
+      }
+    }
     /* Bottom overlay (was a permanent flex sibling eating canvas height) --
        toggled via the 🎨 ROOM button, only shown in edit mode. */
     .igloo-room-bar {
@@ -838,6 +860,39 @@
       box-shadow: -6px 0 16px rgba(0,0,0,0.4);
     }
     .igloo-edit-panel.visible { display: flex; }
+    /* Base hidden state -- a bare <div> defaults to display:block, and this
+       element is only ever meant to exist on mobile (see .visible inside
+       the @media block below); without this it'd render as a stray empty
+       flex item inside .igloo-canvas-wrap on desktop. */
+    #igloo-picker-backdrop { display: none; }
+    @media (max-width: 768px) {
+      /* Mobile: the same two overlays (still toggled via .visible, still
+         populated by the unchanged iglooRenderEditPanel()/
+         iglooRenderRoomBar()) become a single centered, dimmed modal
+         instead of the permanent side panel/bottom bar above, which eats
+         too much of a small screen while editing -- reuses the fixed/
+         transform-centered pattern from #bm-overlay/#building-modal rather
+         than inventing a new one. right/bottom reset to auto since the
+         desktop rules above pin them (right:0/bottom:0) to anchor the
+         panel edges there; left set, they'd fight top/left below. */
+      .igloo-edit-panel, .igloo-room-bar {
+        position: fixed; top: 50%; left: 50%; right: auto; bottom: auto;
+        transform: translate(-50%, -50%);
+        width: 90vw; max-width: 380px; max-height: 75vh;
+        border: 3px solid var(--purple); box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        z-index: 90043;
+        /* .igloo-canvas-wrap (their DOM parent) sets touch-action:none for
+           its own pinch/pan handling -- re-enable vertical scrolling here
+           so the modal's own overflow-y:auto content (furniture list,
+           palette) still scrolls natively with one finger. */
+        touch-action: pan-y;
+      }
+      #igloo-picker-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.7); z-index: 90042; cursor: pointer;
+      }
+      #igloo-picker-backdrop.visible { display: block; }
+    }
     .igloo-edit-section-title {
       color: var(--purple); font-size: 17px; padding: 8px 10px;
       border-bottom: 1px solid var(--purple); flex-shrink: 0;
@@ -899,6 +954,13 @@
     }
     .igloo-overlay-toggle-btn:hover { background: var(--purple); color: var(--dark); }
     .igloo-overlay-toggle-btn.active { background: var(--purple); color: var(--dark); }
+
+    /* Mobile-only "fit to screen" reset button -- unlike .igloo-overlay-
+       toggles above, this isn't edit-mode-gated (zoom/pan applies whether
+       or not the player is editing), so it's its own element rather than a
+       third button inside that group. Hidden on desktop, which never
+       scales/pans #igloo-canvas at all (see the @media block below). */
+    .igloo-zoom-fit-btn { display: none; }
 
     /* ── COMBAT TAB ── */
     .combat-header { background:var(--dark); border-bottom:2px solid var(--purple); padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
@@ -1831,6 +1893,14 @@
     }
     #toast.ok  { border-color: #4aff6b; color: #4aff6b; }
     #toast.err { border-color: #ff6b6b; color: #ff6b6b; }
+    /* Roll-result variant — used only by the build/attack roll button's
+       onSettle toast (showD20 in the "Build Button + d20 Roll Animation"
+       script), which would otherwise land under #toast's default
+       bottom:40px, right on top of .build-btn and the #d20-overlay die
+       (footprint up to ~290px, see #d20-overlay's own comment). Every other
+       showToast() call site is unaffected since this only applies when the
+       4th `extraClass` arg is passed. */
+    #toast.toast-roll-result { bottom: 320px; }
     .toast-action-btn {
       font-family: 'C&C Red Alert', monospace; font-size: 15px;
       margin-left: 10px; padding: 3px 10px; border: 2px solid currentColor;
@@ -2516,6 +2586,9 @@
       #d20-overlay { bottom: 90px; }
       #d20-die { width: 120px; height: 120px; }
       #d20-face-text { font-size: 28px; }
+      /* Mobile d20 footprint is ~90-210px (90px overlay + 120px die) --
+         240px clears it with the same margin as the desktop rule above. */
+      #toast.toast-roll-result { bottom: 240px; }
     }
 
     /* ── OVERWORLD PANEL ── */
@@ -2723,6 +2796,13 @@
     .raid-results-rank   { color: #8888A8; width: 28px; flex-shrink: 0; }
     .raid-results-name   { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .raid-results-reward { color: #4aff6b; font-size: 16px; white-space: nowrap; flex-shrink: 0; }
+    /* Pre-resolution reward-TYPE tag (Build leaderboard live standings, raid
+       live leaderboard) -- same layout as .raid-results-reward above (small,
+       nowrap, doesn't shrink) but muted/secondary-text colored since it's a
+       label ("Resources" / "🎁 N00Tboxes...") standing in for an amount
+       that's genuinely undecided until resolution, not the actual value
+       .raid-results-reward shows post-resolution. */
+    .raid-results-reward-type { color: #8888A8; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
     #raid-results-lootbox-prompt { display: none; margin-top: 10px; padding: 10px; border: 1px dashed #A86EFF; text-align: center; }
     #raid-results-lootbox-text { color: #A86EFF; font-size: 16px; margin-bottom: 8px; }
     #raid-results-open-now-btn, #raid-results-close {
@@ -3571,6 +3651,13 @@
           <div class="igloo-canvas-wrap">
             <canvas id="igloo-canvas"></canvas>
 
+            <button id="igloo-zoom-fit-btn" class="igloo-overlay-toggle-btn igloo-zoom-fit-btn" onclick="iglooResetZoom()" title="Fit to screen">🔍 FIT</button>
+
+            <!-- Mobile-only dim backdrop for the ITEMS/ROOM picker modals below
+                 (desktop leaves them as the permanent side panel/bottom bar, no
+                 backdrop involved -- see the @media block on .igloo-edit-panel). -->
+            <div id="igloo-picker-backdrop" onclick="iglooCloseOverlayPanels()"></div>
+
             <div id="igloo-overlay-toggles" class="igloo-overlay-toggles">
               <button id="igloo-items-toggle" class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('items')">🛋️ ITEMS</button>
               <button id="igloo-room-toggle"  class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('room')">🎨 ROOM</button>
@@ -4145,7 +4232,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (!panel) return;
     panel.classList.add('active');
     if (name === 'missions')  loadMissions();
-    if (name === 'igloo')     loadIgloo();
+    if (name === 'igloo') {
+      loadIgloo();
+      // No-op via loadIgloo() itself on first open (iglooResetZoom() there
+      // covers it) -- this instead re-fits an *already*-loaded igloo tab
+      // reopened after the wrap's available space could've changed size
+      // while the player was on a different tab (sidebar toggle, rotation).
+      requestAnimationFrame(() => iglooApplyMobileTransform());
+    }
     if (name === 'combat')    loadCombat();
     if (name === 'awards')    loadAwards();
     if (name === 'eventlog')  loadEventLog();
@@ -4617,6 +4711,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           html += '<div class="' + cls + '">' +
             '<span class="raid-results-rank">#' + entry.rank + '</span>' +
             '<span class="raid-results-name"><span class="pname-hl">' + GlobalChat._esc(entry.penguin_name) + '</span>' + (isSelf ? ' (you)' : '') + '</span>' +
+            '<span class="raid-results-reward-type">' + entry.reward_type + '</span>' +
             '<span class="raid-results-reward">🧊 ' + entry.ice_blocks_total.toLocaleString() + '</span>' +
             '</div>';
         });
@@ -4947,8 +5042,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // "OPEN" on a N00Tbox-award toast) without forcing the player to act --
   // the toast still auto-dismisses on its own, same as a plain toast, and
   // the box just stays unopened in inventory if ignored.
+  // Optional 4th arg `extraClass` adds another class alongside `type` (e.g.
+  // "toast-roll-result" so the build/attack roll button can lift the toast
+  // above the d20 die animation) without touching #toast's default position
+  // used by every other call site. It's not "reset" explicitly -- className
+  // is fully rebuilt from `type`/`extraClass` on every call, so the next
+  // plain showToast() naturally drops it.
   let _toastTimer = null;
-  function showToast(text, type, action) {
+  function showToast(text, type, action, extraClass) {
     const el = document.getElementById('toast');
     el.innerHTML = '';
     el.appendChild(document.createTextNode(text));
@@ -4964,7 +5065,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       };
       el.appendChild(btn);
     }
-    el.className = type || '';
+    el.className = [type, extraClass].filter(Boolean).join(' ');
     el.style.display = 'block';
     if (_toastTimer) clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => { el.style.display = 'none'; }, action ? 6000 : 3500);
@@ -7310,75 +7411,62 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     return html;
   }
 
-  let _invGearRarity = sessionStorage.getItem('invGearRarity') || 'common';
+  let _invGearSlot = sessionStorage.getItem('invGearSlot') || COMBAT_SLOTS[0].key;
 
-  function switchInvGearRarity(rarity, btn) {
-    _invGearRarity = rarity;
-    sessionStorage.setItem('invGearRarity', rarity);
+  function switchInvGearSlot(slot, btn) {
+    _invGearSlot = slot;
+    sessionStorage.setItem('invGearSlot', slot);
     document.querySelectorAll('#inv-body .eventlog-subtab').forEach(t => t.classList.remove('active'));
     if (btn) btn.classList.add('active');
     renderInventory();
   }
 
   function renderCombatGearTab() {
-    const COMBAT_SLOTS = [
-      { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
-      { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
-      { key: 'helmet', label: 'HELMET', icon: '⛑️' },
-      { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
-    ];
-
-    // Inventory tabs always show all 5 rarities, regardless of whether the
-    // player owns anything in that tier yet (empty state is fine) -- unlike
-    // the Barracks shop tabs, which only show rarities actually stocked.
+    // Inventory tabs always show all 4 slots, regardless of whether the
+    // player owns anything for that slot yet (empty state is fine) --
+    // unlike the Barracks shop tabs, which only show slots actually
+    // stocked (in practice always all 4, but mirrors that function's guard).
     let tabsHtml = `<div class="eventlog-subtabs" style="margin-bottom:10px;">`;
-    for (const rarity of RARITY_ORDER) {
-      const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
-      const activeCls = rarity === _invGearRarity ? ' active' : '';
-      tabsHtml += `<button class="eventlog-subtab${activeCls}" data-rarity="${rarity}" onclick="switchInvGearRarity('${rarity}', this)">${rh.label}</button>`;
+    for (const slot of COMBAT_SLOTS) {
+      const activeCls = slot.key === _invGearSlot ? ' active' : '';
+      tabsHtml += `<button class="eventlog-subtab${activeCls}" data-slot="${slot.key}" onclick="switchInvGearSlot('${slot.key}', this)">${slot.icon} ${slot.label}</button>`;
     }
     tabsHtml += `</div>`;
 
-    const rarityItems = _invGearData.filter(g => (g.rarity || 'common') === _invGearRarity);
+    const slotItems = _sortGearByLevelThenRarity(_invGearData.filter(g => g.slot === _invGearSlot));
 
     let html = '';
-    for (const slot of COMBAT_SLOTS) {
-      const items = rarityItems.filter(g => g.slot === slot.key);
-      if (items.length === 0) continue;
-      html += `<div class="inv-slot-group"><div class="inv-slot-title">${slot.icon} ${slot.label}</div>`;
-      for (const item of items) {
-        const rc         = _invRarityClass(item);
-        const isEquipped = !!item.equipped;
-        const isWorn     = !!item.worn;
-        const statsLine  = item.combat_power ? `<div class="inv-item-stats" style="color:#FF8C00">CP: +${item.combat_power}</div>` : '';
-        const setLine    = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
-        const statusHtml = [
-          isEquipped ? `<span style="color:#FF8C00">⚡ EQUIPPED</span>` : '',
-          isWorn     ? `<span style="color:#A86EFF">👁 WORN</span>`     : '',
-        ].filter(Boolean).join(' ');
+    for (const item of slotItems) {
+      const rc         = _invRarityClass(item);
+      const isEquipped = !!item.equipped;
+      const isWorn     = !!item.worn;
+      const statsLine  = item.combat_power ? `<div class="inv-item-stats" style="color:#FF8C00">CP: +${item.combat_power}</div>` : '';
+      const setLine    = item.set_name ? `<div class="inv-set-line">SET: ${item.set_name.toUpperCase()}</div>` : '';
+      const statusHtml = [
+        isEquipped ? `<span style="color:#FF8C00">⚡ EQUIPPED</span>` : '',
+        isWorn     ? `<span style="color:#A86EFF">👁 WORN</span>`     : '',
+      ].filter(Boolean).join(' ');
 
-        const equipBtn = isEquipped
-          ? `<button class="inv-btn equip-action active" onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ UNEQUIP</button>`
-          : `<button class="inv-btn equip-action"        onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ EQUIP</button>`;
+      const equipBtn = isEquipped
+        ? `<button class="inv-btn equip-action active" onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ UNEQUIP</button>`
+        : `<button class="inv-btn equip-action"        onclick="invGearEquipAction(${item.id})" ontouchend="event.preventDefault();invGearEquipAction(${item.id})">⚡ EQUIP</button>`;
 
-        const wearBtn = isWorn
-          ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})" ontouchend="event.preventDefault();invUnwearAction(${item.id})">👁 UNWEAR</button>`
-          : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`;
+      const wearBtn = isWorn
+        ? `<button class="inv-btn wear-action active" onclick="invUnwearAction(${item.id})" ontouchend="event.preventDefault();invUnwearAction(${item.id})">👁 UNWEAR</button>`
+        : `<button class="inv-btn wear-action"        onclick="invWearAction(${item.id})" ontouchend="event.preventDefault();invWearAction(${item.id})">👁 WEAR</button>`;
 
-        const eventBadge = item.event_exclusive
-          ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
-        html += `<div class="inv-item ${rc}">
-          <div class="inv-item-info">
-            <div class="inv-item-name">${item.name}${eventBadge}</div>
-            ${statsLine}${setLine}
-            ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
-          </div>
-          <div class="inv-btn-pair">${equipBtn}${wearBtn}</div>
-        </div>`;
-      }
-      html += `</div>`;
+      const eventBadge = item.event_exclusive
+        ? `<span class="event-item-badge" title="Cannot be obtained elsewhere">🎪 EVENT ITEM</span>` : '';
+      html += `<div class="inv-item ${rc}">
+        <div class="inv-item-info">
+          <div class="inv-item-name">${item.name}${eventBadge}</div>
+          ${statsLine}${setLine}
+          ${statusHtml ? `<div class="inv-item-status">${statusHtml}</div>` : ''}
+        </div>
+        <div class="inv-btn-pair">${equipBtn}${wearBtn}</div>
+      </div>`;
     }
-    if (!html) html = '<div class="inv-empty">No combat gear owned in this rarity yet.</div>';
+    if (!html) html = '<div class="inv-empty">No combat gear owned in this slot yet.</div>';
     return tabsHtml + html;
   }
 
@@ -7958,9 +8046,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   const _RESOURCE_ICONS = { gold: '🪙', bones: '🦴', blood_gems: '💎', spell_fragments: '✨', fish: '🐟', herbs: '🌿' };
 
-  // Rank order for rarity sub-tabs everywhere they appear (Barracks shop,
-  // inventory Combat tab) -- common..legendary, NOT alphabetical (which
-  // would misorder as common/epic/legendary/rare/uncommon).
+  // Rank order for rarity -- common..legendary, NOT alphabetical (which
+  // would misorder as common/epic/legendary/rare/uncommon). Still used for
+  // the Bank sell-to-bank rarity tabs (switchBankSellRarity), and now also
+  // as the tiebreak sort key within a slot in the Barracks shop / inventory
+  // Combat tab (see _sortGearByLevelThenRarity below) now that those tab
+  // over COMBAT_SLOTS instead of rarity.
   const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
   const RARITY_HEADERS = {
     common:    { label: 'COMMON',    color: '#B8B8D0' },
@@ -7970,8 +8061,29 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     legendary: { label: 'LEGENDARY', color: '#FF8C00' },
   };
 
-  let _barracksShopData   = null;
-  let _barracksShopRarity = sessionStorage.getItem('barracksShopRarity') || 'common';
+  // Shared slot tabs for combat gear -- Barracks shop and the inventory
+  // Combat tab both tab over this instead of RARITY_ORDER now.
+  const COMBAT_SLOTS = [
+    { key: 'weapon', label: 'WEAPON', icon: '⚔️' },
+    { key: 'armor',  label: 'ARMOR',  icon: '🛡️' },
+    { key: 'helmet', label: 'HELMET', icon: '⛑️' },
+    { key: 'boots',  label: 'BOOTS',  icon: '🥾' },
+  ];
+
+  // Ascending by required_level, then by RARITY_ORDER position (common
+  // first) as the tiebreak for items at the same level -- shared sort for
+  // both the Barracks shop and inventory Combat tab now that slot, not
+  // rarity, is the primary tab in both.
+  function _sortGearByLevelThenRarity(items) {
+    return items.slice().sort((a, b) => {
+      const lvlDiff = (a.required_level || 0) - (b.required_level || 0);
+      if (lvlDiff !== 0) return lvlDiff;
+      return RARITY_ORDER.indexOf(a.rarity || 'common') - RARITY_ORDER.indexOf(b.rarity || 'common');
+    });
+  }
+
+  let _barracksShopData = null;
+  let _barracksShopSlot = sessionStorage.getItem('barracksShopSlot') || COMBAT_SLOTS[0].key;
 
   async function loadBarracksShop() {
     const container = document.getElementById('barracks-shop-content');
@@ -7986,9 +8098,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     }
   }
 
-  function switchBarracksShopRarity(rarity, btn) {
-    _barracksShopRarity = rarity;
-    sessionStorage.setItem('barracksShopRarity', rarity);
+  function switchBarracksShopSlot(slot, btn) {
+    _barracksShopSlot = slot;
+    sessionStorage.setItem('barracksShopSlot', slot);
     document.querySelectorAll('#barracks-shop-content .eventlog-subtab').forEach(t => t.classList.remove('active'));
     if (btn) btn.classList.add('active');
     _renderBarracksShop();
@@ -8004,14 +8116,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const ownedIds = data.owned_ids || [];
     const shop = data.shop || {};
     const playerLevel = data.player_level || 1;
-    const slotIcons = { weapon:'⚔️', armor:'🛡️', helmet:'⛑️', boots:'🥾' };
+    const slotIcons = Object.fromEntries(COMBAT_SLOTS.map(s => [s.key, s.icon]));
 
-    // Only tab over rarities that actually have items in the shop right now
-    // -- e.g. don't render an empty EPIC/LEGENDARY tab before those tiers
-    // are wired in -- ordered common->legendary, not object key order.
-    const availableRarities = RARITY_ORDER.filter(r => shop[r] && shop[r].length);
-    if (!availableRarities.includes(_barracksShopRarity)) {
-      _barracksShopRarity = availableRarities[0] || 'common';
+    // shop is keyed by rarity (dict of rarity -> item list, items carry no
+    // rarity field of their own) -- flatten it into one list, stamping
+    // each item's bucket rarity onto it, so slot filtering/sorting below
+    // can work across all rarities at once.
+    const allItems = [];
+    for (const rarity of RARITY_ORDER) {
+      for (const item of (shop[rarity] || [])) allItems.push({ ...item, rarity });
+    }
+
+    // Only tab over slots that actually have items in the shop right now
+    // -- ordered weapon->boots (COMBAT_SLOTS), not object key order.
+    const availableSlots = COMBAT_SLOTS.filter(s => allItems.some(it => it.slot === s.key));
+    if (!availableSlots.some(s => s.key === _barracksShopSlot)) {
+      _barracksShopSlot = (availableSlots[0] && availableSlots[0].key) || COMBAT_SLOTS[0].key;
     }
 
     const resLine = `🪙 ${gold.toLocaleString()} &nbsp; 🦴 ${res_.bones||0} &nbsp; 💎 ${res_.blood_gems||0} &nbsp; ✨ ${res_.spell_fragments||0}`;
@@ -8020,14 +8140,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     html += `<div style="color:#FF8C00;font-size:16px;margin-bottom:10px;line-height:2;">${resLine}</div>`;
 
     html += `<div class="eventlog-subtabs" style="margin-bottom:10px;">`;
-    for (const rarity of availableRarities) {
-      const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
-      const activeCls = rarity === _barracksShopRarity ? ' active' : '';
-      html += `<button class="eventlog-subtab${activeCls}" data-rarity="${rarity}" onclick="switchBarracksShopRarity('${rarity}', this)">${rh.label}</button>`;
+    for (const slot of availableSlots) {
+      const activeCls = slot.key === _barracksShopSlot ? ' active' : '';
+      html += `<button class="eventlog-subtab${activeCls}" data-slot="${slot.key}" onclick="switchBarracksShopSlot('${slot.key}', this)">${slot.icon} ${slot.label}</button>`;
     }
     html += `</div>`;
 
-    const items = shop[_barracksShopRarity] || [];
+    const items = _sortGearByLevelThenRarity(allItems.filter(it => it.slot === _barracksShopSlot));
     items.forEach(item => {
       const owned = ownedIds.includes(item.id);
       const reqLevel = item.required_level || 1;
@@ -8065,7 +8184,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       </div>`;
     });
     if (items.length === 0) {
-      html += '<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">No items in this rarity yet.</div>';
+      html += '<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">No items in this slot yet.</div>';
     }
 
     container.innerHTML = html;
@@ -8835,6 +8954,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const roomBarEl = document.getElementById('igloo-room-bar');
       if (roomBarEl) roomBarEl.style.display = '';
       iglooRenderRoomBar();
+      iglooResetZoom();
     } catch(e) { showToast('Error loading igloo.', 'err'); }
   }
 
@@ -8916,8 +9036,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   }
 
   // Toggles the ITEMS (furniture) or ROOM (floor/wall paint) overlay --
-  // independent of each other, both dismissible so #igloo-canvas-wrap can
-  // get its full width/height back at any time during edit mode.
+  // independent of each other on desktop, both dismissible so
+  // #igloo-canvas-wrap can get its full width/height back at any time
+  // during edit mode. On mobile the same two elements render as a single
+  // centered modal instead (see the @media block on .igloo-edit-panel), so
+  // there they're mutually exclusive -- opening one closes the other
+  // rather than stacking two modals.
   function iglooTogglePanel(which) {
     const panelId = which === 'items' ? 'igloo-edit-panel' : 'igloo-room-bar';
     const btnId   = which === 'items' ? 'igloo-items-toggle' : 'igloo-room-toggle';
@@ -8925,8 +9049,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const btnEl   = document.getElementById(btnId);
     if (!panelEl || !btnEl) return;
     const opening = !panelEl.classList.contains('visible');
+    if (opening && _iglooIsMobile()) iglooCloseOverlayPanels();
     panelEl.classList.toggle('visible', opening);
     btnEl.classList.toggle('active', opening);
+    iglooUpdatePickerBackdrop();
   }
 
   function iglooCloseOverlayPanels() {
@@ -8934,6 +9060,19 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('igloo-room-bar').classList.remove('visible');
     document.getElementById('igloo-items-toggle').classList.remove('active');
     document.getElementById('igloo-room-toggle').classList.remove('active');
+    iglooUpdatePickerBackdrop();
+  }
+
+  // Mobile-only dim backdrop behind the ITEMS/ROOM modal -- shown whenever
+  // either panel is visible there, tapping it closes both (via
+  // iglooCloseOverlayPanels). No-op element on desktop (stays display:none,
+  // see its base CSS rule), so this is harmless to call unconditionally.
+  function iglooUpdatePickerBackdrop() {
+    const backdrop = document.getElementById('igloo-picker-backdrop');
+    if (!backdrop) return;
+    const anyOpen = document.getElementById('igloo-edit-panel').classList.contains('visible')
+      || document.getElementById('igloo-room-bar').classList.contains('visible');
+    backdrop.classList.toggle('visible', anyOpen && _iglooIsMobile());
   }
 
   function iglooStartEdit() {
@@ -9136,6 +9275,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('igloo-status-text').textContent =
       `PLACING ${(defn.name || itemId).toUpperCase()} — CLICK A GRID CELL`;
     iglooRenderEditPanel();
+    // Mobile: close the picker modal so the full canvas is visible to tap
+    // a cell -- placing mode itself (_iglooPlacingItemId, set above) stays
+    // active, only the picker UI closes. No-op on desktop (panel stays put).
+    if (_iglooIsMobile()) iglooCloseOverlayPanels();
   }
 
   async function iglooOnCellClick(gx, gy) {
@@ -9215,6 +9358,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomBar();
       refreshStats();
+      if (_iglooIsMobile()) iglooCloseOverlayPanels();
     } catch(e) { showToast('Error changing floor.', 'err'); }
   }
 
@@ -9234,6 +9378,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomBar();
       refreshStats();
+      if (_iglooIsMobile()) iglooCloseOverlayPanels();
     } catch(e) { showToast('Error changing walls.', 'err'); }
   }
 
@@ -9258,6 +9403,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _iglooPaintBrush = typeId;
     IglooRenderer.setPaintBrush(typeId);
     iglooRenderRoomBar();
+    // Mobile: close the picker modal so the full canvas is visible to tap
+    // cells to paint -- paint mode itself (_iglooPaintMode, set by
+    // iglooTogglePaint before this) stays active, only the picker UI
+    // closes. No-op on desktop (bar stays put).
+    if (_iglooIsMobile()) iglooCloseOverlayPanels();
   }
 
   async function iglooPaintFloorCell(gx, gy, floorType) {
@@ -9298,8 +9448,181 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       iglooRenderRoomBar();
       document.getElementById('igloo-room-title').textContent =
         _iglooEditMode ? '✏️ EDITING IGLOO' : iglooRoomTitle(data);
+      // Preserve the player's current zoom/pan (unlike loadIgloo's full
+      // reset) -- this only needs to reclamp in case a room upgrade just
+      // changed the canvas's native size out from under it.
+      iglooApplyMobileTransform();
     } catch(e) {}
   }
+
+  // ── IGLOO MOBILE FIT/ZOOM/PAN ──
+  // #igloo-canvas is sized to native pixel dimensions directly in
+  // igloo_renderer.js's _render() (canvas.width/height set from
+  // room_size), with no CSS scaling. On mobile that's routinely wider than
+  // the viewport, so this scales it down to fit .igloo-canvas-wrap via a
+  // CSS transform and layers pinch-zoom/single-finger-pan on top.
+  // Click-to-canvas coordinate conversion for painting/placement
+  // (_onClick/_onMouseMove in igloo_renderer.js) already derives from
+  // getBoundingClientRect() vs. canvas.width/height, so it stays correct
+  // under whatever scale/pan this applies without that file needing to
+  // know this exists.
+  const IGLOO_MOBILE_MQ = window.matchMedia('(max-width: 768px)');
+  const IGLOO_MAX_ZOOM  = 3;
+  let _iglooFitScale = 1, _iglooZoom = 1, _iglooPanX = 0, _iglooPanY = 0;
+  let _iglooGesture  = null; // in-progress touch gesture, see _iglooWrapTouchStart
+
+  function _iglooIsMobile() { return IGLOO_MOBILE_MQ.matches; }
+
+  // Recomputes the fit scale from the wrap's current available space and
+  // the canvas's current native size, reclamps pan for the (possibly new)
+  // scale, and writes the result to #igloo-canvas.style.transform. Safe to
+  // call anytime, including before the canvas has data -- on desktop (or
+  // with nothing loaded yet) it just clears/skips the transform.
+  function iglooApplyMobileTransform() {
+    const canvas = document.getElementById('igloo-canvas');
+    const wrap   = document.querySelector('.igloo-canvas-wrap');
+    if (!canvas || !wrap) return;
+    if (!_iglooIsMobile()) {
+      canvas.style.transform = '';
+      return;
+    }
+    if (!canvas.width || !canvas.height) return;
+
+    const wrapStyle = getComputedStyle(wrap);
+    let availW = wrap.clientWidth  - parseFloat(wrapStyle.paddingLeft) - parseFloat(wrapStyle.paddingRight);
+    const availH = wrap.clientHeight - parseFloat(wrapStyle.paddingTop) - parseFloat(wrapStyle.paddingBottom);
+    // Visiting a friend's igloo adds #igloo-host-sprite as a flex sibling
+    // of the canvas inside the wrap (see _showIglooHostSprite) -- subtract
+    // its width too, or the fit calc would size the canvas as if it had
+    // the sprite panel's space to itself and overflow into it.
+    const hostSprite = document.getElementById('igloo-host-sprite');
+    if (hostSprite) availW -= hostSprite.getBoundingClientRect().width;
+    if (availW <= 0 || availH <= 0) return;
+
+    _iglooFitScale = Math.min(1, availW / canvas.width, availH / canvas.height);
+    const scale = _iglooFitScale * _iglooZoom;
+
+    const renderedW = canvas.width  * scale, renderedH = canvas.height * scale;
+    const maxPanX = Math.max(0, (renderedW - availW) / 2);
+    const maxPanY = Math.max(0, (renderedH - availH) / 2);
+    _iglooPanX = Math.max(-maxPanX, Math.min(maxPanX, _iglooPanX));
+    _iglooPanY = Math.max(-maxPanY, Math.min(maxPanY, _iglooPanY));
+
+    canvas.style.transform = `translate(${_iglooPanX}px, ${_iglooPanY}px) scale(${scale})`;
+  }
+
+  // Bound to the 🔍 FIT button -- also called on every fresh igloo load
+  // (own or visited) so a previous session's zoom/pan never carries over.
+  function iglooResetZoom() {
+    _iglooZoom = 1;
+    _iglooPanX = 0;
+    _iglooPanY = 0;
+    iglooApplyMobileTransform();
+  }
+
+  function _iglooTouchDist(t0, t1) {
+    return Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+  }
+
+  function _iglooWrapTouchStart(e) {
+    if (!_iglooIsMobile()) return;
+    // The ITEMS/ROOM picker modal and its backdrop are DOM descendants of
+    // .igloo-canvas-wrap (same as the canvas), so touches inside them
+    // bubble up here too -- bail out so scrolling the modal's furniture
+    // list (or a plain tap on the backdrop to close it) never gets
+    // mistaken for a canvas pinch/pan gesture.
+    if (e.target.closest && e.target.closest('.igloo-edit-panel, .igloo-room-bar, #igloo-picker-backdrop')) {
+      _iglooGesture = null;
+      return;
+    }
+    if (e.touches.length === 2) {
+      const [t0, t1] = e.touches;
+      _iglooGesture = {
+        type: 'pinch',
+        startDist: _iglooTouchDist(t0, t1),
+        startZoom: _iglooZoom,
+        startPanX: _iglooPanX,
+        startPanY: _iglooPanY,
+        midX: (t0.clientX + t1.clientX) / 2,
+        midY: (t0.clientY + t1.clientY) / 2,
+      };
+      e.preventDefault();
+    } else if (e.touches.length === 1) {
+      const t = e.touches[0];
+      _iglooGesture = {
+        type: 'pan',
+        startX: t.clientX, startY: t.clientY,
+        startPanX: _iglooPanX, startPanY: _iglooPanY,
+        moved: false,
+      };
+      // Deliberately not preventDefault()'d yet -- a plain tap (one that
+      // never crosses the move threshold in _iglooWrapTouchMove below)
+      // must still produce the browser's normal synthetic click on
+      // #igloo-canvas, since that's what drives placement/painting.
+    } else {
+      _iglooGesture = null;
+    }
+  }
+
+  function _iglooWrapTouchMove(e) {
+    if (!_iglooGesture || !_iglooIsMobile()) return;
+    const wrap = document.querySelector('.igloo-canvas-wrap');
+    if (!wrap) return;
+
+    if (_iglooGesture.type === 'pinch' && e.touches.length === 2) {
+      e.preventDefault();
+      const [t0, t1] = e.touches;
+      if (_iglooGesture.startDist <= 0) return;
+      const ratio = _iglooTouchDist(t0, t1) / _iglooGesture.startDist;
+      _iglooZoom = Math.max(1, Math.min(IGLOO_MAX_ZOOM, _iglooGesture.startZoom * ratio));
+
+      // Keep the point under the pinch midpoint fixed on screen as zoom
+      // changes, using the gesture-*start* scale ratio each time (rather
+      // than the previous frame's) so rounding error can't accumulate.
+      const r = _iglooZoom / _iglooGesture.startZoom;
+      const rect = wrap.getBoundingClientRect();
+      const wrapStyle = getComputedStyle(wrap);
+      const availW = wrap.clientWidth  - parseFloat(wrapStyle.paddingLeft) - parseFloat(wrapStyle.paddingRight);
+      const availH = wrap.clientHeight - parseFloat(wrapStyle.paddingTop)  - parseFloat(wrapStyle.paddingBottom);
+      const midX = _iglooGesture.midX - rect.left - parseFloat(wrapStyle.paddingLeft);
+      const midY = _iglooGesture.midY - rect.top  - parseFloat(wrapStyle.paddingTop);
+      const dx0 = midX - availW / 2, dy0 = midY - availH / 2;
+      _iglooPanX = dx0 * (1 - r) + _iglooGesture.startPanX * r;
+      _iglooPanY = dy0 * (1 - r) + _iglooGesture.startPanY * r;
+      iglooApplyMobileTransform();
+    } else if (_iglooGesture.type === 'pan' && e.touches.length === 1) {
+      const t = e.touches[0];
+      const dx = t.clientX - _iglooGesture.startX, dy = t.clientY - _iglooGesture.startY;
+      if (!_iglooGesture.moved && Math.hypot(dx, dy) < 8) return; // still a possible tap
+      _iglooGesture.moved = true;
+      e.preventDefault();
+      _iglooPanX = _iglooGesture.startPanX + dx;
+      _iglooPanY = _iglooGesture.startPanY + dy;
+      iglooApplyMobileTransform();
+    }
+  }
+
+  function _iglooWrapTouchEnd(e) {
+    if (e.touches.length === 0) {
+      _iglooGesture = null;
+    } else if (e.touches.length === 1) {
+      // Dropped from a pinch to a single finger -- restart as a pan from
+      // here rather than snapping back to the old pinch anchor.
+      const t = e.touches[0];
+      _iglooGesture = { type: 'pan', startX: t.clientX, startY: t.clientY, startPanX: _iglooPanX, startPanY: _iglooPanY, moved: true };
+    }
+  }
+
+  (function iglooInitMobileGestures() {
+    const wrap = document.querySelector('.igloo-canvas-wrap');
+    if (!wrap) return;
+    wrap.addEventListener('touchstart',  _iglooWrapTouchStart, { passive: false });
+    wrap.addEventListener('touchmove',   _iglooWrapTouchMove,  { passive: false });
+    wrap.addEventListener('touchend',    _iglooWrapTouchEnd);
+    wrap.addEventListener('touchcancel', _iglooWrapTouchEnd);
+    IGLOO_MOBILE_MQ.addEventListener('change', iglooResetZoom);
+    window.addEventListener('resize', iglooApplyMobileTransform);
+  })();
 
   // ── BANK ──
   // Must match the expiry sweep threshold in app.py's bank_shop() route
@@ -9541,11 +9864,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const list = document.getElementById('bk-bank-sell-list');
     if (!tabs || !list) return;
 
-    // Same shape as switchInvGearRarity/renderCombatGearTab: all 5 rarity
-    // tabs always shown (this is the player's own inventory, like the
-    // Combat gear tab -- not the Barracks shop's availableRarities-only
-    // behavior), each tab filters the already-fetched _bkBankSellData
-    // client-side rather than re-fetching.
+    // All 5 rarity tabs always shown (this is the player's own inventory,
+    // unlike the Barracks shop's availableRarities-only behavior); each tab
+    // filters the already-fetched _bkBankSellData client-side rather than
+    // re-fetching. Rarity stays the primary grouping here even though the
+    // Barracks shop / inventory Combat tab (renderCombatGearTab) now tab
+    // over COMBAT_SLOTS instead -- this is a separate, untouched flow.
     tabs.innerHTML = RARITY_ORDER.map(rarity => {
       const rh = RARITY_HEADERS[rarity] || { label: rarity.toUpperCase() };
       const activeCls = rarity === _bkBankSellRarity ? ' active' : '';
@@ -10601,6 +10925,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
       _showIglooHostSprite(username, data.host_color, data.host_shape, data.host_worn_items);
       showVisitingHeader(username);
+      // After #igloo-host-sprite is in the DOM, so iglooApplyMobileTransform
+      // (via iglooResetZoom) can measure and subtract its width when it
+      // computes the available space for the canvas on mobile.
+      iglooResetZoom();
 
       // Play the host's custom doorbell chiptune, if they've set one -- no
       // default/fallback sound plays when they haven't (per spec). Stash it
@@ -10959,6 +11287,36 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       showToast(msg, 'ok', {
         label: 'OPEN',
         onClick: function() { invOpenLootbox(blr.lootbox_ids[0]); }
+      });
+    } else {
+      showToast(msg, 'ok');
+    }
+  })();
+  {% endif %}
+
+  {% if raid_reward %}
+  (function() {
+    // Same reusable "Open" toast pattern as build_leaderboard_reward above --
+    // fed from the reward resolve_raid() already granted and stashed on this
+    // player's raid_participants row (see app.py's home() raid_reward
+    // lookup), for whoever wasn't actively polling at the moment their raid
+    // resolved (RaidJoin.showResults() already covers that live case).
+    var rr = {{ raid_reward | tojson }};
+    var outcomeWord = rr.status === 'succeeded' ? 'SUCCEEDED' : 'FAILED';
+    var msg = '⚔️ Raid vs ' + rr.boss_name + ' ' + outcomeWord + '! Earned ';
+    if (rr.reward.lootboxes) {
+      msg += rr.reward.lootboxes + ' N00Tbox' + (rr.reward.lootboxes === 1 ? '' : 'es') + '!';
+    } else if (rr.reward.resource_type) {
+      // Reuses RaidJoin's own icon/label map (static/raid.js) instead of yet
+      // another copy of the same resource->emoji lookup.
+      var meta = (window.RaidJoin && RaidJoin._RESOURCE_META[rr.reward.resource_type])
+        || ['🎁', rr.reward.resource_type];
+      msg += '+' + rr.reward.resource_amount + ' ' + meta[0] + ' ' + meta[1] + '!';
+    }
+    if (rr.reward.lootbox_ids && rr.reward.lootbox_ids.length) {
+      showToast(msg, 'ok', {
+        label: 'OPEN',
+        onClick: function() { invOpenLootbox(rr.reward.lootbox_ids[0]); }
       });
     } else {
       showToast(msg, 'ok');
@@ -12488,7 +12846,7 @@ async function _loadMobileTab(tabName) {
         var msg = '⚔️ ' + data.damage_dealt + ' damage! (roll ' + data.roll + ')';
         if (isCrit)                  msg += ' CRITICAL! 5 free rolls!';
         else if (data.normal_return) msg += ' Free rolls used up.';
-        showToast(msg, isCrit ? 'ok' : '');
+        showToast(msg, isCrit ? 'ok' : '', null, 'toast-roll-result');
         if (typeof Effects !== 'undefined' && data.xp_earned) Effects.animateXPGain(data.xp_earned, btn);
 
         if (data.boss_current_hp <= 0) {
@@ -12519,7 +12877,7 @@ async function _loadMobileTab(tabName) {
         var msg = '🧊 ×' + data.ice_blocks_earned + ' Ice Blocks! (roll ' + data.roll + ')';
         if (data.is_crit)         msg += ' CRITICAL! 5 free rolls!';
         else if (data.normal_return) msg += ' Free rolls used up.';
-        showToast(msg, data.is_crit ? 'ok' : '');
+        showToast(msg, data.is_crit ? 'ok' : '', null, 'toast-roll-result');
       }
       setBtnState(data.free_rolls_remaining || 0);
       if (typeof refreshStats === 'function') refreshStats();

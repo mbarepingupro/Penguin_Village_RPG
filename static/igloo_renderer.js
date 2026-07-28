@@ -378,6 +378,25 @@ const IglooRenderer = (function () {
         return null;
     }
 
+    // Converts a pointer event's viewport coordinates into canvas-internal
+    // pixel space. Derived from the canvas's actual on-screen box
+    // (getBoundingClientRect) vs. its native pixel size (canvas.width/
+    // height, set in _render() above), so this stays correct under any CSS
+    // transform applied to the canvas element -- e.g. home.html's mobile
+    // fit-to-screen/pinch-zoom scale+pan -- without this file needing to
+    // know that transform exists. Desktop has no such transform, so
+    // rect.width/height always equal canvas.width/height there and this
+    // reduces to the plain untransformed math it replaced.
+    function _clientToCanvas(clientX, clientY) {
+        const rect = _canvas.getBoundingClientRect();
+        const scaleX = rect.width  ? _canvas.width  / rect.width  : 1;
+        const scaleY = rect.height ? _canvas.height / rect.height : 1;
+        return {
+            sx: (clientX - rect.left) * scaleX,
+            sy: (clientY - rect.top)  * scaleY,
+        };
+    }
+
     function _render() {
         if (!_canvas || !_ctx || !_data) return;
         const s = _data.room_size || 6;
@@ -402,8 +421,7 @@ const IglooRenderer = (function () {
 
     function _onMouseMove(e) {
         if (!_data) return;
-        const rect = _canvas.getBoundingClientRect();
-        const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+        const { sx, sy } = _clientToCanvas(e.clientX, e.clientY);
         const s = _data.room_size || 6;
         if (_paintMode === 'wall') {
             _hoverWall = _hitTestWall(sx, sy, s);
@@ -423,8 +441,7 @@ const IglooRenderer = (function () {
 
     function _onClick(e) {
         if (!_data) return;
-        const rect = _canvas.getBoundingClientRect();
-        const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+        const { sx, sy } = _clientToCanvas(e.clientX, e.clientY);
         const s = _data.room_size || 6;
 
         // Paint mode — floor

@@ -186,9 +186,11 @@ const RaidJoin = {
   },
 
   // Live, in-progress leaderboard — reuses GET /raid/results (Phase 5), which
-  // now also accepts an 'active' raid instead of only resolved ones. Rewards
-  // come back empty ({}) since nothing's been decided yet; we only show rank/
-  // username/damage here.
+  // now also accepts an 'active' raid instead of only resolved ones. entry.reward
+  // comes back empty ({}) since nothing's been decided yet -- non-podium amounts
+  // depend on the final participant count, unknown until resolve_raid() runs --
+  // so we only show rank/username/damage plus entry.reward_type (a TYPE label
+  // only: "🎁 N00Tboxes" for rank <= the podium size, "Resources" otherwise).
   openLeaderboard: async function() {
     var raidId = this._lastRaidId || (this._latest && this._latest.raid_id);
     if (!raidId) return;
@@ -212,6 +214,7 @@ const RaidJoin = {
         html += '<div class="' + cls + '">' +
           '<span class="raid-results-rank">#' + entry.rank + '</span>' +
           '<span class="raid-results-name">' + entry.username + (isSelf ? ' (you)' : '') + '</span>' +
+          '<span class="raid-results-reward-type">' + entry.reward_type + '</span>' +
           '<span class="raid-results-reward" style="color:#FF8C00;">' + entry.total_damage_dealt.toLocaleString() + ' dmg</span>' +
           '</div>';
       });

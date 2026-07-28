@@ -33,17 +33,64 @@ import os
 
 DATABASE = os.environ.get('DATABASE_PATH', 'village.db')
 
-# barracks_shop isn't part of the gear_templates 5-tier ladder (no set_name,
-# no family spanning multiple rarities), but each of its material families
-# is pinned to exactly one rarity, so it maps 1:1 onto one gear tier and
-# gets that tier's required_level threshold from the SAME table the 26 sets
-# use: iron/driftwood (common) -> Tier 1 @1, steel/coral (uncommon) ->
-# Tier 2 @6, crystal/aurora (rare) -> Tier 3 @11, obsidian (epic) ->
-# Tier 4 @18, mythril (legendary) -> Tier 5 @24. Spread 2/2/2/1/1 across the
-# 5 tiers -- roughly even, and matches the power progression the material
-# names already implied. Existing databases need migrate_barracks_tier_
-# levels.py to pick these up (this dict only seeds a genuinely fresh DB).
-_BARRACKS_REQUIRED_LEVEL = {"common": 1, "uncommon": 6, "rare": 11, "epic": 18, "legendary": 24}
+# barracks_shop now mirrors gear_templates' 5-tier ladder (Session 10):
+# each of the 5 rarities gets a distinct, standalone (no set_name --
+# barracks_buy() always writes NULL, same as epic/legendary already did) item
+# family at EACH of gear_templates' 5 tier floors (_BARRACKS_TIER_LEVELS
+# below == the same 1/6/11/16/21 required_level schedule Frost/Blood/Storm/
+# Sea Lion/Temple use), not just the one tier its rarity used to be pinned
+# to. That's 5 tiers x 5 rarities x 4 slots = 100 tier-ladder items, plus the
+# 12 untouched cosmetic alternatives (driftwood/coral/aurora) below, = 112
+# rows total in the table (vs. the old 32: 5 families x 4 slots, minus epic/
+# legendary never having an alt pair).
+#
+# Before this pass, only ONE tier per rarity existed here (common@1,
+# uncommon@6, rare@11, epic@18, legendary@24 -- the last two were a stepped-
+# up position within their tier, not the tier's own floor), so e.g. a
+# level-20 player could only ever forge legendary gear once they hit 24, with
+# nothing new to forge in their own bracket in the meantime. Now every
+# bracket has a full common->legendary spread to forge from, same as drops.
+#
+# combat_power is now IDENTICAL to the equivalent DEFAULT_GEAR_TEMPLATES
+# rarity+slot piece for every item here (common 3/2/2/3, uncommon 7/5/5/7,
+# rare 15/12/11/14, epic 28/22/20/25, legendary 45/35/32/42 -- weapon/helmet/
+# boots/armor) -- so forged gear is never strictly better or worse than an
+# equivalent drop. epic/legendary already matched (see the old design note,
+# preserved below); common/uncommon/rare's PRE-EXISTING iron/steel/crystal
+# items (and their cosmetic alt pairs) get their combat_power corrected down
+# to match here too, closing a pre-existing mismatch (iron/steel/crystal
+# were 1 CP above their template equivalents on every slot). Non-retroactive:
+# combat_power is copied onto each `gear` row at forge time (barracks_buy()),
+# not looked up live, so already-forged/equipped copies of these items keep
+# whatever CP they were forged with -- only future forges see the correction.
+#
+# cost scales up with BOTH rarity (unchanged from before -- the existing
+# ~2.5-3x per-rarity gold/resource growth) AND tier now (~1.3x per tier
+# step within a rarity, anchored so each rarity's pre-existing tier's cost is
+# untouched and the other 4 tiers scale off of it). ice_blocks, previously
+# only on epic/legendary's single existing tier, now appears on all 5 tiers
+# of BOTH those rarities (10 items instead of 2) -- extending the Session 7
+# resource-diversification precedent rather than introducing it fresh to
+# rarities that never had it.
+#
+# New tier names follow the existing one-material-name-per-rarity convention
+# (Iron/Steel/Crystal/Obsidian/Mythril) but are new names distinct from both
+# those and every DEFAULT_GEAR_TEMPLATES set name (Icicle/Bone/Squall/Pup/
+# Acolyte etc. are taken): common adds Copper/Bronze/Slate/Basalt, uncommon
+# adds Tin/Cobalt/Nickel/Wolfram, rare adds Quartz/Garnet/Topaz/Opal, epic
+# adds Onyx/Jade/Amethyst/Sapphire, legendary adds Adamant/Platinum/Titanium/
+# Orichalcum.
+#
+# IMPORTANT: existing/already-deployed databases don't get this from
+# DEFAULT_BARRACKS_SHOP alone -- _seed_barracks_shop_if_empty only runs
+# against a genuinely empty table. See database.py's init_db() for the
+# unconditional-every-boot sync that inserts the missing rows and corrects
+# the pre-existing ones' combat_power/required_level on an already-seeded
+# database, the same PR #256/Session 9 lesson the old per-rarity sync used to
+# teach (a *manual* migration script -- see migrate_barracks_tier_levels.py,
+# now doubly obsolete and neutered -- is not enough; someone has to remember
+# to run it, and in practice never did).
+_BARRACKS_TIER_LEVELS = [1, 6, 11, 16, 21]
 
 # -- Design notes preserved from the old BARRACKS_SHOP literal --
 #
@@ -61,65 +108,158 @@ _BARRACKS_REQUIRED_LEVEL = {"common": 1, "uncommon": 6, "rare": 11, "epic": 18, 
 # instead. Barracks items have never had individual worn-gear sprites (the
 # shop UI shows a generic per-slot emoji, and the worn-gear overlay system
 # already tolerates a missing sprite file via its existing
-# `if not os.path.exists(item_path): continue` skip).
-#
-# epic/legendary: standalone (no set_name -- barracks_buy() always writes
-# NULL), so these grant no set bonus. CP per slot matches gear_templates'
-# own epic/legendary split exactly (Temple Mystic 28/22/20/25, Penguin
-# Emperor 45/35/32/42) so a forged item is exactly as strong as the
-# equivalent drop-set piece. Cost keeps the ~2.5-3x per-tier gold/resource
-# growth already established from common->rare. bones and mayor_seals stay
-# out (bones was already dropped at rare; mayor_seals stays walled off to
-# the Seal Shop). fish/herbs/ice_blocks are folded in as a
-# same-gathering-TIME-value slice carved out of each item's existing
-# spell_fragments/blood_gems rather than added on top (25% of
-# spell_fragments -> fish for weapon/boots or herbs for helmet/armor, 1:1
-# since both produce at 12.5/hr; 20% of blood_gems -> ice_blocks at a ~4.2x
-# ratio, derived from update_passive_energy()'s 10 energy/hr regen spent at
-# build_roll()'s 5-energy-per-roll cost, averaging ~10.5 ice_blocks/roll ->
-# ~21/hr, against blood_gems' 5/hr).
+# `if not os.path.exists(item_path): continue` skip). No alt pair exists for
+# epic/legendary (never did, and this pass doesn't add one -- out of scope).
 DEFAULT_BARRACKS_SHOP = {
     "common": [
-        {"id": "iron_sword",   "name": "Iron Sword",   "slot": "weapon", "combat_power": 4,  "cost": {"gold": 200, "bones": 50}},
-        {"id": "iron_helmet",  "name": "Iron Helmet",  "slot": "helmet", "combat_power": 3,  "cost": {"gold": 200, "bones": 40}},
-        {"id": "iron_boots",   "name": "Iron Boots",   "slot": "boots",  "combat_power": 3,  "cost": {"gold": 150, "bones": 30}},
-        {"id": "iron_plate",   "name": "Iron Plate",   "slot": "armor",  "combat_power": 4,  "cost": {"gold": 250, "bones": 60}},
-        {"id": "driftwood_club",    "name": "Driftwood Club",    "slot": "weapon", "combat_power": 4,  "cost": {"gold": 200, "fish": 125}},
-        {"id": "driftwood_cap",     "name": "Driftwood Cap",     "slot": "helmet", "combat_power": 3,  "cost": {"gold": 200, "herbs": 100}},
-        {"id": "driftwood_sandals", "name": "Driftwood Sandals", "slot": "boots",  "combat_power": 3,  "cost": {"gold": 150, "fish": 75}},
-        {"id": "driftwood_vest",    "name": "Driftwood Vest",    "slot": "armor",  "combat_power": 4,  "cost": {"gold": 250, "herbs": 150}},
+        # Tier 1 (lvl 1) -- Iron
+        {"id": "iron_sword", "name": "Iron Sword", "slot": "weapon", "combat_power": 3, "cost": {"gold": 200, "bones": 50}, "required_level": 1},
+        {"id": "iron_helmet", "name": "Iron Helmet", "slot": "helmet", "combat_power": 2, "cost": {"gold": 200, "bones": 40}, "required_level": 1},
+        {"id": "iron_boots", "name": "Iron Boots", "slot": "boots", "combat_power": 2, "cost": {"gold": 150, "bones": 30}, "required_level": 1},
+        {"id": "iron_plate", "name": "Iron Plate", "slot": "armor", "combat_power": 3, "cost": {"gold": 250, "bones": 60}, "required_level": 1},
+        # Tier 2 (lvl 6) -- Copper
+        {"id": "copper_axe", "name": "Copper Axe", "slot": "weapon", "combat_power": 3, "cost": {"gold": 250, "bones": 70}, "required_level": 6},
+        {"id": "copper_cap", "name": "Copper Cap", "slot": "helmet", "combat_power": 2, "cost": {"gold": 250, "bones": 50}, "required_level": 6},
+        {"id": "copper_sandals", "name": "Copper Sandals", "slot": "boots", "combat_power": 2, "cost": {"gold": 200, "bones": 40}, "required_level": 6},
+        {"id": "copper_vest", "name": "Copper Vest", "slot": "armor", "combat_power": 3, "cost": {"gold": 325, "bones": 80}, "required_level": 6},
+        # Tier 3 (lvl 11) -- Bronze
+        {"id": "bronze_club", "name": "Bronze Club", "slot": "weapon", "combat_power": 3, "cost": {"gold": 300, "bones": 80}, "required_level": 11},
+        {"id": "bronze_helm", "name": "Bronze Helm", "slot": "helmet", "combat_power": 2, "cost": {"gold": 300, "bones": 60}, "required_level": 11},
+        {"id": "bronze_boots", "name": "Bronze Boots", "slot": "boots", "combat_power": 2, "cost": {"gold": 225, "bones": 45}, "required_level": 11},
+        {"id": "bronze_guard", "name": "Bronze Guard", "slot": "armor", "combat_power": 3, "cost": {"gold": 375, "bones": 90}, "required_level": 11},
+        # Tier 4 (lvl 16) -- Slate
+        {"id": "slate_mace", "name": "Slate Mace", "slot": "weapon", "combat_power": 3, "cost": {"gold": 400, "bones": 100}, "required_level": 16},
+        {"id": "slate_hood", "name": "Slate Hood", "slot": "helmet", "combat_power": 2, "cost": {"gold": 400, "bones": 80}, "required_level": 16},
+        {"id": "slate_treads", "name": "Slate Treads", "slot": "boots", "combat_power": 2, "cost": {"gold": 300, "bones": 60}, "required_level": 16},
+        {"id": "slate_plate", "name": "Slate Plate", "slot": "armor", "combat_power": 3, "cost": {"gold": 500, "bones": 120}, "required_level": 16},
+        # Tier 5 (lvl 21) -- Basalt
+        {"id": "basalt_hatchet", "name": "Basalt Hatchet", "slot": "weapon", "combat_power": 3, "cost": {"gold": 525, "bones": 130}, "required_level": 21},
+        {"id": "basalt_cap", "name": "Basalt Cap", "slot": "helmet", "combat_power": 2, "cost": {"gold": 525, "bones": 100}, "required_level": 21},
+        {"id": "basalt_boots", "name": "Basalt Boots", "slot": "boots", "combat_power": 2, "cost": {"gold": 400, "bones": 80}, "required_level": 21},
+        {"id": "basalt_armor", "name": "Basalt Armor", "slot": "armor", "combat_power": 3, "cost": {"gold": 650, "bones": 160}, "required_level": 21},
+        # Cosmetic alternative (same tier/CP as Iron, different theme) -- Driftwood
+        {"id": "driftwood_club", "name": "Driftwood Club", "slot": "weapon", "combat_power": 3, "cost": {"gold": 200, "fish": 125}, "required_level": 1},
+        {"id": "driftwood_cap", "name": "Driftwood Cap", "slot": "helmet", "combat_power": 2, "cost": {"gold": 200, "herbs": 100}, "required_level": 1},
+        {"id": "driftwood_sandals", "name": "Driftwood Sandals", "slot": "boots", "combat_power": 2, "cost": {"gold": 150, "fish": 75}, "required_level": 1},
+        {"id": "driftwood_vest", "name": "Driftwood Vest", "slot": "armor", "combat_power": 3, "cost": {"gold": 250, "herbs": 150}, "required_level": 1},
     ],
     "uncommon": [
-        {"id": "steel_sword",  "name": "Steel Sword",  "slot": "weapon", "combat_power": 9,  "cost": {"gold": 500,  "bones": 100, "blood_gems": 20}},
-        {"id": "steel_helmet", "name": "Steel Helmet", "slot": "helmet", "combat_power": 7,  "cost": {"gold": 500,  "bones": 80,  "blood_gems": 15}},
-        {"id": "steel_boots",  "name": "Steel Boots",  "slot": "boots",  "combat_power": 6,  "cost": {"gold": 400,  "bones": 70,  "blood_gems": 15}},
-        {"id": "steel_plate",  "name": "Steel Plate",  "slot": "armor",  "combat_power": 9,  "cost": {"gold": 600,  "bones": 120, "blood_gems": 25}},
-        {"id": "coral_blade", "name": "Coral Blade", "slot": "weapon", "combat_power": 9,  "cost": {"gold": 500, "fish": 250,  "blood_gems": 20}},
-        {"id": "coral_helm",  "name": "Coral Helm",  "slot": "helmet", "combat_power": 7,  "cost": {"gold": 500, "herbs": 200, "blood_gems": 15}},
-        {"id": "coral_boots", "name": "Coral Boots", "slot": "boots",  "combat_power": 6,  "cost": {"gold": 400, "fish": 175,  "blood_gems": 15}},
-        {"id": "coral_guard", "name": "Coral Guard", "slot": "armor",  "combat_power": 9,  "cost": {"gold": 600, "herbs": 300, "blood_gems": 25}},
+        # Tier 1 (lvl 1) -- Tin
+        {"id": "tin_rapier", "name": "Tin Rapier", "slot": "weapon", "combat_power": 7, "cost": {"gold": 375, "bones": 80, "blood_gems": 15}, "required_level": 1},
+        {"id": "tin_cap", "name": "Tin Cap", "slot": "helmet", "combat_power": 5, "cost": {"gold": 375, "bones": 60, "blood_gems": 10}, "required_level": 1},
+        {"id": "tin_boots", "name": "Tin Boots", "slot": "boots", "combat_power": 5, "cost": {"gold": 300, "bones": 50, "blood_gems": 10}, "required_level": 1},
+        {"id": "tin_vest", "name": "Tin Vest", "slot": "armor", "combat_power": 7, "cost": {"gold": 450, "bones": 90, "blood_gems": 20}, "required_level": 1},
+        # Tier 2 (lvl 6) -- Steel
+        {"id": "steel_sword", "name": "Steel Sword", "slot": "weapon", "combat_power": 7, "cost": {"gold": 500, "bones": 100, "blood_gems": 20}, "required_level": 6},
+        {"id": "steel_helmet", "name": "Steel Helmet", "slot": "helmet", "combat_power": 5, "cost": {"gold": 500, "bones": 80, "blood_gems": 15}, "required_level": 6},
+        {"id": "steel_boots", "name": "Steel Boots", "slot": "boots", "combat_power": 5, "cost": {"gold": 400, "bones": 70, "blood_gems": 15}, "required_level": 6},
+        {"id": "steel_plate", "name": "Steel Plate", "slot": "armor", "combat_power": 7, "cost": {"gold": 600, "bones": 120, "blood_gems": 25}, "required_level": 6},
+        # Tier 3 (lvl 11) -- Cobalt
+        {"id": "cobalt_axe", "name": "Cobalt Axe", "slot": "weapon", "combat_power": 7, "cost": {"gold": 600, "bones": 120, "blood_gems": 25}, "required_level": 11},
+        {"id": "cobalt_helm", "name": "Cobalt Helm", "slot": "helmet", "combat_power": 5, "cost": {"gold": 600, "bones": 90, "blood_gems": 20}, "required_level": 11},
+        {"id": "cobalt_greaves", "name": "Cobalt Greaves", "slot": "boots", "combat_power": 5, "cost": {"gold": 475, "bones": 80, "blood_gems": 20}, "required_level": 11},
+        {"id": "cobalt_plate", "name": "Cobalt Plate", "slot": "armor", "combat_power": 7, "cost": {"gold": 700, "bones": 140, "blood_gems": 30}, "required_level": 11},
+        # Tier 4 (lvl 16) -- Nickel
+        {"id": "nickel_mace", "name": "Nickel Mace", "slot": "weapon", "combat_power": 7, "cost": {"gold": 775, "bones": 150, "blood_gems": 30}, "required_level": 16},
+        {"id": "nickel_crown", "name": "Nickel Crown", "slot": "helmet", "combat_power": 5, "cost": {"gold": 775, "bones": 120, "blood_gems": 25}, "required_level": 16},
+        {"id": "nickel_sandals", "name": "Nickel Sandals", "slot": "boots", "combat_power": 5, "cost": {"gold": 600, "bones": 110, "blood_gems": 25}, "required_level": 16},
+        {"id": "nickel_guard", "name": "Nickel Guard", "slot": "armor", "combat_power": 7, "cost": {"gold": 925, "bones": 180, "blood_gems": 40}, "required_level": 16},
+        # Tier 5 (lvl 21) -- Wolfram
+        {"id": "wolfram_blade", "name": "Wolfram Blade", "slot": "weapon", "combat_power": 7, "cost": {"gold": 1000, "bones": 200, "blood_gems": 40}, "required_level": 21},
+        {"id": "wolfram_visor", "name": "Wolfram Visor", "slot": "helmet", "combat_power": 5, "cost": {"gold": 1000, "bones": 160, "blood_gems": 30}, "required_level": 21},
+        {"id": "wolfram_treads", "name": "Wolfram Treads", "slot": "boots", "combat_power": 5, "cost": {"gold": 800, "bones": 140, "blood_gems": 30}, "required_level": 21},
+        {"id": "wolfram_armor", "name": "Wolfram Armor", "slot": "armor", "combat_power": 7, "cost": {"gold": 1200, "bones": 250, "blood_gems": 50}, "required_level": 21},
+        # Cosmetic alternative (same tier/CP as Tin, different theme) -- Coral
+        {"id": "coral_blade", "name": "Coral Blade", "slot": "weapon", "combat_power": 7, "cost": {"gold": 500, "fish": 250, "blood_gems": 20}, "required_level": 6},
+        {"id": "coral_helm", "name": "Coral Helm", "slot": "helmet", "combat_power": 5, "cost": {"gold": 500, "herbs": 200, "blood_gems": 15}, "required_level": 6},
+        {"id": "coral_boots", "name": "Coral Boots", "slot": "boots", "combat_power": 5, "cost": {"gold": 400, "fish": 175, "blood_gems": 15}, "required_level": 6},
+        {"id": "coral_guard", "name": "Coral Guard", "slot": "armor", "combat_power": 7, "cost": {"gold": 600, "herbs": 300, "blood_gems": 25}, "required_level": 6},
     ],
     "rare": [
-        {"id": "crystal_blade",   "name": "Crystal Blade",   "slot": "weapon", "combat_power": 19, "cost": {"gold": 1500, "blood_gems": 80,  "spell_fragments": 40}},
-        {"id": "crystal_crown",   "name": "Crystal Crown",   "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "blood_gems": 60,  "spell_fragments": 30}},
-        {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "blood_gems": 50,  "spell_fragments": 25}},
-        {"id": "crystal_armor",   "name": "Crystal Armor",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}},
-        {"id": "aurora_blade",  "name": "Aurora Blade",  "slot": "weapon", "combat_power": 19, "cost": {"gold": 1500, "fish": 200,  "spell_fragments": 40}},
-        {"id": "aurora_diadem", "name": "Aurora Diadem", "slot": "helmet", "combat_power": 15, "cost": {"gold": 1200, "herbs": 150, "spell_fragments": 30}},
-        {"id": "aurora_boots",  "name": "Aurora Boots",  "slot": "boots",  "combat_power": 14, "cost": {"gold": 1000, "fish": 125,  "spell_fragments": 25}},
-        {"id": "aurora_mail",   "name": "Aurora Mail",   "slot": "armor",  "combat_power": 18, "cost": {"gold": 1800, "herbs": 250, "spell_fragments": 50}},
+        # Tier 1 (lvl 1) -- Quartz
+        {"id": "quartz_rapier", "name": "Quartz Rapier", "slot": "weapon", "combat_power": 15, "cost": {"gold": 975, "blood_gems": 50, "spell_fragments": 25}, "required_level": 1},
+        {"id": "quartz_circlet", "name": "Quartz Circlet", "slot": "helmet", "combat_power": 12, "cost": {"gold": 775, "blood_gems": 40, "spell_fragments": 20}, "required_level": 1},
+        {"id": "quartz_boots", "name": "Quartz Boots", "slot": "boots", "combat_power": 11, "cost": {"gold": 650, "blood_gems": 30, "spell_fragments": 15}, "required_level": 1},
+        {"id": "quartz_vest", "name": "Quartz Vest", "slot": "armor", "combat_power": 14, "cost": {"gold": 1150, "blood_gems": 60, "spell_fragments": 30}, "required_level": 1},
+        # Tier 2 (lvl 6) -- Garnet
+        {"id": "garnet_scythe", "name": "Garnet Scythe", "slot": "weapon", "combat_power": 15, "cost": {"gold": 1300, "blood_gems": 70, "spell_fragments": 35}, "required_level": 6},
+        {"id": "garnet_crown", "name": "Garnet Crown", "slot": "helmet", "combat_power": 12, "cost": {"gold": 1000, "blood_gems": 50, "spell_fragments": 25}, "required_level": 6},
+        {"id": "garnet_greaves", "name": "Garnet Greaves", "slot": "boots", "combat_power": 11, "cost": {"gold": 850, "blood_gems": 40, "spell_fragments": 20}, "required_level": 6},
+        {"id": "garnet_plate", "name": "Garnet Plate", "slot": "armor", "combat_power": 14, "cost": {"gold": 1550, "blood_gems": 80, "spell_fragments": 40}, "required_level": 6},
+        # Tier 3 (lvl 11) -- Crystal
+        {"id": "crystal_blade", "name": "Crystal Blade", "slot": "weapon", "combat_power": 15, "cost": {"gold": 1500, "blood_gems": 80, "spell_fragments": 40}, "required_level": 11},
+        {"id": "crystal_crown", "name": "Crystal Crown", "slot": "helmet", "combat_power": 12, "cost": {"gold": 1200, "blood_gems": 60, "spell_fragments": 30}, "required_level": 11},
+        {"id": "crystal_greaves", "name": "Crystal Greaves", "slot": "boots", "combat_power": 11, "cost": {"gold": 1000, "blood_gems": 50, "spell_fragments": 25}, "required_level": 11},
+        {"id": "crystal_armor", "name": "Crystal Armor", "slot": "armor", "combat_power": 14, "cost": {"gold": 1800, "blood_gems": 100, "spell_fragments": 50}, "required_level": 11},
+        # Tier 4 (lvl 16) -- Topaz
+        {"id": "topaz_saber", "name": "Topaz Saber", "slot": "weapon", "combat_power": 15, "cost": {"gold": 1950, "blood_gems": 100, "spell_fragments": 50}, "required_level": 16},
+        {"id": "topaz_diadem", "name": "Topaz Diadem", "slot": "helmet", "combat_power": 12, "cost": {"gold": 1550, "blood_gems": 80, "spell_fragments": 40}, "required_level": 16},
+        {"id": "topaz_treads", "name": "Topaz Treads", "slot": "boots", "combat_power": 11, "cost": {"gold": 1300, "blood_gems": 60, "spell_fragments": 30}, "required_level": 16},
+        {"id": "topaz_guard", "name": "Topaz Guard", "slot": "armor", "combat_power": 14, "cost": {"gold": 2350, "blood_gems": 130, "spell_fragments": 60}, "required_level": 16},
+        # Tier 5 (lvl 21) -- Opal
+        {"id": "opal_staff", "name": "Opal Staff", "slot": "weapon", "combat_power": 15, "cost": {"gold": 2550, "blood_gems": 140, "spell_fragments": 70}, "required_level": 21},
+        {"id": "opal_halo", "name": "Opal Halo", "slot": "helmet", "combat_power": 12, "cost": {"gold": 2050, "blood_gems": 100, "spell_fragments": 50}, "required_level": 21},
+        {"id": "opal_sandals", "name": "Opal Sandals", "slot": "boots", "combat_power": 11, "cost": {"gold": 1700, "blood_gems": 80, "spell_fragments": 40}, "required_level": 21},
+        {"id": "opal_robes", "name": "Opal Robes", "slot": "armor", "combat_power": 14, "cost": {"gold": 3050, "blood_gems": 170, "spell_fragments": 80}, "required_level": 21},
+        # Cosmetic alternative (same tier/CP as Quartz, different theme) -- Aurora
+        {"id": "aurora_blade", "name": "Aurora Blade", "slot": "weapon", "combat_power": 15, "cost": {"gold": 1500, "fish": 200, "spell_fragments": 40}, "required_level": 11},
+        {"id": "aurora_diadem", "name": "Aurora Diadem", "slot": "helmet", "combat_power": 12, "cost": {"gold": 1200, "herbs": 150, "spell_fragments": 30}, "required_level": 11},
+        {"id": "aurora_boots", "name": "Aurora Boots", "slot": "boots", "combat_power": 11, "cost": {"gold": 1000, "fish": 125, "spell_fragments": 25}, "required_level": 11},
+        {"id": "aurora_mail", "name": "Aurora Mail", "slot": "armor", "combat_power": 14, "cost": {"gold": 1800, "herbs": 250, "spell_fragments": 50}, "required_level": 11},
     ],
     "epic": [
-        {"id": "obsidian_blade",   "name": "Obsidian Blade",   "slot": "weapon", "combat_power": 28, "cost": {"gold": 4000, "blood_gems": 176, "spell_fragments": 82,  "fish": 28,           "ice_blocks": 185}},
-        {"id": "obsidian_crest",   "name": "Obsidian Crest",   "slot": "helmet", "combat_power": 22, "cost": {"gold": 3200, "blood_gems": 128, "spell_fragments": 60,  "herbs": 20,          "ice_blocks": 134}},
-        {"id": "obsidian_greaves", "name": "Obsidian Greaves", "slot": "boots",  "combat_power": 20, "cost": {"gold": 2700, "blood_gems": 108, "spell_fragments": 52,  "fish": 18,           "ice_blocks": 113}},
-        {"id": "obsidian_plate",   "name": "Obsidian Plate",   "slot": "armor",  "combat_power": 25, "cost": {"gold": 4800, "blood_gems": 216, "spell_fragments": 101, "herbs": 34,          "ice_blocks": 227}},
+        # Tier 1 (lvl 1) -- Onyx
+        {"id": "onyx_reaver", "name": "Onyx Reaver", "slot": "weapon", "combat_power": 28, "cost": {"gold": 2000, "blood_gems": 90, "spell_fragments": 40, "fish": 15, "ice_blocks": 90}, "required_level": 1},
+        {"id": "onyx_skull", "name": "Onyx Skull", "slot": "helmet", "combat_power": 22, "cost": {"gold": 1600, "blood_gems": 60, "spell_fragments": 30, "herbs": 10, "ice_blocks": 70}, "required_level": 1},
+        {"id": "onyx_talons", "name": "Onyx Talons", "slot": "boots", "combat_power": 20, "cost": {"gold": 1350, "blood_gems": 50, "spell_fragments": 25, "fish": 10, "ice_blocks": 60}, "required_level": 1},
+        {"id": "onyx_bastion", "name": "Onyx Bastion", "slot": "armor", "combat_power": 25, "cost": {"gold": 2400, "blood_gems": 110, "spell_fragments": 50, "herbs": 15, "ice_blocks": 110}, "required_level": 1},
+        # Tier 2 (lvl 6) -- Jade
+        {"id": "jade_fang", "name": "Jade Fang", "slot": "weapon", "combat_power": 28, "cost": {"gold": 2600, "blood_gems": 120, "spell_fragments": 50, "fish": 20, "ice_blocks": 120}, "required_level": 6},
+        {"id": "jade_coronet", "name": "Jade Coronet", "slot": "helmet", "combat_power": 22, "cost": {"gold": 2100, "blood_gems": 80, "spell_fragments": 40, "herbs": 15, "ice_blocks": 90}, "required_level": 6},
+        {"id": "jade_striders", "name": "Jade Striders", "slot": "boots", "combat_power": 20, "cost": {"gold": 1750, "blood_gems": 70, "spell_fragments": 35, "fish": 10, "ice_blocks": 70}, "required_level": 6},
+        {"id": "jade_cuirass", "name": "Jade Cuirass", "slot": "armor", "combat_power": 25, "cost": {"gold": 3150, "blood_gems": 140, "spell_fragments": 70, "herbs": 20, "ice_blocks": 150}, "required_level": 6},
+        # Tier 3 (lvl 11) -- Amethyst
+        {"id": "amethyst_wand", "name": "Amethyst Wand", "slot": "weapon", "combat_power": 28, "cost": {"gold": 3100, "blood_gems": 140, "spell_fragments": 60, "fish": 20, "ice_blocks": 140}, "required_level": 11},
+        {"id": "amethyst_circlet", "name": "Amethyst Circlet", "slot": "helmet", "combat_power": 22, "cost": {"gold": 2450, "blood_gems": 100, "spell_fragments": 45, "herbs": 15, "ice_blocks": 100}, "required_level": 11},
+        {"id": "amethyst_sandals", "name": "Amethyst Sandals", "slot": "boots", "combat_power": 20, "cost": {"gold": 2100, "blood_gems": 80, "spell_fragments": 40, "fish": 15, "ice_blocks": 90}, "required_level": 11},
+        {"id": "amethyst_robes", "name": "Amethyst Robes", "slot": "armor", "combat_power": 25, "cost": {"gold": 3700, "blood_gems": 170, "spell_fragments": 80, "herbs": 25, "ice_blocks": 170}, "required_level": 11},
+        # Tier 4 (lvl 16) -- Obsidian
+        {"id": "obsidian_blade", "name": "Obsidian Blade", "slot": "weapon", "combat_power": 28, "cost": {"gold": 4000, "blood_gems": 176, "spell_fragments": 82, "fish": 28, "ice_blocks": 185}, "required_level": 16},
+        {"id": "obsidian_crest", "name": "Obsidian Crest", "slot": "helmet", "combat_power": 22, "cost": {"gold": 3200, "blood_gems": 128, "spell_fragments": 60, "herbs": 20, "ice_blocks": 134}, "required_level": 16},
+        {"id": "obsidian_greaves", "name": "Obsidian Greaves", "slot": "boots", "combat_power": 20, "cost": {"gold": 2700, "blood_gems": 108, "spell_fragments": 52, "fish": 18, "ice_blocks": 113}, "required_level": 16},
+        {"id": "obsidian_plate", "name": "Obsidian Plate", "slot": "armor", "combat_power": 25, "cost": {"gold": 4800, "blood_gems": 216, "spell_fragments": 101, "herbs": 34, "ice_blocks": 227}, "required_level": 16},
+        # Tier 5 (lvl 21) -- Sapphire
+        {"id": "sapphire_trident", "name": "Sapphire Trident", "slot": "weapon", "combat_power": 28, "cost": {"gold": 5200, "blood_gems": 225, "spell_fragments": 110, "fish": 35, "ice_blocks": 250}, "required_level": 21},
+        {"id": "sapphire_tiara", "name": "Sapphire Tiara", "slot": "helmet", "combat_power": 22, "cost": {"gold": 4200, "blood_gems": 170, "spell_fragments": 80, "herbs": 25, "ice_blocks": 180}, "required_level": 21},
+        {"id": "sapphire_sabatons", "name": "Sapphire Sabatons", "slot": "boots", "combat_power": 20, "cost": {"gold": 3550, "blood_gems": 140, "spell_fragments": 70, "fish": 25, "ice_blocks": 150}, "required_level": 21},
+        {"id": "sapphire_aegis", "name": "Sapphire Aegis", "slot": "armor", "combat_power": 25, "cost": {"gold": 6300, "blood_gems": 275, "spell_fragments": 130, "herbs": 45, "ice_blocks": 300}, "required_level": 21},
     ],
     "legendary": [
-        {"id": "mythril_blade",    "name": "Mythril Blade",    "slot": "weapon", "combat_power": 45, "cost": {"gold": 11000, "blood_gems": 480, "spell_fragments": 225, "fish": 75,  "ice_blocks": 504}},
-        {"id": "mythril_diadem",   "name": "Mythril Diadem",   "slot": "helmet", "combat_power": 35, "cost": {"gold": 8600,  "blood_gems": 344, "spell_fragments": 165, "herbs": 55, "ice_blocks": 361}},
-        {"id": "mythril_sabatons", "name": "Mythril Sabatons", "slot": "boots",  "combat_power": 32, "cost": {"gold": 7300,  "blood_gems": 292, "spell_fragments": 142, "fish": 48,  "ice_blocks": 307}},
-        {"id": "mythril_plate",    "name": "Mythril Plate",    "slot": "armor",  "combat_power": 42, "cost": {"gold": 13000, "blood_gems": 584, "spell_fragments": 274, "herbs": 91, "ice_blocks": 613}},
+        # Tier 1 (lvl 1) -- Adamant
+        {"id": "adamant_warhammer", "name": "Adamant Warhammer", "slot": "weapon", "combat_power": 45, "cost": {"gold": 4200, "blood_gems": 180, "spell_fragments": 90, "fish": 30, "ice_blocks": 190}, "required_level": 1},
+        {"id": "adamant_casque", "name": "Adamant Casque", "slot": "helmet", "combat_power": 35, "cost": {"gold": 3300, "blood_gems": 130, "spell_fragments": 60, "herbs": 20, "ice_blocks": 140}, "required_level": 1},
+        {"id": "adamant_greaves", "name": "Adamant Greaves", "slot": "boots", "combat_power": 32, "cost": {"gold": 2800, "blood_gems": 110, "spell_fragments": 50, "fish": 20, "ice_blocks": 120}, "required_level": 1},
+        {"id": "adamant_bulwark", "name": "Adamant Bulwark", "slot": "armor", "combat_power": 42, "cost": {"gold": 4950, "blood_gems": 225, "spell_fragments": 100, "herbs": 35, "ice_blocks": 225}, "required_level": 1},
+        # Tier 2 (lvl 6) -- Platinum
+        {"id": "platinum_rapier", "name": "Platinum Rapier", "slot": "weapon", "combat_power": 45, "cost": {"gold": 5500, "blood_gems": 250, "spell_fragments": 110, "fish": 40, "ice_blocks": 250}, "required_level": 6},
+        {"id": "platinum_halo", "name": "Platinum Halo", "slot": "helmet", "combat_power": 35, "cost": {"gold": 4300, "blood_gems": 170, "spell_fragments": 80, "herbs": 30, "ice_blocks": 180}, "required_level": 6},
+        {"id": "platinum_striders", "name": "Platinum Striders", "slot": "boots", "combat_power": 32, "cost": {"gold": 3650, "blood_gems": 150, "spell_fragments": 70, "fish": 25, "ice_blocks": 150}, "required_level": 6},
+        {"id": "platinum_plate", "name": "Platinum Plate", "slot": "armor", "combat_power": 42, "cost": {"gold": 6500, "blood_gems": 300, "spell_fragments": 140, "herbs": 45, "ice_blocks": 300}, "required_level": 6},
+        # Tier 3 (lvl 11) -- Titanium
+        {"id": "titanium_cleaver", "name": "Titanium Cleaver", "slot": "weapon", "combat_power": 45, "cost": {"gold": 6500, "blood_gems": 275, "spell_fragments": 130, "fish": 45, "ice_blocks": 300}, "required_level": 11},
+        {"id": "titanium_visor", "name": "Titanium Visor", "slot": "helmet", "combat_power": 35, "cost": {"gold": 5100, "blood_gems": 200, "spell_fragments": 100, "herbs": 30, "ice_blocks": 200}, "required_level": 11},
+        {"id": "titanium_sabatons", "name": "Titanium Sabatons", "slot": "boots", "combat_power": 32, "cost": {"gold": 4300, "blood_gems": 170, "spell_fragments": 80, "fish": 30, "ice_blocks": 180}, "required_level": 11},
+        {"id": "titanium_aegis", "name": "Titanium Aegis", "slot": "armor", "combat_power": 42, "cost": {"gold": 7600, "blood_gems": 350, "spell_fragments": 160, "herbs": 50, "ice_blocks": 350}, "required_level": 11},
+        # Tier 4 (lvl 16) -- Orichalcum
+        {"id": "orichalcum_spear", "name": "Orichalcum Spear", "slot": "weapon", "combat_power": 45, "cost": {"gold": 8400, "blood_gems": 375, "spell_fragments": 170, "fish": 60, "ice_blocks": 375}, "required_level": 16},
+        {"id": "orichalcum_diadem", "name": "Orichalcum Diadem", "slot": "helmet", "combat_power": 35, "cost": {"gold": 6600, "blood_gems": 275, "spell_fragments": 130, "herbs": 40, "ice_blocks": 275}, "required_level": 16},
+        {"id": "orichalcum_sandals", "name": "Orichalcum Sandals", "slot": "boots", "combat_power": 32, "cost": {"gold": 5600, "blood_gems": 225, "spell_fragments": 110, "fish": 35, "ice_blocks": 225}, "required_level": 16},
+        {"id": "orichalcum_regalia", "name": "Orichalcum Regalia", "slot": "armor", "combat_power": 42, "cost": {"gold": 9900, "blood_gems": 450, "spell_fragments": 200, "herbs": 70, "ice_blocks": 475}, "required_level": 16},
+        # Tier 5 (lvl 21) -- Mythril
+        {"id": "mythril_blade", "name": "Mythril Blade", "slot": "weapon", "combat_power": 45, "cost": {"gold": 11000, "blood_gems": 480, "spell_fragments": 225, "fish": 75, "ice_blocks": 504}, "required_level": 21},
+        {"id": "mythril_diadem", "name": "Mythril Diadem", "slot": "helmet", "combat_power": 35, "cost": {"gold": 8600, "blood_gems": 344, "spell_fragments": 165, "herbs": 55, "ice_blocks": 361}, "required_level": 21},
+        {"id": "mythril_sabatons", "name": "Mythril Sabatons", "slot": "boots", "combat_power": 32, "cost": {"gold": 7300, "blood_gems": 292, "spell_fragments": 142, "fish": 48, "ice_blocks": 307}, "required_level": 21},
+        {"id": "mythril_plate", "name": "Mythril Plate", "slot": "armor", "combat_power": 42, "cost": {"gold": 13000, "blood_gems": 584, "spell_fragments": 274, "herbs": 91, "ice_blocks": 613}, "required_level": 21},
     ],
 }
 
@@ -502,6 +642,9 @@ def _slugify(text):
 def _seed_barracks_shop_if_empty(db, owns_conn):
     if db.execute("SELECT 1 FROM barracks_shop LIMIT 1").fetchone():
         return
+    # required_level now lives on each item itself (a rarity spans all 5
+    # tiers, not just one), unlike the old single _BARRACKS_REQUIRED_LEVEL-
+    # per-rarity lookup this replaced.
     for rarity, items in DEFAULT_BARRACKS_SHOP.items():
         for item in items:
             db.execute(
@@ -509,7 +652,7 @@ def _seed_barracks_shop_if_empty(db, owns_conn):
                 "VALUES (?,?,?,?,?,?,?,?)",
                 (item["id"], item["name"], item["slot"], rarity, item["combat_power"],
                  json.dumps(item["cost"]), int(bool(item.get("event_exclusive", False))),
-                 _BARRACKS_REQUIRED_LEVEL.get(rarity, 1))
+                 item["required_level"])
             )
     if owns_conn:
         db.commit()
