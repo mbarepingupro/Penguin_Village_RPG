@@ -5293,14 +5293,19 @@ def combat_fight():
 
             # Daily "all monsters defeated" bonus -- only fires the instant
             # the set actually completes, not on every kill once it's
-            # already complete. "Unlocked" mirrors /combat/monsters/
-            # <username>'s own locked gate (player_level < min_level) so a
-            # monster the player hasn't reached yet doesn't block
-            # completion. monster_id is guaranteed not already in
-            # killed_today_after minus itself, since the "Already defeated
-            # today" check above already rejected a repeat fight.
+            # already complete. "Unlocked" is scoped to the player's own
+            # current tier only (via _gear_tier_for_level(), the same
+            # tier-from-level helper the gear/N00Tbox loot rolls use --
+            # MONSTER_TYPES' "tier" field maps 1:1 onto GEAR_TIER_LEVEL_RANGES,
+            # see the comment above that helper) rather than every tier at or
+            # below the player's level, so a player who's out-leveled a lower
+            # tier no longer has to re-kill it to trigger the bonus.
+            # monster_id is guaranteed not already in killed_today_after minus
+            # itself, since the "Already defeated today" check above already
+            # rejected a repeat fight.
+            player_tier = _gear_tier_for_level(p["level"])
             unlocked_type_ids = {
-                tid for tid, mt in MONSTER_TYPES.items() if p["level"] >= mt["min_level"]
+                tid for tid, mt in MONSTER_TYPES.items() if mt["tier"] == player_tier
             }
             killed_today_after = {
                 row["monster_id"] for row in db.execute(
