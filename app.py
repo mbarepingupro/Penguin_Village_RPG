@@ -3315,6 +3315,11 @@ def raid_results(raid_id):
         "SELECT username, total_damage_dealt, reward_summary FROM raid_participants "
         "WHERE raid_id=? ORDER BY total_damage_dealt DESC", (raid_id,)
     ).fetchall()
+    # Same podium_size resolve_raid() itself reads (~line 2069) -- passed
+    # through as `db` since get_setting() may seed this key's default row on
+    # first read, and this connection is still open/uncommitted.
+    podium_size = raid_settings.get_setting("rank_reward_podium_size", db=db)
+    db.commit()
     db.close()
 
     leaderboard = []
@@ -3323,6 +3328,11 @@ def raid_results(raid_id):
         leaderboard.append({
             "rank": rank, "username": r["username"],
             "total_damage_dealt": r["total_damage_dealt"], "reward": reward,
+            # Reward TYPE only, not an amount -- non-podium amounts depend on
+            # final participant count and aren't decided until resolve_raid()
+            # runs. Mirrors resolve_raid()'s own rank<=podium_size split
+            # (~line 2077) without rolling anything live here.
+            "reward_type": "🎁 N00Tboxes" if rank <= podium_size else "Resources",
         })
 
     return jsonify({
@@ -10893,6 +10903,13 @@ def build_leaderboard_route():
             "username":         row["username"],
             "penguin_name":     (p["penguin_name"] if p else None) or row["username"],
             "ice_blocks_total": row["ice_blocks_total"],
+            # Reward TYPE only, not an amount -- non-podium amounts depend on
+            # final player count and are genuinely unknown until
+            # resolve_weekly_build_leaderboard() runs Sunday night. Mirrors
+            # _calculate_build_leaderboard_reward's own rank<=3 podium cutoff
+            # without calling that function (it rolls random amounts, not
+            # something a live, still-changing standings view should do).
+            "reward_type": "🎁 N00Tboxes + Resources" if i <= 3 else "Resources",
         })
     db.close()
 

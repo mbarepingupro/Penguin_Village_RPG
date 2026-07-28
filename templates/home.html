@@ -2796,6 +2796,13 @@
     .raid-results-rank   { color: #8888A8; width: 28px; flex-shrink: 0; }
     .raid-results-name   { flex: 1; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .raid-results-reward { color: #4aff6b; font-size: 16px; white-space: nowrap; flex-shrink: 0; }
+    /* Pre-resolution reward-TYPE tag (Build leaderboard live standings, raid
+       live leaderboard) -- same layout as .raid-results-reward above (small,
+       nowrap, doesn't shrink) but muted/secondary-text colored since it's a
+       label ("Resources" / "🎁 N00Tboxes...") standing in for an amount
+       that's genuinely undecided until resolution, not the actual value
+       .raid-results-reward shows post-resolution. */
+    .raid-results-reward-type { color: #8888A8; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
     #raid-results-lootbox-prompt { display: none; margin-top: 10px; padding: 10px; border: 1px dashed #A86EFF; text-align: center; }
     #raid-results-lootbox-text { color: #A86EFF; font-size: 16px; margin-bottom: 8px; }
     #raid-results-open-now-btn, #raid-results-close {
@@ -4704,6 +4711,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           html += '<div class="' + cls + '">' +
             '<span class="raid-results-rank">#' + entry.rank + '</span>' +
             '<span class="raid-results-name"><span class="pname-hl">' + GlobalChat._esc(entry.penguin_name) + '</span>' + (isSelf ? ' (you)' : '') + '</span>' +
+            '<span class="raid-results-reward-type">' + entry.reward_type + '</span>' +
             '<span class="raid-results-reward">🧊 ' + entry.ice_blocks_total.toLocaleString() + '</span>' +
             '</div>';
         });
