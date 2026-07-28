@@ -11286,6 +11286,36 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   })();
   {% endif %}
 
+  {% if raid_reward %}
+  (function() {
+    // Same reusable "Open" toast pattern as build_leaderboard_reward above --
+    // fed from the reward resolve_raid() already granted and stashed on this
+    // player's raid_participants row (see app.py's home() raid_reward
+    // lookup), for whoever wasn't actively polling at the moment their raid
+    // resolved (RaidJoin.showResults() already covers that live case).
+    var rr = {{ raid_reward | tojson }};
+    var outcomeWord = rr.status === 'succeeded' ? 'SUCCEEDED' : 'FAILED';
+    var msg = '⚔️ Raid vs ' + rr.boss_name + ' ' + outcomeWord + '! Earned ';
+    if (rr.reward.lootboxes) {
+      msg += rr.reward.lootboxes + ' N00Tbox' + (rr.reward.lootboxes === 1 ? '' : 'es') + '!';
+    } else if (rr.reward.resource_type) {
+      // Reuses RaidJoin's own icon/label map (static/raid.js) instead of yet
+      // another copy of the same resource->emoji lookup.
+      var meta = (window.RaidJoin && RaidJoin._RESOURCE_META[rr.reward.resource_type])
+        || ['🎁', rr.reward.resource_type];
+      msg += '+' + rr.reward.resource_amount + ' ' + meta[0] + ' ' + meta[1] + '!';
+    }
+    if (rr.reward.lootbox_ids && rr.reward.lootbox_ids.length) {
+      showToast(msg, 'ok', {
+        label: 'OPEN',
+        onClick: function() { invOpenLootbox(rr.reward.lootbox_ids[0]); }
+      });
+    } else {
+      showToast(msg, 'ok');
+    }
+  })();
+  {% endif %}
+
   {% endif %}
 
   // ═══════════════════════════════════════════════════════════════

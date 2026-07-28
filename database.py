@@ -696,6 +696,15 @@ def init_db():
     _add_col(c, "penguins", "build_free_rolls INTEGER DEFAULT 0")
     _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")
     _add_col(c, "raid_participants", "reward_summary TEXT DEFAULT NULL")
+    # One-shot login-toast marker for raid rewards, same idea as
+    # weekly_build_leaderboard_archive's own `notified` column above --
+    # resolve_raid() (a scheduled/attack-triggered resolution, not a live
+    # request from every participant) writes reward_summary onto each
+    # participant's row with no live session to stash a flag in, so home()
+    # queries WHERE notified=0 AND reward_summary IS NOT NULL and flips this
+    # to 1 once shown, instead of relying on the player polling at the exact
+    # moment their raid resolves (see RaidJoin.showResults() for that path).
+    _add_col(c, "raid_participants", "notified INTEGER DEFAULT 0")
     _add_col(c, "topic_suggestions", "status TEXT DEFAULT 'pending'")
     # JSON array of usernames for group events (see personality_config.GROUP_EVENT_TEMPLATES);
     # NULL for every other event_log row. Lets welcome-back find events a given player took part in.
