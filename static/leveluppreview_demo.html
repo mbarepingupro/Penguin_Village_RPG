@@ -476,11 +476,17 @@
     const penguinState = { animFrame: 0, facingRight: true };
     drawPenguinFrame(canvas, baseStrip, wornSprites, cfg, 0, true, scale);
 
+    // canvas.style.left is a center-offset from the anchor, which itself
+    // sits at the horizontal middle of the screen (see .lvup-sprite-anchor
+    // and .lvup-penguin-canvas's translate(-50%,0)) -- so "off screen" has
+    // to clear half the viewport width, not just one sprite-width.
+    const drawWidth = cfg.frameWidth * scale;
     const halfW = window.innerWidth / 2;
-    const offscreenX = -(cfg.frameWidth * scale);
+    const offLeftX  = -(halfW + drawWidth / 2 + 60);
+    const offRightX =  (halfW + drawWidth / 2 + 60);
 
-    // Walk left-edge -> center
-    await walk(canvas, penguinState, baseStrip, wornSprites, cfg, scale, offscreenX, 0, 1100, true);
+    // Walk in from off-screen left to center
+    await walk(canvas, penguinState, baseStrip, wornSprites, cfg, scale, offLeftX, 0, walkDuration(offLeftX), true);
 
     // "LEVEL {current level}" appears once the penguin stops, anchored
     // above the sprite's actual rendered height (not the map's tiny one).
@@ -503,11 +509,15 @@
     await rollOdometer(rollOdo);
     await sleep(600);
 
-    // Walk center -> left edge
-    await walk(canvas, penguinState, baseStrip, wornSprites, cfg, scale, 0, offscreenX, 1100, false);
+    // Continue walking in the same direction, off-screen to the right --
+    // the full journey is left edge -> right edge, not a there-and-back.
+    await walk(canvas, penguinState, baseStrip, wornSprites, cfg, scale, 0, offRightX, walkDuration(offRightX), true);
 
     await armDismiss(overlay, prompt);
   }
+
+  const WALK_SPEED = 650; // px/sec at any scale, so the pace looks consistent across screen sizes
+  function walkDuration(distancePx) { return Math.abs(distancePx) / WALK_SPEED * 1000; }
 
   async function walk(canvas, state, baseStrip, wornSprites, cfg, scale, fromX, toX, durationMs, facingRight) {
     state.facingRight = facingRight;
@@ -542,9 +552,11 @@
     const sprite = await loadImage(`/static/buildings/${buildingId}.png`);
     let spriteEl, spriteHeight;
     if (sprite) {
-      spriteEl = document.createElement('img');
+      // Reuse the Image element that already finished loading instead of
+      // creating a fresh <img> and reassigning src (which would fire a
+      // second, separate fetch of the same resource).
+      spriteEl = sprite;
       spriteEl.className = 'lvup-building-img';
-      spriteEl.src = sprite.src;
       spriteHeight = window.innerWidth < 768 ? 180 : 260;
       const scale = spriteHeight / sprite.naturalHeight;
       spriteEl.style.height = spriteHeight + 'px';
