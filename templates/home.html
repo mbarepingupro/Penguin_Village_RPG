@@ -8023,40 +8023,57 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const el = document.getElementById('mg-weekly-section');
     if (!el) return;
     if (!FEATURES.minigame_leaderboard) {
-      el.innerHTML = `<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">🔒 Weekly Mini-Game Leaderboard coming soon!</div>`;
+      el.innerHTML = `<div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">🔒 Weekly Mini-Game Leaderboards coming soon!</div>`;
       return;
     }
-    el.innerHTML = `<div style="color:#FF8C00;font-size:17px;margin-bottom:4px;">📅 WEEKLY MINI-GAME LEADERBOARD</div>
-      <div style="color:#B8B8D0;font-size:16px;margin-bottom:8px;">Combined score across all 5 mini-games (each game's best score, normalized against that game's weekly top). Resets Monday, rewards Saturday.</div>
-      <div id="mg-weekly-table" style="min-height:40px;"><div style="color:#8888A8;font-size:16px;text-align:center;padding:10px;">LOADING...</div></div>`;
+    el.innerHTML = `<div style="color:#FF8C00;font-size:17px;margin-bottom:4px;">📅 WEEKLY MINI-GAME LEADERBOARDS</div>
+      <div style="color:#B8B8D0;font-size:16px;margin-bottom:8px;">Each game is its own weekly contest -- whoever's #1 when the week ends (Saturday 00:00) wins a N00Tbox for that game. Resets Monday.</div>
+      <div id="mg-weekly-games"></div>`;
+    const gamesEl = document.getElementById('mg-weekly-games');
+    let skeleton = '';
+    for (const [buildingId, label] of Object.entries(MINIGAME_LABELS)) {
+      skeleton += `<div style="margin-bottom:14px;">
+        <div style="color:#B8B8D0;font-size:16px;margin-bottom:4px;">${label}</div>
+        <div id="mg-weekly-table-${buildingId}" style="min-height:30px;"><div style="color:#8888A8;font-size:16px;text-align:center;padding:8px;">LOADING...</div></div>
+      </div>`;
+    }
+    gamesEl.innerHTML = skeleton;
+
     try {
       const res  = await fetch(`/minigame/leaderboard?username=${encodeURIComponent(CURRENT_USER)}`);
       const data = await res.json();
-      const tableEl = document.getElementById('mg-weekly-table');
-      if (!tableEl) return;
-      if (data.status !== 'success' || !data.entries || !data.entries.length) {
-        tableEl.innerHTML = '<div style="color:#B8B8D0;font-size:16px;text-align:center;padding:10px;">No mini-game scores yet this week!</div>';
+      if (data.status !== 'success' || !data.games) {
+        gamesEl.innerHTML = '<div style="color:#ff6b6b;font-size:16px;text-align:center;padding:10px;">Error loading leaderboards.</div>';
         return;
       }
       const medals = ['🥇','🥈','🥉'];
-      let html = '';
-      for (const e of data.entries) {
-        const isMe   = e.username === CURRENT_USER;
-        const medal  = e.rank <= 3 ? medals[e.rank - 1] : null;
-        const rowCls = isMe ? 'lb-row me' : (e.rank <= 3 ? `lb-row rank${e.rank}` : 'lb-row');
-        const nameHtml = isMe
-          ? `<span style="color:#FF7FE5;">${e.penguin_name} ◀</span>`
-          : `<span class="pname-hl">${e.penguin_name}</span>`;
-        html += `<div class="${rowCls}">
-          <div style="width:30px;">${medal || '#' + e.rank}</div>
-          <div style="flex:1;">${nameHtml}</div>
-          <div style="color:#FF8C00;">${e.score}</div>
-        </div>`;
+      for (const [buildingId, label] of Object.entries(MINIGAME_LABELS)) {
+        const tableEl = document.getElementById(`mg-weekly-table-${buildingId}`);
+        if (!tableEl) continue;
+        const game = data.games[buildingId];
+        if (!game || !game.entries || !game.entries.length) {
+          tableEl.innerHTML = '<div style="color:#8888A8;font-size:16px;text-align:center;padding:8px;">No plays yet this week.</div>';
+          continue;
+        }
+        let html = '';
+        for (const e of game.entries.slice(0, 5)) {
+          const isMe    = e.username === CURRENT_USER;
+          const medal   = e.rank <= 3 ? medals[e.rank - 1] : null;
+          const isPending = e.rank === 1;
+          const rowCls  = isMe ? 'lb-row me' : (e.rank <= 3 ? `lb-row rank${e.rank}` : 'lb-row');
+          const nameHtml = isMe
+            ? `<span style="color:#FF7FE5;">${e.penguin_name} ◀</span>`
+            : `<span class="pname-hl">${e.penguin_name}</span>`;
+          html += `<div class="${rowCls}">
+            <div style="width:30px;">${medal || '#' + e.rank}</div>
+            <div style="flex:1;">${nameHtml}${isPending ? ' <span style="color:#4aff6b;font-size:14px;">(this week\'s winner)</span>' : ''}</div>
+            <div style="color:#FF8C00;">${e.score.toLocaleString()}</div>
+          </div>`;
+        }
+        tableEl.innerHTML = html;
       }
-      tableEl.innerHTML = html;
     } catch(e) {
-      const tableEl = document.getElementById('mg-weekly-table');
-      if (tableEl) tableEl.innerHTML = '<div style="color:#ff6b6b;font-size:16px;text-align:center;">Error loading leaderboard.</div>';
+      gamesEl.innerHTML = '<div style="color:#ff6b6b;font-size:16px;text-align:center;padding:10px;">Error loading leaderboards.</div>';
     }
   }
 
@@ -11336,6 +11353,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } else {
       showToast(msg, 'ok');
     }
+  })();
+  {% endif %}
+
+  {% if minigame_reward %}
+  (function() {
+    // Same reusable "Open" toast pattern as build_leaderboard_reward/raid_reward
+    // above -- fed from the N00Tbox resolve_weekly_minigame_leaderboard()
+    // already granted to this week's #1 in one game, stashed on this
+    // player's weekly_minigame_winners row (see app.py's home()
+    // minigame_reward lookup).
+    var mgr = {{ minigame_reward | tojson }};
+    var msg = '🎮 Weekly ' + mgr.label + ' Champion! 1 N00Tbox awarded!';
+    showToast(msg, 'ok', {
+      label: 'OPEN',
+      onClick: function() { invOpenLootbox(mgr.lootbox_id); }
+    });
   })();
   {% endif %}
 

@@ -25,11 +25,13 @@ FEATURES = {
                               # templates/home.html (hides the social-mode-section UI).
                               # /penguin/social-mode and the DB columns are untouched/ungated so
                               # re-enabling is just flipping this flag back to True.
-    "minigame_leaderboard": False,  # Weekly combined minigame leaderboard + Saturday 00:00 reward
-                                    # resolution job. Raw score persistence (minigame_scores table)
-                                    # and the Award Hall's all-time records tab are NOT gated by
-                                    # this — only the live weekly rankings + rank rewards + chat
-                                    # announcement. Flip to True to go live.
+    "minigame_leaderboard": True,  # 5 independent per-game weekly minigame leaderboards + Saturday
+                                    # 00:00 reward resolution job. Each of the 5 minigames runs its
+                                    # own winner-take-one-N00Tbox weekly contest (whoever's #1 in
+                                    # that game when the week ends) — no combined score, no ranks
+                                    # 2/3. Raw score persistence (minigame_scores table) and the
+                                    # Award Hall's all-time records tab are NOT gated by this — only
+                                    # the live weekly rankings + winner reward + chat announcement.
     "weekly_build_leaderboard": True,  # Tracks cumulative ice_blocks earned per player over a
                                     # rotating week (Sun 23:59 server-time reset), gated at the
                                     # /build/roll increment call and the reset job alike. No reward
