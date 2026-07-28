@@ -228,6 +228,24 @@ def init_db():
         )
     """)
 
+    # One row per weekly per-game win -- each of the 5 minigames resolves its
+    # own independent weekly leaderboard (see resolve_weekly_minigame_leaderboard()
+    # in app.py), so a single week can produce up to 5 rows here (one per
+    # building_id), each with its own N00Tbox. Mirrors
+    # weekly_build_leaderboard_archive's "archive row doubles as the one-shot
+    # login-toast marker" shape -- the `notified` column is cleared to 1 by
+    # home() the first time the winner logs in after the win.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_minigame_winners (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            week_start   INTEGER NOT NULL,
+            building_id  TEXT    NOT NULL,
+            username     TEXT    NOT NULL,
+            lootbox_id   INTEGER NOT NULL,
+            notified     INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS active_buffs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
