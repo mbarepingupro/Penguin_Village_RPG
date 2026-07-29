@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Level-Up Celebration — Standalone Demo</title>
+<style>
+  @font-face {
+    font-family: 'C&C Red Alert';
+    src: url('/static/fonts/CCRedAlertINET.woff2') format('woff2'),
+         url('/static/fonts/CCRedAlertINET.ttf') format('truetype');
+    font-weight: normal; font-style: normal; font-display: swap;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #101018; color: #D8D8F0;
+    font-family: 'C&C Red Alert', monospace;
+  }
+
+  /* ── Demo control panel (this page's own UI — not part of the celebration) ── */
+  #demo-panel {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 5000;
+    background: #181822; border-bottom: 3px solid #A86EFF;
+    padding: 14px 20px;
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;
+  }
+  #demo-panel h1 {
+    font-size: 16px; color: #FF8C00; margin: 0 0 10px 0; width: 100%;
+  }
+  .demo-group {
+    background: #1C1C2E; border: 2px solid #3A3A5A; padding: 10px 14px;
+    display: flex; flex-direction: column; gap: 8px; min-width: 260px;
+  }
+  .demo-group h2 { font-size: 13px; color: #A86EFF; margin: 0 0 2px 0; }
+  .demo-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .demo-row label { color: #8888A8; min-width: 78px; }
+  .demo-row select, .demo-row input {
+    background: #14141f; border: 1px solid #3A3A5A; color: #D8D8F0;
+    font-family: inherit; font-size: 12px; padding: 4px 6px; width: 70px;
+  }
+  .demo-row select { width: 150px; }
+  .demo-btn {
+    margin-top: 4px; font-family: inherit; font-size: 13px;
+    background: #A86EFF; color: #14141f; border: none;
+    padding: 8px 12px; cursor: pointer; font-weight: bold;
+  }
+  .demo-btn:hover { background: #c299ff; }
+  .demo-btn:disabled { background: #4A4A5A; color: #8888A8; cursor: not-allowed; }
+  #demo-stage-note {
+    font-size: 11px; color: #666680; width: 100%; margin-top: 2px;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     LEVEL-UP CELEBRATION — the actual component being previewed.
+     Everything below this line is what would get ported into home.html.
+     ══════════════════════════════════════════════════════════════════════ */
+
+  .lvup-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .lvup-overlay.show { opacity: 1; }
+  .lvup-overlay.dismissing { opacity: 0; }
+  .lvup-overlay.clickable { cursor: pointer; }
+
+  /* Confetti confined to the top portion of the screen only */
+  .lvup-confetti-zone {
+    position: absolute; top: 0; left: 0; right: 0; height: 40vh;
+    overflow: hidden; pointer-events: none; z-index: 1;
+  }
+  .confetti-piece {
+    position: absolute; top: -10px; pointer-events: none;
+    animation: confettiFall linear infinite;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-10px) rotate(0deg) translateX(0); opacity: 1; }
+    25%  { transform: translateY(25vh) rotate(90deg) translateX(15px); }
+    50%  { transform: translateY(50vh) rotate(180deg) translateX(-10px); }
+    75%  { transform: translateY(75vh) rotate(270deg) translateX(20px); }
+    100% { transform: translateY(100vh) rotate(360deg) translateX(-5px); opacity: 0.5; }
+  }
+
+  .lvup-stage {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Sprite anchor: fixed point at stage center; penguin/building position
+     themselves relative to it via transform so text above stays put. */
+  .lvup-sprite-anchor {
+    position: absolute; left: 50%; top: 58%;
+  }
+
+  .lvup-penguin-canvas {
+    position: absolute; bottom: 0;
+    transform: translate(-50%, 0);
+    image-rendering: pixelated;
+    filter: drop-shadow(0 8px 10px rgba(0,0,0,0.5));
+    max-width: none !important;
+    max-height: none !important;
+    display: block !important;
+  }
+
+  .lvup-building-img, .lvup-building-fallback {
+    position: absolute; bottom: 0; left: 50%;
+    transform: translate(-50%, 0) scale(0.6);
+    opacity: 0;
+    transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s ease;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 10px 14px rgba(0,0,0,0.55));
+    /* Guard against a host page's own `img { max-width: 100% }`-style reset:
+       this element's width/height are set inline in px by JS and must not
+       be reinterpreted against the anchor's (0-width) containing block. */
+    max-width: none !important;
+    max-height: none !important;
+    display: block !important;
+  }
+  .lvup-building-img.in, .lvup-building-fallback.in {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+  .lvup-building-fallback {
+    width: 220px; height: 220px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 16px;
+    border: 3px solid rgba(0,0,0,0.5);
+    font-size: 18px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  }
+
+  /* `bottom` is set inline in px by JS once the sprite's rendered height is
+     known (a CSS `bottom: 100%` here would resolve against the anchor's own
+     box, which is 0-height, and land the text on top of the sprite instead
+     of above it). */
+  .lvup-text-wrap {
+    position: absolute; left: 50%; bottom: 0;
+    transform: translate(-50%, 0);
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    opacity: 0;
+    white-space: nowrap;
+  }
+  .lvup-text-wrap.in {
+    opacity: 1;
+    animation: lvupTextPop 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes lvupTextPop {
+    0%   { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+    70%  { transform: translate(-50%, 0) scale(1.15); opacity: 1; }
+    100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  }
+  .lvup-level-label {
+    font-size: 30px; color: #FF7FE5;
+    text-shadow: 0 0 14px rgba(255,127,229,0.7);
+  }
+
+  .lvup-odometer {
+    display: flex; gap: 4px;
+  }
+  .lvup-odo-digit {
+    position: relative;
+    width: 46px; height: 62px;
+    overflow: hidden;
+    background: #1C1C2E; border: 2px solid #A86EFF;
+    box-shadow: 0 0 16px rgba(168,110,255,0.35);
+  }
+  .lvup-odo-digit.roll-flash {
+    animation: lvupOdoFlash 0.4s ease;
+  }
+  @keyframes lvupOdoFlash {
+    0%   { box-shadow: 0 0 4px rgba(255,140,0,0.2); border-color: #A86EFF; }
+    40%  { box-shadow: 0 0 26px rgba(255,140,0,0.9); border-color: #FF8C00; }
+    100% { box-shadow: 0 0 16px rgba(168,110,255,0.35); border-color: #A86EFF; }
+  }
+  .lvup-odo-strip {
+    position: absolute; left: 0; top: 0; width: 100%;
+    display: flex; flex-direction: column;
+    transition: transform 0.65s cubic-bezier(0.22,1,0.36,1);
+  }
+  .lvup-odo-digit-val {
+    height: 62px; line-height: 62px;
+    text-align: center; font-size: 44px; color: #FF8C00;
+    text-shadow: 0 0 12px rgba(255,140,0,0.6);
+  }
+
+  .lvup-prompt {
+    position: absolute; left: 50%; bottom: 6%;
+    transform: translateX(-50%);
+    z-index: 3;
+    font-size: 15px; color: #B8B8D0;
+    opacity: 0; pointer-events: none;
+  }
+  .lvup-prompt.show {
+    opacity: 1;
+    animation: lvupPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes lvupPulse {
+    0%, 100% { opacity: 0.35; }
+    50%      { opacity: 1; }
+  }
+
+  @media (max-width: 768px) {
+    .lvup-level-label { font-size: 22px; }
+    .lvup-odo-digit { width: 34px; height: 46px; }
+    .lvup-odo-digit-val { height: 46px; line-height: 46px; font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="demo-panel">
+    <h1>Level-Up Celebration — Standalone Demo (not wired into the real game yet)</h1>
+
+    <div class="demo-group">
+      <h2>🐧 Player Level-Up</h2>
+      <div class="demo-row">
+        <label>Preset</label>
+        <select id="pl-preset">
+          <option value="A">A — Tall, Blue, Top Hat</option>
+          <option value="B">B — Normal, Pink, Cowboy Hat</option>
+          <option value="C">C — Normal, Default Black, No Gear</option>
+        </select>
+      </div>
+      <div class="demo-row">
+        <label>Old Level</label>
+        <input id="pl-old" type="number" value="8" min="1" max="998" />
+        <label style="min-width:auto;">New</label>
+        <input id="pl-new" type="number" value="9" min="2" max="999" />
+      </div>
+      <button class="demo-btn" id="pl-play">▶ Play Player Level-Up</button>
+    </div>
+
+    <div class="demo-group">
+      <h2>🏛️ Building Level-Up</h2>
+      <div class="demo-row">
+        <label>Building</label>
+        <select id="bl-preset">
+          <option value="hotel">hotel (has art)</option>
+          <option value="cursed_temple">cursed_temple (has art)</option>
+          <option value="mystery_lodge">mystery_lodge (missing art → fallback)</option>
+        </select>
+      </div>
+      <div class="demo-row">
+        <label>Old Level</label>
+        <input id="bl-old" type="number" value="2" min="1" max="998" />
+        <label style="min-width:auto;">New</label>
+        <input id="bl-new" type="number" value="3" min="2" max="999" />
+      </div>
+      <button class="demo-btn" id="bl-play">▶ Play Building Level-Up</button>
+    </div>
+
+    <div id="demo-stage-note">
+      Click anywhere on the celebration once the walk-out / hold finishes to dismiss (click-gated — no auto-timeout).
+      Try New Level = 10, 20, or 100 to see the odometer carry across digits.
+    </div>
+  </div>
+
+  <script src="/static/recolor.js"></script>
+  <script>
+  'use strict';
+
+  // ── Sprite plumbing (mirrors static/village_map.js's SHAPE_CONFIG /
+  // _AREA_FOLDER / getRecoloredSprite so the celebration composites the
+  // player exactly like the map does) ─────────────────────────────────────
+  const SHAPE_CONFIG = {
+    normal: { frameWidth: 32, frameHeight: 40, stripFile: 'penguin_normal.png' },
+    tall:   { frameWidth: 32, frameHeight: 50, stripFile: 'penguin_tall.png' },
+  };
+  const _AREA_FOLDER = { head: 'hats', body: 'outfits', feet: 'footwear', hand: 'accessories' };
+  const DRAW_ORDER = ['body', 'feet', 'hand', 'head'];
+  const PENGUIN_FRAME_COUNT = 2;
+  const PENGUIN_ANIM_SPEED  = 400; // ms per frame, same cadence as the village map
+
+  const _imgCache = {};
+  function loadImage(src) {
+    if (_imgCache[src]) return _imgCache[src];
+    const p = new Promise((resolve) => {
+      const img = new Image();
+      img.onload  = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+    _imgCache[src] = p;
+    return p;
+  }
+
+  // Sample "worn items" loadouts. Only hats currently have shipped art
+  // (outfits/footwear/accessories folders are empty in this repo), so
+  // presets lean on hats — the compositing loop itself handles all four
+  // slots identically and will pick up outfit/footwear art automatically
+  // once it exists.
+  const PLAYER_PRESETS = {
+    A: { shape: 'tall',   color: '#4a9eff', worn_items: { head: 'top_hat' } },
+    B: { shape: 'normal', color: '#FF7FE5', worn_items: { head: 'cowboy_hat' } },
+    C: { shape: 'normal', color: '#1a1a1a', worn_items: {} },
+  };
+
+  const BUILDING_CFG = {
+    hotel:         { color: '#C0392B', name: 'PENGUIN HOTEL' },
+    cursed_temple: { color: '#7D3C98', name: 'CURSED TEMPLE' },
+  };
+
+  async function preloadPenguinSprites(shape) {
+    const cfg = SHAPE_CONFIG[shape];
+    const strip = await loadImage(`/static/${cfg.stripFile}`);
+    return strip;
+  }
+
+  async function preloadWornSprites(shape, wornItems) {
+    const out = {};
+    for (const area of DRAW_ORDER) {
+      const itemId = wornItems[area];
+      if (!itemId) continue;
+      const folder = _AREA_FOLDER[area];
+      const img = await loadImage(`/static/penguin_wearing/${shape}/${folder}/${itemId}.png`);
+      if (img) out[area] = img;
+    }
+    return out;
+  }
+
+  // Draws one walk-cycle frame of the fully-dressed penguin onto `canvas`,
+  // sized/scaled up well beyond the village map's tiny sprite. Mirrors the
+  // compositing order in village_map.js's drawPenguin(): base recolored
+  // sprite, then body -> feet -> hand -> head worn layers.
+  function drawPenguinFrame(canvas, baseStrip, wornSprites, cfg, animFrame, facingRight, scale) {
+    const drawWidth  = cfg.frameWidth  * scale;
+    const drawHeight = cfg.frameHeight * scale;
+    canvas.width  = drawWidth;
+    canvas.height = drawHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, drawWidth, drawHeight);
+    ctx.save();
+    if (!facingRight) {
+      ctx.translate(drawWidth, 0);
+      ctx.scale(-1, 1);
+    }
+    const frameX = animFrame * cfg.frameWidth;
+    ctx.drawImage(baseStrip, frameX, 0, cfg.frameWidth, cfg.frameHeight, 0, 0, drawWidth, drawHeight);
+    for (const area of DRAW_ORDER) {
+      const sprite = wornSprites[area];
+      if (!sprite) continue;
+      ctx.drawImage(sprite, frameX, 0, cfg.frameWidth, cfg.frameHeight, 0, 0, drawWidth, drawHeight);
+    }
+    ctx.restore();
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; }
+
+  // ── Confetti — verbatim port of templates/home.html's startConfetti() ──
+  function startConfetti(container) {
+    const colors = ['#A86EFF','#FF7FE5','#FF8C00','#4aff6b','#4a9eff','#FFFFFF'];
+    const count  = window.innerWidth < 768 ? 30 : 60;
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      const size = 4 + Math.random() * 4;
+      piece.style.width  = size + 'px';
+      piece.style.height = size + 'px';
+      piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.left             = Math.random() * 100 + '%';
+      piece.style.animationDuration = (2 + Math.random() * 3) + 's';
+      piece.style.animationDelay    = Math.random() * 2 + 's';
+      container.appendChild(piece);
+    }
+  }
+
+  // ── Digit-roll odometer ──────────────────────────────────────────────
+  // Builds one strip per digit column. Each column lists every digit the
+  // wheel passes through from its old value to its new value (wrapping
+  // 9→0 like a real odometer, never rolling backwards), then transitions
+  // the strip up to land on the final value.
+  function buildOdometerColumn(oldDigit, newDigit) {
+    const col = document.createElement('div');
+    col.className = 'lvup-odo-digit';
+    const strip = document.createElement('div');
+    strip.className = 'lvup-odo-strip';
+    let d = oldDigit;
+    const seq = [d];
+    while (d !== newDigit) { d = (d + 1) % 10; seq.push(d); }
+    seq.forEach(v => {
+      const s = document.createElement('div');
+      s.className = 'lvup-odo-digit-val';
+      s.textContent = String(v);
+      strip.appendChild(s);
+    });
+    col.appendChild(strip);
+    return { col, strip, steps: seq.length - 1 };
+  }
+
+  function buildOdometer(oldVal, newVal) {
+    const wrap = document.createElement('div');
+    wrap.className = 'lvup-odometer';
+    const maxLen = Math.max(String(oldVal).length, String(newVal).length);
+    const oldStr = String(oldVal).padStart(maxLen, '0');
+    const newStr = String(newVal).padStart(maxLen, '0');
+    const columns = [];
+    for (let i = 0; i < maxLen; i++) {
+      const { col, strip, steps } = buildOdometerColumn(parseInt(oldStr[i], 10), parseInt(newStr[i], 10));
+      wrap.appendChild(col);
+      columns.push({ col, strip, steps });
+    }
+    return { el: wrap, columns };
+  }
+
+  async function rollOdometer(odometer) {
+    const DIGIT_H = window.innerWidth < 768 ? 46 : 62;
+    // Force layout so the initial (untransitioned) position is committed
+    // before we kick off the transition on the next frame.
+    odometer.el.getBoundingClientRect();
+    await sleep(20);
+    let maxDelay = 0;
+    odometer.columns.forEach(({ strip, steps, col }, i) => {
+      const delay = i * 90;
+      maxDelay = Math.max(maxDelay, delay);
+      setTimeout(() => {
+        strip.style.transform = `translateY(-${steps * DIGIT_H}px)`;
+      }, delay);
+      setTimeout(() => {
+        col.classList.add('roll-flash');
+        setTimeout(() => col.classList.remove('roll-flash'), 400);
+      }, delay + 650);
+    });
+    await sleep(maxDelay + 650 + 150);
+  }
+
+  // ── Shared overlay shell ────────────────────────────────────────────
+  function createOverlayShell() {
+    const overlay = document.createElement('div');
+    overlay.className = 'lvup-overlay';
+    const confettiZone = document.createElement('div');
+    confettiZone.className = 'lvup-confetti-zone';
+    const stage = document.createElement('div');
+    stage.className = 'lvup-stage';
+    const prompt = document.createElement('div');
+    prompt.className = 'lvup-prompt';
+    prompt.textContent = 'TAP TO CONTINUE';
+    overlay.appendChild(confettiZone);
+    overlay.appendChild(stage);
+    overlay.appendChild(prompt);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    startConfetti(confettiZone);
+    return { overlay, stage, prompt };
+  }
+
+  function armDismiss(overlay, prompt) {
+    return new Promise((resolve) => {
+      prompt.classList.add('show');
+      overlay.classList.add('clickable');
+      overlay.addEventListener('click', function onClick() {
+        overlay.removeEventListener('click', onClick);
+        overlay.classList.remove('clickable');
+        overlay.classList.add('dismissing');
+        setTimeout(() => { overlay.remove(); resolve(); }, 300);
+      });
+    });
+  }
+
+  // ── PLAYER LEVEL-UP ─────────────────────────────────────────────────
+  async function playPlayerLevelUp(oldLevel, newLevel, preset) {
+    const { shape, color, worn_items } = preset;
+    const cfg = SHAPE_CONFIG[shape];
+    const [baseStrip, wornSprites] = await Promise.all([
+      preloadPenguinSprites(shape),
+      preloadWornSprites(shape, worn_items),
+    ]);
+    if (!baseStrip) { alert('Could not load penguin sprite for shape: ' + shape); return; }
+
+    const { overlay, stage, prompt } = createOverlayShell();
+
+    const anchor = document.createElement('div');
+    anchor.className = 'lvup-sprite-anchor';
+    stage.appendChild(anchor);
+
+    const scale = window.innerWidth < 768 ? 4.5 : 6.5;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'lvup-penguin-canvas';
+    anchor.appendChild(canvas);
+
+    const penguinState = { animFrame: 0, facingRight: true };
+    drawPenguinFrame(canvas, baseStrip, wornSprites, cfg, 0, true, scale);
+
+    // canvas.style.left is a center-offset from the anchor, which itself
+    // sits at the horizontal middle of the screen (see .lvup-sprite-anchor
+    // and .lvup-penguin-canvas's translate(-50%,0)) -- so "off screen" has
+    // to clear half the viewport width, not just one sprite-width.
+    const drawWidth = cfg.frameWidth * scale;
+    const halfW = window.innerWidth / 2;
+    const offLeftX  = -(halfW + drawWidth / 2 + 60);
+    const offRightX =  (halfW + drawWidth / 2 + 60);
+
+    // Walk in from off-screen left to center
+    await walk(canvas, penguinState, baseStrip, wornSprites, cfg, scale, offLeftX, 0, walkDuration(offLeftX), true);
+
+    // "LEVEL {current level}" appears once the penguin stops, anchored
+    // above the sprite's actual rendered height (not the map's tiny one).
+    const textWrap = document.createElement('div');
+    textWrap.className = 'lvup-text-wrap';
+    textWrap.style.bottom = (cfg.frameHeight * scale + 22) + 'px';
+    const label = document.createElement('div');
+    label.className = 'lvup-level-label';
+    label.textContent = 'LEVEL';
+    const odometer = buildOdometer(oldLevel, oldLevel);
+    textWrap.appendChild(label);
+    textWrap.appendChild(odometer.el);
+    anchor.appendChild(textWrap);
+    requestAnimationFrame(() => textWrap.classList.add('in'));
+    await sleep(550);
+
+    // Roll old -> new
+    const rollOdo = buildOdometer(oldLevel, newLevel);
+    textWrap.replaceChild(rollOdo.el, odometer.el);
+    await rollOdometer(rollOdo);
+    await sleep(600);
+
+    // Continue walking in the same direction, off-screen to the right --
+    // the full journey is left edge -> right edge, not a there-and-back.
+    await walk(canvas, penguinState, baseStrip, wornSprites, cfg, scale, 0, offRightX, walkDuration(offRightX), true);
+
+    await armDismiss(overlay, prompt);
+  }
+
+  const WALK_SPEED = 650; // px/sec at any scale, so the pace looks consistent across screen sizes
+  function walkDuration(distancePx) { return Math.abs(distancePx) / WALK_SPEED * 1000; }
+
+  async function walk(canvas, state, baseStrip, wornSprites, cfg, scale, fromX, toX, durationMs, facingRight) {
+    state.facingRight = facingRight;
+    return new Promise((resolve) => {
+      const start = performance.now();
+      let lastFrame = -1;
+      function tick(now) {
+        const elapsed = now - start;
+        const t = Math.min(1, elapsed / durationMs);
+        const eased = easeInOutQuad(t);
+        canvas.style.left = (fromX + (toX - fromX) * eased) + 'px';
+        const frame = Math.floor(elapsed / PENGUIN_ANIM_SPEED) % PENGUIN_FRAME_COUNT;
+        if (frame !== lastFrame) {
+          lastFrame = frame;
+          drawPenguinFrame(canvas, baseStrip, wornSprites, cfg, frame, facingRight, scale);
+        }
+        if (t < 1) requestAnimationFrame(tick);
+        else resolve();
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+
+  // ── BUILDING LEVEL-UP ───────────────────────────────────────────────
+  async function playBuildingLevelUp(oldLevel, newLevel, buildingId) {
+    const { overlay, stage, prompt } = createOverlayShell();
+
+    const anchor = document.createElement('div');
+    anchor.className = 'lvup-sprite-anchor';
+    stage.appendChild(anchor);
+
+    const sprite = await loadImage(`/static/buildings/${buildingId}.png`);
+    let spriteEl, spriteHeight;
+    if (sprite) {
+      // Reuse the Image element that already finished loading instead of
+      // creating a fresh <img> and reassigning src (which would fire a
+      // second, separate fetch of the same resource).
+      spriteEl = sprite;
+      spriteEl.className = 'lvup-building-img';
+      spriteHeight = window.innerWidth < 768 ? 180 : 260;
+      const scale = spriteHeight / sprite.naturalHeight;
+      spriteEl.style.height = spriteHeight + 'px';
+      spriteEl.style.width  = (sprite.naturalWidth * scale) + 'px';
+    } else {
+      // SpriteLoader fallback convention: colored placeholder + name.
+      const cfg = BUILDING_CFG[buildingId] || { color: '#566573', name: buildingId.replace(/_/g, ' ').toUpperCase() };
+      spriteEl = document.createElement('div');
+      spriteEl.className = 'lvup-building-fallback';
+      spriteEl.style.background = cfg.color;
+      spriteEl.textContent = cfg.name;
+      spriteHeight = 220;
+    }
+    anchor.appendChild(spriteEl);
+    requestAnimationFrame(() => spriteEl.classList.add('in'));
+    await sleep(450);
+
+    const textWrap = document.createElement('div');
+    textWrap.className = 'lvup-text-wrap';
+    textWrap.style.bottom = (spriteHeight + 22) + 'px';
+    const label = document.createElement('div');
+    label.className = 'lvup-level-label';
+    label.textContent = 'LEVEL';
+    const odometer = buildOdometer(oldLevel, oldLevel);
+    textWrap.appendChild(label);
+    textWrap.appendChild(odometer.el);
+    anchor.appendChild(textWrap);
+    requestAnimationFrame(() => textWrap.classList.add('in'));
+    await sleep(550);
+
+    const rollOdo = buildOdometer(oldLevel, newLevel);
+    textWrap.replaceChild(rollOdo.el, odometer.el);
+    await rollOdometer(rollOdo);
+    await sleep(600);
+
+    await armDismiss(overlay, prompt);
+  }
+
+  // ── Demo panel wiring ───────────────────────────────────────────────
+  document.getElementById('pl-play').addEventListener('click', async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    try {
+      const presetKey = document.getElementById('pl-preset').value;
+      const oldLevel = parseInt(document.getElementById('pl-old').value, 10) || 1;
+      const newLevel = parseInt(document.getElementById('pl-new').value, 10) || (oldLevel + 1);
+      await playPlayerLevelUp(oldLevel, newLevel, PLAYER_PRESETS[presetKey]);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('bl-play').addEventListener('click', async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    try {
+      const buildingId = document.getElementById('bl-preset').value;
+      const oldLevel = parseInt(document.getElementById('bl-old').value, 10) || 1;
+      const newLevel = parseInt(document.getElementById('bl-new').value, 10) || (oldLevel + 1);
+      await playBuildingLevelUp(oldLevel, newLevel, buildingId);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  </script>
+</body>
+</html>
