@@ -556,6 +556,8 @@ const IglooRenderer = (function () {
 
         FLOOR_COLORS,
         WALL_COLORS,
+        FUR_COLORS,
+        FUR_EMOJI,
     });
 
     return pub;

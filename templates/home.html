@@ -860,39 +860,6 @@
       box-shadow: -6px 0 16px rgba(0,0,0,0.4);
     }
     .igloo-edit-panel.visible { display: flex; }
-    /* Base hidden state -- a bare <div> defaults to display:block, and this
-       element is only ever meant to exist on mobile (see .visible inside
-       the @media block below); without this it'd render as a stray empty
-       flex item inside .igloo-canvas-wrap on desktop. */
-    #igloo-picker-backdrop { display: none; }
-    @media (max-width: 768px) {
-      /* Mobile: the same two overlays (still toggled via .visible, still
-         populated by the unchanged iglooRenderEditPanel()/
-         iglooRenderRoomBar()) become a single centered, dimmed modal
-         instead of the permanent side panel/bottom bar above, which eats
-         too much of a small screen while editing -- reuses the fixed/
-         transform-centered pattern from #bm-overlay/#building-modal rather
-         than inventing a new one. right/bottom reset to auto since the
-         desktop rules above pin them (right:0/bottom:0) to anchor the
-         panel edges there; left set, they'd fight top/left below. */
-      .igloo-edit-panel, .igloo-room-bar {
-        position: fixed; top: 50%; left: 50%; right: auto; bottom: auto;
-        transform: translate(-50%, -50%);
-        width: 90vw; max-width: 380px; max-height: 75vh;
-        border: 3px solid var(--purple); box-shadow: 0 0 30px rgba(0,0,0,0.8);
-        z-index: 90043;
-        /* .igloo-canvas-wrap (their DOM parent) sets touch-action:none for
-           its own pinch/pan handling -- re-enable vertical scrolling here
-           so the modal's own overflow-y:auto content (furniture list,
-           palette) still scrolls natively with one finger. */
-        touch-action: pan-y;
-      }
-      #igloo-picker-backdrop {
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,0.7); z-index: 90042; cursor: pointer;
-      }
-      #igloo-picker-backdrop.visible { display: block; }
-    }
     .igloo-edit-section-title {
       color: var(--purple); font-size: 17px; padding: 8px 10px;
       border-bottom: 1px solid var(--purple); flex-shrink: 0;
@@ -905,6 +872,14 @@
       background: var(--dark); flex-shrink: 0;
     }
     .igloo-furn-card.selected { background: #2a1a2a; border-color: var(--pink); }
+    /* Mobile-only card preview (see .igloo-furn-icon inside the @media
+       block below) -- hidden on desktop's row layout, where the card has
+       no room for it and never had one before this. Populated in
+       iglooRenderEditPanel() from IglooRenderer.FUR_EMOJI/FUR_COLORS, the
+       same lookup the room canvas itself uses for its no-sprite-yet
+       fallback, so the card preview matches what placing the item
+       actually looks like. */
+    .igloo-furn-icon { display: none; }
     .igloo-furn-name { flex: 1; color: var(--white); font-size: 16px; line-height: 1.6; min-width: 0; }
     .igloo-furn-size { color: #8888A8; font-size: 16px; }
     .igloo-furn-btn {
@@ -929,6 +904,79 @@
     }
     .igloo-room-opt-btn:hover:not(:disabled) { border-color: var(--purple); color: var(--white); }
     .igloo-room-opt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    @media (max-width: 768px) {
+      /* Mobile: the same two overlays (still toggled via .visible, still
+         populated by the unchanged iglooRenderEditPanel()/
+         iglooRenderRoomBar()) become a horizontal strip docked to the
+         bottom of the screen instead of the permanent side panel/bottom
+         bar above (or a centered blocking modal, what this used to be --
+         see git history) -- the canvas stays fully visible and
+         interactive (pan/zoom/tap-to-place, see iglooApplyMobileTransform
+         below) the whole time a strip is open, so there's no dimming
+         backdrop and no auto-close on selection (see iglooStartPlace()/
+         iglooDoFloor()/iglooDoWall()/iglooSelectPaintBrush()) -- the
+         player scrubs left-right through the strip and taps the canvas
+         repeatedly, closing it manually via the 🛋️/🎨 toggle when done.
+         IGLOO_STRIP_H below (JS) must match this height -- it's
+         subtracted from the fit/pan math's available canvas space
+         whenever a strip is open, same idea as the #igloo-host-sprite
+         width subtraction already there. top/max-height/transform reset
+         since the desktop rules above (edit-panel: top:0/bottom:0;
+         room-bar: already bottom:0) don't apply here. Placed after all
+         the base rules it overrides (not right after .igloo-edit-panel's
+         own base rule, the usual pattern in this file) since several of
+         them -- .igloo-furn-card's align-items/gap/padding in particular
+         -- are declared further down and would otherwise win the cascade
+         by later source order despite equal specificity. */
+      .igloo-edit-panel, .igloo-room-bar {
+        top: auto; bottom: 0; left: 0; right: 0;
+        width: 100%; max-width: none;
+        height: 130px; max-height: none;
+        border: 3px solid var(--purple); border-left: none; border-right: none; border-bottom: none;
+        box-shadow: 0 -6px 20px rgba(0,0,0,0.6);
+        z-index: 40;
+        flex-direction: row; align-items: stretch;
+        overflow-x: auto; overflow-y: hidden;
+        /* .igloo-canvas-wrap (their DOM parent) sets touch-action:none for
+           its own pinch/pan handling -- re-enable horizontal scrolling
+           here so the strip's own overflow-x:auto content still scrolls
+           natively with one finger. */
+        touch-action: pan-x;
+      }
+
+      /* Vertical-list chrome (section title, PLACED/AVAILABLE subsection
+         labels, divider) doesn't fit a single-row strip -- everything
+         below flattens into one scrollable row of cards instead. */
+      .igloo-edit-section-title, .igloo-subsection-label, .igloo-edit-divider {
+        display: none;
+      }
+      .igloo-items-list {
+        flex-direction: row; flex-shrink: 0; align-items: stretch;
+        gap: 6px; padding: 6px;
+      }
+      #igloo-room-options { flex-shrink: 0; display: flex; align-items: center; padding: 6px; }
+      .igloo-room-opt-btn { width: 100px; margin: 0; padding: 8px 6px; font-size: 15px; text-align: center; }
+
+      .igloo-furn-card {
+        flex-direction: column; align-items: stretch; justify-content: flex-start;
+        width: 88px; flex-shrink: 0; gap: 4px; padding: 4px; text-align: center;
+      }
+      .igloo-furn-icon {
+        display: flex; align-items: center; justify-content: center;
+        font-size: 26px; height: 44px; border: 1px solid #1a1a1a; flex-shrink: 0;
+      }
+      .igloo-furn-name { font-size: 14px; line-height: 1.3; }
+      .igloo-furn-btn { width: 100%; }
+
+      /* Room bar: the upgrade button and the floor/wall groups (each
+         already a self-contained label+palette+paint-toggle row) become
+         flex-shrink:0 segments of one long scrollable row instead of
+         wrapping onto multiple lines. */
+      .igloo-room-bar { flex-wrap: nowrap; align-items: center; gap: 14px; padding: 8px 12px; }
+      .igloo-room-bar-group { flex-wrap: nowrap; flex-shrink: 0; }
+      .igloo-bar-palette { flex-wrap: nowrap; }
+      .igloo-bar-upgrade-btn { flex-shrink: 0; }
+    }
     .igloo-status-bar {
       background: #0d1a0d; border-top: 2px solid #4aff6b;
       padding: 6px 12px; display: none; align-items: center; gap: 10px;
@@ -3641,11 +3689,6 @@
             <canvas id="igloo-canvas"></canvas>
 
             <button id="igloo-zoom-fit-btn" class="igloo-overlay-toggle-btn igloo-zoom-fit-btn" onclick="iglooResetZoom()" title="Fit to screen">🔍 FIT</button>
-
-            <!-- Mobile-only dim backdrop for the ITEMS/ROOM picker modals below
-                 (desktop leaves them as the permanent side panel/bottom bar, no
-                 backdrop involved -- see the @media block on .igloo-edit-panel). -->
-            <div id="igloo-picker-backdrop" onclick="iglooCloseOverlayPanels()"></div>
 
             <div id="igloo-overlay-toggles" class="igloo-overlay-toggles">
               <button id="igloo-items-toggle" class="igloo-overlay-toggle-btn" onclick="iglooTogglePanel('items')">🛋️ ITEMS</button>
@@ -9004,10 +9047,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // Toggles the ITEMS (furniture) or ROOM (floor/wall paint) overlay --
   // independent of each other on desktop, both dismissible so
   // #igloo-canvas-wrap can get its full width/height back at any time
-  // during edit mode. On mobile the same two elements render as a single
-  // centered modal instead (see the @media block on .igloo-edit-panel), so
-  // there they're mutually exclusive -- opening one closes the other
-  // rather than stacking two modals.
+  // during edit mode. On mobile the same two elements render as a bottom
+  // strip instead (see the @media block on .igloo-edit-panel); both dock
+  // to the same spot there, so they stay mutually exclusive -- opening one
+  // closes the other rather than stacking two strips.
   function iglooTogglePanel(which) {
     const panelId = which === 'items' ? 'igloo-edit-panel' : 'igloo-room-bar';
     const btnId   = which === 'items' ? 'igloo-items-toggle' : 'igloo-room-toggle';
@@ -9018,7 +9061,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (opening && _iglooIsMobile()) iglooCloseOverlayPanels();
     panelEl.classList.toggle('visible', opening);
     btnEl.classList.toggle('active', opening);
-    iglooUpdatePickerBackdrop();
+    iglooApplyMobileTransform();
   }
 
   function iglooCloseOverlayPanels() {
@@ -9026,19 +9069,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('igloo-room-bar').classList.remove('visible');
     document.getElementById('igloo-items-toggle').classList.remove('active');
     document.getElementById('igloo-room-toggle').classList.remove('active');
-    iglooUpdatePickerBackdrop();
-  }
-
-  // Mobile-only dim backdrop behind the ITEMS/ROOM modal -- shown whenever
-  // either panel is visible there, tapping it closes both (via
-  // iglooCloseOverlayPanels). No-op element on desktop (stays display:none,
-  // see its base CSS rule), so this is harmless to call unconditionally.
-  function iglooUpdatePickerBackdrop() {
-    const backdrop = document.getElementById('igloo-picker-backdrop');
-    if (!backdrop) return;
-    const anyOpen = document.getElementById('igloo-edit-panel').classList.contains('visible')
-      || document.getElementById('igloo-room-bar').classList.contains('visible');
-    backdrop.classList.toggle('visible', anyOpen && _iglooIsMobile());
+    iglooApplyMobileTransform();
   }
 
   function iglooStartEdit() {
@@ -9075,6 +9106,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     iglooRenderEditPanel();
   }
 
+  // Mobile-only card preview (see .igloo-furn-icon, display:none on
+  // desktop) -- same emoji/category-color lookup igloo_renderer.js itself
+  // falls back to for an item with no sprite art yet, so the card matches
+  // what placing it actually looks like on the canvas.
+  function _iglooFurnIcon(itemId, category) {
+    const emoji = (IglooRenderer.FUR_EMOJI && IglooRenderer.FUR_EMOJI[itemId]) || '📦';
+    const color = (IglooRenderer.FUR_COLORS && IglooRenderer.FUR_COLORS[category || 'furniture']) || '#7a5c3c';
+    return `<span class="igloo-furn-icon" style="background:${color};">${emoji}</span>`;
+  }
+
   function iglooRenderEditPanel() {
     if (!_iglooData) return;
 
@@ -9089,6 +9130,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         const name = defn.name || f.item_id;
         const isSel = IglooRenderer.selectedId === f.id;
         return `<div class="igloo-furn-card${isSel ? ' selected' : ''}">
+          ${_iglooFurnIcon(f.item_id, defn.category)}
           <div class="igloo-furn-name">${name}<br><span class="igloo-furn-size">${f.width||1}×${f.height||1}</span></div>
           <button class="igloo-furn-btn rotate" onclick="iglooDoRotate(${f.id})" title="Rotate (currently ${f.rotation||0}°)">↻</button>
           <button class="igloo-furn-btn remove" onclick="iglooDoRemove(${f.id})">REMOVE</button>
@@ -9111,6 +9153,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         const isPlacing = _iglooPlacingItemId === i.item_id;
         for (let n = 0; n < i.available; n++) {
           cards.push(`<div class="igloo-furn-card">
+            ${_iglooFurnIcon(i.item_id, defn.category)}
             <div class="igloo-furn-name">${name}<br><span class="igloo-furn-size">${defn.width||1}×${defn.height||1}</span></div>
             <button class="igloo-furn-btn place${isPlacing ? ' placing-active' : ''}"
                     onclick="iglooStartPlace('${i.item_id}')">${isPlacing ? 'PLACING' : 'PLACE'}</button>
@@ -9240,11 +9283,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('igloo-status-bar').classList.add('visible');
     document.getElementById('igloo-status-text').textContent =
       `PLACING ${(defn.name || itemId).toUpperCase()} — CLICK A GRID CELL`;
+    // Strip stays open on mobile -- the canvas is already fully visible
+    // and tappable above it (see the @media block on .igloo-edit-panel),
+    // so there's nothing to close here anymore.
     iglooRenderEditPanel();
-    // Mobile: close the picker modal so the full canvas is visible to tap
-    // a cell -- placing mode itself (_iglooPlacingItemId, set above) stays
-    // active, only the picker UI closes. No-op on desktop (panel stays put).
-    if (_iglooIsMobile()) iglooCloseOverlayPanels();
   }
 
   async function iglooOnCellClick(gx, gy) {
@@ -9324,7 +9366,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomBar();
       refreshStats();
-      if (_iglooIsMobile()) iglooCloseOverlayPanels();
     } catch(e) { showToast('Error changing floor.', 'err'); }
   }
 
@@ -9344,7 +9385,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.updateData(_iglooData);
       iglooRenderRoomBar();
       refreshStats();
-      if (_iglooIsMobile()) iglooCloseOverlayPanels();
     } catch(e) { showToast('Error changing walls.', 'err'); }
   }
 
@@ -9369,11 +9409,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _iglooPaintBrush = typeId;
     IglooRenderer.setPaintBrush(typeId);
     iglooRenderRoomBar();
-    // Mobile: close the picker modal so the full canvas is visible to tap
-    // cells to paint -- paint mode itself (_iglooPaintMode, set by
-    // iglooTogglePaint before this) stays active, only the picker UI
-    // closes. No-op on desktop (bar stays put).
-    if (_iglooIsMobile()) iglooCloseOverlayPanels();
+    // Strip stays open on mobile -- the canvas is already fully visible
+    // and tappable above it, so the player can keep switching brushes and
+    // painting cells without closing it.
   }
 
   async function iglooPaintFloorCell(gx, gy, floorType) {
@@ -9434,6 +9472,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // know this exists.
   const IGLOO_MOBILE_MQ = window.matchMedia('(max-width: 768px)');
   const IGLOO_MAX_ZOOM  = 3;
+  // Must match .igloo-edit-panel/.igloo-room-bar's mobile `height` (see the
+  // @media block on .igloo-edit-panel) -- subtracted from the fit/pan calc
+  // below whenever a strip is open, so the area behind it never gets
+  // treated as usable canvas space.
+  const IGLOO_STRIP_H   = 130;
   let _iglooFitScale = 1, _iglooZoom = 1, _iglooPanX = 0, _iglooPanY = 0;
   let _iglooGesture  = null; // in-progress touch gesture, see _iglooWrapTouchStart
 
@@ -9455,14 +9498,40 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (!canvas.width || !canvas.height) return;
 
     const wrapStyle = getComputedStyle(wrap);
+    const padTop    = parseFloat(wrapStyle.paddingTop);
+    const padBottom = parseFloat(wrapStyle.paddingBottom);
     let availW = wrap.clientWidth  - parseFloat(wrapStyle.paddingLeft) - parseFloat(wrapStyle.paddingRight);
-    const availH = wrap.clientHeight - parseFloat(wrapStyle.paddingTop) - parseFloat(wrapStyle.paddingBottom);
+    let availH = wrap.clientHeight - padTop - padBottom;
     // Visiting a friend's igloo adds #igloo-host-sprite as a flex sibling
     // of the canvas inside the wrap (see _showIglooHostSprite) -- subtract
     // its width too, or the fit calc would size the canvas as if it had
     // the sprite panel's space to itself and overflow into it.
     const hostSprite = document.getElementById('igloo-host-sprite');
     if (hostSprite) availW -= hostSprite.getBoundingClientRect().width;
+
+    // The ITEMS/ROOM strip docks over the bottom of the wrap when open (see
+    // the @media block on .igloo-edit-panel), covering the bottom padding
+    // and then some -- availH becomes the region actually left above it
+    // (clientHeight - padTop - IGLOO_STRIP_H, not also minus padBottom,
+    // which the strip already eats into). That alone isn't enough though:
+    // #igloo-canvas is centered by the wrap's own flex layout (padding +
+    // margin:auto), which doesn't know about the strip and keeps centering
+    // within the FULL padded box -- a CSS transform (how scale/pan get
+    // applied) never affects layout, so shrinking the scale alone would
+    // still leave the render's centerpoint too low, overlapping the strip.
+    // extraShiftY is the distance between that unaware layout centerpoint
+    // and where the render should actually be centered (the middle of the
+    // region above the strip); added into the transform below, outside the
+    // user-pan clamp since it's a fixed geometric correction, not pan.
+    const editPanel = document.getElementById('igloo-edit-panel');
+    const roomBar    = document.getElementById('igloo-room-bar');
+    const stripOpen  = (editPanel && editPanel.classList.contains('visible'))
+      || (roomBar && roomBar.classList.contains('visible'));
+    let extraShiftY = 0;
+    if (stripOpen) {
+      availH = wrap.clientHeight - padTop - IGLOO_STRIP_H;
+      extraShiftY = (padBottom - IGLOO_STRIP_H) / 2;
+    }
     if (availW <= 0 || availH <= 0) return;
 
     // Fit-to-screen, not just shrink-if-oversized: the previous Math.min(1, ...)
@@ -9482,7 +9551,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _iglooPanX = Math.max(-maxPanX, Math.min(maxPanX, _iglooPanX));
     _iglooPanY = Math.max(-maxPanY, Math.min(maxPanY, _iglooPanY));
 
-    canvas.style.transform = `translate(${_iglooPanX}px, ${_iglooPanY}px) scale(${scale})`;
+    canvas.style.transform = `translate(${_iglooPanX}px, ${_iglooPanY + extraShiftY}px) scale(${scale})`;
   }
 
   // Bound to the 🔍 FIT button -- also called on every fresh igloo load
@@ -9500,12 +9569,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   function _iglooWrapTouchStart(e) {
     if (!_iglooIsMobile()) return;
-    // The ITEMS/ROOM picker modal and its backdrop are DOM descendants of
-    // .igloo-canvas-wrap (same as the canvas), so touches inside them
-    // bubble up here too -- bail out so scrolling the modal's furniture
-    // list (or a plain tap on the backdrop to close it) never gets
-    // mistaken for a canvas pinch/pan gesture.
-    if (e.target.closest && e.target.closest('.igloo-edit-panel, .igloo-room-bar, #igloo-picker-backdrop')) {
+    // The ITEMS/ROOM strip is a DOM descendant of .igloo-canvas-wrap (same
+    // as the canvas), so touches inside it bubble up here too -- bail out
+    // so scrolling the strip's own card row never gets mistaken for a
+    // canvas pinch/pan gesture. The canvas itself stays fully reachable
+    // above the strip, so this is the only place gestures need filtering.
+    if (e.target.closest && e.target.closest('.igloo-edit-panel, .igloo-room-bar')) {
       _iglooGesture = null;
       return;
     }
