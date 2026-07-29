@@ -1150,6 +1150,30 @@ MONSTER_TYPES = {
     },
 }
 
+# {tier: min_level} derived from MONSTER_TYPES itself (currently 1/5/10/15/25)
+# rather than hardcoded, so this can't drift out of sync with the data above.
+_MONSTER_TIER_MIN_LEVELS = {
+    mt["tier"]: mt["min_level"] for mt in MONSTER_TYPES.values()
+}
+
+
+def _monster_tier_for_level(level):
+    """Which monster tier (1-5) a given player level currently has unlocked.
+
+    NOT the same breakpoints as _gear_tier_for_level()/GEAR_TIER_LEVEL_RANGES
+    below -- monster tiers unlock at min_level 1/5/10/15/25 while gear tiers
+    break at 1/6/11/16/21, so the two disagree for most of the level range
+    (e.g. level 15-24 is gear-tier-3 but monster-tier-4). Callers that need
+    "what monster tier is this player currently fighting" must use this, not
+    the gear helper.
+    """
+    tier = 1
+    for t, min_lvl in sorted(_MONSTER_TIER_MIN_LEVELS.items()):
+        if level >= min_lvl:
+            tier = t
+    return tier
+
+
 COMMUNITY_BOSS = {
     "name":        "The Blizzard King",
     "icon":        "👑",
@@ -1176,11 +1200,13 @@ _GEAR_DROP_RARITY_WEIGHTS = {
 }
 
 # Gear tiers (Session "level-gate" prompt): each family in gear_templates
-# spans one of these level ranges via required_level, and monster tiers
-# (MONSTER_TYPES' "tier" field, 1-5) map 1:1 onto the same ranges. Shared
-# here so both the monster-loot roll and the N00Tbox roll derive "what tier
-# is this" the same way -- see _gear_tier_for_level()/_gear_pool_for_tier()
-# below, the reusable helpers this and future loot-pool prompts should call.
+# spans one of these level ranges via required_level. NOT the same
+# breakpoints as MONSTER_TYPES' "tier" field/_monster_tier_for_level() above
+# -- gear tiers break at 1/6/11/16/21, monster tiers at 1/5/10/15/25, so the
+# two must not be used interchangeably. Shared here so both the monster-loot
+# roll and the N00Tbox roll derive "what gear tier is this" the same way --
+# see _gear_tier_for_level()/_gear_pool_for_tier() below, the reusable
+# helpers this and future gear-loot-pool prompts should call.
 GEAR_TIER_LEVEL_RANGES = {
     1: (1, 5),
     2: (6, 10),
@@ -5294,16 +5320,16 @@ def combat_fight():
             # Daily "all monsters defeated" bonus -- only fires the instant
             # the set actually completes, not on every kill once it's
             # already complete. "Unlocked" is scoped to the player's own
-            # current tier only (via _gear_tier_for_level(), the same
-            # tier-from-level helper the gear/N00Tbox loot rolls use --
-            # MONSTER_TYPES' "tier" field maps 1:1 onto GEAR_TIER_LEVEL_RANGES,
-            # see the comment above that helper) rather than every tier at or
+            # current MONSTER tier only (via _monster_tier_for_level() --
+            # NOT _gear_tier_for_level(), which uses a different set of
+            # level breakpoints and was silently under/over-scoping this
+            # for most of the level range) rather than every tier at or
             # below the player's level, so a player who's out-leveled a lower
             # tier no longer has to re-kill it to trigger the bonus.
             # monster_id is guaranteed not already in killed_today_after minus
             # itself, since the "Already defeated today" check above already
             # rejected a repeat fight.
-            player_tier = _gear_tier_for_level(p["level"])
+            player_tier = _monster_tier_for_level(p["level"])
             unlocked_type_ids = {
                 tid for tid, mt in MONSTER_TYPES.items() if mt["tier"] == player_tier
             }
