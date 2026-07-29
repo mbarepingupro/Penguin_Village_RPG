@@ -804,7 +804,24 @@
          the browser's own scroll/pinch-zoom fight our transform would just
          desync the two. */
       .igloo-canvas-wrap { overflow: hidden; touch-action: none; }
-      #igloo-canvas { transform-origin: center center; }
+      /* position:absolute takes the canvas out of the flex wrap's normal
+         flow entirely -- iglooApplyMobileTransform() (JS) then sets its
+         left/top/transform explicitly, in plain computed pixels, instead
+         of relying on the wrap's own `margin:auto` centering (still how
+         desktop does it, where the canvas is never scaled). That mattered:
+         auto margins only center when the child is SMALLER than its
+         container and can't go negative, so once a room's native pixel
+         size (canvas.width/height, set from room_size -- routinely bigger
+         than a phone screen for anything past the tiny starter room)
+         exceeded the available CSS space, it rendered flush at the wrap's
+         top-left corner and overflowed off the right/bottom instead of
+         centering -- a scale-down transform alone can't fix that, since
+         transforms never touch layout position, only how the existing box
+         paints. transform-origin:0 0 (not the center default) keeps the
+         JS math simple: scale pivots from the same top-left corner
+         left/top position, rather than needing to account for a
+         transform-origin offset too. */
+      #igloo-canvas { position: absolute; transform-origin: 0 0; }
       /* bottom-LEFT, not top-right: #igloo-edit-panel is also anchored
          top:0/right:0 in this same positioning context (see its own
          comment above), so any right-edge corner overlaps it whenever the
@@ -9492,16 +9509,21 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const wrap   = document.querySelector('.igloo-canvas-wrap');
     if (!canvas || !wrap) return;
     if (!_iglooIsMobile()) {
+      // left/top only take effect on the mobile-only position:absolute
+      // rule (see #igloo-canvas's CSS) -- static-positioned on desktop, so
+      // stale values here are inert, but clear them anyway for tidiness.
       canvas.style.transform = '';
+      canvas.style.left = '';
+      canvas.style.top  = '';
       return;
     }
     if (!canvas.width || !canvas.height) return;
 
     const wrapStyle = getComputedStyle(wrap);
+    const padLeft   = parseFloat(wrapStyle.paddingLeft);
     const padTop    = parseFloat(wrapStyle.paddingTop);
-    const padBottom = parseFloat(wrapStyle.paddingBottom);
-    let availW = wrap.clientWidth  - parseFloat(wrapStyle.paddingLeft) - parseFloat(wrapStyle.paddingRight);
-    let availH = wrap.clientHeight - padTop - padBottom;
+    let availW = wrap.clientWidth  - padLeft - parseFloat(wrapStyle.paddingRight);
+    let availH = wrap.clientHeight - padTop  - parseFloat(wrapStyle.paddingBottom);
     // Visiting a friend's igloo adds #igloo-host-sprite as a flex sibling
     // of the canvas inside the wrap (see _showIglooHostSprite) -- subtract
     // its width too, or the fit calc would size the canvas as if it had
@@ -9510,28 +9532,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (hostSprite) availW -= hostSprite.getBoundingClientRect().width;
 
     // The ITEMS/ROOM strip docks over the bottom of the wrap when open (see
-    // the @media block on .igloo-edit-panel), covering the bottom padding
-    // and then some -- availH becomes the region actually left above it
-    // (clientHeight - padTop - IGLOO_STRIP_H, not also minus padBottom,
-    // which the strip already eats into). That alone isn't enough though:
-    // #igloo-canvas is centered by the wrap's own flex layout (padding +
-    // margin:auto), which doesn't know about the strip and keeps centering
-    // within the FULL padded box -- a CSS transform (how scale/pan get
-    // applied) never affects layout, so shrinking the scale alone would
-    // still leave the render's centerpoint too low, overlapping the strip.
-    // extraShiftY is the distance between that unaware layout centerpoint
-    // and where the render should actually be centered (the middle of the
-    // region above the strip); added into the transform below, outside the
-    // user-pan clamp since it's a fixed geometric correction, not pan.
+    // the @media block on .igloo-edit-panel) -- shrink the usable height to
+    // the region actually left above it while it's visible.
     const editPanel = document.getElementById('igloo-edit-panel');
     const roomBar    = document.getElementById('igloo-room-bar');
     const stripOpen  = (editPanel && editPanel.classList.contains('visible'))
       || (roomBar && roomBar.classList.contains('visible'));
-    let extraShiftY = 0;
-    if (stripOpen) {
-      availH = wrap.clientHeight - padTop - IGLOO_STRIP_H;
-      extraShiftY = (padBottom - IGLOO_STRIP_H) / 2;
-    }
+    if (stripOpen) availH = wrap.clientHeight - padTop - IGLOO_STRIP_H;
     if (availW <= 0 || availH <= 0) return;
 
     // Fit-to-screen, not just shrink-if-oversized: the previous Math.min(1, ...)
@@ -9551,7 +9558,18 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _iglooPanX = Math.max(-maxPanX, Math.min(maxPanX, _iglooPanX));
     _iglooPanY = Math.max(-maxPanY, Math.min(maxPanY, _iglooPanY));
 
-    canvas.style.transform = `translate(${_iglooPanX}px, ${_iglooPanY + extraShiftY}px) scale(${scale})`;
+    // #igloo-canvas is position:absolute with no left/top of its own (see
+    // its CSS) and transform-origin:0 0 -- left/top/transform are set here
+    // as plain computed pixels instead of relying on percentages or
+    // flexbox centering, which is what let this go wrong for oversized
+    // rooms in the first place (see the CSS comment). left/top place the
+    // render's centerpoint (before pan) in the middle of the available
+    // area -- padLeft/padTop + half of availW/availH -- then the
+    // transform just scales from that same top-left corner and applies
+    // pan in final screen px, unaffected by zoom.
+    canvas.style.left = (padLeft + availW / 2 - renderedW / 2) + 'px';
+    canvas.style.top  = (padTop  + availH / 2 - renderedH / 2) + 'px';
+    canvas.style.transform = `translate(${_iglooPanX}px, ${_iglooPanY}px) scale(${scale})`;
   }
 
   // Bound to the 🔍 FIT button -- also called on every fresh igloo load
