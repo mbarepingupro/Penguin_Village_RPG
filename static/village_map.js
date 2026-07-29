@@ -67,6 +67,16 @@ function _versionedAsset(relPath) {
     return `/static/${relPath}` + (v ? `?v=${v}` : '');
 }
 
+// Shared by drawBuilding() and getBuildingAtScreenPos() -- both need the
+// exact same resolved sprite (render vs. hit-box sizing), or clicks miss
+// the visible art whenever a level's art differs in size from the base
+// file. Falls back to the level-less base file since per-level art is
+// backfilled per-building, not all at once (see loadAllSprites()).
+function _getBuildingSprite(id, level) {
+    return SpriteLoader.get(_versionedAsset(`buildings/${id}_lv${level}.png`))
+        || SpriteLoader.get(_versionedAsset(`buildings/${id}.png`));
+}
+
 const TILE_SPRITE_NAMES = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
 
 // ── PENGUIN RECOLORING — defined in /static/recolor.js, loaded before this file ──
@@ -90,8 +100,18 @@ async function loadPenguinSprites() {
 }
 
 async function loadAllSprites() {
-    const tileLoads     = Object.values(TILE_SPRITE_NAMES).map(name => SpriteLoader.load(_versionedAsset(`tiles/${name}.png`)));
-    const buildingLoads = Object.keys(buildingLayout).map(id => SpriteLoader.load(_versionedAsset(`buildings/${id}.png`)));
+    const tileLoads = Object.values(TILE_SPRITE_NAMES).map(name => SpriteLoader.load(_versionedAsset(`tiles/${name}.png`)));
+    // Base file plus all 3 level variants, per building -- SpriteLoader.load()
+    // resolves to null (never rejects) on a 404, so attempting every level
+    // unconditionally is safe even for buildings with no per-level art yet
+    // (most of them, until backfilled) and doesn't need to know in advance
+    // which files actually exist.
+    const buildingLoads = Object.keys(buildingLayout).flatMap(id => [
+        SpriteLoader.load(_versionedAsset(`buildings/${id}.png`)),
+        SpriteLoader.load(_versionedAsset(`buildings/${id}_lv1.png`)),
+        SpriteLoader.load(_versionedAsset(`buildings/${id}_lv2.png`)),
+        SpriteLoader.load(_versionedAsset(`buildings/${id}_lv3.png`)),
+    ]);
     await Promise.all([...tileLoads, ...buildingLoads]);
     await loadPenguinSprites();
 }
@@ -329,7 +349,7 @@ function drawBuilding(id, bdef, level) {
     const BOX_H = 32 + bdef.width * 6;
 
     // Sprite override: draw PNG if loaded, skip placeholder block
-    const sprite = SpriteLoader.get(_versionedAsset(`buildings/${id}.png`));
+    const sprite = _getBuildingSprite(id, level !== undefined ? level : 1);
     if (sprite) {
         // Scale sprite to match the isometric footprint width; anchor bottom-center
         // to the raw (no TILE_H/2 offset) front corner so it sits on the tiles.
@@ -1065,11 +1085,14 @@ function getBuildingAtScreenPos(wx, wy) {
         const lPt = { x: gs(gx,    gy+gh).x, y: gs(gx,    gy+gh).y - TILE_H / 2 };
         // Hit-box height: match the sprite's actual rendered height (same
         // spriteScale/drawHeight math drawBuilding() uses, off the same
-        // SpriteLoader cache) so tall sprites are clickable across their
-        // full visible art, not just a fixed placeholder-block-sized lower
-        // slice of it. Falls back to the old fixed placeholder-height
-        // formula only when no sprite is loaded yet for this building.
-        const sprite = SpriteLoader.get(_versionedAsset(`buildings/${id}.png`));
+        // level-aware sprite -- otherwise a level whose art differs in
+        // size from the base file gets a hit box sized off the wrong
+        // sprite) so tall sprites are clickable across their full visible
+        // art, not just a fixed placeholder-block-sized lower slice of it.
+        // Falls back to the old fixed placeholder-height formula only when
+        // no sprite is loaded yet for this building.
+        const level  = buildingLevels[id] !== undefined ? buildingLevels[id] : 1;
+        const sprite = _getBuildingSprite(id, level);
         let BOX_H;
         if (sprite) {
             const footprintWidth = rPt.x - lPt.x;
