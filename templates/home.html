@@ -10272,35 +10272,54 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _lvcelArmDismiss(overlay, prompt, onDone);
   }
 
+  // Level-aware building sprite lookup, matching village_map.js's
+  // drawBuilding()/_getBuildingSprite() convention: buildings/{id}_lv{level}.png,
+  // falling back to the level-less buildings/{id}.png if that level's art
+  // doesn't exist yet (most buildings, until backfilled per-building).
+  async function _lvcelLoadBuildingSprite(buildingId, level) {
+    return (await _lvcelLoadImage(_versionedAsset(`buildings/${buildingId}_lv${level}.png`)))
+        || (await _lvcelLoadImage(_versionedAsset(`buildings/${buildingId}.png`)));
+  }
+
+  // Builds (but doesn't attach) the DOM element for one level's resolved
+  // sprite -- an <img> reusing the already-loaded Image element (no second
+  // fetch of the same resource), or the same colored-placeholder fallback
+  // convention as the village map's drawBuilding() when no art exists yet.
+  function _lvcelBuildBuildingEl(sprite, buildingId) {
+    let el, height;
+    if (sprite) {
+      el = sprite;
+      el.className = 'lvcel-building-img';
+      height = window.innerWidth < 768 ? 180 : 260;
+      const scale = height / sprite.naturalHeight;
+      el.style.height = height + 'px';
+      el.style.width  = (sprite.naturalWidth * scale) + 'px';
+    } else {
+      const cfg = (window.BUILDING_CFG && window.BUILDING_CFG[buildingId])
+        || { color: '#566573', name: buildingId.replace(/_/g, ' ').toUpperCase() };
+      el = document.createElement('div');
+      el.className = 'lvcel-building-fallback';
+      el.style.background = cfg.color;
+      el.textContent = cfg.name;
+      height = 220;
+    }
+    return { el, height };
+  }
+
   async function playBuildingLevelUpCelebration(oldLevel, newLevel, buildingId, onDone) {
     const { overlay, stage, prompt } = _lvcelCreateShell();
     const anchor = document.createElement('div');
     anchor.className = 'lvcel-sprite-anchor';
     stage.appendChild(anchor);
 
-    const sprite = await _lvcelLoadImage(_versionedAsset(`buildings/${buildingId}.png`));
-    let spriteEl, spriteHeight;
-    if (sprite) {
-      // Reuse the Image element that already finished loading instead of
-      // creating a fresh <img> and reassigning src (a second fetch of the
-      // same resource).
-      spriteEl = sprite;
-      spriteEl.className = 'lvcel-building-img';
-      spriteHeight = window.innerWidth < 768 ? 180 : 260;
-      const scale = spriteHeight / sprite.naturalHeight;
-      spriteEl.style.height = spriteHeight + 'px';
-      spriteEl.style.width  = (sprite.naturalWidth * scale) + 'px';
-    } else {
-      // Same colored-placeholder fallback convention as the village map's
-      // drawBuilding() when a building has no PNG art yet.
-      const cfg = (window.BUILDING_CFG && window.BUILDING_CFG[buildingId])
-        || { color: '#566573', name: buildingId.replace(/_/g, ' ').toUpperCase() };
-      spriteEl = document.createElement('div');
-      spriteEl.className = 'lvcel-building-fallback';
-      spriteEl.style.background = cfg.color;
-      spriteEl.textContent = cfg.name;
-      spriteHeight = 220;
-    }
+    // Both levels' sprites load up front (in parallel) so the swap at
+    // reveal time is instant -- no loading gap once the roll lands.
+    const [oldSprite, newSprite] = await Promise.all([
+      _lvcelLoadBuildingSprite(buildingId, oldLevel),
+      _lvcelLoadBuildingSprite(buildingId, newLevel),
+    ]);
+
+    let { el: spriteEl, height: spriteHeight } = _lvcelBuildBuildingEl(oldSprite, buildingId);
     anchor.appendChild(spriteEl);
     requestAnimationFrame(() => spriteEl.classList.add('in'));
     await _lvcelSleep(450);
@@ -10323,6 +10342,27 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const rollOdo = _lvcelBuildOdometer(oldLevel, newLevel);
     textWrap.replaceChild(rollOdo.el, odometer.el);
     await _lvcelRollOdometer(rollOdo);
+
+    // Reveal the new level's art the moment the roll lands on it. Swaps
+    // the element (not just its src) since old/new can each independently
+    // be a real sprite or the colored-placeholder fallback -- e.g. only
+    // the new level having art yet is the common case while art is being
+    // backfilled. Same object for both (oldSprite === newSprite, whenever
+    // neither level has its own art and both fall back to the base file)
+    // just re-settles harmlessly in place.
+    if (newSprite !== oldSprite) {
+      const { el: newEl, height: newHeight } = _lvcelBuildBuildingEl(newSprite, buildingId);
+      anchor.replaceChild(newEl, spriteEl);
+      // rAF gap (not added synchronously), same as the initial pop-in --
+      // the transition needs the "not .in" state actually painted first,
+      // or the browser just snaps straight to the end state.
+      requestAnimationFrame(() => newEl.classList.add('in'));
+      spriteEl = newEl;
+      if (newHeight !== spriteHeight) {
+        spriteHeight = newHeight;
+        textWrap.style.bottom = (spriteHeight + 22) + 'px';
+      }
+    }
     await _lvcelSleep(600);
 
     _lvcelArmDismiss(overlay, prompt, onDone);
