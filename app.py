@@ -11,7 +11,7 @@ import sqlite3
 from functools import wraps
 import jwt
 from flask import Flask, g, jsonify, redirect, request, session, url_for, render_template
-from database import init_db, get_db, backfill_cosmetics, record_challenge_progress, record_build_leaderboard_progress
+from database import init_db, get_db, backfill_cosmetics, record_challenge_progress, record_build_leaderboard_progress, DATABASE as _DB_PATH
 from feature_flags import FEATURES
 from level_config import LEVEL_DATA, get_total_gathering_bonus, get_next_milestone, COSMETIC_SLOTS
 from personality_config import (
@@ -4031,7 +4031,11 @@ def streak_claim(username):
     return jsonify({"status": "success", "earned": reward})
 
 
-BUILDINGS_CONFIG_PATH = Path("building_config.json")
+# Lives beside village.db (DATABASE, from database.py) rather than the app's
+# own ephemeral directory -- same reasoning as _VILLAGE_LAYOUT_PATH below,
+# so any saved positions survive a redeploy instead of being wiped.
+BUILDINGS_CONFIG_PATH = Path(os.path.dirname(os.path.abspath(_DB_PATH))) / "building_config.json"
+os.makedirs(BUILDINGS_CONFIG_PATH.parent, exist_ok=True)
 
 @app.route("/buildings/config")
 def get_building_config():
@@ -8661,7 +8665,17 @@ def share_card_to_twitch(username):
     return jsonify({"status": "success"})
 
 
-_VILLAGE_LAYOUT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout.json")
+# Lives beside village.db (DATABASE, from database.py) rather than under
+# static/ so it survives deploys on the same persistent Railway volume as
+# the DB, instead of being wiped/overwritten by the next git-triggered
+# redeploy.
+_VILLAGE_LAYOUT_PATH = os.path.join(os.path.dirname(os.path.abspath(_DB_PATH)), "village_layout.json")
+os.makedirs(os.path.dirname(_VILLAGE_LAYOUT_PATH), exist_ok=True)
+
+# Tracked-in-git seed used only when the persistent path above has no file
+# yet (fresh deploy / fresh volume) -- never written to, so it can't be the
+# thing a live mayor edit gets lost to.
+_VILLAGE_LAYOUT_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout_default.json")
 
 _BUILDING_HOME_TILES = {
     "hotel":         (4,  6),
@@ -8697,7 +8711,11 @@ def village_layout():
         with open(_VILLAGE_LAYOUT_PATH) as f:
             layout = json.load(f)
     except FileNotFoundError:
-        return jsonify({"error": "layout not found"}), 404
+        try:
+            with open(_VILLAGE_LAYOUT_DEFAULT_PATH) as f:
+                layout = json.load(f)
+        except FileNotFoundError:
+            return jsonify({"error": "layout not found"}), 404
 
     db = get_db()
     rows = db.execute("SELECT building_id, current_level FROM building_upgrades").fetchall()
