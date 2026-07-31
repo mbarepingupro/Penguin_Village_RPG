@@ -2577,7 +2577,7 @@ def start_new_weekly_challenge():
 
 
 def end_raid_if_timeout():
-    """Monday 00:00 (runs before start_new_weekly_challenge) — force-resolve any still-active raid."""
+    """Sunday 23:59 — force-resolve any still-active raid."""
     if not FEATURES.get("weekly_raid", False):
         return
     try:
@@ -2592,7 +2592,7 @@ def end_raid_if_timeout():
 
 
 def evaluate_weekly_challenge():
-    """Friday 09:00 — check if the active challenge was met; create raid_state if so."""
+    """Friday 23:59 — check if the active challenge was met; create raid_state if so."""
     if not FEATURES.get("weekly_raid", False):
         return
     now = int(time.time())
@@ -2758,22 +2758,27 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
     _scheduler = BackgroundScheduler(daemon=True)
     _scheduler.add_job(run_autonomous_actions, "interval", minutes=60, id="autonomous_actions",
                        misfire_grace_time=60)
-    # Weekly challenge + raid lifecycle (all UTC)
-    # end_raid_if_timeout MUST complete before start_new_weekly_challenge — both
-    # used to be registered at the identical Mon 00:00:00 trigger time, which
-    # APScheduler does not guarantee an execution order for. Staggered by one
-    # minute so ordering is enforced by distinct next_run_time values instead.
-    _scheduler.add_job(end_raid_if_timeout,        "cron", day_of_week="mon", hour=0, minute=0,
+    # Weekly challenge + raid lifecycle (all UTC): challenge window is Monday
+    # 00:00 through Friday 23:59 (evaluated right at that close), raid window
+    # is Saturday 00:00 through Sunday 23:59 (timeout sweep runs right at
+    # that close, resolving anything still active before the next
+    # challenge opens). start_new_weekly_challenge keeps its Mon 00:01
+    # trigger (one minute after end_raid_if_timeout) as a leftover of when
+    # both jobs shared the identical Mon 00:00:00 trigger time and needed
+    # staggering for APScheduler's execution-order guarantee -- no longer
+    # load-bearing now that end_raid_if_timeout runs the day before, but
+    # harmless to leave as-is.
+    _scheduler.add_job(end_raid_if_timeout,        "cron", day_of_week="sun", hour=23, minute=59,
                        id="end_raid_timeout",       misfire_grace_time=300)
     _scheduler.add_job(start_new_weekly_challenge,  "cron", day_of_week="mon", hour=0, minute=1,
                        id="start_weekly_challenge",  misfire_grace_time=300)
-    _scheduler.add_job(evaluate_weekly_challenge,   "cron", day_of_week="fri", hour=9, minute=0,
+    _scheduler.add_job(evaluate_weekly_challenge,   "cron", day_of_week="fri", hour=23, minute=59,
                        id="evaluate_weekly_challenge", misfire_grace_time=300)
     _scheduler.add_job(start_raid_if_unlocked,      "cron", day_of_week="sat", hour=0, minute=0,
                        id="start_raid",              misfire_grace_time=300)
     _scheduler.start()
     print("[Scheduler] Autonomous actions scheduler started — runs every 60 minutes")
-    print("[Scheduler] Weekly challenge/raid jobs registered (Mon 00:00 timeout, Mon 00:01 new challenge, Fri 09:00, Sat 00:00)")
+    print("[Scheduler] Weekly challenge/raid jobs registered (Mon 00:01 new challenge, Fri 23:59 evaluate, Sat 00:00 raid start, Sun 23:59 timeout)")
 elif not _APSCHEDULER_AVAILABLE:
     print("[Scheduler] WARNING: apscheduler not available — autonomous actions disabled")
 
@@ -2781,7 +2786,7 @@ elif not _APSCHEDULER_AVAILABLE:
 # ── ROUTES ───────────────────────────────────────────────────────────────────
 
 # Legacy join-window schedule (raid_join_window flag only) set by the
-# scheduler jobs above: opens Friday 09:00 UTC, closes Saturday 00:00 UTC
+# scheduler jobs above: opens Friday 23:59 UTC, closes Saturday 00:00 UTC
 # when start_raid_if_unlocked() flips the raid to 'active'. Not stored on
 # raid_state, so derive it from join_window_start rather than adding a
 # migration for it. With raid_join_window off (default), raid_state goes
