@@ -47,6 +47,11 @@ const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
 // ── STATE ────────────────────────────────────────────────────────────────────
 let grid = [];
 let buildings = {};
+// Fence orientation per grid cell, keyed "x,y" -> 0-3 (ctx.scale flip combo
+// applied in drawFence(); see there for the mapping). Only meaningful for
+// cells where grid[y][x] === 5 (TILE_FENCE) -- stale entries left behind by
+// painting over a fence tile with something else are harmless (ignored).
+let tileRotations = {};
 let selectedTool = 0;
 let lastTileType  = 0; // last numeric tile type selected; used as fill target
 let buildingMode = false;
@@ -183,6 +188,7 @@ async function preloadSprites() {
 // ── GRID INIT ────────────────────────────────────────────────────────────────
 function initGrid() {
     grid = [];
+    tileRotations = {};
     for (let y = 0; y < GRID_SIZE; y++) {
         grid.push(new Array(GRID_SIZE).fill(0));
     }
@@ -225,7 +231,9 @@ function drawDiamondPath(sx, sy) {
     ctx.closePath();
 }
 
-const _TILE_SPRITE = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
+// Fence (5) intentionally excluded -- it renders upright via drawFence(),
+// never through this flat squash-to-diamond path.
+const _TILE_SPRITE = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree' };
 
 function drawTile(sx, sy, tileType, isHover) {
     const spriteName = _TILE_SPRITE[tileType];
@@ -256,6 +264,53 @@ function drawTile(sx, sy, tileType, isHover) {
         ctx.strokeStyle = "#FF7FE5";
         ctx.lineWidth = 2;
         ctx.stroke();
+    }
+}
+
+// Renders the fence sprite upright and bottom-anchored -- same proportional-
+// scale, anchor-at-the-tile's-front-corner pattern as drawBuilding() below,
+// simplified for a single 1x1 footprint (so footprint width is always
+// exactly one tile's diagonal span, TILE_W). rot cycles 0-3 via the ROTATE
+// FENCE tool (see paintTile()) and picks one of the four ctx.scale(±1,±1)
+// mirror combinations, applied around the sprite's own bounding-box center
+// so the bottom anchor never shifts regardless of which axis is flipped.
+function drawFence(sx, sy, gridX, gridY) {
+    const sprite = EditorSprites.get(_versionedAsset('tiles/fence.png'));
+    if (!sprite) {
+        // Sprite not loaded yet (brief window during preloadSprites()) --
+        // tiny placeholder cross so the tile doesn't look empty meanwhile.
+        ctx.strokeStyle = "#AAAAAA";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx - 12, sy);
+        ctx.lineTo(sx + 12, sy);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - 12);
+        ctx.lineTo(sx, sy + 12);
+        ctx.stroke();
+        return;
+    }
+
+    const frontX = sx;
+    const frontY = sy + TILE_H / 2;
+    const spriteScale = TILE_W / sprite.width;
+    const drawWidth  = sprite.width  * spriteScale;
+    const drawHeight = sprite.height * spriteScale;
+
+    const rot = tileRotations[gridX + ',' + gridY] || 0;
+    const flipX = (rot === 1 || rot === 3) ? -1 : 1;
+    const flipY = (rot === 2 || rot === 3) ? -1 : 1;
+
+    ctx.imageSmoothingEnabled = false;
+    if (flipX === 1 && flipY === 1) {
+        ctx.drawImage(sprite, frontX - drawWidth / 2, frontY - drawHeight, drawWidth, drawHeight);
+    } else {
+        ctx.save();
+        ctx.translate(frontX, frontY - drawHeight / 2);
+        ctx.scale(flipX, flipY);
+        ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        ctx.restore();
     }
 }
 
@@ -422,8 +477,10 @@ function render() {
             const isHover = !buildingMode && hoverGrid && hoverGrid.x === x && hoverGrid.y === y;
             const isBuildingTile = buildingTileSet.has(x + ',' + y);
 
-            // Draw base tile
-            drawTile(sx, sy, tileType, isHover && !isBuildingTile);
+            // Draw base tile -- fences render upright via drawFence() below
+            // instead of being squashed into the flat diamond, so the ground
+            // pass under a fence tile always draws plain snow.
+            drawTile(sx, sy, tileType === 5 ? 0 : tileType, isHover && !isBuildingTile);
 
             // Path preview overlay
             if (showPaths && !isBuildingTile) {
@@ -431,6 +488,14 @@ function render() {
                 drawDiamondPath(sx, sy);
                 ctx.fillStyle = walkable ? "rgba(74,255,107,0.25)" : "rgba(255,68,68,0.2)";
                 ctx.fill();
+            }
+
+            // Fence — drawn upright, bottom-anchored, same diagonal painter's-
+            // algorithm position as its ground tile (single-tile object, so no
+            // separate depth-sort pass is needed the way village_map.js needs
+            // one for multi-tile buildings).
+            if (tileType === 5 && !isBuildingTile) {
+                drawFence(sx, sy, x, y);
             }
 
             // Draw building if this is the origin tile
@@ -521,6 +586,10 @@ function paintTile(gx, gy) {
         if (grid[gy][gx] === 4) return; // don't fill building zones
         const targetType = grid[gy][gx];
         floodFill(gx, gy, targetType, lastTileType);
+    } else if (selectedTool === 'rotate') {
+        if (grid[gy][gx] !== 5) return; // only meaningful on fence tiles
+        const key = gx + ',' + gy;
+        tileRotations[key] = ((tileRotations[key] || 0) + 1) % 4;
     } else {
         grid[gy][gx] = paintType;
     }
@@ -642,7 +711,7 @@ async function saveLayout() {
         const resp = await fetch('/village/layout/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ grid, buildings }),
+            body: JSON.stringify({ grid, buildings, tileRotations }),
         });
         const data = await resp.json();
         if (data.status === 'success') {
@@ -708,11 +777,23 @@ function applyLayout(data) {
             }
         }
     }
+
+    // Apply fence rotations (optional field -- absent in layouts saved
+    // before this existed, so default to unrotated rather than rejecting).
+    tileRotations = {};
+    if (data.tileRotations && typeof data.tileRotations === 'object') {
+        for (const [key, val] of Object.entries(data.tileRotations)) {
+            const n = Number(val);
+            if (Number.isInteger(n) && n >= 0 && n <= 3) {
+                tileRotations[key] = n;
+            }
+        }
+    }
 }
 
 // ── BACKUP DOWNLOAD / UPLOAD ─────────────────────────────────────────────────
 function downloadBackup() {
-    const data = { grid, buildings };
+    const data = { grid, buildings, tileRotations };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -843,6 +924,12 @@ function setupToolbar() {
         updateToolbarActive();
     });
 
+    document.getElementById('btn-tool-rotate').addEventListener('click', function () {
+        if (buildingMode) setBuildingMode(false);
+        selectedTool = 'rotate';
+        updateToolbarActive();
+    });
+
     // Buildings toggle
     document.getElementById('btn-buildings-toggle').addEventListener('click', function () {
         setBuildingMode(!buildingMode);
@@ -904,6 +991,7 @@ function updateToolbarActive() {
     }
     document.getElementById('btn-tool-fill').classList.toggle('active', !buildingMode && selectedTool === 'fill');
     document.getElementById('btn-tool-eraser').classList.toggle('active', !buildingMode && selectedTool === 'eraser');
+    document.getElementById('btn-tool-rotate').classList.toggle('active', !buildingMode && selectedTool === 'rotate');
 }
 
 // ── CANVAS INTERACTION ────────────────────────────────────────────────────────
@@ -954,8 +1042,10 @@ function setupCanvas() {
             document.getElementById('coord-display').textContent = '[-, -]';
         }
 
-        // Drag paint — skip fill tool (single click only)
-        if (isPainting && !buildingMode && selectedTool !== 'fill' && hoverGrid) {
+        // Drag paint — skip fill/rotate tools (single click only; dragging
+        // over multiple fence tiles under rotate would cycle each one
+        // unpredictably as the mouse moves rather than on deliberate clicks)
+        if (isPainting && !buildingMode && selectedTool !== 'fill' && selectedTool !== 'rotate' && hoverGrid) {
             paintTile(hoverGrid.x, hoverGrid.y);
         }
     });

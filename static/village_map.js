@@ -159,6 +159,9 @@ let grid = [];
 let buildingLayout = {};
 let buildingLevels = {};
 let treeSeed = {};
+// Fence orientation per grid cell, keyed "x,y" -> 0-3, set by the map editor's
+// ROTATE FENCE tool and saved alongside grid/buildings. See drawFence().
+let tileRotations = {};
 let penguins = [];
 let fontReady = false;
 let _lastTime = 0;
@@ -297,17 +300,52 @@ function drawTree(sx, sy, seed) {
     ctx.fill();
 }
 
-function drawFence(sx, sy) {
-    ctx.strokeStyle = "#AAAAAA";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sx - 12, sy);
-    ctx.lineTo(sx + 12, sy);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(sx, sy - 12);
-    ctx.lineTo(sx, sy + 12);
-    ctx.stroke();
+// Renders the fence sprite upright and bottom-anchored -- same proportional-
+// scale, anchor-at-the-tile's-front-corner pattern drawBuilding() uses,
+// simplified for a single 1x1 footprint (so footprint width is always
+// exactly one tile's diagonal span, TILE_W, rather than a per-building
+// computed rPt/lPt span). rot cycles 0-3 via the map editor's ROTATE FENCE
+// tool and picks one of the four ctx.scale(±1,±1) mirror combinations,
+// applied around the sprite's own bounding-box center so the bottom anchor
+// never shifts regardless of which axis is flipped.
+function drawFence(sx, sy, gridX, gridY) {
+    const sprite = SpriteLoader.get(_versionedAsset('tiles/fence.png'));
+    if (!sprite) {
+        // Sprite not loaded yet (brief window during loadAllSprites()) --
+        // tiny placeholder cross so the tile doesn't look empty meanwhile.
+        ctx.strokeStyle = "#AAAAAA";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx - 12, sy);
+        ctx.lineTo(sx + 12, sy);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(sx, sy - 12);
+        ctx.lineTo(sx, sy + 12);
+        ctx.stroke();
+        return;
+    }
+
+    const frontX = sx;
+    const frontY = sy + TILE_H / 2;
+    const spriteScale = TILE_W / sprite.width;
+    const drawWidth  = sprite.width  * spriteScale;
+    const drawHeight = sprite.height * spriteScale;
+
+    const rot = tileRotations[gridX + ',' + gridY] || 0;
+    const flipX = (rot === 1 || rot === 3) ? -1 : 1;
+    const flipY = (rot === 2 || rot === 3) ? -1 : 1;
+
+    ctx.imageSmoothingEnabled = false;
+    if (flipX === 1 && flipY === 1) {
+        ctx.drawImage(sprite, frontX - drawWidth / 2, frontY - drawHeight, drawWidth, drawHeight);
+    } else {
+        ctx.save();
+        ctx.translate(frontX, frontY - drawHeight / 2);
+        ctx.scale(flipX, flipY);
+        ctx.drawImage(sprite, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+        ctx.restore();
+    }
 }
 
 function drawExpansionTile(sx, sy) {
@@ -1344,14 +1382,15 @@ function gameLoop(ts) {
                 drawExpansionTile(pos.x, pos.y);
             } else if (tileType === TILE_WATER) {
                 drawWaterTile(pos.x, pos.y, _time);
+            } else if (tileType === TILE_FENCE) {
+                // Ground beneath the fence -- plain flat snow. The fence
+                // sprite itself is drawn upright in Phase 2 (drawFence) so
+                // it isn't squashed into the flat diamond here.
+                drawTile(pos.x, pos.y, TILE_COLORS[TILE_SNOW], TILE_SNOW);
             } else {
                 drawTile(pos.x, pos.y, TILE_COLORS[tileType] || TILE_COLORS[0], tileType);
             }
-
-            if (tileType === TILE_FENCE) {
-                drawFence(pos.x, pos.y);
-            }
-            // Trees drawn in Phase 2 for correct depth ordering with buildings and penguins
+            // Trees and fences drawn in Phase 2 for correct depth ordering with buildings and penguins
         }
     }
 
@@ -1387,6 +1426,15 @@ function gameLoop(ts) {
         for (let x = 0; x < GRID_SIZE; x++) {
             if (grid[y] && grid[y][x] === TILE_TREE) {
                 uprightObjects.push({ type: 'tree', gridX: x, gridY: y, sortKey: x + y });
+            }
+        }
+    }
+
+    // Fences — same single-grid-cell sort key convention as trees
+    for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+            if (grid[y] && grid[y][x] === TILE_FENCE) {
+                uprightObjects.push({ type: 'fence', gridX: x, gridY: y, sortKey: x + y });
             }
         }
     }
@@ -1432,6 +1480,9 @@ function gameLoop(ts) {
             const pos = gridToScreen(obj.gridX, obj.gridY);
             const seed = treeSeed[obj.gridX + ',' + obj.gridY] || 0;
             drawTree(pos.x, pos.y, seed);
+        } else if (obj.type === 'fence') {
+            const pos = gridToScreen(obj.gridX, obj.gridY);
+            drawFence(pos.x, pos.y, obj.gridX, obj.gridY);
         } else if (obj.type === 'building') {
             drawBuilding(obj.id, obj.bdef, obj.level);
         } else {
@@ -1505,6 +1556,7 @@ function initEngine(canvasEl, username, openBuildingCallback) {
             grid = data.grid || [];
             buildingLayout = data.buildings || {};
             buildingLevels = data.building_levels || {};
+            tileRotations = data.tileRotations || {};
 
             treeSeed = {};
             for (let y = 0; y < GRID_SIZE; y++) {
