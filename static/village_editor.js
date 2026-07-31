@@ -710,6 +710,48 @@ function applyLayout(data) {
     }
 }
 
+// ── BACKUP DOWNLOAD / UPLOAD ─────────────────────────────────────────────────
+function downloadBackup() {
+    const data = { grid, buildings };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `village_layout_backup_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+}
+
+function uploadBackup(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+        let data;
+        try {
+            data = JSON.parse(reader.result);
+        } catch (e) {
+            showFlash('INVALID JSON FILE ❌', true);
+            return;
+        }
+        if (!Array.isArray(data.grid) || typeof data.buildings !== 'object' || data.buildings === null) {
+            showFlash('MISSING "grid" OR "buildings" ❌', true);
+            return;
+        }
+        applyLayout(data);
+        setDirty(true);
+        updateInfoPanel();
+        rebuildBuildingsList();
+        showFlash('LOADED FROM FILE — REVIEW & SAVE', false);
+    };
+    reader.onerror = function () {
+        showFlash('FILE READ FAILED ❌', true);
+    };
+    reader.readAsText(file);
+}
+
 function resetLayout() {
     if (!confirm('Reset to all snow? This cannot be undone.')) return;
     initGrid();
@@ -816,6 +858,17 @@ function setupToolbar() {
     document.getElementById('btn-load').addEventListener('click', loadLayout);
     document.getElementById('btn-save').addEventListener('click', saveLayout);
     document.getElementById('btn-reset').addEventListener('click', resetLayout);
+
+    // Backup download / upload
+    document.getElementById('btn-download').addEventListener('click', downloadBackup);
+    const uploadInput = document.getElementById('upload-file-input');
+    document.getElementById('btn-upload').addEventListener('click', function () {
+        uploadInput.click();
+    });
+    uploadInput.addEventListener('change', function () {
+        uploadBackup(uploadInput.files[0]);
+        uploadInput.value = '';
+    });
 
     // Reset view
     document.getElementById('btn-reset-view').addEventListener('click', resetView);
