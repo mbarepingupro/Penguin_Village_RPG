@@ -8691,6 +8691,29 @@ _BUILDING_HOME_TILES = {
 }
 _DEFAULT_HOME_TILE = (5, 10)
 
+# Offsets (varying distance/angle) applied to each building's home tile in
+# _BUILDING_HOME_TILES to build a small spawn pool -- every working player
+# used to collapse onto that one exact tile, which combined with
+# stepPenguin()'s tight wander radius (village_map.js) made same-job
+# penguins visibly stack on top of each other. The client already
+# tolerates an offset landing on an unwalkable tile (nearestWalkable()
+# snaps it to the closest real walkable tile), so these don't need to be
+# hand-verified walkable themselves.
+_HOME_TILE_POOL_OFFSETS = [(0, 0), (2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (-1, -1), (1, -1)]
+
+_BUILDING_HOME_TILE_POOLS = {
+    job: [(bx + dx, by + dy) for dx, dy in _HOME_TILE_POOL_OFFSETS]
+    for job, (bx, by) in _BUILDING_HOME_TILES.items()
+}
+
+
+def _stable_pool_index(username, pool_len):
+    """Deterministic per-username index into a spawn pool -- same player always
+    lands in the same spot across reloads, but different players at the same
+    job spread across the pool instead of converging on one point."""
+    digest = hashlib.md5(username.encode("utf-8")).hexdigest()
+    return int(digest, 16) % pool_len
+
 
 @app.route("/village/layout/save", methods=["POST"])
 def save_village_layout():
@@ -8779,9 +8802,12 @@ def village_penguins():
             "worn_items":    worn_map.get(r["username"], {}),
         }
         # Only working penguins get a home tile — jobless penguins get a
-        # random walkable spawn on the client side via randomWalkableTile()
-        if job and job in _BUILDING_HOME_TILES:
-            home = _BUILDING_HOME_TILES[job]
+        # random walkable spawn on the client side via randomWalkableTile().
+        # Each working player gets a stable-per-username spot from the
+        # building's spawn pool rather than everyone sharing the same tile.
+        if job and job in _BUILDING_HOME_TILE_POOLS:
+            pool = _BUILDING_HOME_TILE_POOLS[job]
+            home = pool[_stable_pool_index(r["username"], len(pool))]
             entry["startGridX"] = home[0]
             entry["startGridY"] = home[1]
         penguins.append(entry)

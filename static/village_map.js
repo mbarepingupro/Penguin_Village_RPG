@@ -722,15 +722,34 @@ function drawPenguin(sx, sy, penguin, isBehind) {
 }
 
 function isPenguinBehindBuilding(penguinX, penguinY) {
-    for (const [, bdef] of Object.entries(buildingLayout)) {
+    for (const [id, bdef] of Object.entries(buildingLayout)) {
         const bLeft   = bdef.gridX;
         const bRight  = bdef.gridX + bdef.width;
-        const bTop    = bdef.gridY;
         const bBottom = bdef.gridY + bdef.height;
-        // Penguin is visually occluded when its X falls within the building's column range
-        // and its Y is closer to the back (smaller) than the building's front edge.
-        if (penguinX >= bLeft  - 0.5 && penguinX <= bRight  + 0.5 &&
-            penguinY >= bTop   - 1   && penguinY  <  bBottom - 0.5) {
+
+        // Penguin is visually occluded only when it's within the building's
+        // actual footprint columns (no horizontal padding -- a penguin merely
+        // standing beside the building isn't behind it) and far enough north
+        // of the front edge to fall under the building's rendered silhouette.
+        // "Far enough" is derived from the real sprite height (same scaling
+        // drawBuilding() uses) rather than a fixed tile guess, since sprite
+        // aspect ratio varies a lot per building and per level.
+        if (penguinX < bLeft || penguinX >= bRight) continue;
+
+        const level = buildingLevels[id] !== undefined ? buildingLevels[id] : 1;
+        const sprite = _getBuildingSprite(id, level);
+        let occlusionRows;
+        if (sprite) {
+            const footprintWidth = bdef.width * TILE_W;
+            const drawHeight = sprite.height * (footprintWidth / sprite.width);
+            occlusionRows = drawHeight / (TILE_H / 2);
+        } else {
+            // No sprite loaded yet -- fall back to the same placeholder
+            // 3D-box height drawBuilding() itself falls back to (BOX_H).
+            occlusionRows = (32 + bdef.width * 6) / (TILE_H / 2);
+        }
+
+        if (penguinY >= bBottom - occlusionRows && penguinY < bBottom - 0.5) {
             return true;
         }
     }
@@ -851,9 +870,9 @@ function stepPenguin(penguin) {
 
     let candidates = neighbors;
     if (penguin.working && penguin.homeX !== undefined) {
-        // Stay within manhattan distance 4 of building home tile
+        // Stay within manhattan distance 6 of building home tile
         const nearby = neighbors.filter(n =>
-            Math.abs(n.x - penguin.homeX) + Math.abs(n.y - penguin.homeY) <= 4
+            Math.abs(n.x - penguin.homeX) + Math.abs(n.y - penguin.homeY) <= 6
         );
         if (nearby.length > 0) candidates = nearby;
     }
