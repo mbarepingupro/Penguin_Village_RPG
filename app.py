@@ -8677,6 +8677,12 @@ os.makedirs(os.path.dirname(_VILLAGE_LAYOUT_PATH), exist_ok=True)
 # thing a live mayor edit gets lost to.
 _VILLAGE_LAYOUT_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout_default.json")
 
+# Fallback only -- these were hand-picked against a much older map layout
+# and drifted 10-47 tiles away from where these buildings actually sit now
+# (buildings have been resized/repositioned multiple times since). Used only
+# when a job has no matching entry in the live layout's "buildings" dict;
+# _building_entrance_tile() derived from the real footprint is authoritative
+# whenever the building is present, which is the normal case.
 _BUILDING_HOME_TILES = {
     "hotel":         (4,  6),
     "sea_lion_pit":  (3, 11),
@@ -8694,18 +8700,25 @@ _DEFAULT_HOME_TILE = (5, 10)
 _WALKABLE_TILE_TYPES = (0, 1)  # TILE_SNOW, TILE_PATH -- matches isWalkable() in static/village_map.js
 
 
-def _load_current_grid():
-    """Grid array from the live persisted layout, falling back to the tracked
-    default -- same fallback village_layout() uses. None if neither is
-    available (_compute_walkable_spawn_pool() then just returns the raw home
-    tile, same single-spot behavior as before spawn pools existed)."""
+def _load_current_layout():
+    """Full layout dict (grid + buildings) from the live persisted layout,
+    falling back to the tracked default -- same fallback village_layout()
+    uses. None if neither file is available."""
     for path in (_VILLAGE_LAYOUT_PATH, _VILLAGE_LAYOUT_DEFAULT_PATH):
         try:
             with open(path) as f:
-                return json.load(f).get("grid")
+                return json.load(f)
         except FileNotFoundError:
             continue
     return None
+
+
+def _building_entrance_tile(bdef):
+    """One tile south of a building's footprint, centered on its width --
+    the natural 'standing in front of the entrance' spot, derived from
+    wherever the building actually is right now rather than a coordinate
+    hand-picked against a past layout."""
+    return (bdef["gridX"] + bdef["width"] // 2, bdef["gridY"] + bdef["height"])
 
 
 def _compute_walkable_spawn_pool(base, grid, pool_size=8):
@@ -8828,7 +8841,9 @@ def village_penguins():
 
     db.close()
 
-    grid = _load_current_grid()
+    layout = _load_current_layout() or {}
+    grid = layout.get("grid")
+    buildings = layout.get("buildings") or {}
     pools_by_job = {}
 
     penguins = []
@@ -8854,9 +8869,11 @@ def village_penguins():
         # random walkable spawn on the client side via randomWalkableTile().
         # Each working player gets a stable-per-username spot from the
         # building's spawn pool rather than everyone sharing the same tile.
-        if job and job in _BUILDING_HOME_TILES:
+        if job and (job in buildings or job in _BUILDING_HOME_TILES):
             if job not in pools_by_job:
-                pools_by_job[job] = _compute_walkable_spawn_pool(_BUILDING_HOME_TILES[job], grid)
+                bdef = buildings.get(job)
+                base = _building_entrance_tile(bdef) if bdef else _BUILDING_HOME_TILES.get(job, _DEFAULT_HOME_TILE)
+                pools_by_job[job] = _compute_walkable_spawn_pool(base, grid)
             pool = pools_by_job[job]
             home = pool[_stable_pool_index(r["username"], len(pool))]
             entry["startGridX"] = home[0]
