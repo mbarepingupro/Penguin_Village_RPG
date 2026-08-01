@@ -8691,20 +8691,66 @@ _BUILDING_HOME_TILES = {
 }
 _DEFAULT_HOME_TILE = (5, 10)
 
-# Offsets (varying distance/angle) applied to each building's home tile in
-# _BUILDING_HOME_TILES to build a small spawn pool -- every working player
-# used to collapse onto that one exact tile, which combined with
-# stepPenguin()'s tight wander radius (village_map.js) made same-job
-# penguins visibly stack on top of each other. The client already
-# tolerates an offset landing on an unwalkable tile (nearestWalkable()
-# snaps it to the closest real walkable tile), so these don't need to be
-# hand-verified walkable themselves.
-_HOME_TILE_POOL_OFFSETS = [(0, 0), (2, 0), (-2, 0), (0, 2), (0, -2), (1, 1), (-1, -1), (1, -1)]
+_WALKABLE_TILE_TYPES = (0, 1)  # TILE_SNOW, TILE_PATH -- matches isWalkable() in static/village_map.js
 
-_BUILDING_HOME_TILE_POOLS = {
-    job: [(bx + dx, by + dy) for dx, dy in _HOME_TILE_POOL_OFFSETS]
-    for job, (bx, by) in _BUILDING_HOME_TILES.items()
-}
+
+def _load_current_grid():
+    """Grid array from the live persisted layout, falling back to the tracked
+    default -- same fallback village_layout() uses. None if neither is
+    available (_compute_walkable_spawn_pool() then just returns the raw home
+    tile, same single-spot behavior as before spawn pools existed)."""
+    for path in (_VILLAGE_LAYOUT_PATH, _VILLAGE_LAYOUT_DEFAULT_PATH):
+        try:
+            with open(path) as f:
+                return json.load(f).get("grid")
+        except FileNotFoundError:
+            continue
+    return None
+
+
+def _compute_walkable_spawn_pool(base, grid, pool_size=8):
+    """Ring-search outward from base for up to pool_size distinct walkable
+    tiles, at increasing distance/angle from the entrance.
+
+    An earlier version of this built the pool by offsetting base by a couple
+    tiles in each of several directions and letting the client's
+    nearestWalkable() snap each one independently. That silently collapsed
+    back into a single-tile cluster whenever base sat inside (or near) a
+    small unwalkable pocket -- every offset variant snapped to the same
+    closest walkable tile just outside it, which is exactly what happened
+    for a couple of the hardcoded _BUILDING_HOME_TILES in production.
+    Searching the real grid for genuinely distinct walkable tiles avoids
+    that regardless of how base is situated.
+    """
+    if not grid:
+        return [base]
+    h = len(grid)
+    w = len(grid[0]) if h else 0
+
+    def is_walkable(x, y):
+        return 0 <= x < w and 0 <= y < h and grid[y][x] in _WALKABLE_TILE_TYPES
+
+    bx, by = base
+    pool = []
+    if is_walkable(bx, by):
+        pool.append((bx, by))
+
+    for r in range(1, max(w, h)):
+        if len(pool) >= pool_size:
+            break
+        for dx in range(-r, r + 1):
+            for dy in range(-r, r + 1):
+                if abs(dx) != r and abs(dy) != r:
+                    continue  # only the ring's perimeter, not its interior (already covered by smaller r)
+                x, y = bx + dx, by + dy
+                if is_walkable(x, y) and (x, y) not in pool:
+                    pool.append((x, y))
+                    if len(pool) >= pool_size:
+                        break
+            if len(pool) >= pool_size:
+                break
+
+    return pool if pool else [base]
 
 
 def _stable_pool_index(username, pool_len):
@@ -8782,6 +8828,9 @@ def village_penguins():
 
     db.close()
 
+    grid = _load_current_grid()
+    pools_by_job = {}
+
     penguins = []
     for r in rows:
         job       = r["job"]
@@ -8805,8 +8854,10 @@ def village_penguins():
         # random walkable spawn on the client side via randomWalkableTile().
         # Each working player gets a stable-per-username spot from the
         # building's spawn pool rather than everyone sharing the same tile.
-        if job and job in _BUILDING_HOME_TILE_POOLS:
-            pool = _BUILDING_HOME_TILE_POOLS[job]
+        if job and job in _BUILDING_HOME_TILES:
+            if job not in pools_by_job:
+                pools_by_job[job] = _compute_walkable_spawn_pool(_BUILDING_HOME_TILES[job], grid)
+            pool = pools_by_job[job]
             home = pool[_stable_pool_index(r["username"], len(pool))]
             entry["startGridX"] = home[0]
             entry["startGridY"] = home[1]
