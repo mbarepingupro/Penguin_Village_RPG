@@ -7780,13 +7780,14 @@ def building_donate():
             (new_level, building_id)
         )
         benefit = cfg["levels"][new_level].get("benefit", "")
-        log_event(db, "building_levelup",
-                  f"🏗️ {cfg['name']} has been upgraded to Level {new_level}! {benefit} Thanks to the village!",
-                  None)
+        levelup_message = f"🏗️ {cfg['name']} has been upgraded to Level {new_level}! {benefit} Thanks to the village!"
+        log_event(db, "building_levelup", levelup_message, None)
         leveled_up = True
 
     db.commit()
     db.close()
+    if leveled_up:
+        notify_channels(levelup_message)
     return jsonify({
         "status":                  "success",
         "donated":                 amount,
@@ -10112,6 +10113,7 @@ def mayor_building_boost():
     row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
     current_level = row["current_level"]
     leveled_up    = False
+    levelup_messages = []
     while current_level < (row["max_level"] or 5):
         next_level = current_level + 1
         reqs = {k: v for k, v in cfg["levels"][next_level].items() if k != "benefit"}
@@ -10122,9 +10124,9 @@ def mayor_building_boost():
         if all(donated[k] >= reqs[k] for k in reqs):
             db.execute("UPDATE building_upgrades SET current_level=? WHERE building_id=?",
                        (next_level, building_id))
-            log_event(db, "building_levelup",
-                      f"🏗️ {cfg['name']} has been upgraded to level {next_level}!",
-                      MAYOR_USERNAME)
+            levelup_message = f"🏗️ {cfg['name']} has been upgraded to level {next_level}!"
+            log_event(db, "building_levelup", levelup_message, MAYOR_USERNAME)
+            levelup_messages.append(levelup_message)
             current_level = next_level
             leveled_up = True
         else:
@@ -10135,6 +10137,8 @@ def mayor_building_boost():
               MAYOR_USERNAME)
     db.commit()
     db.close()
+    for levelup_message in levelup_messages:
+        notify_channels(levelup_message)
     return jsonify({"status": "success", "building_id": building_id, "leveled_up": leveled_up,
                     "new_level": current_level})
 
