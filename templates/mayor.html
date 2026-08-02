@@ -675,6 +675,28 @@
           <button class="mh-btn" onclick="sendAnnouncement()">📢 ANNOUNCE</button>
         </div>
 
+        <!-- START GATHERING -- building-themed timed event; highlights the
+             building on the map and lets players check in from its modal
+             for a reward when the timer ends. Options are BUILDING_EVENTS'
+             keys (the server-side allowlist), passed in via building_events
+             so this dropdown can't list a building the backend would reject. -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">🎪 START GATHERING</div>
+          <div class="mh-field">
+            <label class="mh-label">BUILDING</label>
+            <select class="mh-select" id="gathering-building">
+              {% for bid, cfg in building_events.items() %}
+              <option value="{{ bid }}">{{ all_buildings[bid].icon }} {{ all_buildings[bid].name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mh-field">
+            <label class="mh-label">DURATION (MINUTES)</label>
+            <input class="mh-input" type="number" id="gathering-duration" value="8" min="1" max="60"/>
+          </div>
+          <button class="mh-btn" onclick="startGathering()">🎪 START GATHERING</button>
+        </div>
+
         <!-- PATCH NOTES -- same delivery mechanism as ANNOUNCE (mayor_messages
              + lifecycle_notices()'s one-shot popup), but with a title and an
              uncapped multi-line body instead of one 200-char message. -->
@@ -1418,6 +1440,19 @@
       toast('✅ Announcement sent!');
       document.getElementById('announce-msg').value = '';
       document.getElementById('announce-chars').textContent = '0';
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  // ── START GATHERING ──
+  async function startGathering() {
+    const btn         = event.target;
+    const buildingId  = document.getElementById('gathering-building').value;
+    const duration    = parseInt(document.getElementById('gathering-duration').value, 10) || 8;
+    const data = await api('/mayor/gathering/start', { building_id: buildingId, duration_minutes: duration }, btn);
+    if (data.status === 'success') {
+      toast(`✅ Gathering started (${duration} min)!`);
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
     }

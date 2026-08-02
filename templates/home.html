@@ -2281,6 +2281,14 @@
     .help-banner-dismiss { position: absolute; top: 8px; right: 8px; font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #A86EFF; background: transparent; border: 1px solid #A86EFF; padding: 3px 10px; cursor: pointer; }
     .help-banner-dismiss:hover { background: #A86EFF; color: #181820; }
 
+    /* ── GATHERING EVENT BANNER (building modal) ── */
+    .gathering-banner { position: relative; width: 100%; background: #1a1100; border-bottom: 2px solid #FF8C00; padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; animation: helpBannerSlideIn 0.3s ease-out; z-index: 10; box-sizing: border-box; }
+    .gathering-banner-icon { font-size: 18px; flex-shrink: 0; }
+    .gathering-banner-text { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #FF8C00; line-height: 1.5; flex: 1; min-width: 140px; }
+    .gathering-banner-checkin { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #4aff6b; background: transparent; border: 2px solid #4aff6b; padding: 5px 12px; cursor: pointer; flex-shrink: 0; }
+    .gathering-banner-checkin:hover { background: #4aff6b; color: #181820; }
+    .gathering-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #4aff6b; flex-shrink: 0; }
+
     /* ── Help button in nav ── */
     #help-btn {
       background: none;
@@ -4699,6 +4707,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           }
         }
       } catch(e) {}
+      // Same piggyback for the building gathering-event highlight/banner --
+      // no separate setInterval for this either.
+      pollGatheringActive();
     },
 
     startPolling: function() {
@@ -5839,6 +5850,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         hotel:         'REST UP! The Hotel restores your energy. Great when you\'re running low.',
       };
       if (_bldgHelp[buildingId]) showHelpBanner('bldg_' + buildingId, '#bm-content', _bldgHelp[buildingId]);
+      _renderGatheringBanner(buildingId);
     } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
   }
 
@@ -5850,6 +5862,93 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     document.getElementById('bq-preview').className = '';
     document.getElementById('bq-preview').innerHTML = '';
     _currentDonateBuilding = null;
+    if (_gatheringCountdownTimer) { clearInterval(_gatheringCountdownTimer); _gatheringCountdownTimer = null; }
+  }
+
+  // ── BUILDING GATHERING EVENTS ────────────────────────────────────────────────
+  // Polled on GlobalChat's existing 4s/on-map-tab tick (see pollGatheringActive()
+  // there) rather than a second setInterval. _activeGathering mirrors whatever
+  // GET /gathering/active last returned; null when nothing's running.
+  let _activeGathering = null;
+  let _gatheringCountdownTimer = null;
+
+  async function pollGatheringActive() {
+    try {
+      const res  = await fetch('/gathering/active');
+      const data = await res.json();
+      _activeGathering = data.active ? data : null;
+    } catch (e) {
+      _activeGathering = null;
+    }
+    if (window.VillageMap) {
+      if (_activeGathering) VillageMap.highlightBuilding(_activeGathering.building_id);
+      else VillageMap.clearBuildingHighlight();
+    }
+    // Keep an already-open building modal's banner in sync -- a gathering
+    // can start or end while the player is sitting in that building's modal.
+    if (_currentDonateBuilding) _renderGatheringBanner(_currentDonateBuilding);
+  }
+
+  function _renderGatheringBanner(buildingId) {
+    const existing = document.getElementById('gathering-banner');
+    if (existing) existing.remove();
+    if (_gatheringCountdownTimer) { clearInterval(_gatheringCountdownTimer); _gatheringCountdownTimer = null; }
+
+    if (!_activeGathering || _activeGathering.building_id !== buildingId) return;
+    const container = document.getElementById('bm-content');
+    if (!container) return;
+
+    const banner = document.createElement('div');
+    banner.className = 'gathering-banner';
+    banner.id = 'gathering-banner';
+
+    if (_activeGathering.checked_in) {
+      banner.innerHTML =
+        '<span class="gathering-banner-icon">🎪</span>' +
+        '<span class="gathering-banner-text">Checked in! Resources awarded at time up!</span>' +
+        '<span class="gathering-banner-timer" id="gathering-banner-timer"></span>';
+      container.insertBefore(banner, container.firstChild);
+      _startGatheringCountdown(_activeGathering.ends_at);
+    } else {
+      banner.innerHTML =
+        '<span class="gathering-banner-icon">🎪</span>' +
+        '<span class="gathering-banner-text">' + GlobalChat._esc(_activeGathering.message) + '</span>' +
+        '<button class="gathering-banner-checkin" onclick="checkInGathering()">✅ Check In!</button>';
+      container.insertBefore(banner, container.firstChild);
+    }
+  }
+
+  function _startGatheringCountdown(endsAt) {
+    function tick() {
+      const el = document.getElementById('gathering-banner-timer');
+      if (!el) { clearInterval(_gatheringCountdownTimer); _gatheringCountdownTimer = null; return; }
+      const remaining = Math.max(0, endsAt - Math.floor(Date.now() / 1000));
+      const mm = Math.floor(remaining / 60);
+      const ss = remaining % 60;
+      el.textContent = mm + ':' + String(ss).padStart(2, '0');
+      if (remaining <= 0) { clearInterval(_gatheringCountdownTimer); _gatheringCountdownTimer = null; }
+    }
+    tick();
+    _gatheringCountdownTimer = setInterval(tick, 1000);
+  }
+
+  async function checkInGathering() {
+    try {
+      const res  = await fetch('/gathering/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        if (_activeGathering) { _activeGathering.checked_in = true; _activeGathering.ends_at = data.ends_at; }
+        if (_currentDonateBuilding) _renderGatheringBanner(_currentDonateBuilding);
+      } else {
+        showToast(data.message || 'Could not check in.', 'err');
+      }
+    } catch (e) {
+      showToast('Network error.', 'err');
+    }
   }
 
   // ── BOUTIQUE ──────────────────────────────────────────────────────────────

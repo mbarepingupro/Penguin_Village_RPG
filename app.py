@@ -47,6 +47,7 @@ MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
 STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 # Base64-encoded shared secret from the Twitch Developer Console (Extensions ->
 # your extension -> Settings), used to verify the Extension Helper JWT sent by
 # the extension frontend. Separate trust boundary from STREAMERBOT_SECRET above.
@@ -961,6 +962,21 @@ MONSTER_TIER_CP_BANDS = {
     3: (126, 167),  # levels 10-14 (7 monsters)
     4: (168, 227),  # levels 15-24 (6 monsters)
     5: (264, 278),  # levels 25-30 (4 monsters)
+}
+
+# Building-themed timed gathering events -- curated allowlist (also doubles
+# as the set of valid building_id values for /mayor/gathering/start and
+# auto_start_gathering()). Amounts match each building's existing minigame
+# payout (calculate_minigame_rewards() below), not new balance numbers.
+BUILDING_EVENTS = {
+    "sea_lion_pit":  {"message": "🐟 Free fish is being awarded at the Sea Lion Pit!",
+                       "reward_type": "fish", "reward_amount": 15},
+    "cursed_temple": {"message": "🔮 Time to pray at the Cursed Temple!",
+                       "reward_type": "spell_fragments", "reward_amount": 12},
+    "club_soda":     {"message": "🍹 Happy hour at Club Soda! Get a free drink and resources!",
+                       "reward_type": "herbs", "reward_amount": 15},
+    "parkmusement":  {"message": "🎪 A performance is about to start at the Parkmusement — resources thrown to the crowd!",
+                       "reward_type": "gold", "reward_amount": 20},
 }
 
 MONSTER_TYPES = {
@@ -2161,7 +2177,7 @@ def resolve_raid(raid_id, reason):
     # defeat (from /raid/attack) and the Monday timeout sweep can both call
     # resolve_raid() for the same raid_id, but only the first to see 'active'
     # gets past that check and reaches here, so this can't double-fire.
-    notify_streamerbot(_notice_plain_text(_raid_result_notice({"boss_name": raid["boss_name"], "status": new_status})))
+    notify_channels(_notice_plain_text(_raid_result_notice({"boss_name": raid["boss_name"], "status": new_status})))
 
     return {
         "raid_id":     raid_id,
@@ -2581,7 +2597,7 @@ def start_new_weekly_challenge():
         )
         db.commit()
         print(f"[WeeklyChallenge] New challenge started: {metric['label']} (threshold {metric['threshold']})")
-        notify_streamerbot(_notice_plain_text(
+        notify_channels(_notice_plain_text(
             _challenge_start_notice({"metric_type": metric["id"], "threshold": metric["threshold"]})
         ))
     except Exception as e:
@@ -2684,14 +2700,14 @@ def evaluate_weekly_challenge():
             )
 
         db.commit()
-        notify_streamerbot(_notice_plain_text(_challenge_result_notice({
+        notify_channels(_notice_plain_text(_challenge_result_notice({
             "status": new_status,
             "current_progress": row["current_progress"],
             "threshold": row["threshold"],
             "metric_type": row["metric_type"],
         })))
         if raid_start_boss:
-            notify_streamerbot(_notice_plain_text(_raid_start_notice({"boss_name": raid_start_boss})))
+            notify_channels(_notice_plain_text(_raid_start_notice({"boss_name": raid_start_boss})))
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in evaluate_weekly_challenge: {e}")
     finally:
@@ -2759,7 +2775,7 @@ def start_raid_if_unlocked():
         db.commit()
         print(f"[WeeklyChallenge] Raid {raid_id} started — boss HP {boss_max_hp} (flat)")
         if first_reveal:
-            notify_streamerbot(_notice_plain_text(_raid_start_notice({"boss_name": raid["boss_name"]})))
+            notify_channels(_notice_plain_text(_raid_start_notice({"boss_name": raid["boss_name"]})))
         return True
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in start_raid_if_unlocked: {e}")
@@ -4393,6 +4409,33 @@ def notify_streamerbot(message: str):
         return False
 
 
+def notify_discord(message: str):
+    """POST a plain-text message to a Discord channel webhook (DISCORD_WEBHOOK_URL).
+    Returns True on a 2xx response, False on missing config, a network error, or a
+    non-2xx status; never raises.
+    """
+    if not DISCORD_WEBHOOK_URL:
+        return False
+    try:
+        resp = http_requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={"content": message},
+            timeout=5,
+        )
+        return resp.ok
+    except Exception:
+        return False
+
+
+def notify_channels(message: str):
+    """Mirrors a system-milestone announcement to both StreamerBot/Twitch chat and
+    Discord, so every call site only needs one change and the two channels can
+    never drift apart.
+    """
+    notify_streamerbot(message)
+    notify_discord(message)
+
+
 # ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
 
 @app.route("/seals/award", methods=["POST"])
@@ -4705,6 +4748,216 @@ def log_active_player_snapshot():
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
     _scheduler.add_job(log_active_player_snapshot, "cron", minute="0,30",
                        id="log_active_player_snapshot", misfire_grace_time=300)
+
+
+# ── BUILDING GATHERING EVENTS ────────────────────────────────────────────────
+# Building-themed timed events: fire automatically once an hour during
+# operating hours, or manually via the Mayor dashboard. Players check in from
+# the relevant building's modal while one is running; checked-in players
+# split a reward when the timer ends. Only one gathering active at a time.
+_GATHERING_DEFAULT_DURATION_MINUTES = 8
+
+
+def _active_gathering_row(db):
+    """The current unresolved, not-yet-ended gathering, if any."""
+    now = int(time.time())
+    return db.execute(
+        "SELECT * FROM gathering_events WHERE resolved=0 AND ends_at>? ORDER BY id DESC LIMIT 1",
+        (now,)
+    ).fetchone()
+
+
+def _start_gathering(db, building_id, duration_minutes):
+    """Inserts a gathering_events row and announces it through the same
+    channels /mayor/announce already uses (log_event + a mayor_messages
+    popup), plus chat and the StreamerBot overlay so players get real-time
+    notice of a short countdown starting. Shared by the manual mayor route
+    and the hourly scheduler job so they can't drift apart -- neither one
+    inserts or announces on its own.
+
+    Snapshots message/reward_type/reward_amount from BUILDING_EVENTS at
+    creation time rather than joining it live later (same principle already
+    applied to gear stats at acquisition), so a later edit to BUILDING_EVENTS
+    never changes an in-flight or already-resolved gathering. No commit --
+    caller commits, same contract as log_event().
+    """
+    cfg = BUILDING_EVENTS[building_id]
+    now = int(time.time())
+    ends_at = now + duration_minutes * 60
+    cur = db.execute(
+        "INSERT INTO gathering_events (building_id, message, started_at, ends_at, reward_type, reward_amount) "
+        "VALUES (?,?,?,?,?,?)",
+        (building_id, cfg["message"], now, ends_at, cfg["reward_type"], cfg["reward_amount"])
+    )
+
+    log_event(db, "mayor", cfg["message"], MAYOR_USERNAME)
+    post_chat_message(db, MAYOR_USERNAME, cfg["message"], now)
+    notify_channels(cfg["message"])
+    # Also deliverable as a one-shot popup via lifecycle_notices() -- see
+    # mayor_messages/_mayor_message_notices(), same delivery /mayor/announce uses.
+    db.execute(
+        "INSERT INTO mayor_messages (type, title, body, created_at) VALUES (?,?,?,?)",
+        ("announcement", None, cfg["message"], now)
+    )
+    return cur.lastrowid
+
+
+@app.route("/mayor/gathering/start", methods=["POST"])
+def mayor_gathering_start():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data        = request.get_json(silent=True) or {}
+    building_id = data.get("building_id", "")
+    try:
+        duration_minutes = int(data.get("duration_minutes", _GATHERING_DEFAULT_DURATION_MINUTES))
+    except (TypeError, ValueError):
+        duration_minutes = _GATHERING_DEFAULT_DURATION_MINUTES
+    if duration_minutes <= 0:
+        duration_minutes = _GATHERING_DEFAULT_DURATION_MINUTES
+
+    if building_id not in BUILDING_EVENTS:
+        return jsonify({"status": "error", "message": "Not a gathering-eligible building."}), 400
+
+    db = get_db()
+    if _active_gathering_row(db):
+        db.close()
+        return jsonify({"status": "error", "message": "A gathering is already active."}), 400
+
+    _start_gathering(db, building_id, duration_minutes)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "building_id": building_id})
+
+
+def auto_start_gathering():
+    db = get_db()
+    try:
+        if _active_gathering_row(db):
+            return  # mayor already started one manually, or the last one hasn't ended yet
+        building_id = random.choice(list(BUILDING_EVENTS.keys()))
+        _start_gathering(db, building_id, _GATHERING_DEFAULT_DURATION_MINUTES)
+        db.commit()
+        print(f"[Gathering] Auto-started at {building_id}")
+    except Exception as e:
+        print(f"[Gathering] ERROR in auto_start_gathering: {e}")
+    finally:
+        db.close()
+
+
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    # Fires once at the top of every hour, 10:00-19:00 server time -- this
+    # codebase has no timezone handling anywhere (no pytz/zoneinfo, and
+    # BackgroundScheduler above has no tz set), same as every other cron job
+    # here, so this runs on whatever timezone the server clock is on (likely
+    # UTC on Railway) -- a one-line range change if that's not the intended
+    # local hours.
+    _scheduler.add_job(auto_start_gathering, "cron", hour="10-19", minute=0,
+                       id="hourly_gathering", misfire_grace_time=120)
+
+
+@app.route("/gathering/active")
+def gathering_active():
+    db  = get_db()
+    row = _active_gathering_row(db)
+    if not row:
+        db.close()
+        return jsonify({"active": False})
+    username   = session.get("username")
+    checked_in = False
+    if username:
+        checked_in = bool(db.execute(
+            "SELECT 1 FROM gathering_participants WHERE gathering_id=? AND username=?",
+            (row["id"], username)
+        ).fetchone())
+    db.close()
+    return jsonify({
+        "active":      True,
+        "building_id": row["building_id"],
+        "message":     row["message"],
+        "ends_at":     row["ends_at"],
+        "checked_in":  checked_in,
+    })
+
+
+@app.route("/gathering/checkin", methods=["POST"])
+def gathering_checkin():
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+
+    db  = get_db()
+    row = _active_gathering_row(db)
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "No gathering is active right now."})
+
+    db.execute(
+        "INSERT OR IGNORE INTO gathering_participants (gathering_id, username, checked_in_at) VALUES (?,?,?)",
+        (row["id"], username, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "ends_at": row["ends_at"]})
+
+
+def tick_gathering_resolve():
+    """Every 20s, resolves any gathering whose timer has run out -- awards
+    each checked-in participant the row's own stored reward_type/amount
+    (snapshotted at creation, see _start_gathering()), same per-row
+    try/except + single-commit-at-end shape as award_passive_seals()."""
+    db = get_db()
+    try:
+        now  = int(time.time())
+        rows = db.execute(
+            "SELECT * FROM gathering_events WHERE resolved=0 AND ends_at<=?", (now,)
+        ).fetchall()
+    except Exception as e:
+        print(f"[Gathering] Failed to load due gatherings: {e}")
+        db.close()
+        return
+    if not rows:
+        db.close()
+        return
+
+    for row in rows:
+        try:
+            participants  = db.execute(
+                "SELECT username FROM gathering_participants WHERE gathering_id=?", (row["id"],)
+            ).fetchall()
+            reward_type   = row["reward_type"]
+            reward_amount = row["reward_amount"]
+            for p in participants:
+                username = p["username"]
+                try:
+                    if reward_type == "gold":
+                        add_gold(db, username, reward_amount)
+                    else:
+                        ensure_resources(db, username)
+                        db.execute(
+                            f"UPDATE resources SET {reward_type}={reward_type}+? WHERE username=?",
+                            (reward_amount, username)
+                        )
+                except Exception as e:
+                    print(f"[Gathering] Error awarding {username}: {e}")
+            db.execute("UPDATE gathering_events SET resolved=1 WHERE id=?", (row["id"],))
+
+            building_name = BUILDINGS.get(row["building_id"], {}).get("name", row["building_id"])
+            if participants:
+                wrapup = (f"🎪 The gathering at {building_name} has ended! "
+                          f"{len(participants)} penguin(s) received {reward_amount} {reward_type}.")
+            else:
+                wrapup = f"🎪 The gathering at {building_name} has ended! Nobody checked in this time."
+            post_chat_message(db, MAYOR_USERNAME, wrapup, now)
+            notify_channels(wrapup)
+        except Exception as e:
+            print(f"[Gathering] Error resolving gathering {row['id']}: {e}")
+    db.commit()
+    db.close()
+
+
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(tick_gathering_resolve, "interval", seconds=20,
+                       id="tick_gathering_resolve", misfire_grace_time=20)
 
 
 # ── BUILDING INFO ────────────────────────────────────────────────────────────
@@ -9068,6 +9321,7 @@ def mayor_dashboard():
         raid_participant_count=raid_participant_count,
         weekly_metric_types=WEEKLY_METRIC_TYPES,
         raid_settings_all=raid_settings.get_all_settings(),
+        building_events=BUILDING_EVENTS,
     )
 
 
