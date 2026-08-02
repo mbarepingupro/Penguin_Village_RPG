@@ -1001,6 +1001,24 @@
     }
     .igloo-status-bar.visible { display: flex; }
 
+    /* Own-igloo-only guestbook feed -- hidden while visiting someone else's
+       (loadVisitedIgloo() clears/hides it, same as it does #igloo-room-bar). */
+    .igloo-guestbook-feed {
+      flex-shrink: 0; max-height: 130px; overflow-y: auto;
+      background: #12121e; border-top: 2px solid #303045;
+      padding: 6px 12px; font-family: 'Silkscreen', monospace;
+    }
+    .igloo-guestbook-empty { color: #8888A8; font-size: 14px; padding: 4px 0; }
+    .igloo-guestbook-entry {
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 4px 0; border-bottom: 1px solid #1e1e2e; font-size: 14px;
+    }
+    .igloo-guestbook-entry:last-child { border-bottom: none; }
+    .igloo-guestbook-entry-name { color: #A86EFF; flex-shrink: 0; }
+    .igloo-guestbook-entry-emoji { flex-shrink: 0; }
+    .igloo-guestbook-entry-msg { color: #B8B8D0; word-break: break-word; flex: 1; }
+    .igloo-guestbook-entry-time { color: #565676; font-size: 12px; flex-shrink: 0; margin-left: auto; }
+
     /* Edit-mode-only toggle buttons for the two overlays above -- pinned to
        #igloo-canvas-wrap's top-LEFT edge (not top-right: #igloo-edit-panel
        spans the full right-hand height, top:0 to bottom:0, so anchoring the
@@ -3796,6 +3814,7 @@
             <div id="igloo-room-bar" class="igloo-room-bar"></div>
           </div>
         </div>
+        <div id="igloo-guestbook-feed" class="igloo-guestbook-feed"></div>
         <div id="igloo-status-bar" class="igloo-status-bar">
           <span id="igloo-status-text">CLICK A GRID CELL TO PLACE</span>
           <button class="igloo-hdr-btn" onclick="iglooCancelPlace()">✕ CANCEL</button>
@@ -9104,7 +9123,37 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (roomBarEl) roomBarEl.style.display = '';
       iglooRenderRoomBar();
       iglooResetZoom();
+
+      const gbFeedEl = document.getElementById('igloo-guestbook-feed');
+      if (gbFeedEl) gbFeedEl.style.display = '';
+      loadGuestbookFeed();
     } catch(e) { showToast('Error loading igloo.', 'err'); }
+  }
+
+  // Own-igloo-only payoff for whatever visitors sign via signGuestbook()
+  // (see _showIglooHostSprite()) -- who's stopped by, and what they left.
+  async function loadGuestbookFeed() {
+    const feedEl = document.getElementById('igloo-guestbook-feed');
+    if (!feedEl) return;
+    try {
+      const res  = await fetch(`/igloo/guestbook/${CURRENT_USER}`);
+      const data = await res.json();
+      const entries = data.entries || [];
+      if (entries.length === 0) {
+        feedEl.innerHTML = '<div class="igloo-guestbook-empty">📖 No guestbook entries yet -- invite friends to visit!</div>';
+        return;
+      }
+      feedEl.innerHTML = entries.map(function(e) {
+        return '<div class="igloo-guestbook-entry">' +
+          '<span class="igloo-guestbook-entry-name">' + GlobalChat._esc(e.display_name) + '</span>' +
+          (e.emoji ? '<span class="igloo-guestbook-entry-emoji">' + GlobalChat._esc(e.emoji) + '</span>' : '') +
+          (e.message ? '<span class="igloo-guestbook-entry-msg">' + GlobalChat._esc(e.message) + '</span>' : '') +
+          '<span class="igloo-guestbook-entry-time">' + GlobalChat._relTime(e.created_at) + '</span>' +
+          '</div>';
+      }).join('');
+    } catch (e) {
+      feedEl.innerHTML = '<div class="igloo-guestbook-empty">Couldn\'t load guestbook.</div>';
+    }
   }
 
   // ── IGLOO DOORBELL CREATOR ──────────────────────────────────────────────
@@ -11261,6 +11310,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       iglooCloseOverlayPanels();
       const visitRoomBarEl = document.getElementById('igloo-room-bar');
       if (visitRoomBarEl) { visitRoomBarEl.style.display = 'none'; visitRoomBarEl.innerHTML = ''; }
+      // The guestbook feed is own-igloo-only (that's the payoff for what a
+      // visitor signs, not something a visitor should see of someone else's).
+      const visitGbFeedEl = document.getElementById('igloo-guestbook-feed');
+      if (visitGbFeedEl) { visitGbFeedEl.style.display = 'none'; visitGbFeedEl.innerHTML = ''; }
 
       _showIglooHostSprite(username, data.host_color, data.host_shape, data.host_worn_items);
       showVisitingHeader(username);
@@ -11303,6 +11356,40 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     label.textContent = username;
     wrap.appendChild(label);
 
+    // ── Guestbook: emoji row (same set as the map reaction popover) + an
+    // optional short note. Tapping an emoji signs immediately; the note
+    // needs the explicit SIGN button since it's not a single tap.
+    const gbEmojiRow = document.createElement('div');
+    gbEmojiRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;justify-content:center;';
+    ['👋','😂','😢','🎉','❤️','😮','🔥','👍'].forEach(function(emoji) {
+      const btn = document.createElement('button');
+      btn.textContent = emoji;
+      btn.title = 'Sign with ' + emoji;
+      btn.style.cssText = 'width:26px;height:26px;font-size:15px;background:transparent;border:1px solid #303045;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;';
+      btn.onclick = function() { signGuestbook(username, emoji, ''); };
+      gbEmojiRow.appendChild(btn);
+    });
+    wrap.appendChild(gbEmojiRow);
+
+    const gbInput = document.createElement('input');
+    gbInput.type = 'text';
+    gbInput.id = 'igloo-guestbook-input';
+    gbInput.maxLength = 100;
+    gbInput.placeholder = 'Leave a note...';
+    gbInput.style.cssText = 'width:100%;box-sizing:border-box;font-family:Silkscreen,monospace;font-size:13px;background:#12121e;border:1px solid #303045;color:#FFFFFF;padding:4px 6px;';
+    wrap.appendChild(gbInput);
+
+    const gbSignBtn = document.createElement('button');
+    gbSignBtn.textContent = 'SIGN GUESTBOOK';
+    gbSignBtn.style.cssText = 'width:100%;font-family:Silkscreen,monospace;font-size:12px;color:#A86EFF;background:transparent;border:2px solid #A86EFF;padding:4px 6px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;';
+    gbSignBtn.onclick = function() { signGuestbook(username, '', gbInput.value.trim()); };
+    wrap.appendChild(gbSignBtn);
+
+    const gbToast = document.createElement('div');
+    gbToast.id = 'igloo-guestbook-toast';
+    gbToast.style.cssText = 'font-family:Silkscreen,monospace;font-size:12px;color:#4aff6b;text-align:center;min-height:14px;opacity:0;transition:opacity 0.3s ease;';
+    wrap.appendChild(gbToast);
+
     // Insert directly after #igloo-canvas inside .igloo-canvas-wrap (same flex row)
     anchor.insertAdjacentElement('afterend', wrap);
     // Layer the host's worn items on top, same as the sidebar/inventory
@@ -11311,6 +11398,41 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     // never showed the host's hat/outfit/etc.
     _drawPenguinOnCanvas(canvas, color || '#1a1a1a', shape || 'normal',
       () => _drawSidebarWornItems(canvas, shape || 'normal', wornItems || {}));
+  }
+
+  // Fire-and-forget-ish: posts to /igloo/guestbook/sign and shows the result
+  // as a brief fading toast next to #igloo-host-sprite. Either emoji or
+  // message may be empty, but not both (the backend rejects that combo).
+  async function signGuestbook(host, emoji, message) {
+    if (!emoji && !message) return;
+    try {
+      const res = await fetch('/igloo/guestbook/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host: host, emoji: emoji, message: message })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        const input = document.getElementById('igloo-guestbook-input');
+        if (input) input.value = '';
+        _showGuestbookToast('✅ Signed!');
+      } else if (data.status === 'already_signed') {
+        _showGuestbookToast('Already signed today');
+      } else {
+        _showGuestbookToast(data.message || 'Could not sign.');
+      }
+    } catch (e) {
+      _showGuestbookToast('Network error.');
+    }
+  }
+
+  function _showGuestbookToast(text) {
+    const toast = document.getElementById('igloo-guestbook-toast');
+    if (!toast) return;
+    toast.textContent = text;
+    toast.style.opacity = '1';
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(function() { toast.style.opacity = '0'; }, 2500);
   }
 
   function showVisitingHeader(username) {

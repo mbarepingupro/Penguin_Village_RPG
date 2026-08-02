@@ -317,6 +317,23 @@ def init_db():
         )
     """)
 
+    # Persistent guestbook entries (emoji + optional note) left on visits --
+    # unlike penguin_reactions' map bubbles, these are meant to stick around
+    # for the host to read later, not expire after a few seconds.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS igloo_guestbook (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            host       TEXT NOT NULL,
+            visitor    TEXT NOT NULL,
+            emoji      TEXT,
+            message    TEXT,
+            created_at INTEGER NOT NULL
+        )
+    """)
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_guestbook_host_created ON igloo_guestbook(host, created_at)"
+    )
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS building_contributions_tracker (
             username TEXT NOT NULL,
