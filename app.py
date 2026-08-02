@@ -48,6 +48,9 @@ MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
 STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+# Separate webhook/channel for patch notes -- distinct from DISCORD_WEBHOOK_URL's
+# raid/challenge/gathering system-milestone announcements.
+DISCORD_PATCH_NOTES_WEBHOOK_URL = os.getenv("DISCORD_PATCH_NOTES_WEBHOOK_URL", "")
 # Base64-encoded shared secret from the Twitch Developer Console (Extensions ->
 # your extension -> Settings), used to verify the Extension Helper JWT sent by
 # the extension frontend. Separate trust boundary from STREAMERBOT_SECRET above.
@@ -4436,6 +4439,26 @@ def notify_channels(message: str):
     notify_discord(message)
 
 
+def notify_discord_patch_notes(message: str):
+    """POST a plain-text message to a separate Discord channel webhook
+    (DISCORD_PATCH_NOTES_WEBHOOK_URL) dedicated to patch notes -- distinct from
+    notify_discord()'s raid/challenge/gathering channel. Same contract: returns
+    True on a 2xx response, False on missing config, a network error, or a
+    non-2xx status; never raises.
+    """
+    if not DISCORD_PATCH_NOTES_WEBHOOK_URL:
+        return False
+    try:
+        resp = http_requests.post(
+            DISCORD_PATCH_NOTES_WEBHOOK_URL,
+            json={"content": message},
+            timeout=5,
+        )
+        return resp.ok
+    except Exception:
+        return False
+
+
 # ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
 
 @app.route("/seals/award", methods=["POST"])
@@ -4778,17 +4801,31 @@ def _start_gathering(db, building_id, duration_minutes):
     Snapshots message/reward_type/reward_amount from BUILDING_EVENTS at
     creation time rather than joining it live later (same principle already
     applied to gear stats at acquisition), so a later edit to BUILDING_EVENTS
-    never changes an in-flight or already-resolved gathering. No commit --
-    caller commits, same contract as log_event().
+    never changes an in-flight or already-resolved gathering.
+
+    The app runs as multiple gunicorn worker processes (see Procfile), each
+    running its own copy of the hourly cron job, so the caller's
+    _active_gathering_row() check can race across workers. idx_gathering_one_active
+    (a partial unique index on resolved=0) turns that race into an IntegrityError
+    here instead of two gatherings -- and two sets of announcements -- starting at
+    once. Commits immediately (unlike the rest of this module's "caller commits"
+    helpers) so the insert-or-lose-the-race resolves before returning, and only
+    announces on the winning side. Returns the new row id, or None if another
+    worker won the race.
     """
     cfg = BUILDING_EVENTS[building_id]
     now = int(time.time())
     ends_at = now + duration_minutes * 60
-    cur = db.execute(
-        "INSERT INTO gathering_events (building_id, message, started_at, ends_at, reward_type, reward_amount) "
-        "VALUES (?,?,?,?,?,?)",
-        (building_id, cfg["message"], now, ends_at, cfg["reward_type"], cfg["reward_amount"])
-    )
+    try:
+        cur = db.execute(
+            "INSERT INTO gathering_events (building_id, message, started_at, ends_at, reward_type, reward_amount) "
+            "VALUES (?,?,?,?,?,?)",
+            (building_id, cfg["message"], now, ends_at, cfg["reward_type"], cfg["reward_amount"])
+        )
+        db.commit()
+    except sqlite3.IntegrityError:
+        db.rollback()
+        return None
 
     log_event(db, "mayor", cfg["message"], MAYOR_USERNAME)
     post_chat_message(db, MAYOR_USERNAME, cfg["message"], now)
@@ -4799,6 +4836,7 @@ def _start_gathering(db, building_id, duration_minutes):
         "INSERT INTO mayor_messages (type, title, body, created_at) VALUES (?,?,?,?)",
         ("announcement", None, cfg["message"], now)
     )
+    db.commit()
     return cur.lastrowid
 
 
@@ -4823,9 +4861,10 @@ def mayor_gathering_start():
         db.close()
         return jsonify({"status": "error", "message": "A gathering is already active."}), 400
 
-    _start_gathering(db, building_id, duration_minutes)
-    db.commit()
+    gathering_id = _start_gathering(db, building_id, duration_minutes)
     db.close()
+    if gathering_id is None:
+        return jsonify({"status": "error", "message": "A gathering is already active."}), 400
     return jsonify({"status": "success", "building_id": building_id})
 
 
@@ -4835,9 +4874,11 @@ def auto_start_gathering():
         if _active_gathering_row(db):
             return  # mayor already started one manually, or the last one hasn't ended yet
         building_id = random.choice(list(BUILDING_EVENTS.keys()))
-        _start_gathering(db, building_id, _GATHERING_DEFAULT_DURATION_MINUTES)
-        db.commit()
-        print(f"[Gathering] Auto-started at {building_id}")
+        gathering_id = _start_gathering(db, building_id, _GATHERING_DEFAULT_DURATION_MINUTES)
+        if gathering_id is None:
+            print(f"[Gathering] Skipped auto-start at {building_id} -- another worker already started one")
+        else:
+            print(f"[Gathering] Auto-started at {building_id}")
     except Exception as e:
         print(f"[Gathering] ERROR in auto_start_gathering: {e}")
     finally:
@@ -4845,13 +4886,20 @@ def auto_start_gathering():
 
 
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
-    # Fires once at the top of every hour, 10:00-19:00 server time -- this
+    # Fires once at the top of every hour, 10:00-20:00 server time -- this
     # codebase has no timezone handling anywhere (no pytz/zoneinfo, and
     # BackgroundScheduler above has no tz set), same as every other cron job
     # here, so this runs on whatever timezone the server clock is on (likely
     # UTC on Railway) -- a one-line range change if that's not the intended
     # local hours.
-    _scheduler.add_job(auto_start_gathering, "cron", hour="10-19", minute=0,
+    #
+    # The app runs as multiple gunicorn worker processes (see Procfile), each
+    # with its own copy of this scheduler, so this job actually fires once per
+    # hour *per worker*. idx_gathering_one_active (see database.py) plus the
+    # IntegrityError handling in _start_gathering() makes every worker but one
+    # a no-op on each firing, so only one gathering (and one set of
+    # announcements) actually starts.
+    _scheduler.add_job(auto_start_gathering, "cron", hour="10-20", minute=0,
                        id="hourly_gathering", misfire_grace_time=120)
 
 
@@ -4903,8 +4951,17 @@ def gathering_checkin():
 def tick_gathering_resolve():
     """Every 20s, resolves any gathering whose timer has run out -- awards
     each checked-in participant the row's own stored reward_type/amount
-    (snapshotted at creation, see _start_gathering()), same per-row
-    try/except + single-commit-at-end shape as award_passive_seals()."""
+    (snapshotted at creation, see _start_gathering()).
+
+    The app runs as multiple gunicorn worker processes (see Procfile), each
+    running its own copy of this interval job, so more than one worker can
+    load the same due row in the same tick. Each row is "claimed" via an
+    UPDATE...WHERE resolved=0, committed immediately: whichever worker's
+    UPDATE actually flips a row (rowcount==1) is the one that awards rewards
+    and announces; a worker that loses the race gets rowcount==0 and skips
+    it -- one resolution, one wrap-up message, no matter how many workers
+    are running.
+    """
     db = get_db()
     try:
         now  = int(time.time())
@@ -4921,6 +4978,13 @@ def tick_gathering_resolve():
 
     for row in rows:
         try:
+            claim = db.execute(
+                "UPDATE gathering_events SET resolved=1 WHERE id=? AND resolved=0", (row["id"],)
+            )
+            db.commit()
+            if claim.rowcount == 0:
+                continue  # another worker already claimed this gathering
+
             participants  = db.execute(
                 "SELECT username FROM gathering_participants WHERE gathering_id=?", (row["id"],)
             ).fetchall()
@@ -4939,7 +5003,6 @@ def tick_gathering_resolve():
                         )
                 except Exception as e:
                     print(f"[Gathering] Error awarding {username}: {e}")
-            db.execute("UPDATE gathering_events SET resolved=1 WHERE id=?", (row["id"],))
 
             building_name = BUILDINGS.get(row["building_id"], {}).get("name", row["building_id"])
             if participants:
@@ -4949,9 +5012,9 @@ def tick_gathering_resolve():
                 wrapup = f"🎪 The gathering at {building_name} has ended! Nobody checked in this time."
             post_chat_message(db, MAYOR_USERNAME, wrapup, now)
             notify_channels(wrapup)
+            db.commit()
         except Exception as e:
             print(f"[Gathering] Error resolving gathering {row['id']}: {e}")
-    db.commit()
     db.close()
 
 
@@ -9999,6 +10062,7 @@ def mayor_patch_notes():
     )
     db.commit()
     db.close()
+    notify_discord_patch_notes(f"📋 **{title}**\n{body}")
     return jsonify({"status": "success", "title": title})
 
 

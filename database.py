@@ -359,6 +359,28 @@ def init_db():
             UNIQUE(gathering_id, username)
         )
     """)
+    # One-time cleanup before adding the unique index below: the race this
+    # migration fixes may have already left more than one resolved=0 row in
+    # an existing database, which would make CREATE UNIQUE INDEX fail on
+    # startup. Keep the most recent unresolved gathering active and
+    # force-resolve any older duplicates (no reward/notification replay --
+    # they're stale artifacts of the bug, not new gatherings to announce).
+    c.execute("""
+        UPDATE gathering_events SET resolved=1
+        WHERE resolved=0 AND id NOT IN (
+            SELECT id FROM gathering_events WHERE resolved=0 ORDER BY id DESC LIMIT 1
+        )
+    """)
+    # Partial unique index enforcing at most one unresolved gathering globally
+    # -- the app already checks this before starting one, but the app runs as
+    # multiple gunicorn worker processes (see Procfile), each with its own
+    # APScheduler firing the same hourly cron job, so that check alone can
+    # race across workers. This index turns the race into a clean INSERT
+    # failure in _start_gathering() instead of two gatherings starting at once.
+    c.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_gathering_one_active
+        ON gathering_events(resolved) WHERE resolved=0
+    """)
 
     c.execute("""
         CREATE TABLE IF NOT EXISTS building_contributions_tracker (
