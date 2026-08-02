@@ -885,6 +885,14 @@ function stepPenguin(penguin) {
             Math.abs(n.x - penguin.homeX) + Math.abs(n.y - penguin.homeY) <= 6
         );
         if (nearby.length > 0) candidates = nearby;
+    } else if (!penguin.working && penguin.gatherX !== undefined) {
+        // Idle penguins cluster at an active gathering's building -- tighter
+        // than the distance-6 job radius above so it reads as a clustered
+        // crowd around the event rather than a spread-out neighborhood.
+        const nearby = neighbors.filter(n =>
+            Math.abs(n.x - penguin.gatherX) + Math.abs(n.y - penguin.gatherY) <= 3
+        );
+        if (nearby.length > 0) candidates = nearby;
     }
 
     // 70% chance to prefer path tiles over snow
@@ -963,6 +971,14 @@ function mergePenguins(incoming) {
             ep.penguin_shape = p.penguin_shape || 'normal';
             ep.penguin_color = p.penguin_color || '#1a1a1a';
             ep.display_name  = p.display_name  || p.username;
+            // Unconditional, like the fields above -- when the gathering
+            // ends (or this penguin picks up a job), the server just stops
+            // sending gatherX/Y, which assigns undefined here and clears the
+            // stale target. Gating this behind an "if present" check would
+            // leave the old value in place forever and the penguin would
+            // never scatter back out after the meetup ends.
+            ep.gatherX = p.gatherX;
+            ep.gatherY = p.gatherY;
         } else {
             let spawn;
             if (p.startGridX !== undefined) {
@@ -992,6 +1008,8 @@ function mergePenguins(incoming) {
                 nextMoveIn: 2000 + Math.random() * 3000,
                 homeX: p.homeX !== undefined ? p.homeX : gx,
                 homeY: p.homeY !== undefined ? p.homeY : gy,
+                gatherX: p.gatherX,
+                gatherY: p.gatherY,
                 working: !!p.job,
                 animFrame: 0,
                 lastFrameTime: performance.now(),

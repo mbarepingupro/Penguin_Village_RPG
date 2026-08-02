@@ -382,6 +382,23 @@ def init_db():
         ON gathering_events(resolved) WHERE resolved=0
     """)
 
+    # Chat votes for which building hosts the next auto-started gathering
+    # (see app.py's /stream/gathering_vote and auto_start_gathering()).
+    # window_start is the upcoming top-of-hour epoch second the vote is
+    # for -- UNIQUE(window_start, voter) caps each chatter to one vote per
+    # window, same one-shot-per-window shape as gathering_participants'
+    # UNIQUE(gathering_id, username) above.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS gathering_votes (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            window_start INTEGER NOT NULL,
+            building_id  TEXT NOT NULL,
+            voter        TEXT NOT NULL,
+            created_at   INTEGER NOT NULL,
+            UNIQUE(window_start, voter)
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS building_contributions_tracker (
             username TEXT NOT NULL,
