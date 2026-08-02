@@ -4886,12 +4886,12 @@ def auto_start_gathering():
 
 
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
-    # Fires once at the top of every hour, 10:00-20:00 server time -- this
-    # codebase has no timezone handling anywhere (no pytz/zoneinfo, and
-    # BackgroundScheduler above has no tz set), same as every other cron job
-    # here, so this runs on whatever timezone the server clock is on (likely
-    # UTC on Railway) -- a one-line range change if that's not the intended
-    # local hours.
+    # Fires once at the top of every hour, 09:00-23:00 Europe/Berlin time --
+    # unlike every other cron job in this codebase (all of which run on
+    # whatever timezone the server clock happens to be, since nothing else
+    # here uses pytz/zoneinfo), this one is pinned to a real IANA timezone via
+    # CronTrigger's own `timezone` argument, so it stays correct across the
+    # CET/CEST daylight-saving transition without a manual hour-range edit.
     #
     # The app runs as multiple gunicorn worker processes (see Procfile), each
     # with its own copy of this scheduler, so this job actually fires once per
@@ -4899,7 +4899,8 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
     # IntegrityError handling in _start_gathering() makes every worker but one
     # a no-op on each firing, so only one gathering (and one set of
     # announcements) actually starts.
-    _scheduler.add_job(auto_start_gathering, "cron", hour="10-20", minute=0,
+    _scheduler.add_job(auto_start_gathering, "cron", hour="9-23", minute=0,
+                       timezone="Europe/Berlin",
                        id="hourly_gathering", misfire_grace_time=120)
 
 
