@@ -731,6 +731,13 @@ def _hidden_event_types(db):
 _CHAT_RATE_LIMIT_SECONDS = 5   # one message per N seconds per player
 CHAT_MESSAGE_RETENTION   = 300  # keep only the newest N rows -- see run_autonomous_actions()
 
+# ── Reaction emote bubbles (village map) ──────────────────────────────────────
+# Display duration (~4s) is purely client-side -- see reactionExpiresAt in
+# static/village_map.js's applyReactions().
+ALLOWED_REACTIONS = ["👋", "😂", "😢", "🎉", "❤️", "😮", "🔥", "👍"]
+_REACTION_RATE_LIMIT_SECONDS = 3   # one reaction per N seconds per player
+_REACTION_RETENTION_SECONDS  = 60  # opportunistic prune threshold on send -- see /reaction/send
+
 # ── Passive seals (award_passive_seals scheduler job) ────────────────────────
 # Intentionally flat for now -- tune once real alpha usage data exists, same
 # as GROUP_EVENT_CHANCE_PER_TICK and other not-yet-balanced constants.
@@ -11876,6 +11883,67 @@ def chat_send_message():
         return jsonify({"status": "rate_limited", "message": f"Please wait {wait}s before sending again."}), 429
 
     post_chat_message(db, username, message, now)
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
+
+
+@app.route("/reactions/recent")
+def reactions_recent():
+    # Time-windowed instead of LIMIT-based (like /chat/messages) -- a
+    # reaction bubble is only ever meant to be visible for a few seconds, so
+    # anything older than the window is stale and should never be sent down
+    # to begin with rather than relying on the client to ignore it.
+    now = int(time.time())
+    db  = get_db()
+    rows = db.execute(
+        "SELECT username, emoji, created_at FROM penguin_reactions "
+        "WHERE created_at > ? ORDER BY created_at ASC",
+        (now - 6,)
+    ).fetchall()
+    db.close()
+    return jsonify({
+        "reactions": [
+            {"username": r["username"], "emoji": r["emoji"], "created_at": r["created_at"]}
+            for r in rows
+        ]
+    })
+
+
+@app.route("/reaction/send", methods=["POST"])
+def reaction_send():
+    data     = request.get_json(force=True) or {}
+    username = data.get("username", "").strip()
+    emoji    = data.get("emoji", "").strip()
+
+    if not username or not emoji:
+        return jsonify({"status": "error", "message": "Missing username or emoji."}), 400
+    if emoji not in ALLOWED_REACTIONS:
+        return jsonify({"status": "error", "message": "Not an allowed reaction."}), 400
+
+    now = int(time.time())
+    db  = get_db()
+
+    last_row = db.execute(
+        "SELECT MAX(created_at) as t FROM penguin_reactions WHERE username=?", (username,)
+    ).fetchone()
+    last_ts = last_row["t"] if last_row else None
+    if last_ts and (now - last_ts) < _REACTION_RATE_LIMIT_SECONDS:
+        wait = _REACTION_RATE_LIMIT_SECONDS - (now - last_ts)
+        db.close()
+        return jsonify({"status": "rate_limited", "message": f"Please wait {wait}s before reacting again."}), 429
+
+    db.execute(
+        "INSERT INTO penguin_reactions (username, emoji, created_at) VALUES (?,?,?)",
+        (username, emoji, now)
+    )
+    # Opportunistic prune on send rather than a scheduler pass -- reactions
+    # are only ever queried within a 6s window, so anything past a generous
+    # buffer beyond that is dead weight with no reader left to see it.
+    db.execute(
+        "DELETE FROM penguin_reactions WHERE created_at < ?",
+        (now - _REACTION_RETENTION_SECONDS,)
+    )
     db.commit()
     db.close()
     return jsonify({"status": "ok"})
