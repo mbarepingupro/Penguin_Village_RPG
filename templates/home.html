@@ -2470,6 +2470,66 @@
       #recenter-map-btn { bottom: 12px; right: 12px; width: 36px; height: 36px; font-size: 18px; }
     }
 
+    /* ── REACTION BUTTON + POPOVER ──
+       Same visual convention as #recenter-map-btn, positioned just to its
+       left so the two never collide. */
+    #react-btn {
+      position: absolute;
+      bottom: 16px;
+      right: 64px;
+      z-index: 60;
+      background: #181820;
+      border: 2px solid #A86EFF;
+      color: #A86EFF;
+      font-family: 'Silkscreen', monospace;
+      font-size: 20px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #react-btn:hover { background: #A86EFF; color: #181820; }
+    @media (max-width: 768px) {
+      #react-btn { bottom: 12px; right: 56px; width: 36px; height: 36px; font-size: 18px; }
+    }
+
+    #reaction-popover {
+      display: none;
+      position: absolute;
+      bottom: 60px;
+      right: 16px;
+      z-index: 61;
+      background: #181820;
+      border: 2px solid #A86EFF;
+      padding: 6px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    #reaction-popover.open { display: grid; }
+    #reaction-popover button {
+      width: 34px;
+      height: 34px;
+      background: transparent;
+      border: 1px solid #303045;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #reaction-popover button:hover { background: #252535; border-color: #A86EFF; }
+    @media (max-width: 768px) {
+      #reaction-popover { bottom: 52px; right: 12px; }
+    }
+
     /* ── WEEKLY BUILD LEADERBOARD BUTTON ──
        Anchored off .build-btn's own left:50% centering (not a fixed px from
        the map edge) so it always sits just to the right of Build!/Free
@@ -3646,6 +3706,17 @@
           </div>
           <canvas id="village-canvas"></canvas>
           <button id="recenter-map-btn" title="Recenter on my penguin" onclick="recenterMapOnPlayer()">🎯</button>
+          <button id="react-btn" title="React" onclick="Reactions.toggle()">😊</button>
+          <div id="reaction-popover">
+            <button onclick="Reactions.send('👋')">👋</button>
+            <button onclick="Reactions.send('😂')">😂</button>
+            <button onclick="Reactions.send('😢')">😢</button>
+            <button onclick="Reactions.send('🎉')">🎉</button>
+            <button onclick="Reactions.send('❤️')">❤️</button>
+            <button onclick="Reactions.send('😮')">😮</button>
+            <button onclick="Reactions.send('🔥')">🔥</button>
+            <button onclick="Reactions.send('👍')">👍</button>
+          </div>
           <div class="igloo-ghost" id="igloo-ghost"></div>
         </div>
         <!-- Building modal -->
@@ -4598,6 +4669,17 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           }
         }
       } catch(e) {}
+      // Piggyback reaction bubbles on this same 4s/on-map-tab tick rather
+      // than running a second setInterval for them.
+      try {
+        var rres = await fetch('/reactions/recent');
+        if (rres.ok) {
+          var rdata = await rres.json();
+          if (window.VillageMap && VillageMap.applyReactions) {
+            VillageMap.applyReactions(rdata.reactions || []);
+          }
+        }
+      } catch(e) {}
     },
 
     startPolling: function() {
@@ -4760,6 +4842,47 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (window.GameSounds) GameSounds.modalClose();
     },
   };
+
+  // ── REACTION EMOTE BUBBLES ──
+  // Lightweight popover (not a full modal) -- incoming reactions are picked
+  // up by GlobalChat._poll()'s existing 4s/on-map-tab tick, applied onto
+  // village_map.js's penguin objects via VillageMap.applyReactions().
+  var Reactions = {
+    _open: false,
+
+    toggle: function() {
+      this._open = !this._open;
+      var pop = document.getElementById('reaction-popover');
+      if (pop) pop.classList.toggle('open', this._open);
+    },
+
+    close: function() {
+      this._open = false;
+      var pop = document.getElementById('reaction-popover');
+      if (pop) pop.classList.remove('open');
+    },
+
+    // Fire-and-forget -- the popover closes immediately regardless of the
+    // request outcome (rate-limit/network errors just mean this particular
+    // tap didn't show a bubble, not worth surfacing an error for).
+    send: function(emoji) {
+      this.close();
+      fetch('/reaction/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: CURRENT_USER, emoji: emoji })
+      }).catch(function() {});
+    },
+  };
+
+  document.addEventListener('click', function(e) {
+    var pop = document.getElementById('reaction-popover');
+    var btn = document.getElementById('react-btn');
+    if (pop && pop.classList.contains('open') &&
+        !pop.contains(e.target) && e.target !== btn) {
+      Reactions.close();
+    }
+  });
 
   // Enter key sends message
   document.addEventListener('DOMContentLoaded', function() {

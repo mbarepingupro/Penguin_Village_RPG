@@ -712,6 +712,16 @@ function drawPenguin(sx, sy, penguin, isBehind) {
         ctx.restore();
     }
 
+    // Reaction emote bubble, above the name label
+    if (penguin.reaction && Date.now() < penguin.reactionExpiresAt) {
+        ctx.save();
+        ctx.font = '20px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(penguin.reaction, sx, drawY - 22);
+        ctx.restore();
+    }
+
     // Job icon beside the sprite
     if (penguin.job && JOB_ICONS[penguin.job]) {
         ctx.font = "17px monospace";
@@ -997,6 +1007,30 @@ function mergePenguins(incoming) {
     }
 
     penguins = Object.values(existingMap).filter(p => incomingNames.has(p.username));
+}
+
+// Applies incoming reaction rows onto matching penguins by username, same
+// keying convention as mergePenguins(). Rows are ASC-ordered by created_at
+// (server side), so iterating in order and overwriting naturally leaves the
+// latest reaction per user in place if more than one arrived in the same
+// window. _lastReactionAt dedupes against a reaction already applied on a
+// prior poll (the 6s server window overlaps the 4s poll interval, so most
+// reactions are seen twice) -- without it, re-applying the same reaction
+// would keep pushing reactionExpiresAt forward and the bubble would show
+// for much longer than the intended ~4s.
+function applyReactions(reactions) {
+    if (!reactions || reactions.length === 0) return;
+    const byUsername = {};
+    for (const p of penguins) byUsername[p.username] = p;
+
+    for (const r of reactions) {
+        const p = byUsername[r.username];
+        if (!p) continue;
+        if (p._lastReactionAt !== undefined && r.created_at <= p._lastReactionAt) continue;
+        p.reaction = r.emoji;
+        p.reactionExpiresAt = Date.now() + 4000;
+        p._lastReactionAt = r.created_at;
+    }
 }
 
 function loadPenguins() {
@@ -1624,6 +1658,6 @@ function updatePlayerWornItems(wornItems) {
     if (player) player.worn_items = wornItems || {};
 }
 
-window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday, highlightBuilding, clearBuildingHighlight, updatePlayerWornItems, centerOnPlayer: centerCameraOnPlayer };
+window.VillageMap = { init: initEngine, updateBuildingLevels, resize: resizeViewport, setVisitedToday, highlightBuilding, clearBuildingHighlight, updatePlayerWornItems, centerOnPlayer: centerCameraOnPlayer, applyReactions };
 
 })();

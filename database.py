@@ -366,6 +366,18 @@ def init_db():
     )
 
     c.execute("""
+        CREATE TABLE IF NOT EXISTS penguin_reactions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            emoji      TEXT    NOT NULL,
+            created_at INTEGER NOT NULL
+        )
+    """)
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_reactions_created_at ON penguin_reactions(created_at)"
+    )
+
+    c.execute("""
         CREATE TABLE IF NOT EXISTS penguin_interests (
             username     TEXT NOT NULL,
             interest_key TEXT NOT NULL,
