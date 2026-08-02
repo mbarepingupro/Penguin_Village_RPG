@@ -334,6 +334,32 @@ def init_db():
         "CREATE INDEX IF NOT EXISTS idx_guestbook_host_created ON igloo_guestbook(host, created_at)"
     )
 
+    # Building-themed timed gathering events -- one active gathering at a
+    # time (see app.py's _start_gathering()/gathering routes), with each
+    # participant recorded once via the UNIQUE constraint so a repeat
+    # check-in click is just a no-op rather than a duplicate reward.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS gathering_events (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            building_id   TEXT NOT NULL,
+            message       TEXT NOT NULL,
+            started_at    INTEGER NOT NULL,
+            ends_at       INTEGER NOT NULL,
+            reward_type   TEXT NOT NULL,
+            reward_amount INTEGER NOT NULL,
+            resolved      INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS gathering_participants (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            gathering_id  INTEGER NOT NULL,
+            username      TEXT NOT NULL,
+            checked_in_at INTEGER NOT NULL,
+            UNIQUE(gathering_id, username)
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS building_contributions_tracker (
             username TEXT NOT NULL,
