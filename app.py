@@ -6143,6 +6143,83 @@ def igloo_visits_today(username):
     })
 
 
+@app.route("/igloo/guestbook/sign", methods=["POST"])
+def igloo_guestbook_sign():
+    data    = request.get_json() or {}
+    visitor = session.get("username")
+    host    = data.get("host")
+    emoji   = (data.get("emoji") or "").strip()
+    message = (data.get("message") or "").strip()
+
+    if not visitor:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if not host:
+        return jsonify({"status": "error", "message": "Host username required."})
+    if visitor == host:
+        return jsonify({"status": "error", "message": "You can't sign your own guestbook!"})
+    if not emoji and not message:
+        return jsonify({"status": "error", "message": "Leave an emoji or a note."})
+    if emoji and emoji not in ALLOWED_REACTIONS:
+        return jsonify({"status": "error", "message": "Not an allowed reaction."})
+    if message:
+        if len(message) > 100:
+            return jsonify({"status": "error", "message": "Note too long (max 100 chars)."})
+        if _chat_has_profanity(message):
+            return jsonify({"status": "filtered", "message": "Note contains disallowed content."})
+
+    db = get_db()
+    host_row = db.execute("SELECT 1 FROM penguins WHERE username=?", (host,)).fetchone()
+    if not host_row:
+        db.close()
+        return jsonify({"status": "error", "message": "Host penguin not found."})
+
+    today = get_today()
+    # 'localtime' modifier so SQLite's day boundary matches get_today()'s
+    # (datetime.date.today(), i.e. the server's local calendar day) instead
+    # of defaulting to UTC -- otherwise the two could disagree right around
+    # midnight if the server isn't running in UTC.
+    already = db.execute(
+        "SELECT 1 FROM igloo_guestbook WHERE visitor=? AND host=? AND date(created_at, 'unixepoch', 'localtime')=?",
+        (visitor, host, today)
+    ).fetchone()
+    if already:
+        db.close()
+        return jsonify({"status": "already_signed", "message": "You've already signed this guestbook today."})
+
+    db.execute(
+        "INSERT INTO igloo_guestbook (host, visitor, emoji, message, created_at) VALUES (?,?,?,?,?)",
+        (host, visitor, emoji or None, message or None, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
+
+
+@app.route("/igloo/guestbook/<host>")
+def igloo_guestbook_get(host):
+    db = get_db()
+    rows = db.execute(
+        "SELECT gb.visitor, gb.emoji, gb.message, gb.created_at, p.penguin_name "
+        "FROM igloo_guestbook gb "
+        "LEFT JOIN penguins p ON p.username = gb.visitor "
+        "WHERE gb.host=? ORDER BY gb.created_at DESC LIMIT 20",
+        (host,)
+    ).fetchall()
+    db.close()
+    return jsonify({
+        "entries": [
+            {
+                "visitor": r["visitor"],
+                "display_name": r["penguin_name"] or r["visitor"],
+                "emoji": r["emoji"],
+                "message": r["message"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+    })
+
+
 @app.route("/relationships/<username>")
 def get_relationships(username):
     db    = get_db()
