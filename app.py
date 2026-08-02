@@ -3655,12 +3655,14 @@ def callback():
     session["username"] = username
 
     db = get_db()
+    new_player_message = None
     try:
         db.execute(
             "INSERT INTO penguins (username, twitch_user_id) VALUES (?, ?)",
             (username, twitch_user_id)
         )
         session["new_user"] = True
+        new_player_message = f"🐧 {username} joined the village!"
         log_event(db, "village", f"{username} joined the village! 🐧", username)
         ensure_resources(db, username)
         db.execute(
@@ -3676,6 +3678,8 @@ def callback():
     ensure_player_data(db, username)
     db.commit()
     db.close()
+    if new_player_message:
+        notify_channels(new_player_message)
     return redirect(url_for("home"))
 
 
@@ -3731,6 +3735,7 @@ def discord_callback():
         return redirect("/?error=discord_auth_failed")
 
     db = get_db()
+    new_player_message = None
     try:
         # 1. Returning user — look up by stable discord_id first
         row = db.execute(
@@ -3749,6 +3754,7 @@ def discord_callback():
 
             db.execute("INSERT INTO penguins (username) VALUES (?)", (username,))
             session["new_user"] = True
+            new_player_message = f"🐧 {username} joined the village!"
             log_event(db, "village", f"{username} joined the village! 🐧", username)
             ensure_resources(db, username)
             db.execute(
@@ -3770,6 +3776,8 @@ def discord_callback():
 
     db.close()
     session["username"] = username
+    if new_player_message:
+        notify_channels(new_player_message)
     return redirect(url_for("home"))
 
 
