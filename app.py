@@ -3655,12 +3655,14 @@ def callback():
     session["username"] = username
 
     db = get_db()
+    new_player_message = None
     try:
         db.execute(
             "INSERT INTO penguins (username, twitch_user_id) VALUES (?, ?)",
             (username, twitch_user_id)
         )
         session["new_user"] = True
+        new_player_message = f"🐧 {username} joined the village!"
         log_event(db, "village", f"{username} joined the village! 🐧", username)
         ensure_resources(db, username)
         db.execute(
@@ -3676,6 +3678,8 @@ def callback():
     ensure_player_data(db, username)
     db.commit()
     db.close()
+    if new_player_message:
+        notify_channels(new_player_message)
     return redirect(url_for("home"))
 
 
@@ -3731,6 +3735,7 @@ def discord_callback():
         return redirect("/?error=discord_auth_failed")
 
     db = get_db()
+    new_player_message = None
     try:
         # 1. Returning user — look up by stable discord_id first
         row = db.execute(
@@ -3749,6 +3754,7 @@ def discord_callback():
 
             db.execute("INSERT INTO penguins (username) VALUES (?)", (username,))
             session["new_user"] = True
+            new_player_message = f"🐧 {username} joined the village!"
             log_event(db, "village", f"{username} joined the village! 🐧", username)
             ensure_resources(db, username)
             db.execute(
@@ -3770,6 +3776,8 @@ def discord_callback():
 
     db.close()
     session["username"] = username
+    if new_player_message:
+        notify_channels(new_player_message)
     return redirect(url_for("home"))
 
 
@@ -7780,13 +7788,14 @@ def building_donate():
             (new_level, building_id)
         )
         benefit = cfg["levels"][new_level].get("benefit", "")
-        log_event(db, "building_levelup",
-                  f"🏗️ {cfg['name']} has been upgraded to Level {new_level}! {benefit} Thanks to the village!",
-                  None)
+        levelup_message = f"🏗️ {cfg['name']} has been upgraded to Level {new_level}! {benefit} Thanks to the village!"
+        log_event(db, "building_levelup", levelup_message, None)
         leveled_up = True
 
     db.commit()
     db.close()
+    if leveled_up:
+        notify_channels(levelup_message)
     return jsonify({
         "status":                  "success",
         "donated":                 amount,
@@ -10112,6 +10121,7 @@ def mayor_building_boost():
     row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
     current_level = row["current_level"]
     leveled_up    = False
+    levelup_messages = []
     while current_level < (row["max_level"] or 5):
         next_level = current_level + 1
         reqs = {k: v for k, v in cfg["levels"][next_level].items() if k != "benefit"}
@@ -10122,9 +10132,9 @@ def mayor_building_boost():
         if all(donated[k] >= reqs[k] for k in reqs):
             db.execute("UPDATE building_upgrades SET current_level=? WHERE building_id=?",
                        (next_level, building_id))
-            log_event(db, "building_levelup",
-                      f"🏗️ {cfg['name']} has been upgraded to level {next_level}!",
-                      MAYOR_USERNAME)
+            levelup_message = f"🏗️ {cfg['name']} has been upgraded to level {next_level}!"
+            log_event(db, "building_levelup", levelup_message, MAYOR_USERNAME)
+            levelup_messages.append(levelup_message)
             current_level = next_level
             leveled_up = True
         else:
@@ -10135,6 +10145,8 @@ def mayor_building_boost():
               MAYOR_USERNAME)
     db.commit()
     db.close()
+    for levelup_message in levelup_messages:
+        notify_channels(levelup_message)
     return jsonify({"status": "success", "building_id": building_id, "leveled_up": leveled_up,
                     "new_level": current_level})
 
