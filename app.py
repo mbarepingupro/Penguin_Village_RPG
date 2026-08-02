@@ -48,6 +48,9 @@ MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
 STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+# Separate webhook/channel for patch notes -- distinct from DISCORD_WEBHOOK_URL's
+# raid/challenge/gathering system-milestone announcements.
+DISCORD_PATCH_NOTES_WEBHOOK_URL = os.getenv("DISCORD_PATCH_NOTES_WEBHOOK_URL", "")
 # Base64-encoded shared secret from the Twitch Developer Console (Extensions ->
 # your extension -> Settings), used to verify the Extension Helper JWT sent by
 # the extension frontend. Separate trust boundary from STREAMERBOT_SECRET above.
@@ -4434,6 +4437,26 @@ def notify_channels(message: str):
     """
     notify_streamerbot(message)
     notify_discord(message)
+
+
+def notify_discord_patch_notes(message: str):
+    """POST a plain-text message to a separate Discord channel webhook
+    (DISCORD_PATCH_NOTES_WEBHOOK_URL) dedicated to patch notes -- distinct from
+    notify_discord()'s raid/challenge/gathering channel. Same contract: returns
+    True on a 2xx response, False on missing config, a network error, or a
+    non-2xx status; never raises.
+    """
+    if not DISCORD_PATCH_NOTES_WEBHOOK_URL:
+        return False
+    try:
+        resp = http_requests.post(
+            DISCORD_PATCH_NOTES_WEBHOOK_URL,
+            json={"content": message},
+            timeout=5,
+        )
+        return resp.ok
+    except Exception:
+        return False
 
 
 # ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
@@ -9999,6 +10022,7 @@ def mayor_patch_notes():
     )
     db.commit()
     db.close()
+    notify_discord_patch_notes(f"📋 **{title}**\n{body}")
     return jsonify({"status": "success", "title": title})
 
 
