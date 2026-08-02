@@ -9699,9 +9699,19 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     // Visiting a friend's igloo adds #igloo-host-sprite as a flex sibling
     // of the canvas inside the wrap (see _showIglooHostSprite) -- subtract
     // its width too, or the fit calc would size the canvas as if it had
-    // the sprite panel's space to itself and overflow into it.
+    // the sprite panel's space to itself and overflow into it. leftOffset
+    // shifts the canvas's own left edge past the sprite to match -- sizing
+    // the canvas narrower without also moving it left the sprite's own
+    // width, once the guestbook UI made the sprite panel tall enough for
+    // that overlap to cover its buttons, not just look untidy underneath
+    // the harmless text label it used to be.
     const hostSprite = document.getElementById('igloo-host-sprite');
-    if (hostSprite) availW -= hostSprite.getBoundingClientRect().width;
+    let leftOffset = 0;
+    if (hostSprite) {
+      const spriteWidth = hostSprite.getBoundingClientRect().width;
+      availW -= spriteWidth;
+      leftOffset = spriteWidth;
+    }
 
     // The ITEMS/ROOM strip docks over the bottom of the wrap when open (see
     // the @media block on .igloo-edit-panel) -- shrink the usable height to
@@ -9739,7 +9749,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     // area -- padLeft/padTop + half of availW/availH -- then the
     // transform just scales from that same top-left corner and applies
     // pan in final screen px, unaffected by zoom.
-    canvas.style.left = (padLeft + availW / 2 - renderedW / 2) + 'px';
+    canvas.style.left = (padLeft + leftOffset + availW / 2 - renderedW / 2) + 'px';
     canvas.style.top  = (padTop  + availH / 2 - renderedH / 2) + 'px';
     canvas.style.transform = `translate(${_iglooPanX}px, ${_iglooPanY}px) scale(${scale})`;
   }
