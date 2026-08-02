@@ -1506,7 +1506,7 @@ def add_gold(db, username, amount):
 
 
 
-def log_event(db, event_type, message, username=None):
+def log_event(db, event_type, message, username=None, reaction=None):
     # Highlight the acting player's name wherever it literally appears in the
     # message text, so it stands out in the event log tab / welcome-back
     # popup / news ticker (all render this same message field as HTML).
@@ -1518,6 +1518,13 @@ def log_event(db, event_type, message, username=None):
         "INSERT INTO event_log (event_type, message, username, created_at) VALUES (?,?,?,?)",
         (event_type, message, username, int(time.time()))
     )
+    # Auto-fired reaction bubble off this same exciting moment -- bypasses
+    # the manual rate-limit check the same way post_chat_message() already
+    # bypasses chat's for trusted system callers. No commit here, same
+    # contract as the INSERT above -- whatever already calls db.commit()
+    # after log_event() today keeps doing so unchanged.
+    if reaction and username:
+        _insert_reaction(db, username, reaction)
 
 
 def get_active_buffs(db):
@@ -1592,7 +1599,7 @@ def award_streak_milestone(db, username, streak):
     box_word = "N00Tbox" if count == 1 else "N00Tboxes"
     log_event(db, "achievement",
               f"{username} hit a {streak}-day login streak! +{count} {box_word} 🎁",
-              username)
+              username, reaction="😮")
     return {"streak": streak, "cycle_day": cycle_day, "lootbox_count": count,
             "is_milestone": cycle_day in (7, 14, 21, 28, 30), "lootbox_ids": lootbox_ids}
 
@@ -2199,7 +2206,7 @@ def award_xp(db, username, amount):
     db.execute("UPDATE penguins SET xp=?, level=? WHERE username=?", (new_xp, new_level, username))
     rewards_list = []
     if leveled:
-        log_event(db, "level_up", f"{username} reached level {new_level}! 🎉", username)
+        log_event(db, "level_up", f"{username} reached level {new_level}! 🎉", username, reaction="🎉")
         for lvl in range(old_level + 1, new_level + 1):
             lv_data = LEVEL_DATA.get(lvl, {})
             reward  = lv_data.get("reward")
@@ -2292,7 +2299,7 @@ def check_achievements(db, username):
                 return
             new_ach.append(aid)
             defn = ACHIEVEMENT_DEFS.get(aid, {})
-            log_event(db, "achievement", f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username)
+            log_event(db, "achievement", f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username, reaction="😮")
             reward = defn.get("reward")
             if reward:
                 ensure_resources(db, username)
@@ -2418,7 +2425,7 @@ def _check_lb_achievements(db, username):
             new_ach.append(aid)
             defn = ACHIEVEMENT_DEFS.get(aid, {})
             log_event(db, "achievement",
-                      f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username)
+                      f"{username} unlocked '{defn.get('title','?')}'! {defn.get('icon','')}", username, reaction="😮")
             if gold_reward > 0:
                 ensure_resources(db, username)
                 add_gold(db, username, gold_reward)
@@ -5318,7 +5325,7 @@ def combat_fight():
                 loot_summary += " [FIRST KILL!]"
             if gear_drop:
                 loot_summary += f" + {gear_drop['name']} ({gear_drop['rarity']})"
-            log_event(db, "combat", f"{username} defeated {monster_name}! {loot_summary} 🎉", username)
+            log_event(db, "combat", f"{username} defeated {monster_name}! {loot_summary} 🎉", username, reaction="🎉")
             advance_mission(db, username, "first_fight", today)
             check_achievements(db, username)
             db.execute(
@@ -5360,11 +5367,11 @@ def combat_fight():
             daily_complete = (not was_complete_before) and unlocked_type_ids.issubset(killed_today_after)
             if daily_complete:
                 daily_lootbox_ids = grant_lootbox(username, 1, "daily_monsters_complete", db=db)
-                log_event(db, "combat", f"{username} defeated every unlocked monster today! 🏆", username)
+                log_event(db, "combat", f"{username} defeated every unlocked monster today! 🏆", username, reaction="🔥")
         else:
             consolation_xp = max(1, mtype["rewards"]["xp"][0] // 4)
             _, consolation_level_ups = award_xp(db, username, consolation_xp)
-            log_event(db, "combat", f"{username} was defeated by {monster_name}...", username)
+            log_event(db, "combat", f"{username} was defeated by {monster_name}...", username, reaction="😢")
         db.commit()
 
         resp = {
@@ -7357,7 +7364,7 @@ def building_donate():
                 )
             log_event(db, "milestone",
                       f"🎉 {username} unlocked '{reward['name']}' for contributing {milestone:,} total resources!",
-                      username)
+                      username, reaction="❤️")
             milestone_unlocked = {"name": reward["name"], "description": reward["description"], "threshold": milestone}
 
     # Refresh row and check for level-up
@@ -11888,6 +11895,27 @@ def chat_send_message():
     return jsonify({"status": "ok"})
 
 
+def _insert_reaction(db, username, emoji, now=None):
+    """Insert a reaction bubble on an existing db handle, plus the same
+    opportunistic prune /reaction/send already did inline. Shared by the
+    player-facing /reaction/send route (below) and log_event()'s auto-fired
+    bubbles off exciting moments -- system callers skip the rate-limit check
+    since they're trusted, same as post_chat_message() above. No commit here
+    -- caller commits, same contract as log_event()."""
+    now = now if now is not None else int(time.time())
+    db.execute(
+        "INSERT INTO penguin_reactions (username, emoji, created_at) VALUES (?,?,?)",
+        (username, emoji, now)
+    )
+    # Opportunistic prune on send rather than a scheduler pass -- reactions
+    # are only ever queried within a 6s window, so anything past a generous
+    # buffer beyond that is dead weight with no reader left to see it.
+    db.execute(
+        "DELETE FROM penguin_reactions WHERE created_at < ?",
+        (now - _REACTION_RETENTION_SECONDS,)
+    )
+
+
 @app.route("/reactions/recent")
 def reactions_recent():
     # Time-windowed instead of LIMIT-based (like /chat/messages) -- a
@@ -11933,17 +11961,7 @@ def reaction_send():
         db.close()
         return jsonify({"status": "rate_limited", "message": f"Please wait {wait}s before reacting again."}), 429
 
-    db.execute(
-        "INSERT INTO penguin_reactions (username, emoji, created_at) VALUES (?,?,?)",
-        (username, emoji, now)
-    )
-    # Opportunistic prune on send rather than a scheduler pass -- reactions
-    # are only ever queried within a 6s window, so anything past a generous
-    # buffer beyond that is dead weight with no reader left to see it.
-    db.execute(
-        "DELETE FROM penguin_reactions WHERE created_at < ?",
-        (now - _REACTION_RETENTION_SECONDS,)
-    )
+    _insert_reaction(db, username, emoji, now)
     db.commit()
     db.close()
     return jsonify({"status": "ok"})
