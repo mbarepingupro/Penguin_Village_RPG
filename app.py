@@ -47,6 +47,7 @@ MAYOR_KEY           = os.getenv("MAYOR_KEY", "")
 MAYOR_USERNAME      = "mbarepingu"
 STREAMERBOT_SECRET  = os.getenv("STREAMERBOT_SECRET", "")
 STREAMERBOT_OUTBOUND_URL = os.getenv("STREAMERBOT_OUTBOUND_URL", "")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
 # Base64-encoded shared secret from the Twitch Developer Console (Extensions ->
 # your extension -> Settings), used to verify the Extension Helper JWT sent by
 # the extension frontend. Separate trust boundary from STREAMERBOT_SECRET above.
@@ -2176,7 +2177,7 @@ def resolve_raid(raid_id, reason):
     # defeat (from /raid/attack) and the Monday timeout sweep can both call
     # resolve_raid() for the same raid_id, but only the first to see 'active'
     # gets past that check and reaches here, so this can't double-fire.
-    notify_streamerbot(_notice_plain_text(_raid_result_notice({"boss_name": raid["boss_name"], "status": new_status})))
+    notify_channels(_notice_plain_text(_raid_result_notice({"boss_name": raid["boss_name"], "status": new_status})))
 
     return {
         "raid_id":     raid_id,
@@ -2596,7 +2597,7 @@ def start_new_weekly_challenge():
         )
         db.commit()
         print(f"[WeeklyChallenge] New challenge started: {metric['label']} (threshold {metric['threshold']})")
-        notify_streamerbot(_notice_plain_text(
+        notify_channels(_notice_plain_text(
             _challenge_start_notice({"metric_type": metric["id"], "threshold": metric["threshold"]})
         ))
     except Exception as e:
@@ -2699,14 +2700,14 @@ def evaluate_weekly_challenge():
             )
 
         db.commit()
-        notify_streamerbot(_notice_plain_text(_challenge_result_notice({
+        notify_channels(_notice_plain_text(_challenge_result_notice({
             "status": new_status,
             "current_progress": row["current_progress"],
             "threshold": row["threshold"],
             "metric_type": row["metric_type"],
         })))
         if raid_start_boss:
-            notify_streamerbot(_notice_plain_text(_raid_start_notice({"boss_name": raid_start_boss})))
+            notify_channels(_notice_plain_text(_raid_start_notice({"boss_name": raid_start_boss})))
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in evaluate_weekly_challenge: {e}")
     finally:
@@ -2774,7 +2775,7 @@ def start_raid_if_unlocked():
         db.commit()
         print(f"[WeeklyChallenge] Raid {raid_id} started — boss HP {boss_max_hp} (flat)")
         if first_reveal:
-            notify_streamerbot(_notice_plain_text(_raid_start_notice({"boss_name": raid["boss_name"]})))
+            notify_channels(_notice_plain_text(_raid_start_notice({"boss_name": raid["boss_name"]})))
         return True
     except Exception as e:
         print(f"[WeeklyChallenge] ERROR in start_raid_if_unlocked: {e}")
@@ -4408,6 +4409,33 @@ def notify_streamerbot(message: str):
         return False
 
 
+def notify_discord(message: str):
+    """POST a plain-text message to a Discord channel webhook (DISCORD_WEBHOOK_URL).
+    Returns True on a 2xx response, False on missing config, a network error, or a
+    non-2xx status; never raises.
+    """
+    if not DISCORD_WEBHOOK_URL:
+        return False
+    try:
+        resp = http_requests.post(
+            DISCORD_WEBHOOK_URL,
+            json={"content": message},
+            timeout=5,
+        )
+        return resp.ok
+    except Exception:
+        return False
+
+
+def notify_channels(message: str):
+    """Mirrors a system-milestone announcement to both StreamerBot/Twitch chat and
+    Discord, so every call site only needs one change and the two channels can
+    never drift apart.
+    """
+    notify_streamerbot(message)
+    notify_discord(message)
+
+
 # ── MAYOR'S SEALS ─────────────────────────────────────────────────────────────
 
 @app.route("/seals/award", methods=["POST"])
@@ -4764,7 +4792,7 @@ def _start_gathering(db, building_id, duration_minutes):
 
     log_event(db, "mayor", cfg["message"], MAYOR_USERNAME)
     post_chat_message(db, MAYOR_USERNAME, cfg["message"], now)
-    notify_streamerbot(cfg["message"])
+    notify_channels(cfg["message"])
     # Also deliverable as a one-shot popup via lifecycle_notices() -- see
     # mayor_messages/_mayor_message_notices(), same delivery /mayor/announce uses.
     db.execute(
@@ -4920,7 +4948,7 @@ def tick_gathering_resolve():
             else:
                 wrapup = f"🎪 The gathering at {building_name} has ended! Nobody checked in this time."
             post_chat_message(db, MAYOR_USERNAME, wrapup, now)
-            notify_streamerbot(wrapup)
+            notify_channels(wrapup)
         except Exception as e:
             print(f"[Gathering] Error resolving gathering {row['id']}: {e}")
     db.commit()
