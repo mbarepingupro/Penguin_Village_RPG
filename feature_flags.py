@@ -49,4 +49,18 @@ FEATURES = {
                                     # -- only the tally-vs-random branch inside auto_start_gathering()
                                     # checks it. /mayor/debug/run_gathering_vote_resolve always
                                     # tallies regardless of this flag, for testing.
+    "interactive_moments": False,  # Some requires_other autonomous-action interactions (any
+                                    # category) get promoted to an interactive "moment" the two
+                                    # owners can Agree/Disagree with via a popup, instead of always
+                                    # auto-resolving silently. Only "Agree" calls
+                                    # increment_relationship() for real -- "Disagree" and a timed-out
+                                    # window both stay a no-op, identical to today's default
+                                    # behavior (relationships never move on their own today; see
+                                    # _record_auto_interaction()). Shipped dark: gated only at the
+                                    # promotion-roll site in run_autonomous_actions() -- the
+                                    # village_moments table, /village/moment/resolve, and the
+                                    # timeout-resolver job all exist regardless of this flag (no
+                                    # moment is ever created while it's off, so they're just idle).
+                                    # /mayor/debug/force_moment always force-creates one regardless
+                                    # of this flag, for testing.
 }

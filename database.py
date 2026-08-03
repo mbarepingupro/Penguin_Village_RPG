@@ -735,6 +735,27 @@ def init_db():
         )
     """)
 
+    # Some requires_other autonomous-action interactions get promoted to an
+    # interactive "moment" the two owners can Agree/Disagree with (see
+    # app.py's run_autonomous_actions()/interactive_moments flag), instead of
+    # always auto-resolving silently. At most one 'open' row village-wide at
+    # a time -- delivered as a one-shot popup via lifecycle_notices() using
+    # penguins.last_seen_moment_id below, same "latest row vs. per-player
+    # marker" pattern as mayor_messages above. resolution is NULL until
+    # resolved, then 'agree'/'disagree'/None (timed out, nobody responded).
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS village_moments (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            username1         TEXT NOT NULL,
+            username2         TEXT NOT NULL,
+            flavor_text       TEXT NOT NULL,
+            status            TEXT NOT NULL DEFAULT 'open',
+            resolution        TEXT DEFAULT NULL,
+            window_closes_at  INTEGER NOT NULL,
+            created_at        INTEGER NOT NULL
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -850,6 +871,10 @@ def init_db():
     # seen a challenge/raid (both compared with `or 0` at read time).
     _add_col(c, "penguins", "last_seen_announcement_id INTEGER DEFAULT NULL")
     _add_col(c, "penguins", "last_seen_patch_notes_id INTEGER DEFAULT NULL")
+    # Same "last delivered" marker pattern as last_seen_announcement_id/
+    # last_seen_patch_notes_id above, but for village_moments -- see
+    # lifecycle_notices() and app.py's interactive_moments feature.
+    _add_col(c, "penguins", "last_seen_moment_id INTEGER DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:
