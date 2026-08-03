@@ -756,6 +756,23 @@ def init_db():
         )
     """)
 
+    # Chat votes (via app.py's /stream/moment_vote, !resolve agree/disagree)
+    # for how the currently-open village_moments row should resolve --
+    # accumulate only, don't resolve immediately; resolve_stale_moments()
+    # tallies them once window_closes_at passes. UNIQUE(moment_id, voter)
+    # caps each chatter to one vote per moment, same one-shot-per-window
+    # shape as gathering_votes' UNIQUE(window_start, voter).
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS moment_votes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            moment_id  INTEGER NOT NULL,
+            resolution TEXT NOT NULL,
+            voter      TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            UNIQUE(moment_id, voter)
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")

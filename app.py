@@ -5075,6 +5075,57 @@ def stream_gathering_vote():
     return jsonify({"status": "ok"})
 
 
+@app.route("/stream/moment_vote", methods=["POST"])
+def stream_moment_vote():
+    """Chat-vote equivalent of village_moments' Agree/Disagree buttons (one
+    StreamerBot Command per resolution, e.g. !resolve agree ->
+    {"resolution":"agree", "voter":"%user%"}). Doesn't resolve the moment
+    itself -- only accumulates into moment_votes; resolve_stale_moments()
+    tallies these once window_closes_at passes, same shape as
+    auto_start_gathering()'s tally-vs-random (tally-vs-noop here). An
+    owner's own Agree/Disagree via /village/moment/resolve still wins
+    outright if it happens first -- that route is untouched."""
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
+    data       = request.get_json(silent=True) or {}
+    resolution = data.get("resolution", "").strip()
+    voter      = data.get("voter", "").strip()
+    if resolution not in ("agree", "disagree"):
+        return jsonify({"status": "error", "message": "resolution must be 'agree' or 'disagree'."}), 400
+    if not voter:
+        return jsonify({"status": "skip"})
+    if not _stream_is_live():
+        return jsonify({"status": "skip", "reason": "not_live"})
+
+    db  = get_db()
+    row = _active_moment_row(db)
+    if not row:
+        db.close()
+        return jsonify({"status": "no_active_moment"})
+
+    p = db.execute("SELECT username FROM penguins WHERE username=?", (voter,)).fetchone()
+    if not p:
+        # Account-gated, same as /stream/chat_reaction and /stream/gathering_vote
+        # -- reuses the same cooldown, not a second invite mechanism.
+        invite = _maybe_invite_message(db, voter, int(time.time()))
+        db.commit()
+        db.close()
+        resp = {"status": "no_account"}
+        if invite:
+            resp["invite_message"] = invite
+        return jsonify(resp)
+
+    cur = db.execute(
+        "INSERT OR IGNORE INTO moment_votes (moment_id, resolution, voter, created_at) VALUES (?,?,?,?)",
+        (row["id"], resolution, voter, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    if cur.rowcount == 0:
+        return jsonify({"status": "already_voted"})
+    return jsonify({"status": "ok"})
+
+
 def announce_gathering_vote():
     """Fired hourly at :50, telling chat which command votes for which
     building ahead of the next hourly gathering. Runs regardless of the
@@ -6907,25 +6958,78 @@ def village_moment_resolve():
     return jsonify({"status": "success", "resolution": resolution})
 
 
+def _tally_moment_vote_winner(db, moment_id):
+    """Chat-vote winner ("agree"/"disagree") for a timed-out moment, or None
+    on a tie (including 0-0) -- mirrors _tally_gathering_vote_winner()'s
+    shape, just tally-vs-noop here instead of tally-vs-random."""
+    rows = db.execute(
+        "SELECT resolution, COUNT(*) as votes FROM moment_votes WHERE moment_id=? GROUP BY resolution",
+        (moment_id,)
+    ).fetchall()
+    tally          = {r["resolution"]: r["votes"] for r in rows}
+    agree_votes    = tally.get("agree", 0)
+    disagree_votes = tally.get("disagree", 0)
+    if agree_votes > disagree_votes:
+        return "agree"
+    if disagree_votes > agree_votes:
+        return "disagree"
+    return None
+
+
 def resolve_stale_moments():
     """Every 60s, closes out any 'open' village_moments row past its
-    window_closes_at that neither owner resolved in time -- marks it
-    'resolved' with resolution=None, the same ship-safe no-op as
-    "disagree" (no increment_relationship call). This is the default path
-    for a moment nobody engages with."""
+    window_closes_at that neither owner resolved in time. Before defaulting
+    to the no-op fallback (resolution stays NULL, no increment_relationship
+    call -- same ship-safe default as an owner's Disagree), tallies
+    moment_votes for that moment: if one side strictly leads, resolves with
+    it instead (only "agree" calls increment_relationship()); a tie or zero
+    votes keeps the no-op fallback.
+
+    The app runs multiple gunicorn worker processes (see Procfile), each
+    with its own copy of this job, so two workers can see the same due row
+    in the same tick. Each row is claimed via UPDATE...WHERE status='open'
+    committed immediately -- same pattern tick_gathering_resolve() uses for
+    the identical multi-worker race -- so only the worker whose UPDATE
+    actually flips the row tallies/resolves it and calls
+    increment_relationship(), never both.
+    """
     db = get_db()
     try:
-        now = int(time.time())
-        db.execute(
-            "UPDATE village_moments SET status='resolved' "
-            "WHERE status='open' AND window_closes_at<=?",
+        now  = int(time.time())
+        rows = db.execute(
+            "SELECT * FROM village_moments WHERE status='open' AND window_closes_at<=?",
             (now,)
-        )
-        db.commit()
+        ).fetchall()
     except Exception as e:
-        print(f"[VillageMoments] Error resolving stale moments: {e}")
-    finally:
+        print(f"[VillageMoments] Failed to load due moments: {e}")
         db.close()
+        return
+    if not rows:
+        db.close()
+        return
+
+    for row in rows:
+        try:
+            claim = db.execute(
+                "UPDATE village_moments SET status='resolved' WHERE id=? AND status='open'",
+                (row["id"],)
+            )
+            db.commit()
+            if claim.rowcount == 0:
+                continue  # another worker already claimed this moment
+
+            resolution = _tally_moment_vote_winner(db, row["id"])
+            if resolution == "agree":
+                increment_relationship(db, row["username1"], row["username2"])
+            if resolution:
+                db.execute(
+                    "UPDATE village_moments SET resolution=? WHERE id=?",
+                    (resolution, row["id"])
+                )
+            db.commit()
+        except Exception as e:
+            print(f"[VillageMoments] Error resolving moment {row['id']}: {e}")
+    db.close()
 
 
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
@@ -12528,6 +12632,30 @@ def mayor_debug_force_moment():
     db.commit()
     db.close()
     return jsonify({"status": "success", "moment_id": cur.lastrowid})
+
+
+@app.route("/mayor/debug/run_moment_vote_resolve", methods=["POST"])
+def mayor_debug_run_moment_vote_resolve():
+    """Force-runs the tally-and-resolve logic on the current open moment
+    immediately, bypassing window_closes_at, so /stream/moment_vote's chat
+    votes can be tested without waiting ~20 minutes for the real timeout."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db  = get_db()
+    row = _active_moment_row(db)
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "No moment is currently active."}), 400
+
+    db.execute("UPDATE village_moments SET status='resolved' WHERE id=?", (row["id"],))
+    resolution = _tally_moment_vote_winner(db, row["id"])
+    if resolution == "agree":
+        increment_relationship(db, row["username1"], row["username2"])
+    if resolution:
+        db.execute("UPDATE village_moments SET resolution=? WHERE id=?", (resolution, row["id"]))
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "resolution": resolution})
 
 
 # DEBUG TOOL -- lets the mayor force the app to treat the stream as live (or
