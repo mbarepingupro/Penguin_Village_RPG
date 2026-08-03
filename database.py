@@ -382,6 +382,34 @@ def init_db():
         ON gathering_events(resolved) WHERE resolved=0
     """)
 
+    # Chat votes for which building hosts the next auto-started gathering
+    # (see app.py's /stream/gathering_vote and auto_start_gathering()).
+    # window_start is the upcoming top-of-hour epoch second the vote is
+    # for -- UNIQUE(window_start, voter) caps each chatter to one vote per
+    # window, same one-shot-per-window shape as gathering_participants'
+    # UNIQUE(gathering_id, username) above.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS gathering_votes (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            window_start INTEGER NOT NULL,
+            building_id  TEXT NOT NULL,
+            voter        TEXT NOT NULL,
+            created_at   INTEGER NOT NULL,
+            UNIQUE(window_start, voter)
+        )
+    """)
+
+    # Rate-limits the "make a penguin" invite chat-back for accountless chat
+    # commands (see app.py's _maybe_invite_message()) -- one row per username,
+    # shared across /stream/chat_reaction and /stream/gathering_vote so
+    # spamming both doesn't double the invite frequency.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS chat_invite_cooldown (
+            username        TEXT PRIMARY KEY,
+            last_invited_at INTEGER
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS building_contributions_tracker (
             username TEXT NOT NULL,

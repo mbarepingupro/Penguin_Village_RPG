@@ -742,6 +742,11 @@ ALLOWED_REACTIONS = ["👋", "😂", "😢", "🎉", "❤️", "😮", "🔥", "
 _REACTION_RATE_LIMIT_SECONDS = 3   # one reaction per N seconds per player
 _REACTION_RETENTION_SECONDS  = 60  # opportunistic prune threshold on send -- see /reaction/send
 
+# How often an accountless chatter can be re-invited to make a penguin (see
+# _maybe_invite_message()) -- flat for now, same as PASSIVE_SEALS_AMOUNT and
+# GROUP_EVENT_CHANCE_PER_TICK below, tune once real chat volume is observed.
+CHAT_INVITE_COOLDOWN_SECONDS = 900   # 15 minutes
+
 # ── Passive seals (award_passive_seals scheduler job) ────────────────────────
 # Intentionally flat for now -- tune once real alpha usage data exists, same
 # as GROUP_EVENT_CHANCE_PER_TICK and other not-yet-balanced constants.
@@ -980,6 +985,18 @@ BUILDING_EVENTS = {
                        "reward_type": "herbs", "reward_amount": 15},
     "parkmusement":  {"message": "🎪 A performance is about to start at the Parkmusement — resources thrown to the crowd!",
                        "reward_type": "gold", "reward_amount": 20},
+}
+
+# Chat-vote keyword shown in the vote announcement (see announce_gathering_vote())
+# for each BUILDING_EVENTS building -- e.g. "!vote fish" for the Sea Lion Pit.
+# Purely a display label: building_id is what /stream/gathering_vote actually
+# validates (against BUILDING_EVENTS), so this dict doesn't gate anything --
+# each StreamerBot Command just bakes the matching building_id into its POST body.
+GATHERING_VOTE_KEYWORDS = {
+    "sea_lion_pit":  "fish",
+    "cursed_temple": "temple",
+    "club_soda":     "soda",
+    "parkmusement":  "park",
 }
 
 MONSTER_TYPES = {
@@ -4394,6 +4411,36 @@ def _streamerbot_authed():
     return bool(STREAMERBOT_SECRET and provided == STREAMERBOT_SECRET)
 
 
+def _maybe_invite_message(db, username, now):
+    """Rate-limited "make a penguin" invite text for a chat command from
+    someone with no penguins row (see /stream/chat_reaction and
+    /stream/gathering_vote's no_account branches). Shared cooldown across
+    both routes via chat_invite_cooldown, keyed on username alone (not
+    username+route), so spamming both !wave and !vote only gets invited
+    once per CHAT_INVITE_COOLDOWN_SECONDS window, not once per route.
+
+    Reuses the caller's db connection -- does not open its own. (This exact
+    mistake -- a helper opening a second connection mid-request instead of
+    reusing the caller's -- is a recurring bug class in this codebase, per
+    the Session 6 handoff.) No commit here -- caller commits, same contract
+    as log_event()/_insert_reaction().
+
+    Returns the invite string on a cooldown-permitted hit, None if this
+    username was already invited within the window (stay silent).
+    """
+    row = db.execute(
+        "SELECT last_invited_at FROM chat_invite_cooldown WHERE username=?", (username,)
+    ).fetchone()
+    if row and (now - row["last_invited_at"]) < CHAT_INVITE_COOLDOWN_SECONDS:
+        return None
+    db.execute(
+        "INSERT OR REPLACE INTO chat_invite_cooldown (username, last_invited_at) VALUES (?,?)",
+        (username, now)
+    )
+    url = request.host_url.rstrip("/") + "/"
+    return f"No penguin yet! Make one at {url} to react and vote 🐧"
+
+
 def notify_streamerbot(message: str):
     """POST a plain-text message to StreamerBot's inbound webhook (STREAMERBOT_OUTBOUND_URL) --
     outbound from the game's perspective, i.e. StreamerBot receiving, not sending. Returns True
@@ -4648,6 +4695,56 @@ def stream_build_command():
     })
 
 
+# ── STREAM CHAT REACTIONS ────────────────────────────────────────────────────
+# Chat-triggered equivalent of /reaction/send, fed by a StreamerBot Command per
+# emoji (e.g. !wave -> {"emoji":"👋", "chatter":"%user%"}) instead of the
+# website's reaction popover. Reuses _insert_reaction() and
+# _REACTION_RATE_LIMIT_SECONDS exactly as /reaction/send does -- no parallel
+# insert/rate-limit path -- so the two entry points can't drift apart.
+
+@app.route("/stream/chat_reaction", methods=["POST"])
+def stream_chat_reaction():
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
+    data    = request.get_json(silent=True) or {}
+    emoji   = data.get("emoji", "").strip()
+    chatter = data.get("chatter", "").strip()
+    if emoji not in ALLOWED_REACTIONS:
+        return jsonify({"status": "error", "message": "Not an allowed reaction."}), 400
+    if not chatter:
+        return jsonify({"status": "skip"})
+    if not _stream_is_live():
+        return jsonify({"status": "skip", "reason": "not_live"})
+
+    db  = get_db()
+    now = int(time.time())
+    p   = db.execute("SELECT username FROM penguins WHERE username=?", (chatter,)).fetchone()
+    if not p:
+        # Account-gated -- StreamerBot uses this status to chat back a
+        # "make a penguin" invite, rate-limited so it doesn't spam chat.
+        invite = _maybe_invite_message(db, chatter, now)
+        db.commit()
+        db.close()
+        resp = {"status": "no_account"}
+        if invite:
+            resp["invite_message"] = invite
+        return jsonify(resp)
+
+    last_row = db.execute(
+        "SELECT MAX(created_at) as t FROM penguin_reactions WHERE username=?", (chatter,)
+    ).fetchone()
+    last_ts = last_row["t"] if last_row else None
+    if last_ts and (now - last_ts) < _REACTION_RATE_LIMIT_SECONDS:
+        wait = _REACTION_RATE_LIMIT_SECONDS - (now - last_ts)
+        db.close()
+        return jsonify({"status": "rate_limited", "message": f"Please wait {wait}s before reacting again."}), 429
+
+    _insert_reaction(db, chatter, emoji, now)
+    db.commit()
+    db.close()
+    return jsonify({"status": "ok"})
+
+
 @app.route("/stream/pending_animations")
 def stream_pending_animations():
     """For the logged-in player's own browser tab, not StreamerBot -- session-authed,
@@ -4787,6 +4884,14 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
 # the relevant building's modal while one is running; checked-in players
 # split a reward when the timer ends. Only one gathering active at a time.
 _GATHERING_DEFAULT_DURATION_MINUTES = 8
+# The hourly_gathering cron job still fires every hour regardless of stream
+# status, but auto_start_gathering() only actually starts one every time this
+# many seconds have passed since the last gathering (of any origin) while the
+# stream is offline -- no point running the hourly cadence (or the chat vote,
+# which requires live chat to cast votes in the first place) for a stream
+# that's not live. Once live, this throttle is skipped entirely and behavior
+# is unchanged: hourly, tally-vs-random per gathering_chat_vote.
+GATHERING_OFFLINE_INTERVAL_SECONDS = 3 * 3600
 
 
 def _active_gathering_row(db):
@@ -4848,6 +4953,109 @@ def _start_gathering(db, building_id, duration_minutes):
     return cur.lastrowid
 
 
+def _tally_gathering_vote_winner(db):
+    """Building with the most votes in the current window (window_start = the
+    top of the current hour, matching the window /stream/gathering_vote wrote
+    votes into during the hour leading up to now), or None if nobody voted.
+
+    Ties broken by BUILDING_EVENTS dict iteration order -- the first building
+    to reach the highest vote count wins. A chat vote doesn't need a fairer
+    tie-break than that; it's a light engagement feature, not a fairness-
+    critical mechanic, and a stable/deterministic rule is simpler to reason
+    about (and test) than e.g. a random pick among tied leaders.
+    """
+    window_start = (int(time.time()) // 3600) * 3600
+    rows = db.execute(
+        "SELECT building_id, COUNT(*) as votes FROM gathering_votes "
+        "WHERE window_start=? GROUP BY building_id",
+        (window_start,)
+    ).fetchall()
+    if not rows:
+        return None
+    tally = {r["building_id"]: r["votes"] for r in rows}
+    winner, winner_votes = None, 0
+    for building_id in BUILDING_EVENTS:
+        v = tally.get(building_id, 0)
+        if v > winner_votes:
+            winner, winner_votes = building_id, v
+    return winner
+
+
+@app.route("/stream/gathering_vote", methods=["POST"])
+def stream_gathering_vote():
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
+    data        = request.get_json(silent=True) or {}
+    building_id = data.get("building_id", "").strip()
+    voter       = data.get("voter", "").strip()
+    if building_id not in BUILDING_EVENTS:
+        return jsonify({"status": "error", "message": "Not a gathering-eligible building."}), 400
+    if not voter:
+        return jsonify({"status": "skip"})
+    if not _stream_is_live():
+        return jsonify({"status": "skip", "reason": "not_live"})
+
+    db = get_db()
+    p  = db.execute("SELECT username FROM penguins WHERE username=?", (voter,)).fetchone()
+    if not p:
+        # Account-gated, same as /stream/chat_reaction -- StreamerBot uses this
+        # status to chat back a "make a penguin" invite, rate-limited so it
+        # doesn't spam chat.
+        invite = _maybe_invite_message(db, voter, int(time.time()))
+        db.commit()
+        db.close()
+        resp = {"status": "no_account"}
+        if invite:
+            resp["invite_message"] = invite
+        return jsonify(resp)
+
+    # Upcoming top-of-hour epoch second -- votes cast anytime this hour are for
+    # the gathering auto_start_gathering() may start at the next hour boundary.
+    window_start = ((int(time.time()) // 3600) + 1) * 3600
+    cur = db.execute(
+        "INSERT OR IGNORE INTO gathering_votes (window_start, building_id, voter, created_at) "
+        "VALUES (?,?,?,?)",
+        (window_start, building_id, voter, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    if cur.rowcount == 0:
+        return jsonify({"status": "already_voted"})
+    return jsonify({"status": "ok"})
+
+
+def announce_gathering_vote():
+    """Fired hourly at :50, telling chat which command votes for which
+    building ahead of the next hourly gathering. Runs regardless of the
+    gathering_chat_vote flag, so votes are already there to inspect/use once
+    it's flipped on -- see auto_start_gathering(). Skipped while the stream
+    is offline: /stream/gathering_vote itself requires _stream_is_live() to
+    accept a vote, and auto_start_gathering() throttles down to once every
+    GATHERING_OFFLINE_INTERVAL_SECONDS while offline, so announcing "vote
+    now" hourly to a chat nobody's casting votes in would just be noise."""
+    if not _stream_is_live():
+        return
+    db = get_db()
+    try:
+        if _active_gathering_row(db):
+            return  # one's already running -- nothing to vote on until it ends
+        lines = [
+            f"!vote {GATHERING_VOTE_KEYWORDS[bid]} = {BUILDINGS.get(bid, {}).get('name', bid)}"
+            for bid in BUILDING_EVENTS
+        ]
+        notify_channels("🗳️ Vote for the next gathering! " + "  |  ".join(lines))
+    finally:
+        db.close()
+
+
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    # Same shape/timezone as the hourly_gathering job above, 10 minutes ahead
+    # of it so chat has a window to vote before the next gathering starts.
+    _scheduler.add_job(announce_gathering_vote, "cron", hour="9-23", minute=50,
+                       timezone="Europe/Berlin",
+                       id="gathering_vote_announce", misfire_grace_time=120)
+
+
 @app.route("/mayor/gathering/start", methods=["POST"])
 def mayor_gathering_start():
     if not _is_mayor_authed():
@@ -4881,7 +5089,18 @@ def auto_start_gathering():
     try:
         if _active_gathering_row(db):
             return  # mayor already started one manually, or the last one hasn't ended yet
-        building_id = random.choice(list(BUILDING_EVENTS.keys()))
+        live = _stream_is_live()
+        if not live:
+            last = db.execute(
+                "SELECT started_at FROM gathering_events ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if last and (int(time.time()) - last["started_at"]) < GATHERING_OFFLINE_INTERVAL_SECONDS:
+                return  # offline -- throttle the hourly cron down to once every 3 hours
+        building_id = None
+        if live and FEATURES.get("gathering_chat_vote", False):
+            building_id = _tally_gathering_vote_winner(db)
+        if not building_id:
+            building_id = random.choice(list(BUILDING_EVENTS.keys()))
         gathering_id = _start_gathering(db, building_id, _GATHERING_DEFAULT_DURATION_MINUTES)
         if gathering_id is None:
             print(f"[Gathering] Skipped auto-start at {building_id} -- another worker already started one")
@@ -9256,12 +9475,23 @@ def village_penguins():
             if area and w["item_id"]:
                 worn_map.setdefault(w["username"], {})[area] = w["item_id"]
 
+    gathering = _active_gathering_row(db)
     db.close()
 
     layout = _load_current_layout() or {}
     grid = layout.get("grid")
     buildings = layout.get("buildings") or {}
     pools_by_job = {}
+
+    # If a gathering is active, idle (jobless) penguins cluster around it --
+    # same spawn-pool technique as the working-penguin home tiles just below,
+    # rooted at the gathering's building instead of a job's.
+    gather_pool = None
+    if gathering:
+        g_building_id = gathering["building_id"]
+        bdef = buildings.get(g_building_id)
+        base = _building_entrance_tile(bdef) if bdef else _BUILDING_HOME_TILES.get(g_building_id, _DEFAULT_HOME_TILE)
+        gather_pool = _compute_walkable_spawn_pool(base, grid)
 
     penguins = []
     for r in rows:
@@ -9295,6 +9525,13 @@ def village_penguins():
             home = pool[_stable_pool_index(r["username"], len(pool))]
             entry["startGridX"] = home[0]
             entry["startGridY"] = home[1]
+        elif not job and gather_pool:
+            # Same stable-per-username technique as startGridX/startGridY --
+            # jobless penguins still get their client-side random spawn (they
+            # keep no startGridX/Y), but drift toward the gathering afterward.
+            gpos = gather_pool[_stable_pool_index(r["username"], len(gather_pool))]
+            entry["gatherX"] = gpos[0]
+            entry["gatherY"] = gpos[1]
         penguins.append(entry)
 
     return jsonify({"penguins": penguins})
@@ -12119,6 +12356,29 @@ def mayor_debug_run_passive_seals():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     awarded = award_passive_seals(force=True)
     return jsonify({"status": "success", "awarded_usernames": awarded, "count": len(awarded)})
+
+
+@app.route("/mayor/debug/run_gathering_vote_resolve", methods=["POST"])
+def mayor_debug_run_gathering_vote_resolve():
+    """Force-tallies the current vote window and starts a gathering with the
+    winner, bypassing both _stream_is_live() (mayor-authed debug tools don't
+    need a real stream) and the gathering_chat_vote flag (always tallies here,
+    regardless of whether the flag is on) -- lets the vote and the Part C
+    clustering it feeds into both be exercised without waiting for the real
+    hourly cron or a live stream. Falls back to random.choice() if nobody's
+    voted yet, same as auto_start_gathering() does."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db = get_db()
+    if _active_gathering_row(db):
+        db.close()
+        return jsonify({"status": "error", "message": "A gathering is already active."}), 400
+    building_id = _tally_gathering_vote_winner(db) or random.choice(list(BUILDING_EVENTS.keys()))
+    gathering_id = _start_gathering(db, building_id, _GATHERING_DEFAULT_DURATION_MINUTES)
+    db.close()
+    if gathering_id is None:
+        return jsonify({"status": "error", "message": "A gathering is already active."}), 400
+    return jsonify({"status": "success", "building_id": building_id})
 
 
 # DEBUG TOOL -- lets the mayor force the app to treat the stream as live (or

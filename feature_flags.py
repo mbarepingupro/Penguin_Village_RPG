@@ -40,4 +40,13 @@ FEATURES = {
                                     # reads the archive to grant rewards. Flip to False to stop
                                     # tracking (existing weekly_build_leaderboard/_archive rows are
                                     # untouched either way).
+    "gathering_chat_vote": False,   # Chat-vote (via /stream/gathering_vote) picks which building
+                                    # hosts the next auto-started gathering, instead of
+                                    # auto_start_gathering()'s random.choice(). Shipped dark: the
+                                    # vote route, gathering_votes table, and the :50-past-the-hour
+                                    # vote-announcement job all run regardless of this flag (so
+                                    # votes can accumulate and be inspected before flipping this on)
+                                    # -- only the tally-vs-random branch inside auto_start_gathering()
+                                    # checks it. /mayor/debug/run_gathering_vote_resolve always
+                                    # tallies regardless of this flag, for testing.
 }
