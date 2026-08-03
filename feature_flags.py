@@ -50,15 +50,18 @@ FEATURES = {
                                     # checks it. /mayor/debug/run_gathering_vote_resolve always
                                     # tallies regardless of this flag, for testing.
     "interactive_moments": False,  # Some requires_other autonomous-action interactions (any
-                                    # category) get promoted to an interactive "moment" the two
-                                    # owners can Agree/Disagree with via a popup, instead of always
-                                    # auto-resolving silently. Only "Agree" calls
-                                    # increment_relationship() for real -- "Disagree" and a timed-out
-                                    # window both stay a no-op, identical to today's default
-                                    # behavior (relationships never move on their own today; see
-                                    # _record_auto_interaction()). Shipped dark: gated only at the
-                                    # promotion-roll site in run_autonomous_actions() -- the
-                                    # village_moments table, /village/moment/resolve, and the
+                                    # category) get promoted to an interactive "moment" -- a
+                                    # two-option scenario (see moment_scenarios.MOMENT_SCENARIOS,
+                                    # e.g. "they should share" vs. "let them fight") the two owners
+                                    # steer via a popup, instead of always auto-resolving silently.
+                                    # Only option "a" (always the cooperative/friendly resolution)
+                                    # calls increment_relationship() for real -- option "b" (the
+                                    # confrontational one) and a timed-out window both stay a no-op,
+                                    # identical to today's default behavior (relationships never move
+                                    # on their own today; see _record_auto_interaction()). Shipped
+                                    # dark: gated only at the promotion-roll site in
+                                    # run_autonomous_actions() -- the village_moments table,
+                                    # /village/moment/resolve, /stream/moment_vote, and the
                                     # timeout-resolver job all exist regardless of this flag (no
                                     # moment is ever created while it's off, so they're just idle).
                                     # /mayor/debug/force_moment always force-creates one regardless

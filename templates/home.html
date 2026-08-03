@@ -10819,8 +10819,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       ? '<button type="button" class="celeb-close-btn">✕ CLOSE</button>'
       : isMoment
       ? '<div class="celeb-moment-actions">' +
-          '<button type="button" class="celeb-agree-btn">🤝 AGREE</button>' +
-          '<button type="button" class="celeb-disagree-btn">🤷 DISAGREE</button>' +
+          '<button type="button" class="celeb-agree-btn">🤝 ' + (config.optionALabel || 'AGREE') + '</button>' +
+          '<button type="button" class="celeb-disagree-btn">⚔️ ' + (config.optionBLabel || 'DISAGREE') + '</button>' +
         '</div>'
       : '<div class="celeb-continue">TAP TO CONTINUE</div>';
 
@@ -10866,25 +10866,40 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (closeBtn) closeBtn.addEventListener('click', function(e) { e.stopPropagation(); dismiss(); });
     } else if (isMoment) {
       // Same "explicit action only" shape as patch notes -- no whole-overlay
-      // click-dismiss and no auto-timeout, since an accidental click
-      // shouldn't silently register as Agree or Disagree. Fire-and-forget
-      // the resolve POST (server ignores it gracefully if the moment already
-      // resolved via the other owner or the timeout job -- see
-      // /village/moment/resolve's already_resolved response) and dismiss
-      // immediately either way, same responsive-first pattern as
-      // /reaction/send from the map popover.
+      // click-dismiss and no auto-timeout while the two options are still
+      // showing, since an accidental click shouldn't silently pick one.
+      // After resolving, the popup switches into a result view (outcome
+      // text swapped in for the subtitle, buttons replaced with the normal
+      // TAP TO CONTINUE footer) and only then behaves like every other
+      // celebration -- click-anywhere or an 8s auto-dismiss.
+      var actionsEl  = overlay.querySelector('.celeb-moment-actions');
+      var subtitleEl = overlay.querySelector('.celeb-subtitle');
+      function showResultAndArmDismiss(resultText) {
+        if (subtitleEl) subtitleEl.innerHTML = resultText;
+        if (actionsEl) actionsEl.outerHTML = '<div class="celeb-continue">TAP TO CONTINUE</div>';
+        overlay.addEventListener('click', dismiss);
+        setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
+      }
       function resolveMoment(resolution) {
+        if (agreeBtn) agreeBtn.disabled = true;
+        if (disagreeBtn) disagreeBtn.disabled = true;
         fetch('/village/moment/resolve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ resolution: resolution }),
-        }).catch(function() {});
-        dismiss();
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            showResultAndArmDismiss(d.outcome || 'Someone else already responded.');
+          })
+          .catch(function() {
+            showResultAndArmDismiss('Something went wrong. Try again later.');
+          });
       }
       var agreeBtn    = overlay.querySelector('.celeb-agree-btn');
       var disagreeBtn = overlay.querySelector('.celeb-disagree-btn');
-      if (agreeBtn)    agreeBtn.addEventListener('click',    function(e) { e.stopPropagation(); resolveMoment('agree'); });
-      if (disagreeBtn) disagreeBtn.addEventListener('click', function(e) { e.stopPropagation(); resolveMoment('disagree'); });
+      if (agreeBtn)    agreeBtn.addEventListener('click',    function(e) { e.stopPropagation(); resolveMoment('a'); });
+      if (disagreeBtn) disagreeBtn.addEventListener('click', function(e) { e.stopPropagation(); resolveMoment('b'); });
     } else {
       overlay.addEventListener('click', dismiss);
       setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
@@ -11112,6 +11127,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           // scrollable box by showCelebration()'s patch_notes branch
           // instead of the plain centered description other types use.
           body: n.body || '',
+          // interactive_moment only -- scenario-specific button labels
+          // instead of a generic Agree/Disagree.
+          optionALabel: n.option_a_label || '',
+          optionBLabel: n.option_b_label || '',
         });
       });
     } catch(e) {}
