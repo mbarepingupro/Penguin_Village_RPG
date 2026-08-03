@@ -4884,6 +4884,14 @@ if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or 
 # the relevant building's modal while one is running; checked-in players
 # split a reward when the timer ends. Only one gathering active at a time.
 _GATHERING_DEFAULT_DURATION_MINUTES = 8
+# The hourly_gathering cron job still fires every hour regardless of stream
+# status, but auto_start_gathering() only actually starts one every time this
+# many seconds have passed since the last gathering (of any origin) while the
+# stream is offline -- no point running the hourly cadence (or the chat vote,
+# which requires live chat to cast votes in the first place) for a stream
+# that's not live. Once live, this throttle is skipped entirely and behavior
+# is unchanged: hourly, tally-vs-random per gathering_chat_vote.
+GATHERING_OFFLINE_INTERVAL_SECONDS = 3 * 3600
 
 
 def _active_gathering_row(db):
@@ -5018,10 +5026,15 @@ def stream_gathering_vote():
 
 def announce_gathering_vote():
     """Fired hourly at :50, telling chat which command votes for which
-    building ahead of the next hourly gathering. Runs (and gathering_votes
-    keeps accumulating) regardless of the gathering_chat_vote flag, so votes
-    are already there to inspect/use once it's flipped on -- see
-    auto_start_gathering()."""
+    building ahead of the next hourly gathering. Runs regardless of the
+    gathering_chat_vote flag, so votes are already there to inspect/use once
+    it's flipped on -- see auto_start_gathering(). Skipped while the stream
+    is offline: /stream/gathering_vote itself requires _stream_is_live() to
+    accept a vote, and auto_start_gathering() throttles down to once every
+    GATHERING_OFFLINE_INTERVAL_SECONDS while offline, so announcing "vote
+    now" hourly to a chat nobody's casting votes in would just be noise."""
+    if not _stream_is_live():
+        return
     db = get_db()
     try:
         if _active_gathering_row(db):
@@ -5076,8 +5089,15 @@ def auto_start_gathering():
     try:
         if _active_gathering_row(db):
             return  # mayor already started one manually, or the last one hasn't ended yet
+        live = _stream_is_live()
+        if not live:
+            last = db.execute(
+                "SELECT started_at FROM gathering_events ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if last and (int(time.time()) - last["started_at"]) < GATHERING_OFFLINE_INTERVAL_SECONDS:
+                return  # offline -- throttle the hourly cron down to once every 3 hours
         building_id = None
-        if FEATURES.get("gathering_chat_vote", False):
+        if live and FEATURES.get("gathering_chat_vote", False):
             building_id = _tally_gathering_vote_winner(db)
         if not building_id:
             building_id = random.choice(list(BUILDING_EVENTS.keys()))
