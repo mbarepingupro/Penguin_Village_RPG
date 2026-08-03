@@ -399,6 +399,17 @@ def init_db():
         )
     """)
 
+    # Rate-limits the "make a penguin" invite chat-back for accountless chat
+    # commands (see app.py's _maybe_invite_message()) -- one row per username,
+    # shared across /stream/chat_reaction and /stream/gathering_vote so
+    # spamming both doesn't double the invite frequency.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS chat_invite_cooldown (
+            username        TEXT PRIMARY KEY,
+            last_invited_at INTEGER
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS building_contributions_tracker (
             username TEXT NOT NULL,

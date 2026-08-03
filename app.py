@@ -742,6 +742,11 @@ ALLOWED_REACTIONS = ["👋", "😂", "😢", "🎉", "❤️", "😮", "🔥", "
 _REACTION_RATE_LIMIT_SECONDS = 3   # one reaction per N seconds per player
 _REACTION_RETENTION_SECONDS  = 60  # opportunistic prune threshold on send -- see /reaction/send
 
+# How often an accountless chatter can be re-invited to make a penguin (see
+# _maybe_invite_message()) -- flat for now, same as PASSIVE_SEALS_AMOUNT and
+# GROUP_EVENT_CHANCE_PER_TICK below, tune once real chat volume is observed.
+CHAT_INVITE_COOLDOWN_SECONDS = 900   # 15 minutes
+
 # ── Passive seals (award_passive_seals scheduler job) ────────────────────────
 # Intentionally flat for now -- tune once real alpha usage data exists, same
 # as GROUP_EVENT_CHANCE_PER_TICK and other not-yet-balanced constants.
@@ -4406,6 +4411,36 @@ def _streamerbot_authed():
     return bool(STREAMERBOT_SECRET and provided == STREAMERBOT_SECRET)
 
 
+def _maybe_invite_message(db, username, now):
+    """Rate-limited "make a penguin" invite text for a chat command from
+    someone with no penguins row (see /stream/chat_reaction and
+    /stream/gathering_vote's no_account branches). Shared cooldown across
+    both routes via chat_invite_cooldown, keyed on username alone (not
+    username+route), so spamming both !wave and !vote only gets invited
+    once per CHAT_INVITE_COOLDOWN_SECONDS window, not once per route.
+
+    Reuses the caller's db connection -- does not open its own. (This exact
+    mistake -- a helper opening a second connection mid-request instead of
+    reusing the caller's -- is a recurring bug class in this codebase, per
+    the Session 6 handoff.) No commit here -- caller commits, same contract
+    as log_event()/_insert_reaction().
+
+    Returns the invite string on a cooldown-permitted hit, None if this
+    username was already invited within the window (stay silent).
+    """
+    row = db.execute(
+        "SELECT last_invited_at FROM chat_invite_cooldown WHERE username=?", (username,)
+    ).fetchone()
+    if row and (now - row["last_invited_at"]) < CHAT_INVITE_COOLDOWN_SECONDS:
+        return None
+    db.execute(
+        "INSERT OR REPLACE INTO chat_invite_cooldown (username, last_invited_at) VALUES (?,?)",
+        (username, now)
+    )
+    url = request.host_url.rstrip("/") + "/"
+    return f"No penguin yet! Make one at {url} to react and vote 🐧"
+
+
 def notify_streamerbot(message: str):
     """POST a plain-text message to StreamerBot's inbound webhook (STREAMERBOT_OUTBOUND_URL) --
     outbound from the game's perspective, i.e. StreamerBot receiving, not sending. Returns True
@@ -4681,15 +4716,20 @@ def stream_chat_reaction():
     if not _stream_is_live():
         return jsonify({"status": "skip", "reason": "not_live"})
 
-    db = get_db()
-    p  = db.execute("SELECT username FROM penguins WHERE username=?", (chatter,)).fetchone()
-    if not p:
-        db.close()
-        # Account-gated -- StreamerBot uses this status to chat back a
-        # "make a penguin" invite rather than silently dropping the reaction.
-        return jsonify({"status": "no_account"})
-
+    db  = get_db()
     now = int(time.time())
+    p   = db.execute("SELECT username FROM penguins WHERE username=?", (chatter,)).fetchone()
+    if not p:
+        # Account-gated -- StreamerBot uses this status to chat back a
+        # "make a penguin" invite, rate-limited so it doesn't spam chat.
+        invite = _maybe_invite_message(db, chatter, now)
+        db.commit()
+        db.close()
+        resp = {"status": "no_account"}
+        if invite:
+            resp["invite_message"] = invite
+        return jsonify(resp)
+
     last_row = db.execute(
         "SELECT MAX(created_at) as t FROM penguin_reactions WHERE username=?", (chatter,)
     ).fetchone()
@@ -4950,10 +4990,16 @@ def stream_gathering_vote():
     db = get_db()
     p  = db.execute("SELECT username FROM penguins WHERE username=?", (voter,)).fetchone()
     if not p:
-        db.close()
         # Account-gated, same as /stream/chat_reaction -- StreamerBot uses this
-        # status to chat back a "make a penguin" invite.
-        return jsonify({"status": "no_account"})
+        # status to chat back a "make a penguin" invite, rate-limited so it
+        # doesn't spam chat.
+        invite = _maybe_invite_message(db, voter, int(time.time()))
+        db.commit()
+        db.close()
+        resp = {"status": "no_account"}
+        if invite:
+            resp["invite_message"] = invite
+        return jsonify(resp)
 
     # Upcoming top-of-hour epoch second -- votes cast anytime this hour are for
     # the gathering auto_start_gathering() may start at the next hour boundary.
