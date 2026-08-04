@@ -783,6 +783,33 @@ _VISUAL_AREA = {
 }
 
 
+def _penguin_visual(db, username):
+    """Body color/shape + worn cosmetics for a single penguin, same
+    per-entry shape /village/penguins already builds -- used to fully
+    render a penguin (not just their name) somewhere other than the map,
+    e.g. the interactive-moment toast. None if the username doesn't exist."""
+    p = db.execute(
+        "SELECT penguin_name, penguin_color, penguin_shape FROM penguins WHERE username=?", (username,)
+    ).fetchone()
+    if not p:
+        return None
+    worn_rows = db.execute(
+        "SELECT slot, item_id FROM gear WHERE worn=1 AND username=?", (username,)
+    ).fetchall()
+    worn_items = {}
+    for w in worn_rows:
+        area = _VISUAL_AREA.get(w["slot"])
+        if area and w["item_id"]:
+            worn_items[area] = w["item_id"]
+    return {
+        "username":      username,
+        "display_name":  p["penguin_name"] or username,
+        "penguin_color": _resolve_hex_color(p["penguin_color"] or "#1a1a1a"),
+        "penguin_shape": p["penguin_shape"] or "normal",
+        "worn_items":    worn_items,
+    }
+
+
 def get_building_level(db, building_id):
     row = db.execute(
         "SELECT current_level FROM building_upgrades WHERE building_id=?", (building_id,)
@@ -3166,6 +3193,11 @@ def lifecycle_notices(username):
             "other_username":  other,
             "option_a_label":  moment["option_a_label"],
             "option_b_label":  moment["option_b_label"],
+            # Full visual data for both participants (body color/shape +
+            # worn cosmetics) so the client can render them fully rather
+            # than just naming them in text -- see _penguin_visual().
+            "penguin1":        _penguin_visual(db, moment["username1"]),
+            "penguin2":        _penguin_visual(db, moment["username2"]),
         })
         updates["last_seen_moment_id"] = moment["id"]
 
