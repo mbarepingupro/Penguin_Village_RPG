@@ -22,6 +22,7 @@ from personality_config import (
     GROUP_EVENT_CHANCE_PER_TICK, pick_group_event, format_group_event_text,
 )
 from raid_config import pick_weekly_metric, pick_boss_name, calculate_attack_damage, cp_damage_bonus, WEEKLY_METRIC_TYPES
+from moment_scenarios import MOMENT_SCENARIOS
 from lootbox_config import RESOURCE_TYPES
 import raid_settings
 import catalog
@@ -746,6 +747,14 @@ _REACTION_RETENTION_SECONDS  = 60  # opportunistic prune threshold on send -- se
 # _maybe_invite_message()) -- flat for now, same as PASSIVE_SEALS_AMOUNT and
 # GROUP_EVENT_CHANCE_PER_TICK below, tune once real chat volume is observed.
 CHAT_INVITE_COOLDOWN_SECONDS = 900   # 15 minutes
+
+# Chance a requires_other autonomous-action interaction gets promoted to an
+# interactive village_moments popup instead of resolving silently (see
+# run_autonomous_actions()) -- flat for now, same convention as
+# GROUP_EVENT_CHANCE_PER_TICK. How long the two owners have to Agree/Disagree
+# before a scheduled job resolves it as a no-op (see resolve_stale_moments()).
+INTERACTIVE_MOMENT_CHANCE_PER_TICK = 0.1
+INTERACTIVE_MOMENT_WINDOW_SECONDS  = 20 * 60   # 20 minutes
 
 # ── Passive seals (award_passive_seals scheduler job) ────────────────────────
 # Intentionally flat for now -- tune once real alpha usage data exists, same
@@ -2541,6 +2550,20 @@ def run_autonomous_actions():
             )
             if action["requires_other"] and other_penguin:
                 _record_auto_interaction(db, penguin["username"], other_penguin["username"], action, now)
+                # Interactive moments: promote this interaction into a popup the
+                # two owners can steer toward one of two distinct outcomes
+                # (see moment_scenarios.MOMENT_SCENARIOS), instead of it just
+                # being a silent event_log line (which still happens above,
+                # unchanged, regardless of promotion). Only one open moment
+                # village-wide at a time, same "check before create" shape as
+                # gatherings.
+                if FEATURES.get("interactive_moments", False) and not _active_moment_row(db):
+                    if random.random() < INTERACTIVE_MOMENT_CHANCE_PER_TICK:
+                        _create_moment(
+                            db, penguin["username"], penguin.get("penguin_name") or penguin["username"],
+                            other_penguin["username"], other_penguin.get("penguin_name") or other_penguin["username"],
+                            now
+                        )
             generated += 1
         except Exception as e:
             print(f"[Autonomous] Error for {penguin.get('username')}: {e}")
@@ -2588,6 +2611,63 @@ def run_autonomous_actions():
 def _record_auto_interaction(db, user_a, user_b, action, now):
     u1, u2 = sorted([user_a, user_b])
     db.execute("INSERT OR IGNORE INTO relationships (username1, username2) VALUES (?,?)", (u1, u2))
+
+
+def _active_moment_row(db):
+    """The current open village_moments row, if any -- same "at most one
+    active at a time" shape as _active_gathering_row()."""
+    return db.execute(
+        "SELECT * FROM village_moments WHERE status='open' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+
+
+def _create_moment(db, username1, display_name1, username2, display_name2, now):
+    """Picks a random MOMENT_SCENARIOS entry, fills in the two penguins'
+    display names (pre-wrapped in highlight_name(), same convention
+    generate_action_text() already uses for AUTONOMOUS_ACTIONS templates, so
+    the resulting strings drop straight into the popup/event_log with no
+    further processing), and inserts an open village_moments row snapshotting
+    that scenario's text -- same "snapshot at creation, don't join live
+    later" principle as BUILDING_EVENTS, so a later edit to MOMENT_SCENARIOS
+    never changes an in-flight or already-resolved moment.
+
+    Shared by the real promotion site in run_autonomous_actions() and
+    /mayor/debug/force_moment so they can't drift apart. Returns the new
+    row's id. No commit -- caller commits, same contract as log_event().
+    """
+    scenario = random.choice(MOMENT_SCENARIOS)
+    a, b = highlight_name(display_name1), highlight_name(display_name2)
+    situation        = scenario["situation"].format(a=a, b=b)
+    option_a_label   = scenario["option_a"]["label"]
+    option_a_outcome = scenario["option_a"]["outcome"].format(a=a, b=b)
+    option_b_label   = scenario["option_b"]["label"]
+    option_b_outcome = scenario["option_b"]["outcome"].format(a=a, b=b)
+    cur = db.execute(
+        "INSERT INTO village_moments (username1, username2, flavor_text, "
+        "option_a_label, option_a_outcome, option_b_label, option_b_outcome, "
+        "window_closes_at, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+        (username1, username2, situation, option_a_label, option_a_outcome,
+         option_b_label, option_b_outcome, now + INTERACTIVE_MOMENT_WINDOW_SECONDS, now)
+    )
+    return cur.lastrowid
+
+
+def _apply_moment_resolution(db, row, resolution):
+    """Applies a resolution ("a"/"b"/None) to an already-claimed village_moments
+    row: "a" (always the cooperative/friendly option) calls
+    increment_relationship() for real and logs its outcome text; "b" (the
+    confrontational option) logs its own outcome text but never touches the
+    relationship; None (nobody engaged, or a vote tie) stays completely
+    silent -- the original ship-safe no-op default. Shared by the owner-resolve
+    route, the vote-tally timeout job, and the debug vote-resolve route so
+    they can't drift apart. No commit -- caller commits.
+    """
+    db.execute("UPDATE village_moments SET resolution=? WHERE id=?", (resolution, row["id"]))
+    if resolution == "a":
+        increment_relationship(db, row["username1"], row["username2"])
+        log_event(db, "village", f"🤝 {row['option_a_outcome']}", None)
+    elif resolution == "b":
+        log_event(db, "village", f"⚔️ {row['option_b_outcome']}", None)
 
 
 # ── WEEKLY CHALLENGE / RAID SCHEDULER JOBS ───────────────────────────────────
@@ -3055,7 +3135,8 @@ def lifecycle_notices(username):
     p = db.execute(
         "SELECT notice_challenge_start_id, notice_challenge_result_id, "
         "notice_raid_start_id, notice_raid_result_id, "
-        "last_seen_announcement_id, last_seen_patch_notes_id FROM penguins WHERE username=?",
+        "last_seen_announcement_id, last_seen_patch_notes_id, "
+        "last_seen_moment_id FROM penguins WHERE username=?",
         (username,)
     ).fetchone()
     if not p:
@@ -3064,6 +3145,28 @@ def lifecycle_notices(username):
 
     notices = []
     updates = {}
+
+    # Interactive moment popup -- deliberately independent of the
+    # interactive_moments flag (same reasoning as _mayor_message_notices()
+    # below being independent of weekly_raid): /mayor/debug/force_moment can
+    # create a real open row regardless of the flag, and once one exists it
+    # should be delivered. Only shown while still 'open' -- if it's already
+    # resolved (the other owner responded, or it timed out) before this
+    # player polls, there's nothing left for them to steer.
+    moment = _active_moment_row(db)
+    if moment and username in (moment["username1"], moment["username2"]) \
+            and moment["id"] > (p["last_seen_moment_id"] or 0):
+        other = moment["username2"] if username == moment["username1"] else moment["username1"]
+        notices.append({
+            "type":            "interactive_moment",
+            "title":           "A LITTLE MOMENT...",
+            "subtitle":        moment["flavor_text"],
+            "description":     "",
+            "other_username":  other,
+            "option_a_label":  moment["option_a_label"],
+            "option_b_label":  moment["option_b_label"],
+        })
+        updates["last_seen_moment_id"] = moment["id"]
 
     if FEATURES.get("weekly_raid", False):
         challenge = db.execute("SELECT * FROM weekly_challenges ORDER BY id DESC LIMIT 1").fetchone()
@@ -5024,6 +5127,59 @@ def stream_gathering_vote():
     return jsonify({"status": "ok"})
 
 
+@app.route("/stream/moment_vote", methods=["POST"])
+def stream_moment_vote():
+    """Chat-vote equivalent of village_moments' two option buttons (one
+    StreamerBot Command per resolution, e.g. !resolve a ->
+    {"resolution":"a", "voter":"%user%"}; "a" is always the
+    cooperative/friendly option, "b" the confrontational one -- see
+    moment_scenarios.MOMENT_SCENARIOS). Doesn't resolve the moment itself --
+    only accumulates into moment_votes; resolve_stale_moments() tallies
+    these once window_closes_at passes, same shape as
+    auto_start_gathering()'s tally-vs-random (tally-vs-noop here). An
+    owner's own resolution via /village/moment/resolve still wins outright
+    if it happens first -- that route is untouched."""
+    if not _streamerbot_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 401
+    data       = request.get_json(silent=True) or {}
+    resolution = data.get("resolution", "").strip()
+    voter      = data.get("voter", "").strip()
+    if resolution not in ("a", "b"):
+        return jsonify({"status": "error", "message": "resolution must be 'a' or 'b'."}), 400
+    if not voter:
+        return jsonify({"status": "skip"})
+    if not _stream_is_live():
+        return jsonify({"status": "skip", "reason": "not_live"})
+
+    db  = get_db()
+    row = _active_moment_row(db)
+    if not row:
+        db.close()
+        return jsonify({"status": "no_active_moment"})
+
+    p = db.execute("SELECT username FROM penguins WHERE username=?", (voter,)).fetchone()
+    if not p:
+        # Account-gated, same as /stream/chat_reaction and /stream/gathering_vote
+        # -- reuses the same cooldown, not a second invite mechanism.
+        invite = _maybe_invite_message(db, voter, int(time.time()))
+        db.commit()
+        db.close()
+        resp = {"status": "no_account"}
+        if invite:
+            resp["invite_message"] = invite
+        return jsonify(resp)
+
+    cur = db.execute(
+        "INSERT OR IGNORE INTO moment_votes (moment_id, resolution, voter, created_at) VALUES (?,?,?,?)",
+        (row["id"], resolution, voter, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    if cur.rowcount == 0:
+        return jsonify({"status": "already_voted"})
+    return jsonify({"status": "ok"})
+
+
 def announce_gathering_vote():
     """Fired hourly at :50, telling chat which command votes for which
     building ahead of the next hourly gathering. Runs regardless of the
@@ -6814,6 +6970,127 @@ def get_relationships(username):
         })
     db.close()
     return jsonify({"relationships": rels})
+
+
+@app.route("/village/moment/resolve", methods=["POST"])
+def village_moment_resolve():
+    """Either owner of the currently-open village_moments row picks option
+    "a" (always the cooperative/friendly resolution -- the only one that
+    moves the relationship for real, see increment_relationship()) or "b"
+    (the confrontational one -- a no-op for the relationship, identical to
+    what happens if nobody responds and resolve_stale_moments() times it
+    out). Returns the chosen option's outcome text so the caller can show
+    it immediately instead of just a bare success status.
+    """
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."}), 401
+    data       = request.get_json(silent=True) or {}
+    resolution = data.get("resolution", "")
+    if resolution not in ("a", "b"):
+        return jsonify({"status": "error", "message": "resolution must be 'a' or 'b'."}), 400
+
+    db  = get_db()
+    row = _active_moment_row(db)
+    if not row or username not in (row["username1"], row["username2"]):
+        db.close()
+        # Also covers "already resolved" (status flipped to 'resolved' means
+        # _active_moment_row() no longer finds it) and a race with the other
+        # owner or the timeout job -- same clear status either way, no need
+        # to distinguish "never was open for you" from "isn't open anymore".
+        return jsonify({"status": "already_resolved"})
+
+    # Claimed via UPDATE...WHERE status='open' committed immediately, same
+    # multi-worker-race pattern as resolve_stale_moments()/tick_gathering_
+    # resolve() -- two owners clicking within the same instant (or an owner
+    # racing the timeout job) can only have one side actually flip the row.
+    claim = db.execute(
+        "UPDATE village_moments SET status='resolved' WHERE id=? AND status='open'",
+        (row["id"],)
+    )
+    db.commit()
+    if claim.rowcount == 0:
+        db.close()
+        return jsonify({"status": "already_resolved"})
+
+    _apply_moment_resolution(db, row, resolution)
+    db.commit()
+    db.close()
+    outcome = row["option_a_outcome"] if resolution == "a" else row["option_b_outcome"]
+    return jsonify({"status": "success", "resolution": resolution, "outcome": outcome})
+
+
+def _tally_moment_vote_winner(db, moment_id):
+    """Chat-vote winner ("a"/"b") for a timed-out moment, or None on a tie
+    (including 0-0) -- mirrors _tally_gathering_vote_winner()'s shape, just
+    tally-vs-noop here instead of tally-vs-random."""
+    rows = db.execute(
+        "SELECT resolution, COUNT(*) as votes FROM moment_votes WHERE moment_id=? GROUP BY resolution",
+        (moment_id,)
+    ).fetchall()
+    tally   = {r["resolution"]: r["votes"] for r in rows}
+    a_votes = tally.get("a", 0)
+    b_votes = tally.get("b", 0)
+    if a_votes > b_votes:
+        return "a"
+    if b_votes > a_votes:
+        return "b"
+    return None
+
+
+def resolve_stale_moments():
+    """Every 60s, closes out any 'open' village_moments row past its
+    window_closes_at that neither owner resolved in time. Before defaulting
+    to the no-op fallback (resolution stays NULL, no increment_relationship
+    call -- same ship-safe default as an owner picking option "b"), tallies
+    moment_votes for that moment: if one side strictly leads, resolves with
+    it instead via _apply_moment_resolution() (only "a" calls
+    increment_relationship()); a tie or zero votes keeps the no-op fallback.
+
+    The app runs multiple gunicorn worker processes (see Procfile), each
+    with its own copy of this job, so two workers can see the same due row
+    in the same tick. Each row is claimed via UPDATE...WHERE status='open'
+    committed immediately -- same pattern tick_gathering_resolve() uses for
+    the identical multi-worker race -- so only the worker whose UPDATE
+    actually flips the row tallies/resolves it and calls
+    increment_relationship(), never both.
+    """
+    db = get_db()
+    try:
+        now  = int(time.time())
+        rows = db.execute(
+            "SELECT * FROM village_moments WHERE status='open' AND window_closes_at<=?",
+            (now,)
+        ).fetchall()
+    except Exception as e:
+        print(f"[VillageMoments] Failed to load due moments: {e}")
+        db.close()
+        return
+    if not rows:
+        db.close()
+        return
+
+    for row in rows:
+        try:
+            claim = db.execute(
+                "UPDATE village_moments SET status='resolved' WHERE id=? AND status='open'",
+                (row["id"],)
+            )
+            db.commit()
+            if claim.rowcount == 0:
+                continue  # another worker already claimed this moment
+
+            resolution = _tally_moment_vote_winner(db, row["id"])
+            _apply_moment_resolution(db, row, resolution)
+            db.commit()
+        except Exception as e:
+            print(f"[VillageMoments] Error resolving moment {row['id']}: {e}")
+    db.close()
+
+
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(resolve_stale_moments, "interval", seconds=60,
+                       id="resolve_stale_moments", misfire_grace_time=60)
 
 
 # ── EVENT LOG ─────────────────────────────────────────────────────────────────
@@ -12379,6 +12656,65 @@ def mayor_debug_run_gathering_vote_resolve():
     if gathering_id is None:
         return jsonify({"status": "error", "message": "A gathering is already active."}), 400
     return jsonify({"status": "success", "building_id": building_id})
+
+
+@app.route("/mayor/debug/force_moment", methods=["POST"])
+def mayor_debug_force_moment():
+    """Force-creates an open village_moments row via the same _create_moment()
+    helper the real promotion site uses (random scenario from
+    MOMENT_SCENARIOS, filled in with these two penguins' names), bypassing
+    both the promotion roll and the interactive_moments flag, so the popup +
+    /village/moment/resolve flow can be tested without waiting for a real
+    autonomous-action tick to roll it."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data      = request.get_json(silent=True) or {}
+    username1 = data.get("username1", "").strip()
+    username2 = data.get("username2", "").strip()
+    if not username1 or not username2:
+        return jsonify({"status": "error", "message": "username1 and username2 are required."}), 400
+    if username1 == username2:
+        return jsonify({"status": "error", "message": "username1 and username2 must be different."}), 400
+
+    db = get_db()
+    if _active_moment_row(db):
+        db.close()
+        return jsonify({"status": "error", "message": "A moment is already active."}), 400
+    p1 = db.execute("SELECT penguin_name FROM penguins WHERE username=?", (username1,)).fetchone()
+    p2 = db.execute("SELECT penguin_name FROM penguins WHERE username=?", (username2,)).fetchone()
+    if not p1 or not p2:
+        db.close()
+        return jsonify({"status": "error", "message": "username1 and username2 must both be real penguins."}), 400
+
+    now = int(time.time())
+    moment_id = _create_moment(
+        db, username1, p1["penguin_name"] or username1,
+        username2, p2["penguin_name"] or username2, now
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "moment_id": moment_id})
+
+
+@app.route("/mayor/debug/run_moment_vote_resolve", methods=["POST"])
+def mayor_debug_run_moment_vote_resolve():
+    """Force-runs the tally-and-resolve logic on the current open moment
+    immediately, bypassing window_closes_at, so /stream/moment_vote's chat
+    votes can be tested without waiting ~20 minutes for the real timeout."""
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    db  = get_db()
+    row = _active_moment_row(db)
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "No moment is currently active."}), 400
+
+    db.execute("UPDATE village_moments SET status='resolved' WHERE id=?", (row["id"],))
+    resolution = _tally_moment_vote_winner(db, row["id"])
+    _apply_moment_resolution(db, row, resolution)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "resolution": resolution})
 
 
 # DEBUG TOOL -- lets the mayor force the app to treat the stream as live (or

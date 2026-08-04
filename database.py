@@ -735,6 +735,57 @@ def init_db():
         )
     """)
 
+    # Some requires_other autonomous-action interactions get promoted to an
+    # interactive "moment" (see app.py's run_autonomous_actions()/
+    # interactive_moments flag and moment_scenarios.MOMENT_SCENARIOS),
+    # instead of always auto-resolving silently. Each moment is a two-option
+    # scenario, not a generic Agree/Disagree -- option_a is always the
+    # cooperative/friendly resolution (the only one that moves the
+    # relationship for real), option_b the confrontational one (never does).
+    # option_*_label/outcome are snapshotted from the chosen scenario at
+    # creation time with the two penguins' names already filled in -- same
+    # "snapshot, don't join live later" principle already applied to
+    # BUILDING_EVENTS -- so a later edit to MOMENT_SCENARIOS never changes an
+    # in-flight or already-resolved moment. At most one 'open' row
+    # village-wide at a time -- delivered as a one-shot popup via
+    # lifecycle_notices() using penguins.last_seen_moment_id below, same
+    # "latest row vs. per-player marker" pattern as mayor_messages above.
+    # resolution is NULL until resolved, then 'a'/'b'/None (timed out,
+    # nobody engaged).
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS village_moments (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            username1         TEXT NOT NULL,
+            username2         TEXT NOT NULL,
+            flavor_text       TEXT NOT NULL,
+            option_a_label    TEXT NOT NULL,
+            option_a_outcome  TEXT NOT NULL,
+            option_b_label    TEXT NOT NULL,
+            option_b_outcome  TEXT NOT NULL,
+            status            TEXT NOT NULL DEFAULT 'open',
+            resolution        TEXT DEFAULT NULL,
+            window_closes_at  INTEGER NOT NULL,
+            created_at        INTEGER NOT NULL
+        )
+    """)
+
+    # Chat votes (via app.py's /stream/moment_vote, !resolve a/b) for how the
+    # currently-open village_moments row should resolve -- accumulate only,
+    # don't resolve immediately; resolve_stale_moments() tallies them once
+    # window_closes_at passes. UNIQUE(moment_id, voter) caps each chatter to
+    # one vote per moment, same one-shot-per-window shape as gathering_votes'
+    # UNIQUE(window_start, voter).
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS moment_votes (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            moment_id  INTEGER NOT NULL,
+            resolution TEXT NOT NULL,
+            voter      TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            UNIQUE(moment_id, voter)
+        )
+    """)
+
     # Safe migrations for existing databases
     _add_col(c, "penguins", "xp INTEGER DEFAULT 0")
     _add_col(c, "penguins", "max_energy INTEGER DEFAULT 100")
@@ -850,6 +901,10 @@ def init_db():
     # seen a challenge/raid (both compared with `or 0` at read time).
     _add_col(c, "penguins", "last_seen_announcement_id INTEGER DEFAULT NULL")
     _add_col(c, "penguins", "last_seen_patch_notes_id INTEGER DEFAULT NULL")
+    # Same "last delivered" marker pattern as last_seen_announcement_id/
+    # last_seen_patch_notes_id above, but for village_moments -- see
+    # lifecycle_notices() and app.py's interactive_moments feature.
+    _add_col(c, "penguins", "last_seen_moment_id INTEGER DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:

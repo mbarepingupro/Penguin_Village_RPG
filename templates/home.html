@@ -1850,6 +1850,21 @@
     }
     .celeb-close-btn:hover { background: #A86EFF; color: #1C1C2E; }
 
+    /* ── INTERACTIVE MOMENT (celebration overlay, interactive_moment type only) ──
+       Same popup frame as every other celebration -- Agree/Disagree buttons
+       instead of the plain "TAP TO CONTINUE"/CLOSE footer, since this one
+       needs an explicit choice rather than just being dismissed. */
+    .celeb-moment-actions { display: flex; gap: 12px; margin-top: 6px; }
+    .celeb-agree-btn, .celeb-disagree-btn {
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      background: transparent; border: 2px solid; padding: 8px 22px; cursor: pointer;
+    }
+    .celeb-agree-btn    { color: #4aff6b; border-color: #4aff6b; }
+    .celeb-agree-btn:hover    { background: #4aff6b; color: #1C1C2E; }
+    .celeb-disagree-btn { color: #ff6b6b; border-color: #ff6b6b; }
+    .celeb-disagree-btn:hover { background: #ff6b6b; color: #1C1C2E; }
+
     /* ── LEVELS TAB ── */
     .levels-panel { display: flex; flex-direction: column; height: 100%; }
     .levels-range-bar { display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0; }
@@ -10729,6 +10744,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "The village keeps changing. Try to keep up, would you?",
         "New patch, new village. Scroll down, it\'s worth your time.",
       ],
+      interactive_moment: [
+        "Well? What do you say to that, penguin?",
+        "The village is watching. What\'s it going to be?",
+        "A little moment worth remembering — or not. Your call.",
+      ],
     };
     var pool = quotes[type] || quotes.level_up;
     var hash = 0;
@@ -10772,6 +10792,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     var rewards     = config.rewards || [];
     var mayorQuote  = config.mayorQuote || getMayorCelebrationQuote(type, config.context);
     var isPatchNotes = type === 'patch_notes';
+    var isMoment      = type === 'interactive_moment';
 
     var overlay = document.createElement('div');
     overlay.className = 'celebration-overlay';
@@ -10796,6 +10817,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       : '';
     var footerHtml = isPatchNotes
       ? '<button type="button" class="celeb-close-btn">✕ CLOSE</button>'
+      : isMoment
+      ? '<div class="celeb-moment-actions">' +
+          '<button type="button" class="celeb-agree-btn">🤝 ' + (config.optionALabel || 'AGREE') + '</button>' +
+          '<button type="button" class="celeb-disagree-btn">⚔️ ' + (config.optionBLabel || 'DISAGREE') + '</button>' +
+        '</div>'
       : '<div class="celeb-continue">TAP TO CONTINUE</div>';
 
     overlay.innerHTML =
@@ -10838,6 +10864,42 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       // still being read).
       var closeBtn = overlay.querySelector('.celeb-close-btn');
       if (closeBtn) closeBtn.addEventListener('click', function(e) { e.stopPropagation(); dismiss(); });
+    } else if (isMoment) {
+      // Same "explicit action only" shape as patch notes -- no whole-overlay
+      // click-dismiss and no auto-timeout while the two options are still
+      // showing, since an accidental click shouldn't silently pick one.
+      // After resolving, the popup switches into a result view (outcome
+      // text swapped in for the subtitle, buttons replaced with the normal
+      // TAP TO CONTINUE footer) and only then behaves like every other
+      // celebration -- click-anywhere or an 8s auto-dismiss.
+      var actionsEl  = overlay.querySelector('.celeb-moment-actions');
+      var subtitleEl = overlay.querySelector('.celeb-subtitle');
+      function showResultAndArmDismiss(resultText) {
+        if (subtitleEl) subtitleEl.innerHTML = resultText;
+        if (actionsEl) actionsEl.outerHTML = '<div class="celeb-continue">TAP TO CONTINUE</div>';
+        overlay.addEventListener('click', dismiss);
+        setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
+      }
+      function resolveMoment(resolution) {
+        if (agreeBtn) agreeBtn.disabled = true;
+        if (disagreeBtn) disagreeBtn.disabled = true;
+        fetch('/village/moment/resolve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resolution: resolution }),
+        })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            showResultAndArmDismiss(d.outcome || 'Someone else already responded.');
+          })
+          .catch(function() {
+            showResultAndArmDismiss('Something went wrong. Try again later.');
+          });
+      }
+      var agreeBtn    = overlay.querySelector('.celeb-agree-btn');
+      var disagreeBtn = overlay.querySelector('.celeb-disagree-btn');
+      if (agreeBtn)    agreeBtn.addEventListener('click',    function(e) { e.stopPropagation(); resolveMoment('a'); });
+      if (disagreeBtn) disagreeBtn.addEventListener('click', function(e) { e.stopPropagation(); resolveMoment('b'); });
     } else {
       overlay.addEventListener('click', dismiss);
       setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
@@ -11047,6 +11109,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     raid_result_fail:         '💀',
     announcement:             '📢',
     patch_notes:              '📋',
+    interactive_moment:       '🤝',
   };
 
   async function checkLifecycleNotices() {
@@ -11064,6 +11127,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           // scrollable box by showCelebration()'s patch_notes branch
           // instead of the plain centered description other types use.
           body: n.body || '',
+          // interactive_moment only -- scenario-specific button labels
+          // instead of a generic Agree/Disagree.
+          optionALabel: n.option_a_label || '',
+          optionBLabel: n.option_b_label || '',
         });
       });
     } catch(e) {}
