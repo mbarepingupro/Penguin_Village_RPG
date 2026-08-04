@@ -1850,21 +1850,6 @@
     }
     .celeb-close-btn:hover { background: #A86EFF; color: #1C1C2E; }
 
-    /* ── INTERACTIVE MOMENT (celebration overlay, interactive_moment type only) ──
-       Same popup frame as every other celebration -- Agree/Disagree buttons
-       instead of the plain "TAP TO CONTINUE"/CLOSE footer, since this one
-       needs an explicit choice rather than just being dismissed. */
-    .celeb-moment-actions { display: flex; gap: 12px; margin-top: 6px; }
-    .celeb-agree-btn, .celeb-disagree-btn {
-      font-family: 'Silkscreen', monospace;
-      font-size: 16px;
-      background: transparent; border: 2px solid; padding: 8px 22px; cursor: pointer;
-    }
-    .celeb-agree-btn    { color: #4aff6b; border-color: #4aff6b; }
-    .celeb-agree-btn:hover    { background: #4aff6b; color: #1C1C2E; }
-    .celeb-disagree-btn { color: #ff6b6b; border-color: #ff6b6b; }
-    .celeb-disagree-btn:hover { background: #ff6b6b; color: #1C1C2E; }
-
     /* ── LEVELS TAB ── */
     .levels-panel { display: flex; flex-direction: column; height: 100%; }
     .levels-range-bar { display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0; }
@@ -2320,6 +2305,47 @@
     .moment-vote-banner-text { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #C77DFF; line-height: 1.5; flex: 1 1 100%; }
     .moment-vote-banner-tally { font-family: 'C&C Red Alert', monospace; font-size: 14px; color: #B8B8D0; line-height: 1.6; flex: 1 1 100%; }
     .moment-vote-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #C77DFF; flex-shrink: 0; }
+
+    /* ── INTERACTIVE MOMENT TOAST (floats over #map-area, .map-area is
+       already position:relative) -- replaces the old full-screen blocking
+       popup: doesn't resize/squash the map, stays up for
+       MOMENT_TOAST_DURATION_MS (5 min) or until resolved/dismissed. ── */
+    .moment-toast {
+      /* bottom: 60px (not 12px) so this clears #recenter-map-btn/#react-btn,
+         which both sit at bottom:12px;right:12/56px on top of the map. */
+      position: absolute; right: 12px; bottom: 60px; z-index: 30;
+      width: 320px; max-width: calc(100% - 24px);
+      background: #14101f; border: 2px solid #A86EFF; border-radius: 4px;
+      padding: 12px; box-sizing: border-box;
+      animation: helpBannerSlideIn 0.3s ease-out;
+      font-family: 'C&C Red Alert', monospace;
+    }
+    .moment-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .moment-toast-icon { font-size: 18px; flex-shrink: 0; }
+    .moment-toast-title { flex: 1; color: #A86EFF; font-size: 16px; }
+    .moment-toast-timer { color: #B8B8D0; font-size: 14px; flex-shrink: 0; }
+    .moment-toast-close { background: transparent; border: none; color: #8888A8; font-size: 16px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+    .moment-toast-close:hover { color: #FFFFFF; }
+    .moment-toast-penguins { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
+    .moment-toast-penguin { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .moment-toast-canvas { image-rendering: pixelated; background: #1e1a2e; border: 1px solid #303045; }
+    .moment-toast-penguin-name { font-size: 12px; color: #D8D8F0; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .moment-toast-vs { font-size: 16px; color: #8888A8; flex-shrink: 0; }
+    .moment-toast-flavor { font-size: 14px; color: #D8D8F0; line-height: 1.5; text-align: center; margin-bottom: 10px; }
+    .moment-toast-actions { display: flex; gap: 8px; }
+    .moment-toast-agree-btn, .moment-toast-disagree-btn {
+      flex: 1; font-family: 'Silkscreen', monospace; font-size: 13px;
+      background: transparent; border: 2px solid; padding: 6px 8px; cursor: pointer;
+    }
+    .moment-toast-agree-btn    { color: #4aff6b; border-color: #4aff6b; }
+    .moment-toast-agree-btn:hover    { background: #4aff6b; color: #1C1C2E; }
+    .moment-toast-disagree-btn { color: #ff6b6b; border-color: #ff6b6b; }
+    .moment-toast-disagree-btn:hover { background: #ff6b6b; color: #1C1C2E; }
+    @media (max-width: 600px) {
+      /* bottom: 56px clears #recenter-map-btn/#react-btn's mobile position
+         (bottom:12px, 36px tall, i.e. occupying the 12-48px band). */
+      .moment-toast { left: 12px; right: 12px; width: auto; bottom: 56px; }
+    }
 
     /* ── Help button in nav ── */
     #help-btn {
@@ -6747,6 +6773,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   let _reshapeSelectedColor = 'classic_black';
 
   const _penguinSpriteCache = {};
+  const _penguinSpritePending = {};
   function _drawPenguinOnCanvas(canvas, bodyColor, shape, onDrawn) {
     shape = shape || (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
     const src = '/static/penguin_' + shape + '_static.png';
@@ -6780,11 +6807,25 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     }
     const cached = _penguinSpriteCache[src];
     if (cached && cached.complete && cached.naturalWidth > 0) { draw(cached); return; }
-    const img = cached || new Image();
+    if (cached) {
+      // Image object exists but hasn't finished loading yet -- queue this
+      // draw rather than reassigning onload. Two concurrent callers for the
+      // same not-yet-cached shape (e.g. the sidebar's own preview and a
+      // moment toast both wanting the "tall" sprite on page load) used to
+      // silently drop whichever call assigned onload first, leaving that
+      // caller's canvas permanently blank.
+      (_penguinSpritePending[src] = _penguinSpritePending[src] || []).push(draw);
+      return;
+    }
+    const img = new Image();
     _penguinSpriteCache[src] = img;
-    img.onload = () => draw(img);
-    if (!img.src) img.src = src;
-    else if (img.complete && img.naturalWidth > 0) draw(img);
+    _penguinSpritePending[src] = [draw];
+    img.onload = () => {
+      const pending = _penguinSpritePending[src] || [];
+      delete _penguinSpritePending[src];
+      pending.forEach(fn => fn(img));
+    };
+    img.src = src;
   }
 
   // Layer worn cosmetics on top of the base penguin in a canvas preview.
@@ -10899,11 +10940,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "The village keeps changing. Try to keep up, would you?",
         "New patch, new village. Scroll down, it\'s worth your time.",
       ],
-      interactive_moment: [
-        "Well? What do you say to that, penguin?",
-        "The village is watching. What\'s it going to be?",
-        "A little moment worth remembering — or not. Your call.",
-      ],
     };
     var pool = quotes[type] || quotes.level_up;
     var hash = 0;
@@ -10947,7 +10983,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     var rewards     = config.rewards || [];
     var mayorQuote  = config.mayorQuote || getMayorCelebrationQuote(type, config.context);
     var isPatchNotes = type === 'patch_notes';
-    var isMoment      = type === 'interactive_moment';
 
     var overlay = document.createElement('div');
     overlay.className = 'celebration-overlay';
@@ -10972,11 +11007,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       : '';
     var footerHtml = isPatchNotes
       ? '<button type="button" class="celeb-close-btn">✕ CLOSE</button>'
-      : isMoment
-      ? '<div class="celeb-moment-actions">' +
-          '<button type="button" class="celeb-agree-btn">🤝 ' + (config.optionALabel || 'AGREE') + '</button>' +
-          '<button type="button" class="celeb-disagree-btn">⚔️ ' + (config.optionBLabel || 'DISAGREE') + '</button>' +
-        '</div>'
       : '<div class="celeb-continue">TAP TO CONTINUE</div>';
 
     overlay.innerHTML =
@@ -11019,42 +11049,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       // still being read).
       var closeBtn = overlay.querySelector('.celeb-close-btn');
       if (closeBtn) closeBtn.addEventListener('click', function(e) { e.stopPropagation(); dismiss(); });
-    } else if (isMoment) {
-      // Same "explicit action only" shape as patch notes -- no whole-overlay
-      // click-dismiss and no auto-timeout while the two options are still
-      // showing, since an accidental click shouldn't silently pick one.
-      // After resolving, the popup switches into a result view (outcome
-      // text swapped in for the subtitle, buttons replaced with the normal
-      // TAP TO CONTINUE footer) and only then behaves like every other
-      // celebration -- click-anywhere or an 8s auto-dismiss.
-      var actionsEl  = overlay.querySelector('.celeb-moment-actions');
-      var subtitleEl = overlay.querySelector('.celeb-subtitle');
-      function showResultAndArmDismiss(resultText) {
-        if (subtitleEl) subtitleEl.innerHTML = resultText;
-        if (actionsEl) actionsEl.outerHTML = '<div class="celeb-continue">TAP TO CONTINUE</div>';
-        overlay.addEventListener('click', dismiss);
-        setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
-      }
-      function resolveMoment(resolution) {
-        if (agreeBtn) agreeBtn.disabled = true;
-        if (disagreeBtn) disagreeBtn.disabled = true;
-        fetch('/village/moment/resolve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resolution: resolution }),
-        })
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            showResultAndArmDismiss(d.outcome || 'Someone else already responded.');
-          })
-          .catch(function() {
-            showResultAndArmDismiss('Something went wrong. Try again later.');
-          });
-      }
-      var agreeBtn    = overlay.querySelector('.celeb-agree-btn');
-      var disagreeBtn = overlay.querySelector('.celeb-disagree-btn');
-      if (agreeBtn)    agreeBtn.addEventListener('click',    function(e) { e.stopPropagation(); resolveMoment('a'); });
-      if (disagreeBtn) disagreeBtn.addEventListener('click', function(e) { e.stopPropagation(); resolveMoment('b'); });
     } else {
       overlay.addEventListener('click', dismiss);
       setTimeout(function() { if (!dismissed) dismiss(); }, 8000);
@@ -11264,7 +11258,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     raid_result_fail:         '💀',
     announcement:             '📢',
     patch_notes:              '📋',
-    interactive_moment:       '🤝',
   };
 
   async function checkLifecycleNotices() {
@@ -11272,6 +11265,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const res  = await fetch(`/lifecycle-notices/${CURRENT_USER}`);
       const data = await res.json();
       (data.notices || []).forEach(n => {
+        // interactive_moment doesn't go through the celebration-overlay
+        // queue at all -- it's a persistent map-overlay toast (see
+        // showMomentToast()), not a one-shot blocking modal, since it needs
+        // to stay up long enough to read/act on and show both penguins
+        // fully rendered rather than just their names.
+        if (n.type === 'interactive_moment') { showMomentToast(n); return; }
         queueCelebration({
           type: n.type,
           icon: _LIFECYCLE_ICONS[n.type] || '📯',
@@ -11282,13 +11281,116 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           // scrollable box by showCelebration()'s patch_notes branch
           // instead of the plain centered description other types use.
           body: n.body || '',
-          // interactive_moment only -- scenario-specific button labels
-          // instead of a generic Agree/Disagree.
-          optionALabel: n.option_a_label || '',
-          optionBLabel: n.option_b_label || '',
         });
       });
     } catch(e) {}
+  }
+
+  // ── INTERACTIVE MOMENT TOAST ─────────────────────────────────────────────
+  // Persistent map overlay (not a one-shot celebration popup -- see
+  // checkLifecycleNotices() routing interactive_moment notices here instead
+  // of into queueCelebration()). Stays up for MOMENT_TOAST_DURATION_MS (5
+  // min) or until dismissed/resolved, rendered into #map-area (already
+  // position:relative) so it floats over the map without resizing/squashing
+  // it. Renders both penguins fully -- body color/shape + worn cosmetics --
+  // via the same _drawPenguinOnCanvas()/_drawSidebarWornItems() renderer the
+  // sidebar/inventory preview and igloo-visit host portraits already use.
+  const MOMENT_TOAST_DURATION_MS = 5 * 60 * 1000;
+
+  function showMomentToast(notice) {
+    const container = document.getElementById('map-area');
+    if (!container) return;
+    const existing = document.getElementById('moment-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'moment-toast';
+    toast.id = 'moment-toast';
+    const p1 = notice.penguin1 || {};
+    const p2 = notice.penguin2 || {};
+    toast.innerHTML =
+      '<div class="moment-toast-header">' +
+        '<span class="moment-toast-icon">🤝</span>' +
+        '<span class="moment-toast-title">A LITTLE MOMENT...</span>' +
+        '<span class="moment-toast-timer" id="moment-toast-timer"></span>' +
+        '<button type="button" class="moment-toast-close" id="moment-toast-close" title="Dismiss">✕</button>' +
+      '</div>' +
+      '<div class="moment-toast-penguins">' +
+        '<div class="moment-toast-penguin">' +
+          '<canvas class="moment-toast-canvas" id="moment-toast-canvas-1" width="56" height="64"></canvas>' +
+          '<span class="moment-toast-penguin-name">' + GlobalChat._esc(p1.display_name || '') + '</span>' +
+        '</div>' +
+        '<div class="moment-toast-vs">🆚</div>' +
+        '<div class="moment-toast-penguin">' +
+          '<canvas class="moment-toast-canvas" id="moment-toast-canvas-2" width="56" height="64"></canvas>' +
+          '<span class="moment-toast-penguin-name">' + GlobalChat._esc(p2.display_name || '') + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="moment-toast-flavor">' + notice.subtitle + '</div>' +
+      '<div class="moment-toast-actions">' +
+        '<button type="button" class="moment-toast-agree-btn">🤝 ' + GlobalChat._esc(notice.option_a_label || 'Agree') + '</button>' +
+        '<button type="button" class="moment-toast-disagree-btn">⚔️ ' + GlobalChat._esc(notice.option_b_label || 'Disagree') + '</button>' +
+      '</div>';
+    container.appendChild(toast);
+
+    if (p1.username) {
+      const c1 = document.getElementById('moment-toast-canvas-1');
+      _drawPenguinOnCanvas(c1, p1.penguin_color, p1.penguin_shape,
+        () => _drawSidebarWornItems(c1, p1.penguin_shape, p1.worn_items || {}));
+    }
+    if (p2.username) {
+      const c2 = document.getElementById('moment-toast-canvas-2');
+      _drawPenguinOnCanvas(c2, p2.penguin_color, p2.penguin_shape,
+        () => _drawSidebarWornItems(c2, p2.penguin_shape, p2.worn_items || {}));
+    }
+
+    const startedAt = Date.now();
+    let toastCountdown = null;
+
+    function dismissToast() {
+      if (toastCountdown) { clearInterval(toastCountdown); toastCountdown = null; }
+      if (toast.parentNode) toast.remove();
+    }
+
+    function tickTimer() {
+      const el = document.getElementById('moment-toast-timer');
+      if (!el) { dismissToast(); return; }
+      const remaining = Math.max(0, MOMENT_TOAST_DURATION_MS - (Date.now() - startedAt));
+      const mm = Math.floor(remaining / 60000);
+      const ss = Math.floor((remaining % 60000) / 1000);
+      el.textContent = mm + ':' + String(ss).padStart(2, '0');
+      if (remaining <= 0) dismissToast();
+    }
+    tickTimer();
+    toastCountdown = setInterval(tickTimer, 1000);
+
+    const closeBtn = document.getElementById('moment-toast-close');
+    if (closeBtn) closeBtn.addEventListener('click', dismissToast);
+
+    function showOutcomeAndSchedule(text) {
+      const flavorEl  = toast.querySelector('.moment-toast-flavor');
+      const actionsEl = toast.querySelector('.moment-toast-actions');
+      if (flavorEl) flavorEl.innerHTML = text;
+      if (actionsEl) actionsEl.remove();
+      setTimeout(dismissToast, 4000);
+    }
+
+    function resolveMoment(resolution) {
+      agreeBtn.disabled = true;
+      disagreeBtn.disabled = true;
+      fetch('/village/moment/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution: resolution }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) { showOutcomeAndSchedule(d.outcome || 'Someone else already responded.'); })
+        .catch(function() { showOutcomeAndSchedule('Something went wrong. Try again later.'); });
+    }
+    const agreeBtn    = toast.querySelector('.moment-toast-agree-btn');
+    const disagreeBtn = toast.querySelector('.moment-toast-disagree-btn');
+    agreeBtn.addEventListener('click', function() { resolveMoment('a'); });
+    disagreeBtn.addEventListener('click', function() { resolveMoment('b'); });
   }
 
   // Piggybacks on checkLifecycleNotices()'s own 60s poll (see the INIT block
