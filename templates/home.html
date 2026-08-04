@@ -2308,16 +2308,27 @@
 
     /* ── INTERACTIVE MOMENT TOAST (floats over #map-area, .map-area is
        already position:relative) -- replaces the old full-screen blocking
-       popup: doesn't resize/squash the map, stays up for
-       MOMENT_TOAST_DURATION_MS (5 min) or until resolved/dismissed. ── */
+       popup: doesn't resize/squash the map (no backdrop, map stays fully
+       interactive underneath), stays up for MOMENT_TOAST_DURATION_MS (5
+       min) or until resolved/dismissed. Centered rather than corner-docked
+       so it can't collide with the map's own corner buttons
+       (#recenter-map-btn, #react-btn, etc. all sit in the 60-65 z-index
+       band -- 70 keeps this above all of them). ── */
+    @keyframes momentToastPopIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to   { opacity: 1; transform: scale(1); }
+    }
     .moment-toast {
-      /* bottom: 60px (not 12px) so this clears #recenter-map-btn/#react-btn,
-         which both sit at bottom:12px;right:12/56px on top of the map. */
-      position: absolute; right: 12px; bottom: 60px; z-index: 30;
+      /* inset:0 + margin:auto centers a fixed-width/fit-content box without
+         a transform, so the animation below (which also needs `transform`,
+         for its scale-in) never has to fight the positioning for that
+         property. */
+      position: absolute; inset: 0; margin: auto; z-index: 70;
       width: 320px; max-width: calc(100% - 24px);
+      height: fit-content; max-height: calc(100% - 24px);
       background: #14101f; border: 2px solid #A86EFF; border-radius: 4px;
       padding: 12px; box-sizing: border-box;
-      animation: helpBannerSlideIn 0.3s ease-out;
+      animation: momentToastPopIn 0.2s ease-out;
       font-family: 'C&C Red Alert', monospace;
     }
     .moment-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -2341,11 +2352,6 @@
     .moment-toast-agree-btn:hover    { background: #4aff6b; color: #1C1C2E; }
     .moment-toast-disagree-btn { color: #ff6b6b; border-color: #ff6b6b; }
     .moment-toast-disagree-btn:hover { background: #ff6b6b; color: #1C1C2E; }
-    @media (max-width: 600px) {
-      /* bottom: 56px clears #recenter-map-btn/#react-btn's mobile position
-         (bottom:12px, 36px tall, i.e. occupying the 12-48px band). */
-      .moment-toast { left: 12px; right: 12px; width: auto; bottom: 56px; }
-    }
 
     /* ── Help button in nav ── */
     #help-btn {
