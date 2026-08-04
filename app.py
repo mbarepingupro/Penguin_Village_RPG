@@ -5056,10 +5056,18 @@ def _start_gathering(db, building_id, duration_minutes):
     return cur.lastrowid
 
 
-def _tally_gathering_vote_winner(db):
-    """Building with the most votes in the current window (window_start = the
-    top of the current hour, matching the window /stream/gathering_vote wrote
-    votes into during the hour leading up to now), or None if nobody voted.
+def _tally_gathering_vote_winner(db, window_start=None):
+    """Building with the most votes in the given window, or None if nobody
+    voted. window_start defaults to the top of the current hour (None ->
+    (now//3600)*3600), matching the window /stream/gathering_vote wrote
+    votes into during the hour leading up to now -- correct for the real
+    auto_start_gathering() call site, which only ever fires exactly at :00.
+
+    Pass window_start explicitly to tally a different window -- e.g.
+    /mayor/debug/run_gathering_vote_resolve calls this at arbitrary times
+    within the hour, so it passes the same "upcoming hour" formula
+    /stream/gathering_vote used to tag votes at insert time, instead of the
+    current-hour default which wouldn't match anything voted on mid-hour.
 
     Ties broken by BUILDING_EVENTS dict iteration order -- the first building
     to reach the highest vote count wins. A chat vote doesn't need a fairer
@@ -5067,7 +5075,8 @@ def _tally_gathering_vote_winner(db):
     critical mechanic, and a stable/deterministic rule is simpler to reason
     about (and test) than e.g. a random pick among tied leaders.
     """
-    window_start = (int(time.time()) // 3600) * 3600
+    if window_start is None:
+        window_start = (int(time.time()) // 3600) * 3600
     rows = db.execute(
         "SELECT building_id, COUNT(*) as votes FROM gathering_votes "
         "WHERE window_start=? GROUP BY building_id",
@@ -12643,14 +12652,23 @@ def mayor_debug_run_gathering_vote_resolve():
     regardless of whether the flag is on) -- lets the vote and the Part C
     clustering it feeds into both be exercised without waiting for the real
     hourly cron or a live stream. Falls back to random.choice() if nobody's
-    voted yet, same as auto_start_gathering() does."""
+    voted yet, same as auto_start_gathering() does.
+
+    Called at arbitrary times within the hour (unlike auto_start_gathering(),
+    which only ever fires exactly at :00), so it explicitly tallies the
+    "upcoming hour" window -- the same ((now//3600)+1)*3600 formula
+    /stream/gathering_vote uses to tag votes at insert time -- instead of
+    _tally_gathering_vote_winner()'s current-hour default, which wouldn't
+    match anything voted on mid-hour.
+    """
     if not _is_mayor_authed():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     db = get_db()
     if _active_gathering_row(db):
         db.close()
         return jsonify({"status": "error", "message": "A gathering is already active."}), 400
-    building_id = _tally_gathering_vote_winner(db) or random.choice(list(BUILDING_EVENTS.keys()))
+    upcoming_window = ((int(time.time()) // 3600) + 1) * 3600
+    building_id = _tally_gathering_vote_winner(db, upcoming_window) or random.choice(list(BUILDING_EVENTS.keys()))
     gathering_id = _start_gathering(db, building_id, _GATHERING_DEFAULT_DURATION_MINUTES)
     db.close()
     if gathering_id is None:
