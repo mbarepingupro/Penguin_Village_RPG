@@ -1458,7 +1458,7 @@ IGLOO_FURNITURE = {
     "wardrobe":           {"name": "Wardrobe",           "width": 2, "height": 1, "cost": {"gold": 400},  "category": "furniture"},
     "rug_large":          {"name": "Large Rug",          "width": 3, "height": 3, "cost": {"gold": 500},  "category": "decor"},
     "throne":             {"name": "Throne",             "width": 2, "height": 2, "cost": {"gold": 2000}, "category": "furniture"},
-    "grand_piano":        {"name": "Grand Piano",        "width": 3, "height": 2, "cost": {"gold": 3000}, "category": "furniture"},
+    "grand_piano":        {"name": "Grand Piano",        "width": 3, "height": 2, "cost": {"gold": 3000}, "category": "furniture", "interactive": "minigame"},
     "fountain":           {"name": "Indoor Fountain",    "width": 2, "height": 2, "cost": {"gold": 2500, "spell_fragments": 50}, "category": "decor"},
     "trophy_case":        {"name": "Trophy Case",        "width": 2, "height": 1, "cost": {"gold": 1500}, "category": "furniture"},
     "crystal_chandelier": {"name": "Crystal Chandelier", "width": 1, "height": 1, "cost": {"gold": 4000, "spell_fragments": 100}, "category": "decor"},
@@ -11773,7 +11773,7 @@ def bank_sell_to_bank():
     })
 
 
-MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine")
+MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano")
 
 # Mirrors templates/home.html's MINIGAME_LABELS -- kept as a separate copy
 # rather than a shared source since one lives in Python (chat announcements)
@@ -11784,6 +11784,7 @@ MINIGAME_LABELS = {
     "parkmusement":  "🎪 Juggle Master",
     "cursed_temple": "🔮 Rune Memory",
     "guillotine":    "💀 Whack-a-Target",
+    "grand_piano":   "🎹 Piano Recital",
 }
 
 
@@ -11794,6 +11795,7 @@ def calculate_minigame_rewards(building_id, score, player_level):
         "parkmusement":  {"gold": 20, "xp": 10},
         "cursed_temple": {"spell_fragments": 12, "gold": 5, "xp": 10},
         "guillotine":    {"blood_gems": 6, "bones": 6, "gold": 5, "xp": 10},
+        "grand_piano":   {"gold": 20, "xp": 10},
     }
     # `score` is now the player's raw, uncapped score (see minigame_complete --
     # scores used to be clamped to 0-100 before storage/display; now only the
@@ -12137,11 +12139,27 @@ def minigame_start():
     username    = session.get("username", "")
     building_id = data.get("building_id", "")
     is_tutorial = bool(data.get("tutorial", False))
+    host_username = data.get("host_username", "")
 
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
     if building_id not in MINIGAME_BUILDING_IDS:
         return jsonify({"status": "error", "message": "No mini-game at this building."})
+
+    # grand_piano isn't a building -- it's igloo furniture, playable by the
+    # owner or any visiting guest, so the check is on where the piano is
+    # physically placed rather than on who's asking (any logged-in player).
+    if building_id == "grand_piano":
+        if not host_username:
+            return jsonify({"status": "error", "message": "No piano to play."})
+        piano_db = get_db()
+        piano = piano_db.execute(
+            "SELECT 1 FROM igloo_furniture WHERE username=? AND item_id='grand_piano'",
+            (host_username,)
+        ).fetchone()
+        piano_db.close()
+        if not piano:
+            return jsonify({"status": "error", "message": "There's no Grand Piano there to play."})
 
     # This route didn't flush accrued passive regen before, so a player
     # could see/spend a stale (too-low) energy value here.
@@ -12269,7 +12287,7 @@ def _minigame_week_bounds(reference_ts=None):
 
 
 def _compute_weekly_minigame_leaderboards_by_game(week_start, week_end):
-    """Independent per-game weekly rankings -- each of the 5 minigames has its
+    """Independent per-game weekly rankings -- each of the 6 minigames has its
     own leaderboard, unrelated to how anyone did in the other 4. Raw scores
     aren't comparable across games (fish caught vs combo points vs memory
     rounds), so there's no cross-game normalization or combined total here,
@@ -12333,7 +12351,7 @@ def minigame_leaderboard_route():
 def resolve_weekly_minigame_leaderboard():
     """Saturday 00:00 UTC -- resolves the just-ended Mon->Sat minigame week.
 
-    Each of the 5 minigames is its own independent competition: whoever holds
+    Each of the 6 minigames is its own independent competition: whoever holds
     rank #1 in a given game gets exactly 1 N00Tbox (grant_lootbox, source
     "minigame_weekly_<building_id>") for that game -- no ranks 2/3, no
     resource curve for the rest of the field, and a game nobody played this

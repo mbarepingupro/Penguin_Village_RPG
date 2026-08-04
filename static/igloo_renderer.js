@@ -67,6 +67,7 @@ const IglooRenderer = (function () {
     let _canvas, _ctx, _data = null;
     let _editMode = false, _pendingItem = null;
     let _hoverCell = null, _selectedId = null;
+    let _hostUsername = null; // whose igloo is currently loaded -- set via load(), used by the view-mode interactive-furniture click path
     // Paint mode state
     let _paintMode = null;  // null | 'floor' | 'wall'
     let _paintBrush = null; // selected type id
@@ -77,6 +78,7 @@ const IglooRenderer = (function () {
         onFurnitureSelect: null,
         onPaintCell: null,  // (gx, gy, type)
         onWallClick: null,  // (side, index, type)
+        onInteractiveFurnitureClick: null,  // (itemId, hostUsername) -- view-mode click on furniture with interactive:"minigame"
     };
 
     function _ox(s) { return s * TW / 2; }
@@ -460,7 +462,29 @@ const IglooRenderer = (function () {
             return;
         }
 
-        if (!_editMode) return;
+        if (!_editMode) {
+            // View mode -- owner just looking at their room, or a guest
+            // visiting. Separate from the edit-mode selection path below:
+            // this fires a minigame-start callback instead of a selection
+            // callback, and only for furniture flagged interactive:"minigame".
+            const g = _s2g(sx, sy, s);
+            const sorted = [...(_data.furniture || [])].sort(
+                (a, b) => (b.grid_x + b.grid_y) - (a.grid_x + a.grid_y)
+            );
+            let hit = null;
+            for (const f of sorted) {
+                if (_overlaps(g.gx, g.gy, 1, 1, f.grid_x, f.grid_y, f.width || 1, f.height || 1)) {
+                    hit = f; break;
+                }
+            }
+            if (hit) {
+                const defn = IGLOO_FURNITURE_CLIENT[hit.item_id] || {};
+                if (defn.interactive === 'minigame' && pub.onInteractiveFurnitureClick) {
+                    pub.onInteractiveFurnitureClick(hit.item_id, _hostUsername);
+                }
+            }
+            return;
+        }
         const g = _s2g(sx, sy, s);
 
         if (_pendingItem) {
@@ -495,12 +519,13 @@ const IglooRenderer = (function () {
             _canvas.addEventListener('click', _onClick);
         },
 
-        load(data) {
-            _data        = data;
-            _selectedId  = null;
-            _pendingItem = null;
-            _hoverCell   = null;
-            _hoverWall   = null;
+        load(data, hostUsername) {
+            _data          = data;
+            _hostUsername  = hostUsername || null;
+            _selectedId    = null;
+            _pendingItem   = null;
+            _hoverCell     = null;
+            _hoverWall     = null;
             _render();
         },
 

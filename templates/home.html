@@ -8309,18 +8309,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
 
 
-  async function startMiniGame(buildingId) {
+  async function startMiniGame(buildingId, extraStartBody) {
+    extraStartBody = extraStartBody || {};
     const isTutorial = window.TutorialManager && TutorialManager._minigameTutorial;
     try {
       const res = await fetch('/minigame/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId, tutorial: isTutorial })
+        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId, tutorial: isTutorial, ...extraStartBody })
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message || 'Cannot start mini-game', 'err'); return; }
     } catch(e) { showToast('Error starting mini-game.', 'err'); return; }
-    closeBuildingPanel();
+    // extraStartBody.host_username marks an igloo-furniture-triggered start (e.g.
+    // the Grand Piano) -- there's no building panel open in that flow, so skip
+    // the modal-close teardown that every real building's start does.
+    if (!extraStartBody.host_username) closeBuildingPanel();
     if (!window.MiniGameManager) { showToast('Mini-game system not loaded.', 'err'); return; }
     MiniGameManager.startGame(buildingId, async function(score) {
       try {
@@ -8599,6 +8603,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     parkmusement:  '🎪 Juggle Master',
     cursed_temple: '🔮 Rune Memory',
     guillotine:    '💀 Whack-a-Target',
+    grand_piano:   '🎹 Piano Recital',
   };
 
   async function loadMinigameRecords() {
@@ -9570,7 +9575,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       } catch(e) {}
 
       IglooRenderer.init('igloo-canvas', IGLOO_FURNITURE_DEFS);
-      IglooRenderer.load(data);
+      IglooRenderer.load(data, CURRENT_USER);
       document.getElementById('igloo-room-title').textContent = iglooRoomTitle(data);
 
       // Set up callbacks
@@ -9578,6 +9583,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.onFurnitureSelect = iglooOnFurnitureSelect;
       IglooRenderer.onPaintCell = iglooPaintFloorCell;
       IglooRenderer.onWallClick = iglooPaintWallCell;
+      IglooRenderer.onInteractiveFurnitureClick = iglooOnInteractiveFurnitureClick;
 
       // Own-igloo room bar (upgrade + floor/wall paint) -- populated up
       // front so it's ready the moment the player opens it via the 🎨 ROOM
@@ -9963,6 +9969,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   function iglooOnFurnitureSelect(id) {
     iglooRenderEditPanel();
+  }
+
+  // View-mode click on a piece of furniture flagged interactive:"minigame"
+  // (currently just the Grand Piano) -- fires for the owner looking at their
+  // own room or any visiting guest, since IglooRenderer's callback carries
+  // whichever username's igloo is currently loaded.
+  function iglooOnInteractiveFurnitureClick(itemId, hostUsername) {
+    if (itemId === 'grand_piano') {
+      startMiniGame(itemId, { host_username: hostUsername });
+    }
   }
 
   async function iglooDoRemove(placementId) {
@@ -11883,12 +11899,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const data = await res.json();
       if (!data || data.status === 'error') return;
 
-      // Load into renderer (read-only — clear edit callbacks)
-      IglooRenderer.load(data);
+      // Load into renderer (read-only — clear edit callbacks, but keep
+      // interactive-furniture clicks live so a guest can play the piano)
+      IglooRenderer.load(data, username);
       IglooRenderer.onCellClick      = null;
       IglooRenderer.onFurnitureSelect = null;
       IglooRenderer.onPaintCell      = null;
       IglooRenderer.onWallClick      = null;
+      IglooRenderer.onInteractiveFurnitureClick = iglooOnInteractiveFurnitureClick;
 
       const titleEl = document.getElementById('igloo-room-title');
       if (titleEl) titleEl.textContent = username.toUpperCase() + "'S IGLOO";

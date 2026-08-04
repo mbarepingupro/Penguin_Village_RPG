@@ -167,6 +167,26 @@ const GameSounds = {
         }
     },
 
+    // 8-key C major scale (C4-C5) for the Grand Piano minigame -- same
+    // await-resume pattern as runeChime since this also fires during the
+    // show phase before the player has interacted with this round.
+    pianoKey(idx) {
+        const FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+        const freq = FREQS[idx % FREQS.length];
+        const self = this;
+        const doPlay = () => self._play({notes: [
+            {freq, dur: 0.30, type:'triangle', vol: 0.14},
+            {freq: freq*2, dur: 0.10, type:'sine', vol: 0.04},
+        ]});
+        const ctx = this.getCtx();
+        if (!ctx) return;
+        if (ctx.state === 'running') {
+            doPlay();
+        } else {
+            this.ensureRunning().then(doPlay);
+        }
+    },
+
     // ── Ice Blocks ─────────────────────────────────────────────────────────
     ice_roll()          { this._play({notes: [{freq:330, dur:0.08, type:'square', vol:0.10}, {freq:415, dur:0.12, type:'square', vol:0.10, time:0.07}]}); },
     ice_crit()          { this._play({notes: [{freq:523, dur:0.10, type:'triangle', vol:0.12}, {freq:659, dur:0.10, type:'triangle', vol:0.12, time:0.08}, {freq:880, dur:0.10, type:'triangle', vol:0.10, time:0.16}, {freq:1047, dur:0.25, type:'triangle', vol:0.10, time:0.24}]}); },
