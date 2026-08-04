@@ -2290,18 +2290,29 @@
     .gathering-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #4aff6b; flex-shrink: 0; }
 
     /* ── CENTERED MAP TOASTS (#map-area is already position:relative) --
-       shared floating-toast home for the interactive-moment toast and the
-       gathering-vote toast: no backdrop, map stays fully interactive
-       underneath, doesn't resize/squash it. The wrapper itself is what's
-       centered (inset:0 + margin:auto, no transform, so each toast's own
-       pop-in animation -- which needs `transform` for its scale -- never
-       fights the positioning for that property); individual toasts are
-       plain flex children stacked with a gap, so if more than one happens
-       to be visible at once (e.g. an hourly gathering vote overlapping a
-       moment between two players, with a third player also seeing that
-       moment's chat-vote tally) they stack cleanly instead of overlapping.
-       z-index 70 clears the map's other floating buttons, all in the
-       60-65 band (#recenter-map-btn, #react-btn, etc). ── */
+       shared floating-toast home for the interactive-moment toast, the
+       gathering-vote toast, and the moment-vote toast: the map's own
+       layout/canvas dimensions never resize/squash, but #map-toasts-backdrop
+       dims it behind these (announcement-style focus) whenever at least one
+       toast is showing -- see _updateMapToastsBackdrop(). The wrapper itself
+       is what's centered (inset:0 + margin:auto, no transform, so each
+       toast's own pop-in animation -- which needs `transform` for its scale
+       -- never fights the positioning for that property); individual toasts
+       are plain flex children stacked with a gap, so if more than one
+       happens to be visible at once (e.g. an hourly gathering vote
+       overlapping a moment between two players, with a third player also
+       seeing that moment's chat-vote tally) they stack cleanly instead of
+       overlapping. z-index 70 clears the map's other floating buttons, all
+       in the 60-65 band (#recenter-map-btn, #react-btn, etc); the backdrop
+       sits at 69, just below the toasts and above everything else. ── */
+    @keyframes mapToastsBackdropFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    #map-toasts-backdrop {
+      display: none;
+      position: absolute; inset: 0; z-index: 69;
+      background: rgba(0,0,0,0.7);
+      animation: mapToastsBackdropFadeIn 0.2s ease-out;
+    }
+    #map-toasts-backdrop.visible { display: block; }
     #map-center-toasts {
       position: absolute; inset: 0; margin: auto; z-index: 70;
       display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -2315,29 +2326,30 @@
       to   { opacity: 1; transform: scale(1); }
     }
     .moment-toast, .gathering-vote-toast, .moment-vote-toast {
-      width: 320px; max-width: 100%;
-      background: #14101f; border-radius: 4px;
-      padding: 12px; box-sizing: border-box;
+      width: 420px; max-width: 100%;
+      background: #14101f; border-radius: 6px;
+      padding: 18px; box-sizing: border-box;
       animation: momentToastPopIn 0.2s ease-out;
       font-family: 'C&C Red Alert', monospace;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
     }
-    .moment-toast { border: 2px solid #A86EFF; }
-    .moment-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .moment-toast-icon { font-size: 18px; flex-shrink: 0; }
-    .moment-toast-title { flex: 1; color: #A86EFF; font-size: 16px; }
-    .moment-toast-timer { color: #B8B8D0; font-size: 14px; flex-shrink: 0; }
-    .moment-toast-close { background: transparent; border: none; color: #8888A8; font-size: 16px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+    .moment-toast { border: 3px solid #A86EFF; }
+    .moment-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .moment-toast-icon { font-size: 22px; flex-shrink: 0; }
+    .moment-toast-title { flex: 1; color: #A86EFF; font-size: 19px; }
+    .moment-toast-timer { color: #B8B8D0; font-size: 15px; flex-shrink: 0; }
+    .moment-toast-close { background: transparent; border: none; color: #8888A8; font-size: 18px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
     .moment-toast-close:hover { color: #FFFFFF; }
-    .moment-toast-penguins { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
-    .moment-toast-penguin { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .moment-toast-canvas { image-rendering: pixelated; background: #1e1a2e; border: 1px solid #303045; }
-    .moment-toast-penguin-name { font-size: 12px; color: #D8D8F0; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .moment-toast-vs { font-size: 16px; color: #8888A8; flex-shrink: 0; }
-    .moment-toast-flavor { font-size: 14px; color: #D8D8F0; line-height: 1.5; text-align: center; margin-bottom: 10px; }
-    .moment-toast-actions { display: flex; gap: 8px; }
+    .moment-toast-penguins { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 12px; }
+    .moment-toast-penguin { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .moment-toast-canvas { image-rendering: pixelated; background: #1e1a2e; border: 1px solid #303045; width: 84px; height: 96px; }
+    .moment-toast-penguin-name { font-size: 14px; color: #D8D8F0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .moment-toast-vs { font-size: 20px; color: #8888A8; flex-shrink: 0; }
+    .moment-toast-flavor { font-size: 16px; color: #D8D8F0; line-height: 1.5; text-align: center; margin-bottom: 14px; }
+    .moment-toast-actions { display: flex; gap: 10px; }
     .moment-toast-agree-btn, .moment-toast-disagree-btn {
-      flex: 1; font-family: 'Silkscreen', monospace; font-size: 13px;
-      background: transparent; border: 2px solid; padding: 6px 8px; cursor: pointer;
+      flex: 1; font-family: 'Silkscreen', monospace; font-size: 14px;
+      background: transparent; border: 2px solid; padding: 8px 10px; cursor: pointer;
     }
     .moment-toast-agree-btn    { color: #4aff6b; border-color: #4aff6b; }
     .moment-toast-agree-btn:hover    { background: #4aff6b; color: #1C1C2E; }
@@ -2348,31 +2360,34 @@
        above), distinct blue accent so the two are never mistaken for each
        other, informational only (no action buttons -- voting itself
        happens via chat commands, same as the old top-bar version). ── */
-    .gathering-vote-toast { border: 2px solid #6EA8FF; }
-    .gathering-vote-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .gathering-vote-toast-icon { font-size: 18px; flex-shrink: 0; }
-    .gathering-vote-toast-title { flex: 1; color: #6EA8FF; font-size: 16px; }
-    .gathering-vote-toast-timer { color: #B8B8D0; font-size: 14px; flex-shrink: 0; }
-    .gathering-vote-toast-close { background: transparent; border: none; color: #8888A8; font-size: 16px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+    .gathering-vote-toast { border: 3px solid #6EA8FF; }
+    .gathering-vote-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .gathering-vote-toast-icon { font-size: 22px; flex-shrink: 0; }
+    .gathering-vote-toast-title { flex: 1; color: #6EA8FF; font-size: 19px; }
+    .gathering-vote-toast-timer { color: #B8B8D0; font-size: 15px; flex-shrink: 0; }
+    .gathering-vote-toast-close { background: transparent; border: none; color: #8888A8; font-size: 18px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
     .gathering-vote-toast-close:hover { color: #FFFFFF; }
-    .gathering-vote-toast-tally { font-size: 14px; color: #D8D8F0; line-height: 1.8; }
+    .gathering-vote-toast-tally { font-size: 16px; color: #D8D8F0; line-height: 1.9; }
     .gathering-vote-toast-tally-row { display: flex; justify-content: space-between; gap: 10px; }
-    .gathering-vote-toast-tally-cmd { color: #8888A8; font-size: 12px; }
+    .gathering-vote-toast-tally-cmd { color: #8888A8; font-size: 13px; }
 
     /* ── MOMENT VOTE TOAST -- same card family, distinct from .moment-toast
        (that one's the two participants' own direct-action card): this is
        the informational chat-vote tally shown to everyone else while a
-       moment is open, resolved via chat commands, not by clicking here. ── */
-    .moment-vote-toast { border: 2px solid #C77DFF; }
-    .moment-vote-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .moment-vote-toast-icon { font-size: 18px; flex-shrink: 0; }
-    .moment-vote-toast-title { flex: 1; color: #C77DFF; font-size: 14px; line-height: 1.4; }
-    .moment-vote-toast-timer { color: #B8B8D0; font-size: 14px; flex-shrink: 0; }
-    .moment-vote-toast-close { background: transparent; border: none; color: #8888A8; font-size: 16px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+       moment is open, resolved via chat commands, not by clicking here.
+       Reuses .moment-toast-penguins/.moment-toast-canvas/etc (generic
+       "pair of penguin portraits" markup, not specific to the other
+       toast) so viewers can see who's actually involved too. ── */
+    .moment-vote-toast { border: 3px solid #C77DFF; }
+    .moment-vote-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .moment-vote-toast-icon { font-size: 22px; flex-shrink: 0; }
+    .moment-vote-toast-title { flex: 1; color: #C77DFF; font-size: 16px; line-height: 1.4; }
+    .moment-vote-toast-timer { color: #B8B8D0; font-size: 15px; flex-shrink: 0; }
+    .moment-vote-toast-close { background: transparent; border: none; color: #8888A8; font-size: 18px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
     .moment-vote-toast-close:hover { color: #FFFFFF; }
-    .moment-vote-toast-tally { font-size: 14px; color: #D8D8F0; line-height: 1.8; }
+    .moment-vote-toast-tally { font-size: 16px; color: #D8D8F0; line-height: 1.9; }
     .moment-vote-toast-tally-row { display: flex; justify-content: space-between; gap: 10px; }
-    .moment-vote-toast-tally-cmd { color: #8888A8; font-size: 12px; }
+    .moment-vote-toast-tally-cmd { color: #8888A8; font-size: 13px; }
 
     /* ── Help button in nav ── */
     #help-btn {
@@ -3764,6 +3779,7 @@
           </div>
         </div>
         <div class="map-area" id="map-area">
+          <div id="map-toasts-backdrop"></div>
           <div id="map-center-toasts"></div>
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
@@ -6049,6 +6065,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // overlapping if both happen to be visible at once, so no ordering helper
   // is needed between them.
 
+  // #map-toasts-backdrop's visibility just mirrors "does #map-center-toasts
+  // currently have any children" -- a MutationObserver here means every
+  // toast type's create/remove path (showMomentToast, the two render
+  // functions below, and any future one) gets this for free without each
+  // needing its own explicit show/hide-backdrop call.
+  (function() {
+    const wrap = document.getElementById('map-center-toasts');
+    const backdrop = document.getElementById('map-toasts-backdrop');
+    if (!wrap || !backdrop || typeof MutationObserver === 'undefined') return;
+    function sync() { backdrop.classList.toggle('visible', wrap.children.length > 0); }
+    new MutationObserver(sync).observe(wrap, { childList: true });
+    sync();
+  })();
+
   // Mirrors BUILDING_EVENTS/GATHERING_VOTE_KEYWORDS (app.py) for the
   // gathering-vote toast's tally rows -- small, rarely-changing content,
   // same "duplicate the small mapping into JS" pattern as _LIFECYCLE_ICONS.
@@ -6200,6 +6230,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
     const container = document.getElementById('map-center-toasts');
     if (!container) return;
+    const p1 = data.penguin1 || {};
+    const p2 = data.penguin2 || {};
     toast = document.createElement('div');
     toast.className = 'moment-vote-toast';
     toast.id = 'moment-vote-toast';
@@ -6216,8 +6248,35 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         '<span class="moment-vote-toast-timer" id="moment-vote-toast-timer"></span>' +
         '<button type="button" class="moment-vote-toast-close" id="moment-vote-toast-close" title="Dismiss">✕</button>' +
       '</div>' +
+      // Reuses .moment-toast-penguins/etc (generic "pair of penguin
+      // portraits" markup) but with distinct canvas ids
+      // (moment-vote-toast-canvas-*) -- a moment's two participants can see
+      // BOTH this toast AND their own direct-action moment-toast at once,
+      // so ids can't collide.
+      '<div class="moment-toast-penguins">' +
+        '<div class="moment-toast-penguin">' +
+          '<canvas class="moment-toast-canvas" id="moment-vote-toast-canvas-1" width="56" height="64"></canvas>' +
+          '<span class="moment-toast-penguin-name">' + GlobalChat._esc(p1.display_name || '') + '</span>' +
+        '</div>' +
+        '<div class="moment-toast-vs">🆚</div>' +
+        '<div class="moment-toast-penguin">' +
+          '<canvas class="moment-toast-canvas" id="moment-vote-toast-canvas-2" width="56" height="64"></canvas>' +
+          '<span class="moment-toast-penguin-name">' + GlobalChat._esc(p2.display_name || '') + '</span>' +
+        '</div>' +
+      '</div>' +
       '<div class="moment-vote-toast-tally">' + tallyRows + '</div>';
     container.appendChild(toast);
+
+    if (p1.username) {
+      const c1 = document.getElementById('moment-vote-toast-canvas-1');
+      _drawPenguinOnCanvas(c1, p1.penguin_color, p1.penguin_shape,
+        () => _drawSidebarWornItems(c1, p1.penguin_shape, p1.worn_items || {}));
+    }
+    if (p2.username) {
+      const c2 = document.getElementById('moment-vote-toast-canvas-2');
+      _drawPenguinOnCanvas(c2, p2.penguin_color, p2.penguin_shape,
+        () => _drawSidebarWornItems(c2, p2.penguin_shape, p2.worn_items || {}));
+    }
 
     const closeBtn = document.getElementById('moment-vote-toast-close');
     if (closeBtn) closeBtn.addEventListener('click', function() {

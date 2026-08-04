@@ -7052,10 +7052,13 @@ def get_relationships(username):
 
 @app.route("/village/moment/vote/status")
 def village_moment_vote_status():
-    """Public read-only status for the map's moment-vote banner -- same
+    """Public read-only status for the map's moment-vote toast -- same
     style as GET /gathering/active/GET /gathering/vote/status. flavor_text/
     option labels come straight off the open row (already fully filled-in
-    display text from _create_moment(), no further formatting needed)."""
+    display text from _create_moment(), no further formatting needed).
+    Includes the same penguin1/penguin2 visual payload as the participants'
+    own lifecycle-notices moment toast (see _penguin_visual()) so viewers
+    watching this one can see who's actually involved, not just names."""
     db  = get_db()
     row = _active_moment_row(db)
     if not row:
@@ -7064,14 +7067,17 @@ def village_moment_vote_status():
             "moment_open": False, "flavor_text": None,
             "option_a_label": None, "option_b_label": None,
             "closes_at": None, "tally": None,
+            "penguin1": None, "penguin2": None,
         })
 
     votes = db.execute(
         "SELECT resolution, COUNT(*) as votes FROM moment_votes WHERE moment_id=? GROUP BY resolution",
         (row["id"],)
     ).fetchall()
-    db.close()
     counts = {v["resolution"]: v["votes"] for v in votes}
+    penguin1 = _penguin_visual(db, row["username1"])
+    penguin2 = _penguin_visual(db, row["username2"])
+    db.close()
     return jsonify({
         "moment_open":     True,
         "flavor_text":     row["flavor_text"],
@@ -7079,6 +7085,8 @@ def village_moment_vote_status():
         "option_b_label":  row["option_b_label"],
         "closes_at":       row["window_closes_at"],
         "tally":           {"a": counts.get("a", 0), "b": counts.get("b", 0)},
+        "penguin1":        penguin1,
+        "penguin2":        penguin2,
     })
 
 
