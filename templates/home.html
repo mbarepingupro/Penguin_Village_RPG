@@ -6206,7 +6206,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     toast.innerHTML =
       '<div class="moment-vote-toast-header">' +
         '<span class="moment-vote-toast-icon">🤝</span>' +
-        '<span class="moment-vote-toast-title">' + GlobalChat._esc(data.flavor_text || '') + '</span>' +
+        // flavor_text arrives pre-built with <span class="pname-hl"> name
+        // highlighting already applied server-side (see highlight_name() in
+        // personality_config.py) -- same convention showMomentToast()'s
+        // subtitle and the old banner's text already relied on, so this
+        // must NOT be _esc()'d or the highlight markup shows up as literal
+        // text instead of rendering.
+        '<span class="moment-vote-toast-title">' + (data.flavor_text || '') + '</span>' +
         '<span class="moment-vote-toast-timer" id="moment-vote-toast-timer"></span>' +
         '<button type="button" class="moment-vote-toast-close" id="moment-vote-toast-close" title="Dismiss">✕</button>' +
       '</div>' +
