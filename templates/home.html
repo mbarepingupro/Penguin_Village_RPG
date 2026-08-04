@@ -2289,48 +2289,50 @@
     .gathering-banner-checkin:hover { background: #4aff6b; color: #181820; }
     .gathering-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #4aff6b; flex-shrink: 0; }
 
-    /* ── LIVE VOTE STATUS BANNERS (map tab, #map-status-banners) --
-       same visual convention as .gathering-banner above, distinct accent
-       colors so the two never get mistaken for each other or for the
-       building-modal gathering-active banner. ── */
+    /* ── LIVE VOTE STATUS BANNER (map tab, #map-status-banners) --
+       moment-vote-banner is the only remaining consumer of this top-bar
+       convention now that gathering-vote moved to a centered toast (see
+       #map-center-toasts below) -- same visual convention as
+       .gathering-banner above. ── */
     #map-status-banners { display: flex; flex-direction: column; }
-    .gathering-vote-banner { position: relative; width: 100%; background: #141a2e; border-bottom: 2px solid #6EA8FF; padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; animation: helpBannerSlideIn 0.3s ease-out; z-index: 10; box-sizing: border-box; }
-    .gathering-vote-banner-icon { font-size: 18px; flex-shrink: 0; }
-    .gathering-vote-banner-text { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #6EA8FF; line-height: 1.5; flex: 1 1 100%; }
-    .gathering-vote-banner-tally { font-family: 'C&C Red Alert', monospace; font-size: 14px; color: #B8B8D0; line-height: 1.6; flex: 1 1 100%; }
-    .gathering-vote-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #6EA8FF; flex-shrink: 0; }
-
     .moment-vote-banner { position: relative; width: 100%; background: #1a1428; border-bottom: 2px solid #C77DFF; padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; animation: helpBannerSlideIn 0.3s ease-out; z-index: 10; box-sizing: border-box; }
     .moment-vote-banner-icon { font-size: 18px; flex-shrink: 0; }
     .moment-vote-banner-text { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #C77DFF; line-height: 1.5; flex: 1 1 100%; }
     .moment-vote-banner-tally { font-family: 'C&C Red Alert', monospace; font-size: 14px; color: #B8B8D0; line-height: 1.6; flex: 1 1 100%; }
     .moment-vote-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #C77DFF; flex-shrink: 0; }
 
-    /* ── INTERACTIVE MOMENT TOAST (floats over #map-area, .map-area is
-       already position:relative) -- replaces the old full-screen blocking
-       popup: doesn't resize/squash the map (no backdrop, map stays fully
-       interactive underneath), stays up for MOMENT_TOAST_DURATION_MS (5
-       min) or until resolved/dismissed. Centered rather than corner-docked
-       so it can't collide with the map's own corner buttons
-       (#recenter-map-btn, #react-btn, etc. all sit in the 60-65 z-index
-       band -- 70 keeps this above all of them). ── */
+    /* ── CENTERED MAP TOASTS (#map-area is already position:relative) --
+       shared floating-toast home for the interactive-moment toast and the
+       gathering-vote toast: no backdrop, map stays fully interactive
+       underneath, doesn't resize/squash it. The wrapper itself is what's
+       centered (inset:0 + margin:auto, no transform, so each toast's own
+       pop-in animation -- which needs `transform` for its scale -- never
+       fights the positioning for that property); individual toasts are
+       plain flex children stacked with a gap, so if both happen to be
+       visible at once (e.g. an hourly gathering vote overlapping a moment
+       between two players) they stack cleanly instead of overlapping.
+       z-index 70 clears the map's other floating buttons, all in the
+       60-65 band (#recenter-map-btn, #react-btn, etc). ── */
+    #map-center-toasts {
+      position: absolute; inset: 0; margin: auto; z-index: 70;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      width: fit-content; height: fit-content;
+      max-width: calc(100% - 24px); max-height: calc(100% - 24px);
+      pointer-events: none;
+    }
+    #map-center-toasts > * { pointer-events: auto; }
     @keyframes momentToastPopIn {
       from { opacity: 0; transform: scale(0.92); }
       to   { opacity: 1; transform: scale(1); }
     }
-    .moment-toast {
-      /* inset:0 + margin:auto centers a fixed-width/fit-content box without
-         a transform, so the animation below (which also needs `transform`,
-         for its scale-in) never has to fight the positioning for that
-         property. */
-      position: absolute; inset: 0; margin: auto; z-index: 70;
-      width: 320px; max-width: calc(100% - 24px);
-      height: fit-content; max-height: calc(100% - 24px);
-      background: #14101f; border: 2px solid #A86EFF; border-radius: 4px;
+    .moment-toast, .gathering-vote-toast {
+      width: 320px; max-width: 100%;
+      background: #14101f; border-radius: 4px;
       padding: 12px; box-sizing: border-box;
       animation: momentToastPopIn 0.2s ease-out;
       font-family: 'C&C Red Alert', monospace;
     }
+    .moment-toast { border: 2px solid #A86EFF; }
     .moment-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .moment-toast-icon { font-size: 18px; flex-shrink: 0; }
     .moment-toast-title { flex: 1; color: #A86EFF; font-size: 16px; }
@@ -2352,6 +2354,21 @@
     .moment-toast-agree-btn:hover    { background: #4aff6b; color: #1C1C2E; }
     .moment-toast-disagree-btn { color: #ff6b6b; border-color: #ff6b6b; }
     .moment-toast-disagree-btn:hover { background: #ff6b6b; color: #1C1C2E; }
+
+    /* ── GATHERING VOTE TOAST -- same card as .moment-toast (shared rule
+       above), distinct blue accent so the two are never mistaken for each
+       other, informational only (no action buttons -- voting itself
+       happens via chat commands, same as the old top-bar version). ── */
+    .gathering-vote-toast { border: 2px solid #6EA8FF; }
+    .gathering-vote-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .gathering-vote-toast-icon { font-size: 18px; flex-shrink: 0; }
+    .gathering-vote-toast-title { flex: 1; color: #6EA8FF; font-size: 16px; }
+    .gathering-vote-toast-timer { color: #B8B8D0; font-size: 14px; flex-shrink: 0; }
+    .gathering-vote-toast-close { background: transparent; border: none; color: #8888A8; font-size: 16px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
+    .gathering-vote-toast-close:hover { color: #FFFFFF; }
+    .gathering-vote-toast-tally { font-size: 14px; color: #D8D8F0; line-height: 1.8; }
+    .gathering-vote-toast-tally-row { display: flex; justify-content: space-between; gap: 10px; }
+    .gathering-vote-toast-tally-cmd { color: #8888A8; font-size: 12px; }
 
     /* ── Help button in nav ── */
     #help-btn {
@@ -3744,6 +3761,7 @@
           </div>
         </div>
         <div class="map-area" id="map-area">
+          <div id="map-center-toasts"></div>
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
           {% if features.get("weekly_build_leaderboard", True) %}
@@ -6019,32 +6037,24 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     }
   }
 
-  // ── LIVE VOTE STATUS BANNERS (map tab) ──────────────────────────────────
+  // ── LIVE VOTE STATUS (map tab) ───────────────────────────────────────────
   // Both piggyback GlobalChat's existing 4s/on-map-tab poll (see the
   // pollGatheringVoteStatus()/pollMomentVoteStatus() calls next to
-  // pollGatheringActive() above) instead of separate setIntervals, and both
-  // render into the static #map-status-banners wrapper at the top of the
-  // map tab -- same insertBefore-at-top convention showHelpBanner() and
-  // _renderGatheringBanner() already use, just scoped to this dedicated
-  // wrapper so they don't fight other banners (or each other) for position.
-  // _insertMapStatusBanner() enforces a stable relative order (gathering-vote
-  // banner always above the moment-vote banner) regardless of which poll's
-  // response lands first -- these two banners are NOT mutually exclusive in
-  // practice (a village moment can be open at the same time the hourly
-  // gathering-vote window is), so both can be visible at once and need to
-  // stack cleanly rather than overwrite each other.
+  // pollGatheringActive() above) instead of separate setIntervals.
+  // moment-vote-banner still renders into the static #map-status-banners
+  // top-bar wrapper (same insertBefore-at-top convention showHelpBanner()
+  // and _renderGatheringBanner() already use); the gathering-vote toast
+  // moved to the centered #map-center-toasts wrapper (see its CSS comment)
+  // -- they're independent UI slots now, so no shared ordering helper is
+  // needed between them.
   function _insertMapStatusBanner(banner) {
     const container = document.getElementById('map-status-banners');
     if (!container) return;
-    if (banner.id === 'gathering-vote-banner') {
-      container.insertBefore(banner, container.firstChild);
-    } else {
-      container.appendChild(banner);
-    }
+    container.appendChild(banner);
   }
 
   // Mirrors BUILDING_EVENTS/GATHERING_VOTE_KEYWORDS (app.py) for the
-  // gathering-vote banner's tally line -- small, rarely-changing content,
+  // gathering-vote toast's tally rows -- small, rarely-changing content,
   // same "duplicate the small mapping into JS" pattern as _LIFECYCLE_ICONS.
   const _GATHERING_VOTE_BUILDINGS = {
     sea_lion_pit:  { icon: '🐟', name: 'Sea Lion Pit',  command: '!vote fish' },
@@ -6054,6 +6064,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   };
 
   let _gatheringVoteCountdownTimer = null;
+  // Tracks the closes_at of a window the player manually dismissed (✕), so
+  // the next 4s poll (still voting_open, same window) doesn't immediately
+  // recreate it -- a fresh window (new closes_at) clears this and shows again.
+  let _gatheringVoteDismissedWindow = null;
 
   async function pollGatheringVoteStatus() {
     let data;
@@ -6063,35 +6077,70 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch (e) {
       data = { voting_open: false };
     }
-    _renderGatheringVoteBanner(data);
+    _renderGatheringVoteToast(data);
   }
 
-  function _renderGatheringVoteBanner(data) {
-    const existing = document.getElementById('gathering-vote-banner');
-    if (existing) existing.remove();
-    if (_gatheringVoteCountdownTimer) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; }
-    if (!data.voting_open) return;
+  function _renderGatheringVoteToast(data) {
+    if (!data.voting_open) {
+      const existing = document.getElementById('gathering-vote-toast');
+      if (existing) existing.remove();
+      if (_gatheringVoteCountdownTimer) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; }
+      _gatheringVoteDismissedWindow = null;
+      return;
+    }
+    if (data.closes_at !== _gatheringVoteDismissedWindow) {
+      _gatheringVoteDismissedWindow = null;
+    } else {
+      return; // dismissed for this window -- stay hidden until it closes/reopens
+    }
 
-    const tallyLine = Object.keys(data.tally || {}).map(function(bid) {
+    const tallyRows = Object.keys(data.tally || {}).map(function(bid) {
       const info = _GATHERING_VOTE_BUILDINGS[bid] || { icon: '🏛️', name: bid, command: '' };
-      return info.icon + ' ' + info.name + ' (' + info.command + '): ' + data.tally[bid];
-    }).join('  |  ');
+      return '<div class="gathering-vote-toast-tally-row">' +
+        '<span>' + info.icon + ' ' + GlobalChat._esc(info.name) + ': ' + data.tally[bid] + '</span>' +
+        '<span class="gathering-vote-toast-tally-cmd">' + GlobalChat._esc(info.command) + '</span>' +
+        '</div>';
+    }).join('');
 
-    const banner = document.createElement('div');
-    banner.className = 'gathering-vote-banner';
-    banner.id = 'gathering-vote-banner';
-    banner.innerHTML =
-      '<span class="gathering-vote-banner-icon">🗳️</span>' +
-      '<span class="gathering-vote-banner-text">Vote for the next gathering!</span>' +
-      '<span class="gathering-vote-banner-timer" id="gathering-vote-banner-timer"></span>' +
-      '<span class="gathering-vote-banner-tally">' + GlobalChat._esc(tallyLine) + '</span>';
-    _insertMapStatusBanner(banner);
+    // Update in place if already showing (avoid replaying the pop-in
+    // animation and re-fetching the tally markup every 4s poll); only build
+    // fresh DOM the first time this window appears.
+    let toast = document.getElementById('gathering-vote-toast');
+    if (toast) {
+      const tallyEl = toast.querySelector('.gathering-vote-toast-tally');
+      if (tallyEl) tallyEl.innerHTML = tallyRows;
+      return;
+    }
+
+    const container = document.getElementById('map-center-toasts');
+    if (!container) return;
+    toast = document.createElement('div');
+    toast.className = 'gathering-vote-toast';
+    toast.id = 'gathering-vote-toast';
+    toast.innerHTML =
+      '<div class="gathering-vote-toast-header">' +
+        '<span class="gathering-vote-toast-icon">🗳️</span>' +
+        '<span class="gathering-vote-toast-title">Vote for the next gathering!</span>' +
+        '<span class="gathering-vote-toast-timer" id="gathering-vote-toast-timer"></span>' +
+        '<button type="button" class="gathering-vote-toast-close" id="gathering-vote-toast-close" title="Dismiss">✕</button>' +
+      '</div>' +
+      '<div class="gathering-vote-toast-tally">' + tallyRows + '</div>';
+    container.appendChild(toast);
+
+    const closeBtn = document.getElementById('gathering-vote-toast-close');
+    if (closeBtn) closeBtn.addEventListener('click', function() {
+      _gatheringVoteDismissedWindow = data.closes_at;
+      toast.remove();
+      if (_gatheringVoteCountdownTimer) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; }
+    });
+
     _startGatheringVoteCountdown(data.closes_at);
   }
 
   function _startGatheringVoteCountdown(closesAt) {
+    if (_gatheringVoteCountdownTimer) clearInterval(_gatheringVoteCountdownTimer);
     function tick() {
-      const el = document.getElementById('gathering-vote-banner-timer');
+      const el = document.getElementById('gathering-vote-toast-timer');
       if (!el) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; return; }
       const remaining = Math.max(0, closesAt - Math.floor(Date.now() / 1000));
       const mm = Math.floor(remaining / 60);
@@ -11296,15 +11345,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // Persistent map overlay (not a one-shot celebration popup -- see
   // checkLifecycleNotices() routing interactive_moment notices here instead
   // of into queueCelebration()). Stays up for MOMENT_TOAST_DURATION_MS (5
-  // min) or until dismissed/resolved, rendered into #map-area (already
-  // position:relative) so it floats over the map without resizing/squashing
-  // it. Renders both penguins fully -- body color/shape + worn cosmetics --
-  // via the same _drawPenguinOnCanvas()/_drawSidebarWornItems() renderer the
+  // min) or until dismissed/resolved, rendered into #map-center-toasts (see
+  // that wrapper's own CSS comment for why it's centered rather than
+  // corner-docked) so it floats over the map without resizing/squashing it.
+  // Renders both penguins fully -- body color/shape + worn cosmetics -- via
+  // the same _drawPenguinOnCanvas()/_drawSidebarWornItems() renderer the
   // sidebar/inventory preview and igloo-visit host portraits already use.
   const MOMENT_TOAST_DURATION_MS = 5 * 60 * 1000;
 
   function showMomentToast(notice) {
-    const container = document.getElementById('map-area');
+    const container = document.getElementById('map-center-toasts');
     if (!container) return;
     const existing = document.getElementById('moment-toast');
     if (existing) existing.remove();
