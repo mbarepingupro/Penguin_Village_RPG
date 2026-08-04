@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 import datetime
+from zoneinfo import ZoneInfo
 import random
 import secrets
 import string
@@ -5189,6 +5190,17 @@ def stream_moment_vote():
     return jsonify({"status": "ok"})
 
 
+def _gathering_vote_window_open():
+    """True during the same 10-minute-before-the-hour window
+    announce_gathering_vote()'s own cron trigger fires in (hour="9-23",
+    minute=50, timezone="Europe/Berlin") -- reuses that schedule condition
+    rather than re-deriving a separate one, so GET /gathering/vote/status's
+    "is voting open" answer stays in sync with when the real chat
+    announcement would go out."""
+    berlin_now = datetime.datetime.now(ZoneInfo("Europe/Berlin"))
+    return berlin_now.minute >= 50 and 9 <= berlin_now.hour <= 23
+
+
 def announce_gathering_vote():
     """Fired hourly at :50, telling chat which command votes for which
     building ahead of the next hourly gathering. Runs regardless of the
@@ -5318,6 +5330,31 @@ def gathering_active():
         "ends_at":     row["ends_at"],
         "checked_in":  checked_in,
     })
+
+
+@app.route("/gathering/vote/status")
+def gathering_vote_status():
+    """Public read-only status for the map's gathering-vote banner -- same
+    style as GET /gathering/active. voting_open requires both no gathering
+    currently running and being within the pre-hour window
+    _gathering_vote_window_open() checks (same condition
+    announce_gathering_vote()'s cron trigger uses)."""
+    db = get_db()
+    active = _active_gathering_row(db)
+    if active or not _gathering_vote_window_open():
+        db.close()
+        return jsonify({"voting_open": False, "closes_at": None, "tally": None})
+
+    # Same "upcoming hour" formula /stream/gathering_vote tags votes with.
+    closes_at = ((int(time.time()) // 3600) + 1) * 3600
+    rows = db.execute(
+        "SELECT building_id, COUNT(*) as votes FROM gathering_votes WHERE window_start=? GROUP BY building_id",
+        (closes_at,)
+    ).fetchall()
+    db.close()
+    counts = {r["building_id"]: r["votes"] for r in rows}
+    tally  = {bid: counts.get(bid, 0) for bid in BUILDING_EVENTS}
+    return jsonify({"voting_open": True, "closes_at": closes_at, "tally": tally})
 
 
 @app.route("/gathering/checkin", methods=["POST"])
@@ -6979,6 +7016,38 @@ def get_relationships(username):
         })
     db.close()
     return jsonify({"relationships": rels})
+
+
+@app.route("/village/moment/vote/status")
+def village_moment_vote_status():
+    """Public read-only status for the map's moment-vote banner -- same
+    style as GET /gathering/active/GET /gathering/vote/status. flavor_text/
+    option labels come straight off the open row (already fully filled-in
+    display text from _create_moment(), no further formatting needed)."""
+    db  = get_db()
+    row = _active_moment_row(db)
+    if not row:
+        db.close()
+        return jsonify({
+            "moment_open": False, "flavor_text": None,
+            "option_a_label": None, "option_b_label": None,
+            "closes_at": None, "tally": None,
+        })
+
+    votes = db.execute(
+        "SELECT resolution, COUNT(*) as votes FROM moment_votes WHERE moment_id=? GROUP BY resolution",
+        (row["id"],)
+    ).fetchall()
+    db.close()
+    counts = {v["resolution"]: v["votes"] for v in votes}
+    return jsonify({
+        "moment_open":     True,
+        "flavor_text":     row["flavor_text"],
+        "option_a_label":  row["option_a_label"],
+        "option_b_label":  row["option_b_label"],
+        "closes_at":       row["window_closes_at"],
+        "tally":           {"a": counts.get("a", 0), "b": counts.get("b", 0)},
+    })
 
 
 @app.route("/village/moment/resolve", methods=["POST"])

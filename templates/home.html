@@ -2304,6 +2304,23 @@
     .gathering-banner-checkin:hover { background: #4aff6b; color: #181820; }
     .gathering-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #4aff6b; flex-shrink: 0; }
 
+    /* ── LIVE VOTE STATUS BANNERS (map tab, #map-status-banners) --
+       same visual convention as .gathering-banner above, distinct accent
+       colors so the two never get mistaken for each other or for the
+       building-modal gathering-active banner. ── */
+    #map-status-banners { display: flex; flex-direction: column; }
+    .gathering-vote-banner { position: relative; width: 100%; background: #141a2e; border-bottom: 2px solid #6EA8FF; padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; animation: helpBannerSlideIn 0.3s ease-out; z-index: 10; box-sizing: border-box; }
+    .gathering-vote-banner-icon { font-size: 18px; flex-shrink: 0; }
+    .gathering-vote-banner-text { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #6EA8FF; line-height: 1.5; flex: 1 1 100%; }
+    .gathering-vote-banner-tally { font-family: 'C&C Red Alert', monospace; font-size: 14px; color: #B8B8D0; line-height: 1.6; flex: 1 1 100%; }
+    .gathering-vote-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #6EA8FF; flex-shrink: 0; }
+
+    .moment-vote-banner { position: relative; width: 100%; background: #1a1428; border-bottom: 2px solid #C77DFF; padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; animation: helpBannerSlideIn 0.3s ease-out; z-index: 10; box-sizing: border-box; }
+    .moment-vote-banner-icon { font-size: 18px; flex-shrink: 0; }
+    .moment-vote-banner-text { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #C77DFF; line-height: 1.5; flex: 1 1 100%; }
+    .moment-vote-banner-tally { font-family: 'C&C Red Alert', monospace; font-size: 14px; color: #B8B8D0; line-height: 1.6; flex: 1 1 100%; }
+    .moment-vote-banner-timer { font-family: 'C&C Red Alert', monospace; font-size: 16px; color: #C77DFF; flex-shrink: 0; }
+
     /* ── Help button in nav ── */
     #help-btn {
       background: none;
@@ -3663,6 +3680,7 @@
 
       <!-- MAP TAB -->
       <div class="content-panel active" id="panel-map">
+        <div id="map-status-banners"></div>
         <div class="resource-bar" id="resource-bar">
           <div class="resource-item" id="res-gold" data-resource="gold">
             <span class="res-icon">🪙</span>
@@ -4725,6 +4743,9 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       // Same piggyback for the building gathering-event highlight/banner --
       // no separate setInterval for this either.
       pollGatheringActive();
+      // Same piggyback again for the two map-level vote status banners.
+      pollGatheringVoteStatus();
+      pollMomentVoteStatus();
     },
 
     startPolling: function() {
@@ -5964,6 +5985,140 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch (e) {
       showToast('Network error.', 'err');
     }
+  }
+
+  // ── LIVE VOTE STATUS BANNERS (map tab) ──────────────────────────────────
+  // Both piggyback GlobalChat's existing 4s/on-map-tab poll (see the
+  // pollGatheringVoteStatus()/pollMomentVoteStatus() calls next to
+  // pollGatheringActive() above) instead of separate setIntervals, and both
+  // render into the static #map-status-banners wrapper at the top of the
+  // map tab -- same insertBefore-at-top convention showHelpBanner() and
+  // _renderGatheringBanner() already use, just scoped to this dedicated
+  // wrapper so they don't fight other banners (or each other) for position.
+  // _insertMapStatusBanner() enforces a stable relative order (gathering-vote
+  // banner always above the moment-vote banner) regardless of which poll's
+  // response lands first -- these two banners are NOT mutually exclusive in
+  // practice (a village moment can be open at the same time the hourly
+  // gathering-vote window is), so both can be visible at once and need to
+  // stack cleanly rather than overwrite each other.
+  function _insertMapStatusBanner(banner) {
+    const container = document.getElementById('map-status-banners');
+    if (!container) return;
+    if (banner.id === 'gathering-vote-banner') {
+      container.insertBefore(banner, container.firstChild);
+    } else {
+      container.appendChild(banner);
+    }
+  }
+
+  // Mirrors BUILDING_EVENTS/GATHERING_VOTE_KEYWORDS (app.py) for the
+  // gathering-vote banner's tally line -- small, rarely-changing content,
+  // same "duplicate the small mapping into JS" pattern as _LIFECYCLE_ICONS.
+  const _GATHERING_VOTE_BUILDINGS = {
+    sea_lion_pit:  { icon: '🐟', name: 'Sea Lion Pit',  command: '!vote fish' },
+    cursed_temple: { icon: '🔮', name: 'Cursed Temple', command: '!vote temple' },
+    club_soda:     { icon: '🍹', name: 'Club Soda',     command: '!vote soda' },
+    parkmusement:  { icon: '🎪', name: 'Parkmusement',  command: '!vote park' },
+  };
+
+  let _gatheringVoteCountdownTimer = null;
+
+  async function pollGatheringVoteStatus() {
+    let data;
+    try {
+      const res = await fetch('/gathering/vote/status');
+      data = await res.json();
+    } catch (e) {
+      data = { voting_open: false };
+    }
+    _renderGatheringVoteBanner(data);
+  }
+
+  function _renderGatheringVoteBanner(data) {
+    const existing = document.getElementById('gathering-vote-banner');
+    if (existing) existing.remove();
+    if (_gatheringVoteCountdownTimer) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; }
+    if (!data.voting_open) return;
+
+    const tallyLine = Object.keys(data.tally || {}).map(function(bid) {
+      const info = _GATHERING_VOTE_BUILDINGS[bid] || { icon: '🏛️', name: bid, command: '' };
+      return info.icon + ' ' + info.name + ' (' + info.command + '): ' + data.tally[bid];
+    }).join('  |  ');
+
+    const banner = document.createElement('div');
+    banner.className = 'gathering-vote-banner';
+    banner.id = 'gathering-vote-banner';
+    banner.innerHTML =
+      '<span class="gathering-vote-banner-icon">🗳️</span>' +
+      '<span class="gathering-vote-banner-text">Vote for the next gathering!</span>' +
+      '<span class="gathering-vote-banner-timer" id="gathering-vote-banner-timer"></span>' +
+      '<span class="gathering-vote-banner-tally">' + GlobalChat._esc(tallyLine) + '</span>';
+    _insertMapStatusBanner(banner);
+    _startGatheringVoteCountdown(data.closes_at);
+  }
+
+  function _startGatheringVoteCountdown(closesAt) {
+    function tick() {
+      const el = document.getElementById('gathering-vote-banner-timer');
+      if (!el) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; return; }
+      const remaining = Math.max(0, closesAt - Math.floor(Date.now() / 1000));
+      const mm = Math.floor(remaining / 60);
+      const ss = remaining % 60;
+      el.textContent = mm + ':' + String(ss).padStart(2, '0');
+      if (remaining <= 0) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; }
+    }
+    tick();
+    _gatheringVoteCountdownTimer = setInterval(tick, 1000);
+  }
+
+  let _momentVoteCountdownTimer = null;
+
+  async function pollMomentVoteStatus() {
+    let data;
+    try {
+      const res = await fetch('/village/moment/vote/status');
+      data = await res.json();
+    } catch (e) {
+      data = { moment_open: false };
+    }
+    _renderMomentVoteBanner(data);
+  }
+
+  function _renderMomentVoteBanner(data) {
+    const existing = document.getElementById('moment-vote-banner');
+    if (existing) existing.remove();
+    if (_momentVoteCountdownTimer) { clearInterval(_momentVoteCountdownTimer); _momentVoteCountdownTimer = null; }
+    if (!data.moment_open) return;
+
+    const tally = data.tally || { a: 0, b: 0 };
+    const tallyLine =
+      '🤝 ' + data.option_a_label + ' (!resolve a): ' + tally.a +
+      '  |  😤 ' + data.option_b_label + ' (!resolve b): ' + tally.b;
+
+    const banner = document.createElement('div');
+    banner.className = 'moment-vote-banner';
+    banner.id = 'moment-vote-banner';
+    banner.innerHTML =
+      '<span class="moment-vote-banner-icon">🤝</span>' +
+      '<span class="moment-vote-banner-text">' + data.flavor_text + '</span>' +
+      '<span class="moment-vote-banner-timer" id="moment-vote-banner-timer"></span>' +
+      '<span class="moment-vote-banner-tally">' + tallyLine + '</span>';
+    _insertMapStatusBanner(banner);
+    _startMomentVoteCountdown(data.closes_at);
+  }
+
+  function _startMomentVoteCountdown(closesAt) {
+    function tick() {
+      const el = document.getElementById('moment-vote-banner-timer');
+      if (!el) { clearInterval(_momentVoteCountdownTimer); _momentVoteCountdownTimer = null; return; }
+      const remaining = Math.max(0, closesAt - Math.floor(Date.now() / 1000));
+      const mm = Math.floor(remaining / 60);
+      const ss = remaining % 60;
+      el.textContent = mm + ':' + String(ss).padStart(2, '0');
+      if (remaining <= 0) { clearInterval(_momentVoteCountdownTimer); _momentVoteCountdownTimer = null; }
+    }
+    tick();
+    _momentVoteCountdownTimer = setInterval(tick, 1000);
   }
 
   // ── BOUTIQUE ──────────────────────────────────────────────────────────────
