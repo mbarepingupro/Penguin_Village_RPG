@@ -749,12 +749,9 @@ _REACTION_RETENTION_SECONDS  = 60  # opportunistic prune threshold on send -- se
 # GROUP_EVENT_CHANCE_PER_TICK below, tune once real chat volume is observed.
 CHAT_INVITE_COOLDOWN_SECONDS = 900   # 15 minutes
 
-# Chance a requires_other autonomous-action interaction gets promoted to an
-# interactive village_moments popup instead of resolving silently (see
-# run_autonomous_actions()) -- flat for now, same convention as
-# GROUP_EVENT_CHANCE_PER_TICK. How long the two owners have to Agree/Disagree
-# before a scheduled job resolves it as a no-op (see resolve_stale_moments()).
-INTERACTIVE_MOMENT_CHANCE_PER_TICK = 0.1
+# How long the two owners of an interactive village_moments popup (see
+# maybe_start_moment()) have to Agree/Disagree before a scheduled job
+# resolves it as a no-op (see resolve_stale_moments()).
 INTERACTIVE_MOMENT_WINDOW_SECONDS  = 20 * 60   # 20 minutes
 
 # ── Passive seals (award_passive_seals scheduler job) ────────────────────────
@@ -2578,20 +2575,6 @@ def run_autonomous_actions():
             )
             if action["requires_other"] and other_penguin:
                 _record_auto_interaction(db, penguin["username"], other_penguin["username"], action, now)
-                # Interactive moments: promote this interaction into a popup the
-                # two owners can steer toward one of two distinct outcomes
-                # (see moment_scenarios.MOMENT_SCENARIOS), instead of it just
-                # being a silent event_log line (which still happens above,
-                # unchanged, regardless of promotion). Only one open moment
-                # village-wide at a time, same "check before create" shape as
-                # gatherings.
-                if FEATURES.get("interactive_moments", False) and not _active_moment_row(db):
-                    if random.random() < INTERACTIVE_MOMENT_CHANCE_PER_TICK:
-                        _create_moment(
-                            db, penguin["username"], penguin.get("penguin_name") or penguin["username"],
-                            other_penguin["username"], other_penguin.get("penguin_name") or other_penguin["username"],
-                            now
-                        )
             generated += 1
         except Exception as e:
             print(f"[Autonomous] Error for {penguin.get('username')}: {e}")
@@ -7209,6 +7192,56 @@ def resolve_stale_moments():
 if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
     _scheduler.add_job(resolve_stale_moments, "interval", seconds=60,
                        id="resolve_stale_moments", misfire_grace_time=60)
+
+
+def maybe_start_moment():
+    """Every 30 minutes, while the stream is live, has a chance to start a
+    real interactive moment between two currently-present viewers -- see
+    _create_moment(). Replaces the old per-tick promotion roll that used to
+    live inside run_autonomous_actions() (any two random penguins, live or
+    not); this always draws from stream_tier >= 2 (currently present/
+    chatting -- same pool award_passive_seals() already uses), so a moment
+    always involves two people who are actually around to see and steer it.
+
+    Skips entirely if interactive_moments is off, a moment is already open,
+    the stream isn't live, or fewer than two viewers are present.
+    /mayor/debug/force_moment is unaffected -- it still bypasses all of this
+    for testing."""
+    if not FEATURES.get("interactive_moments", False):
+        return
+    if not _stream_is_live():
+        return
+    db = get_db()
+    if _active_moment_row(db):
+        db.close()
+        return
+    try:
+        usernames = [r["username"] for r in db.execute(
+            "SELECT username FROM penguins WHERE stream_tier >= 2"
+        ).fetchall()]
+    except Exception as e:
+        print(f"[VillageMoments] Failed to load present penguins: {e}")
+        db.close()
+        return
+    if len(usernames) < 2:
+        db.close()
+        return
+
+    username1, username2 = random.sample(usernames, 2)
+    p1 = db.execute("SELECT penguin_name FROM penguins WHERE username=?", (username1,)).fetchone()
+    p2 = db.execute("SELECT penguin_name FROM penguins WHERE username=?", (username2,)).fetchone()
+    now = int(time.time())
+    _create_moment(
+        db, username1, p1["penguin_name"] or username1,
+        username2, p2["penguin_name"] or username2, now
+    )
+    db.commit()
+    db.close()
+
+
+if _APSCHEDULER_AVAILABLE and (os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug):
+    _scheduler.add_job(maybe_start_moment, "interval", minutes=30,
+                       id="maybe_start_moment", misfire_grace_time=60)
 
 
 # ── EVENT LOG ─────────────────────────────────────────────────────────────────
