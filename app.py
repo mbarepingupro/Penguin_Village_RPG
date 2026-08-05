@@ -1458,7 +1458,7 @@ IGLOO_FURNITURE = {
     "wardrobe":           {"name": "Wardrobe",           "width": 2, "height": 1, "cost": {"gold": 400},  "category": "furniture"},
     "rug_large":          {"name": "Large Rug",          "width": 3, "height": 3, "cost": {"gold": 500},  "category": "decor"},
     "throne":             {"name": "Throne",             "width": 2, "height": 2, "cost": {"gold": 2000}, "category": "furniture"},
-    "grand_piano":        {"name": "Grand Piano",        "width": 3, "height": 2, "cost": {"gold": 3000}, "category": "furniture"},
+    "grand_piano":        {"name": "Grand Piano",        "width": 3, "height": 2, "cost": {"gold": 3000}, "category": "furniture", "interactive": "minigame"},
     "fountain":           {"name": "Indoor Fountain",    "width": 2, "height": 2, "cost": {"gold": 2500, "spell_fragments": 50}, "category": "decor"},
     "trophy_case":        {"name": "Trophy Case",        "width": 2, "height": 1, "cost": {"gold": 1500}, "category": "furniture"},
     "crystal_chandelier": {"name": "Crystal Chandelier", "width": 1, "height": 1, "cost": {"gold": 4000, "spell_fragments": 100}, "category": "decor"},
@@ -7468,6 +7468,13 @@ def get_igloo(username):
 DOORBELL_NOTE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]  # C4..C5 major scale
 
 
+def _doorbell_slot_count(room_level):
+    """Number of doorbell-tune slots unlocked at a given igloo room_level --
+    starts at 12 (room_level 1) and gains 3 more per level above that.
+    Mirrored in templates/home.html's _doorbellSlotCount()."""
+    return 12 + 3 * (max(1, room_level or 1) - 1)
+
+
 @app.route("/igloo/doorbell", methods=["POST"])
 def save_doorbell_tune():
     username = session.get("username", "")
@@ -7476,14 +7483,18 @@ def save_doorbell_tune():
     data = request.get_json(silent=True) or {}
     tune = data.get("tune")
 
+    db = get_db()
     if tune is not None:
-        if not isinstance(tune, list) or len(tune) != 12:
-            return jsonify({"status": "error", "message": "Tune must be exactly 12 slots."})
+        igloo = db.execute("SELECT room_level FROM igloos WHERE username=?", (username,)).fetchone()
+        expected_slots = _doorbell_slot_count(igloo["room_level"] if igloo else 1)
+        if not isinstance(tune, list) or len(tune) != expected_slots:
+            db.close()
+            return jsonify({"status": "error", "message": f"Tune must be exactly {expected_slots} slots."})
         for slot in tune:
             if slot is not None and (not isinstance(slot, int) or not (0 <= slot < len(DOORBELL_NOTE_FREQS))):
+                db.close()
                 return jsonify({"status": "error", "message": "Each slot must be null or 0-7."})
 
-    db = get_db()
     db.execute(
         "UPDATE penguins SET doorbell_tune=? WHERE username=?",
         (json.dumps(tune) if tune is not None else None, username)
@@ -11773,7 +11784,7 @@ def bank_sell_to_bank():
     })
 
 
-MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine")
+MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano")
 
 # Mirrors templates/home.html's MINIGAME_LABELS -- kept as a separate copy
 # rather than a shared source since one lives in Python (chat announcements)
@@ -11784,6 +11795,7 @@ MINIGAME_LABELS = {
     "parkmusement":  "🎪 Juggle Master",
     "cursed_temple": "🔮 Rune Memory",
     "guillotine":    "💀 Whack-a-Target",
+    "grand_piano":   "🎹 Piano Recital",
 }
 
 
@@ -11794,6 +11806,7 @@ def calculate_minigame_rewards(building_id, score, player_level):
         "parkmusement":  {"gold": 20, "xp": 10},
         "cursed_temple": {"spell_fragments": 12, "gold": 5, "xp": 10},
         "guillotine":    {"blood_gems": 6, "bones": 6, "gold": 5, "xp": 10},
+        "grand_piano":   {"gold": 20, "xp": 10},
     }
     # `score` is now the player's raw, uncapped score (see minigame_complete --
     # scores used to be clamped to 0-100 before storage/display; now only the
@@ -12137,11 +12150,27 @@ def minigame_start():
     username    = session.get("username", "")
     building_id = data.get("building_id", "")
     is_tutorial = bool(data.get("tutorial", False))
+    host_username = data.get("host_username", "")
 
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
     if building_id not in MINIGAME_BUILDING_IDS:
         return jsonify({"status": "error", "message": "No mini-game at this building."})
+
+    # grand_piano isn't a building -- it's igloo furniture, playable by the
+    # owner or any visiting guest, so the check is on where the piano is
+    # physically placed rather than on who's asking (any logged-in player).
+    if building_id == "grand_piano":
+        if not host_username:
+            return jsonify({"status": "error", "message": "No piano to play."})
+        piano_db = get_db()
+        piano = piano_db.execute(
+            "SELECT 1 FROM igloo_furniture WHERE username=? AND item_id='grand_piano'",
+            (host_username,)
+        ).fetchone()
+        piano_db.close()
+        if not piano:
+            return jsonify({"status": "error", "message": "There's no Grand Piano there to play."})
 
     # This route didn't flush accrued passive regen before, so a player
     # could see/spend a stale (too-low) energy value here.
@@ -12269,7 +12298,7 @@ def _minigame_week_bounds(reference_ts=None):
 
 
 def _compute_weekly_minigame_leaderboards_by_game(week_start, week_end):
-    """Independent per-game weekly rankings -- each of the 5 minigames has its
+    """Independent per-game weekly rankings -- each of the 6 minigames has its
     own leaderboard, unrelated to how anyone did in the other 4. Raw scores
     aren't comparable across games (fish caught vs combo points vs memory
     rounds), so there's no cross-game normalization or combined total here,
@@ -12333,7 +12362,7 @@ def minigame_leaderboard_route():
 def resolve_weekly_minigame_leaderboard():
     """Saturday 00:00 UTC -- resolves the just-ended Mon->Sat minigame week.
 
-    Each of the 5 minigames is its own independent competition: whoever holds
+    Each of the 6 minigames is its own independent competition: whoever holds
     rank #1 in a given game gets exactly 1 N00Tbox (grant_lootbox, source
     "minigame_weekly_<building_id>") for that game -- no ranks 2/3, no
     resource curve for the rest of the field, and a game nobody played this

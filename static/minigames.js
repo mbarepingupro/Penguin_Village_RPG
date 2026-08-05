@@ -68,6 +68,7 @@ var MiniGameManager = {
       parkmusement:  '🎪 JUGGLE MASTER',
       cursed_temple: '🔮 RUNE MEMORY',
       guillotine:    '💀 WHACK-A-TARGET',
+      grand_piano:   '🎹 PIANO RECITAL',
     };
     var insts = {
       sea_lion_pit:  'Click fish to catch them! Avoid puffer fish! Golden fish = jackpot!',
@@ -75,6 +76,7 @@ var MiniGameManager = {
       parkmusement:  'Click in the green zone to bounce the ball! Hit 🎯 targets for +8 pts! Click off-center to steer.',
       cursed_temple: 'Watch the rune sequence, then repeat it in order!',
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
+      grand_piano:   'Watch the keys light up, then play them back in order!',
     };
     document.getElementById('mg-title').textContent = titles[buildingId] || 'MINI-GAME';
     document.getElementById('mg-instruction').textContent = insts[buildingId] || '';
@@ -86,6 +88,7 @@ var MiniGameManager = {
       case 'parkmusement':  this._activeGame = JuggleMasterGame; break;
       case 'cursed_temple': this._activeGame = RuneMemoryGame;   break;
       case 'guillotine':    this._activeGame = ExecutionerGame;  break;
+      case 'grand_piano':   this._activeGame = PianoRecitalGame; break;
       default:              this._activeGame = FishCatchGame;
     }
 
@@ -1035,6 +1038,195 @@ var RuneMemoryGame = {
         ctx.fillStyle = '#B8B8D0';
         ctx.font = '12px monospace';
         ctx.fillText('Tap the runes in order', canvas.width / 2, 48);
+      } else if (self._phase === 'result') {
+        ctx.fillStyle = self._correct ? '#4aff6b' : '#ff6b6b';
+        ctx.font = 'bold 20px monospace';
+        ctx.fillText(self._correct ? '✓ CORRECT! +' + (5 + self._round * 3) : '✗ WRONG! -3', canvas.width / 2, 28);
+      }
+
+      ctx.textAlign = 'left';
+      self._animFrame = requestAnimationFrame(loop);
+    }
+    self._animFrame = requestAnimationFrame(loop);
+  },
+
+  stop: function() {
+    this._running = false;
+    if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
+    if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
+  },
+};
+
+// ─── Piano Recital (Grand Piano) ───────────────────────────────────────────
+// Same show/repeat structure as RuneMemoryGame, re-themed with piano keys
+// laid out in a row instead of runes in a circle, and GameSounds.pianoKey()
+// instead of runeChime() for a distinct note per key.
+
+var PianoRecitalGame = {
+  duration: 50,
+  _canvas: null,
+  _ctx: null,
+  _running: false,
+  _animFrame: null,
+  _keys: [],
+  _sequence: [],
+  _input: [],
+  _phase: 'show', // show | input | result
+  _showIdx: 0,
+  _showTimer: 0,
+  _resultTimer: 0,
+  _correct: null,
+  _round: 0,
+
+  NOTES:  ['C','D','E','F','G','A','B','C'],
+  COLORS: ['#FF6B6B','#FF8C00','#FFD700','#4aff6b','#4aafff','#A86EFF','#FF6BC1','#FF6B6B'],
+
+  init: function(canvas, ctx) {
+    this._canvas = canvas;
+    this._ctx = ctx;
+    this._running = true;
+    this._sequence = [];
+    this._input = [];
+    this._phase = 'show';
+    this._showIdx = 0;
+    this._showTimer = 0.4;
+    this._correct = null;
+    this._round = 0;
+
+    var n = 8;
+    var keyW = Math.min((canvas.width - 20) / n, 52);
+    var keyH = keyW * 2.1;
+    var startX = (canvas.width - keyW * n) / 2;
+    var y = canvas.height / 2 - keyH / 2 + 20;
+    this._keys = [];
+    for (var i = 0; i < n; i++) {
+      this._keys.push({ x: startX + i * keyW, y: y, w: keyW - 3, h: keyH, lit: false, litT: 0, idx: i });
+    }
+
+    this._startRound();
+    var handler = this._handleClick.bind(this);
+    canvas.onclick = handler;
+    canvas.ontouchend = function(e) { e.preventDefault(); handler(e.changedTouches[0]); };
+    this._render();
+  },
+
+  _startRound: function() {
+    this._round++;
+    this._sequence.push(Math.floor(Math.random() * 8));
+    this._input = [];
+    this._phase = 'show';
+    this._showIdx = 0;
+    this._showTimer = 0.6;
+  },
+
+  _handleClick: function(e) {
+    if (!this._running || this._phase !== 'input') return;
+    var rect = this._canvas.getBoundingClientRect();
+    var sx = this._canvas.width / rect.width;
+    var sy = this._canvas.height / rect.height;
+    var mx = ((e.clientX !== undefined ? e.clientX : e.pageX) - rect.left) * sx;
+    var my = ((e.clientY !== undefined ? e.clientY : e.pageY) - rect.top) * sy;
+
+    for (var i = 0; i < this._keys.length; i++) {
+      var k = this._keys[i];
+      if (mx >= k.x && mx <= k.x + k.w && my >= k.y && my <= k.y + k.h) {
+        this._input.push(k.idx);
+        k.lit = true; k.litT = 0.5;
+        if (window.GameSounds) GameSounds.pianoKey(k.idx);
+        var pos = this._input.length - 1;
+        if (k.idx !== this._sequence[pos]) {
+          this._phase = 'result'; this._resultTimer = 1.4; this._correct = false;
+          MiniGameManager.addScore(-3);
+          if (window.GameSounds) GameSounds.minigameMiss();
+        } else if (this._input.length === this._sequence.length) {
+          this._phase = 'result'; this._resultTimer = 0.9; this._correct = true;
+          var pts = 5 + this._round * 3;
+          MiniGameManager.addScore(pts);
+          if (window.GameSounds) { if (this._round >= 3) GameSounds.minigameCombo(); else GameSounds.minigameHit(); }
+        }
+        break;
+      }
+    }
+  },
+
+  _render: function() {
+    if (!this._running) return;
+    var self = this;
+    var ctx = this._ctx;
+    var canvas = this._canvas;
+    var last = null;
+
+    function loop(ts) {
+      if (!self._running) return;
+      var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
+      last = ts;
+
+      ctx.fillStyle = '#0e0a06';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Phase update
+      if (self._phase === 'show') {
+        self._showTimer -= dt;
+        if (self._showTimer <= 0) {
+          if (self._showIdx < self._sequence.length) {
+            self._keys[self._sequence[self._showIdx]].lit = true;
+            self._keys[self._sequence[self._showIdx]].litT = 0.65;
+            if (window.GameSounds) GameSounds.pianoKey(self._sequence[self._showIdx]);
+            self._showIdx++;
+            // Cap at 1.5× so the sequence remains readable even late in the game
+            self._showTimer = 0.85 / Math.min(MiniGameManager.getDifficultyMult(), 1.5);
+          } else {
+            self._phase = 'input';
+          }
+        }
+      } else if (self._phase === 'result') {
+        self._resultTimer -= dt;
+        if (self._resultTimer <= 0) {
+          if (self._correct) { self._startRound(); }
+          else {
+            self._sequence = [Math.floor(Math.random() * 8)];
+            self._input = []; self._phase = 'show'; self._showIdx = 0; self._showTimer = 0.5;
+          }
+        }
+      }
+
+      // Keys
+      for (var i = 0; i < self._keys.length; i++) {
+        var k = self._keys[i];
+        if (k.litT > 0) k.litT -= dt;
+        var lit = k.lit && k.litT > 0;
+        if (k.lit && k.litT <= 0) k.lit = false;
+
+        ctx.fillStyle = lit ? self.COLORS[k.idx] : '#f0e8d8';
+        ctx.fillRect(k.x, k.y, k.w, k.h);
+        ctx.strokeStyle = '#2a2018';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(k.x, k.y, k.w, k.h);
+
+        ctx.fillStyle = lit ? '#000' : '#4a3a28';
+        ctx.font = 'bold 15px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(self.NOTES[k.idx], k.x + k.w / 2, k.y + k.h - 10);
+      }
+
+      // HUD text
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      if (self._phase === 'show') {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 15px monospace';
+        ctx.fillText('MEMORIZE THE MELODY...', canvas.width / 2, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        ctx.fillText('Round ' + self._round + ' — ' + self._sequence.length + ' note(s)', canvas.width / 2, 48);
+      } else if (self._phase === 'input') {
+        ctx.fillStyle = '#4aff6b';
+        ctx.font = 'bold 15px monospace';
+        ctx.fillText('YOUR TURN! (' + self._input.length + ' / ' + self._sequence.length + ')', canvas.width / 2, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        ctx.fillText('Play the keys in order', canvas.width / 2, 48);
       } else if (self._phase === 'result') {
         ctx.fillStyle = self._correct ? '#4aff6b' : '#ff6b6b';
         ctx.font = 'bold 20px monospace';

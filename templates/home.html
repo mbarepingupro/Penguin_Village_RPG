@@ -3936,6 +3936,7 @@
         <div style="background:var(--dark);border:2px solid var(--purple);padding:20px 24px;max-width:340px;font-family:'C&C Red Alert',monospace;">
           <div style="font-size:20px;color:var(--purple);text-align:center;margin-bottom:8px;">🔔 IGLOO DOORBELL</div>
           <div style="color:#B8B8D0;font-size:16px;text-align:center;margin-bottom:14px;">Click a slot to cycle through notes (leave blank for a rest). Plays when someone visits your igloo.</div>
+          <div id="doorbell-slot-info" style="color:#8888A8;font-size:16px;text-align:center;margin-bottom:8px;"></div>
           <div id="doorbell-slots" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:14px;"></div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
             <button class="igloo-hdr-btn" onclick="doorbellPlayPreview()">▶ PREVIEW</button>
@@ -8309,18 +8310,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
 
 
-  async function startMiniGame(buildingId) {
+  async function startMiniGame(buildingId, extraStartBody) {
+    extraStartBody = extraStartBody || {};
     const isTutorial = window.TutorialManager && TutorialManager._minigameTutorial;
     try {
       const res = await fetch('/minigame/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId, tutorial: isTutorial })
+        body: JSON.stringify({ username: CURRENT_USER, building_id: buildingId, tutorial: isTutorial, ...extraStartBody })
       });
       const data = await res.json();
       if (data.status !== 'success') { showToast(data.message || 'Cannot start mini-game', 'err'); return; }
     } catch(e) { showToast('Error starting mini-game.', 'err'); return; }
-    closeBuildingPanel();
+    // extraStartBody.host_username marks an igloo-furniture-triggered start (e.g.
+    // the Grand Piano) -- there's no building panel open in that flow, so skip
+    // the modal-close teardown that every real building's start does.
+    if (!extraStartBody.host_username) closeBuildingPanel();
     if (!window.MiniGameManager) { showToast('Mini-game system not loaded.', 'err'); return; }
     MiniGameManager.startGame(buildingId, async function(score) {
       try {
@@ -8599,6 +8604,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     parkmusement:  '🎪 Juggle Master',
     cursed_temple: '🔮 Rune Memory',
     guillotine:    '💀 Whack-a-Target',
+    grand_piano:   '🎹 Piano Recital',
   };
 
   async function loadMinigameRecords() {
@@ -9570,7 +9576,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       } catch(e) {}
 
       IglooRenderer.init('igloo-canvas', IGLOO_FURNITURE_DEFS);
-      IglooRenderer.load(data);
+      IglooRenderer.load(data, CURRENT_USER);
       document.getElementById('igloo-room-title').textContent = iglooRoomTitle(data);
 
       // Set up callbacks
@@ -9578,6 +9584,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       IglooRenderer.onFurnitureSelect = iglooOnFurnitureSelect;
       IglooRenderer.onPaintCell = iglooPaintFloorCell;
       IglooRenderer.onWallClick = iglooPaintWallCell;
+      IglooRenderer.onInteractiveFurnitureClick = iglooOnInteractiveFurnitureClick;
 
       // Own-igloo room bar (upgrade + floor/wall paint) -- populated up
       // front so it's ready the moment the player opens it via the 🎨 ROOM
@@ -9630,16 +9637,28 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   const DOORBELL_NOTE_NAMES = ['C','D','E','F','G','A','B','C'];
   let _doorbellTune = new Array(12).fill(null);
 
+  // Starts at 12 (room_level 1), +3 slots per igloo level above that --
+  // mirrors app.py's _doorbell_slot_count() exactly.
+  function _doorbellSlotCount(roomLevel) {
+    return 12 + 3 * ((roomLevel || 1) - 1);
+  }
+
   async function openDoorbellCreator() {
+    let roomLevel = 1;
+    let saved = [];
     try {
       const res  = await fetch(`/igloo/${CURRENT_USER}`);
       const data = await res.json();
-      _doorbellTune = (Array.isArray(data.host_doorbell_tune) && data.host_doorbell_tune.length === 12)
-        ? data.host_doorbell_tune.slice()
-        : new Array(12).fill(null);
-    } catch(e) {
-      _doorbellTune = new Array(12).fill(null);
-    }
+      roomLevel = data.room_level || 1;
+      saved = Array.isArray(data.host_doorbell_tune) ? data.host_doorbell_tune : [];
+    } catch(e) {}
+    const slotCount = _doorbellSlotCount(roomLevel);
+    _doorbellTune = new Array(slotCount).fill(null);
+    for (let i = 0; i < Math.min(saved.length, slotCount); i++) _doorbellTune[i] = saved[i];
+
+    const infoEl = document.getElementById('doorbell-slot-info');
+    if (infoEl) infoEl.textContent = `${slotCount} notes unlocked (igloo Lv ${roomLevel})`;
+
     _renderDoorbellSlots();
     document.getElementById('doorbell-overlay').style.display = 'flex';
     if (window.GameSounds) GameSounds.modalOpen();
@@ -9654,7 +9673,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const container = document.getElementById('doorbell-slots');
     if (!container) return;
     let html = '';
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < _doorbellTune.length; i++) {
       const val   = _doorbellTune[i];
       const label = (val === null || val === undefined) ? '—' : DOORBELL_NOTE_NAMES[val];
       html += `<button class="igloo-hdr-btn" style="padding:8px 0;" onclick="doorbellCycleSlot(${i})">${label}</button>`;
@@ -9963,6 +9982,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   function iglooOnFurnitureSelect(id) {
     iglooRenderEditPanel();
+  }
+
+  // View-mode click on a piece of furniture flagged interactive:"minigame"
+  // (currently just the Grand Piano) -- fires for the owner looking at their
+  // own room or any visiting guest, since IglooRenderer's callback carries
+  // whichever username's igloo is currently loaded.
+  function iglooOnInteractiveFurnitureClick(itemId, hostUsername) {
+    if (itemId === 'grand_piano') {
+      startMiniGame(itemId, { host_username: hostUsername });
+    }
   }
 
   async function iglooDoRemove(placementId) {
@@ -11883,12 +11912,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const data = await res.json();
       if (!data || data.status === 'error') return;
 
-      // Load into renderer (read-only — clear edit callbacks)
-      IglooRenderer.load(data);
+      // Load into renderer (read-only — clear edit callbacks, but keep
+      // interactive-furniture clicks live so a guest can play the piano)
+      IglooRenderer.load(data, username);
       IglooRenderer.onCellClick      = null;
       IglooRenderer.onFurnitureSelect = null;
       IglooRenderer.onPaintCell      = null;
       IglooRenderer.onWallClick      = null;
+      IglooRenderer.onInteractiveFurnitureClick = iglooOnInteractiveFurnitureClick;
 
       const titleEl = document.getElementById('igloo-room-title');
       if (titleEl) titleEl.textContent = username.toUpperCase() + "'S IGLOO";

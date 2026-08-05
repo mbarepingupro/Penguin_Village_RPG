@@ -25,8 +25,8 @@ FEATURES = {
                               # templates/home.html (hides the social-mode-section UI).
                               # /penguin/social-mode and the DB columns are untouched/ungated so
                               # re-enabling is just flipping this flag back to True.
-    "minigame_leaderboard": True,  # 5 independent per-game weekly minigame leaderboards + Saturday
-                                    # 00:00 reward resolution job. Each of the 5 minigames runs its
+    "minigame_leaderboard": True,  # 6 independent per-game weekly minigame leaderboards + Saturday
+                                    # 00:00 reward resolution job. Each of the 6 minigames runs its
                                     # own winner-take-one-N00Tbox weekly contest (whoever's #1 in
                                     # that game when the week ends) — no combined score, no ranks
                                     # 2/3. Raw score persistence (minigame_scores table) and the
