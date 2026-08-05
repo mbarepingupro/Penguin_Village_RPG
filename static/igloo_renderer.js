@@ -467,15 +467,30 @@ const IglooRenderer = (function () {
             // visiting. Separate from the edit-mode selection path below:
             // this fires a minigame-start callback instead of a selection
             // callback, and only for furniture flagged interactive:"minigame".
-            const g = _s2g(sx, sy, s);
-            const sorted = [...(_data.furniture || [])].sort(
+            //
+            // _drawItem() renders furniture raised above its ground-level
+            // footprint (by BOX_H for the box+emoji fallback every item
+            // without art -- e.g. grand_piano today -- still uses), so a
+            // click on the visible sprite itself maps via the flat _s2g()
+            // ground projection to a cell short of the furniture and misses.
+            // Try the raw click first (covers clicking the visible floor
+            // shadow/base), then retry with sy pushed down by BOX_H to
+            // compensate for that render lift before giving up.
+            const furniture = _data.furniture || [];
+            const sorted = [...furniture].sort(
                 (a, b) => (b.grid_x + b.grid_y) - (a.grid_x + a.grid_y)
             );
-            let hit = null;
-            for (const f of sorted) {
-                if (_overlaps(g.gx, g.gy, 1, 1, f.grid_x, f.grid_y, f.width || 1, f.height || 1)) {
-                    hit = f; break;
+            const findHit = (gx, gy) => {
+                for (const f of sorted) {
+                    if (_overlaps(gx, gy, 1, 1, f.grid_x, f.grid_y, f.width || 1, f.height || 1)) return f;
                 }
+                return null;
+            };
+            const g = _s2g(sx, sy, s);
+            let hit = findHit(g.gx, g.gy);
+            if (!hit) {
+                const gRaised = _s2g(sx, sy + BOX_H, s);
+                if (gRaised.gx !== g.gx || gRaised.gy !== g.gy) hit = findHit(gRaised.gx, gRaised.gy);
             }
             if (hit) {
                 const defn = IGLOO_FURNITURE_CLIENT[hit.item_id] || {};
