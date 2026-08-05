@@ -3935,7 +3935,7 @@
       <div id="doorbell-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
         <div style="background:var(--dark);border:2px solid var(--purple);padding:20px 24px;max-width:340px;font-family:'C&C Red Alert',monospace;">
           <div style="font-size:20px;color:var(--purple);text-align:center;margin-bottom:8px;">🔔 IGLOO DOORBELL</div>
-          <div style="color:#B8B8D0;font-size:16px;text-align:center;margin-bottom:14px;">Click a slot to cycle through notes (leave blank for a rest). Plays when someone visits your igloo.</div>
+          <div style="color:#B8B8D0;font-size:16px;text-align:center;margin-bottom:14px;">Pick a note for each slot (leave blank for a rest). Plays when someone visits your igloo.</div>
           <div id="doorbell-slot-info" style="color:#8888A8;font-size:16px;text-align:center;margin-bottom:8px;"></div>
           <div id="doorbell-slots" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:14px;"></div>
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
@@ -9669,25 +9669,30 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (window.GameSounds) GameSounds.modalClose();
   }
 
+  // "C+" distinguishes the high C (index 7) from the low C (index 0) in the
+  // dropdown, where both are visible at once -- DOORBELL_NOTE_NAMES itself
+  // stays untouched since it's the source for other display spots too.
+  const DOORBELL_NOTE_OPTION_LABELS = DOORBELL_NOTE_NAMES.map((n, i) => i === 7 ? 'C+' : n);
+
   function _renderDoorbellSlots() {
     const container = document.getElementById('doorbell-slots');
     if (!container) return;
     let html = '';
     for (let i = 0; i < _doorbellTune.length; i++) {
-      const val   = _doorbellTune[i];
-      const label = (val === null || val === undefined) ? '—' : DOORBELL_NOTE_NAMES[val];
-      html += `<button class="igloo-hdr-btn" style="padding:8px 0;" onclick="doorbellCycleSlot(${i})">${label}</button>`;
+      const val = _doorbellTune[i];
+      let opts = `<option value=""${(val === null || val === undefined) ? ' selected' : ''}>—</option>`;
+      for (let n = 0; n < DOORBELL_NOTE_OPTION_LABELS.length; n++) {
+        opts += `<option value="${n}"${val === n ? ' selected' : ''}>${DOORBELL_NOTE_OPTION_LABELS[n]}</option>`;
+      }
+      html += `<select class="bank-select" style="text-align:center;padding:6px 2px;width:100%;box-sizing:border-box;" onchange="doorbellSetSlot(${i}, this.value)">${opts}</select>`;
     }
     container.innerHTML = html;
   }
 
-  // Cycles a slot through rest -> C -> D -> ... -> B -> C(high) -> rest.
-  function doorbellCycleSlot(i) {
-    const cur = _doorbellTune[i];
-    if (cur === null || cur === undefined) _doorbellTune[i] = 0;
-    else if (cur >= DOORBELL_NOTE_FREQS.length - 1) _doorbellTune[i] = null;
-    else _doorbellTune[i] = cur + 1;
-    _renderDoorbellSlots();
+  // Sets a slot directly from the dropdown -- value is '' for a rest, or the
+  // note index (0-7) as a string.
+  function doorbellSetSlot(i, value) {
+    _doorbellTune[i] = (value === '') ? null : parseInt(value, 10);
     const val = _doorbellTune[i];
     if (val !== null && val !== undefined && window.GameSounds) {
       GameSounds.playDoorbellTune([DOORBELL_NOTE_FREQS[val]]);
