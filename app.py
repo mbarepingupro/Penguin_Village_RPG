@@ -7468,6 +7468,13 @@ def get_igloo(username):
 DOORBELL_NOTE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25]  # C4..C5 major scale
 
 
+def _doorbell_slot_count(room_level):
+    """Number of doorbell-tune slots unlocked at a given igloo room_level --
+    starts at 12 (room_level 1) and gains 3 more per level above that.
+    Mirrored in templates/home.html's _doorbellSlotCount()."""
+    return 12 + 3 * (max(1, room_level or 1) - 1)
+
+
 @app.route("/igloo/doorbell", methods=["POST"])
 def save_doorbell_tune():
     username = session.get("username", "")
@@ -7476,14 +7483,18 @@ def save_doorbell_tune():
     data = request.get_json(silent=True) or {}
     tune = data.get("tune")
 
+    db = get_db()
     if tune is not None:
-        if not isinstance(tune, list) or len(tune) != 12:
-            return jsonify({"status": "error", "message": "Tune must be exactly 12 slots."})
+        igloo = db.execute("SELECT room_level FROM igloos WHERE username=?", (username,)).fetchone()
+        expected_slots = _doorbell_slot_count(igloo["room_level"] if igloo else 1)
+        if not isinstance(tune, list) or len(tune) != expected_slots:
+            db.close()
+            return jsonify({"status": "error", "message": f"Tune must be exactly {expected_slots} slots."})
         for slot in tune:
             if slot is not None and (not isinstance(slot, int) or not (0 <= slot < len(DOORBELL_NOTE_FREQS))):
+                db.close()
                 return jsonify({"status": "error", "message": "Each slot must be null or 0-7."})
 
-    db = get_db()
     db.execute(
         "UPDATE penguins SET doorbell_tune=? WHERE username=?",
         (json.dumps(tune) if tune is not None else None, username)
