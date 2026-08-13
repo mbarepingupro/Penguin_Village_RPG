@@ -7341,12 +7341,26 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           queueCelebration({type:'milestone', icon:'🖼️', title:'CARD BACKGROUND UNLOCKED!', subtitle:bg.name||'New Background', description:(bg.description||'')+' Go to VIEW CARD to equip it!'});
         }
         if (data.level_up) {
-          queueCelebration({type:'building_level_up', buildingId: _currentDonateBuilding, oldLevel: data.building_level - 1, newLevel: data.building_level});
+          const leveledBuilding = _currentDonateBuilding;
+          // Close the panel instead of reopening it immediately -- reopened
+          // right away, it would sit (dimmed) directly behind the
+          // celebration's building sprite showing the exact same building
+          // art, making the sprite reveal visually indistinguishable from
+          // nothing happening. Reopen once the celebration is dismissed
+          // instead, once there's nothing behind it to confuse the reveal.
+          queueCelebration({
+            type: 'building_level_up', buildingId: leveledBuilding,
+            oldLevel: data.building_level - 1, newLevel: data.building_level,
+            onCelebrationDone: () => openBuilding(leveledBuilding),
+          });
           loadBuildingLevels();
+          closeBuildingPanel();
+          await refreshStats();
+        } else {
+          await refreshStats();
+          const savedBuilding = _currentDonateBuilding;
+          await openBuilding(savedBuilding);
         }
-        await refreshStats();
-        const savedBuilding = _currentDonateBuilding;
-        await openBuilding(savedBuilding);
       } else {
         showToast(data.message || 'Donation failed.', 'err');
         if (donateBtn) donateBtn.disabled = false;
@@ -11062,7 +11076,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   function _processNextCelebration() {
     if (!_celebQueue.length) { _celebShowing = false; return; }
     _celebShowing = true;
-    showCelebration(_celebQueue.shift(), _processNextCelebration);
+    const config = _celebQueue.shift();
+    showCelebration(config, function() {
+      if (config.onCelebrationDone) config.onCelebrationDone();
+      _processNextCelebration();
+    });
   }
 
   function getMayorCelebrationQuote(type, ctx) {
