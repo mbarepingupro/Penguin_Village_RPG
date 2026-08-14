@@ -8370,6 +8370,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           if (r.blood_gems)      parts.push('+' + r.blood_gems + ' 💎');
           if (r.bones)           parts.push('+' + r.bones + ' 🦴');
           if (parts.length) _flyEmojiCollection(parts);
+          // grand_piano-only: bragging-rights message from the host-score
+          // comparison /minigame/complete returns -- no reward difference
+          // between the three cases, purely a toast. beat_owner/owner_score
+          // are both null for "no comparison to make" (nobody's played this
+          // piano yet, or you just played your own), which reads fine as
+          // "be the first" either way.
+          if (buildingId === 'grand_piano') {
+            const hostUsername = extraStartBody.host_username;
+            if (cData.beat_owner === true) {
+              showToast(`🎉 You beat ${hostUsername}'s score!`, 'ok');
+            } else if (cData.beat_owner === false) {
+              showToast(`So close — ${hostUsername} scored higher.`);
+            } else {
+              showToast('Be the first to set a score here!');
+            }
+          }
           if (cData.level_up && cData.level_up.leveled) {
             setTimeout(function() {
               queueCelebration({type:'level_up', oldLevel: cData.level_up.level - 1, newLevel: cData.level_up.level});
