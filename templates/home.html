@@ -6570,6 +6570,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
             ? `<div style="color:#4aff6b;font-size:17px;margin-top:4px;">✅ OWNED x${ownedCount}</div>`
             : ''
           }
+          ${defn.interactive
+            ? `<div style="color:#4a9eff;font-size:17px;margin-top:4px;">🎮 PLAYABLE</div>`
+            : ''
+          }
           ${defn.cost
             ? `<button class="bq-btn buy" onclick="iglooBuyFurniture('${itemId}')">BUY</button>`
             : ownedCount === 0
