@@ -5020,10 +5020,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
         return;
       }
+      // n.message is rendered as raw HTML, not escaped -- moment broadcasts
+      // carry highlight_name()'s <span class="pname-hl"> markup baked in,
+      // same convention loadNewsTicker() already renders event_log.message
+      // with (unescaped) everywhere else in the app.
       list.innerHTML = items.map(function(n) {
-        var cls = 'notif-item' + (n.read_at ? '' : ' unread');
+        var cls = 'notif-item' + (n.unread ? ' unread' : '');
         return '<div class="' + cls + '">' +
-          '<span class="notif-item-text">' + GlobalChat._esc(n.message) + '</span>' +
+          '<span class="notif-item-text">' + n.message + '</span>' +
           '<span class="notif-item-time">' + GlobalChat._relTime(n.created_at) + '</span>' +
         '</div>';
       }).join('');

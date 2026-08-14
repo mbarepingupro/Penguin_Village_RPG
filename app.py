@@ -2660,6 +2660,12 @@ def _create_moment(db, username1, display_name1, username2, display_name2, now):
         (username1, username2, situation, option_a_label, option_a_outcome,
          option_b_label, option_b_outcome, now + INTERACTIVE_MOMENT_WINDOW_SECONDS, now)
     )
+    # Broadcast (username=NULL) -- moments never had a chat/Discord
+    # announcement before, so this is new visibility, not a redirect.
+    db.execute(
+        "INSERT INTO notifications (username, type, message, created_at) VALUES (NULL,?,?,?)",
+        ("moment_created", situation, now)
+    )
     return cur.lastrowid
 
 
@@ -2672,13 +2678,25 @@ def _apply_moment_resolution(db, row, resolution):
     silent -- the original ship-safe no-op default. Shared by the owner-resolve
     route, the vote-tally timeout job, and the debug vote-resolve route so
     they can't drift apart. No commit -- caller commits.
+
+    Also broadcasts the outcome to every player via the notifications table
+    (username=NULL) -- moments never had a chat/Discord announcement before,
+    so this covers all three resolution paths uniformly, no special-casing.
     """
     db.execute("UPDATE village_moments SET resolution=? WHERE id=?", (resolution, row["id"]))
     if resolution == "a":
         increment_relationship(db, row["username1"], row["username2"])
         log_event(db, "village", f"🤝 {row['option_a_outcome']}", None)
+        notif_message = f"🤝 {row['option_a_outcome']}"
     elif resolution == "b":
         log_event(db, "village", f"⚔️ {row['option_b_outcome']}", None)
+        notif_message = f"⚔️ {row['option_b_outcome']}"
+    else:
+        notif_message = "🤷 A village moment passed with nobody engaging."
+    db.execute(
+        "INSERT INTO notifications (username, type, message, created_at) VALUES (NULL,?,?,?)",
+        ("moment_resolved", notif_message, int(time.time()))
+    )
 
 
 # ── WEEKLY CHALLENGE / RAID SCHEDULER JOBS ───────────────────────────────────
@@ -5061,7 +5079,13 @@ def _start_gathering(db, building_id, duration_minutes):
 
     log_event(db, "mayor", cfg["message"], MAYOR_USERNAME)
     post_chat_message(db, MAYOR_USERNAME, cfg["message"], now)
-    notify_channels(cfg["message"])
+    # Broadcast (username=NULL) so every player sees it in the notification
+    # tab, not just the ones watching chat/Discord when it fired -- redirects
+    # this announcement there instead of notify_channels().
+    db.execute(
+        "INSERT INTO notifications (username, type, message, created_at) VALUES (NULL,?,?,?)",
+        ("gathering_start", cfg["message"], now)
+    )
     # Also deliverable as a one-shot popup via lifecycle_notices() -- see
     # mayor_messages/_mayor_message_notices(), same delivery /mayor/announce uses.
     db.execute(
@@ -5235,7 +5259,13 @@ def announce_gathering_vote():
             f"!vote {GATHERING_VOTE_KEYWORDS[bid]} = {BUILDINGS.get(bid, {}).get('name', bid)}"
             for bid in BUILDING_EVENTS
         ]
-        notify_channels("🗳️ Vote for the next gathering! " + "  |  ".join(lines))
+        vote_message = "🗳️ Vote for the next gathering! " + "  |  ".join(lines)
+        # Broadcast into the notification tab instead of notify_channels().
+        db.execute(
+            "INSERT INTO notifications (username, type, message, created_at) VALUES (NULL,?,?,?)",
+            ("gathering_vote_open", vote_message, int(time.time()))
+        )
+        db.commit()
     finally:
         db.close()
 
@@ -5456,7 +5486,11 @@ def tick_gathering_resolve():
             else:
                 wrapup = f"🎪 The gathering at {building_name} has ended! Nobody checked in this time."
             post_chat_message(db, MAYOR_USERNAME, wrapup, now)
-            notify_channels(wrapup)
+            # Broadcast into the notification tab instead of notify_channels().
+            db.execute(
+                "INSERT INTO notifications (username, type, message, created_at) VALUES (NULL,?,?,?)",
+                ("gathering_wrapup", wrapup, now)
+            )
             db.commit()
         except Exception as e:
             print(f"[Gathering] Error resolving gathering {row['id']}: {e}")
@@ -12313,12 +12347,22 @@ def minigame_complete():
 
 
 # ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
-# General-purpose per-user feed (see the `notifications` table) -- the nav
-# bell icon polls /notifications/recent and marks everything read via
-# /notifications/mark_read when opened. grand_piano's "someone played your
-# piano" event (above) is the only producer wired up so far; deliberately
-# separate from mayor_messages/lifecycle_notices() and village_moments,
-# which stay on their own delivery paths.
+# General-purpose feed (see the `notifications` table) -- the nav bell icon
+# polls /notifications/recent and marks everything read via
+# /notifications/mark_read when opened. Producers so far: grand_piano's
+# "someone played your piano" event (personal, username=<host>), gathering
+# start/vote-open/wrapup, and village_moments created/resolved (both
+# broadcast, username=NULL, visible to every player). Deliberately separate
+# from mayor_messages/lifecycle_notices() and village_moments' own popup
+# delivery, which stay on their own paths.
+#
+# Unread tracking is a per-player cursor (penguins.last_seen_notification_id,
+# same "last delivered id" convention as last_seen_announcement_id/
+# last_seen_moment_id) rather than the read_at column a broadcast row can't
+# meaningfully support -- read_at is unused dead weight left in the schema
+# (see database.py's notifications table comment) since removing the column
+# outright would need another SQLite table-recreate migration for no
+# functional gain.
 
 @app.route("/notifications/recent")
 def notifications_recent():
@@ -12326,21 +12370,23 @@ def notifications_recent():
     if not username:
         return jsonify({"status": "error", "message": "Not logged in.", "notifications": [], "unread_count": 0})
     db = get_db()
+    p = db.execute("SELECT last_seen_notification_id FROM penguins WHERE username=?", (username,)).fetchone()
+    cursor = (p["last_seen_notification_id"] if p else 0) or 0
     rows = db.execute(
-        "SELECT id, type, message, created_at, read_at FROM notifications "
-        "WHERE username=? ORDER BY created_at DESC LIMIT 50",
+        "SELECT id, type, message, created_at FROM notifications "
+        "WHERE username=? OR username IS NULL ORDER BY id DESC LIMIT 50",
         (username,)
     ).fetchall()
     unread_count = db.execute(
-        "SELECT COUNT(*) as c FROM notifications WHERE username=? AND read_at IS NULL",
-        (username,)
+        "SELECT COUNT(*) as c FROM notifications WHERE (username=? OR username IS NULL) AND id>?",
+        (username, cursor)
     ).fetchone()["c"]
     db.close()
     return jsonify({
         "status": "success",
         "notifications": [
             {"id": r["id"], "type": r["type"], "message": r["message"],
-             "created_at": r["created_at"], "read_at": r["read_at"]}
+             "created_at": r["created_at"], "unread": r["id"] > cursor}
             for r in rows
         ],
         "unread_count": unread_count,
@@ -12353,9 +12399,13 @@ def notifications_mark_read():
     if not username:
         return jsonify({"status": "error", "message": "Not logged in."})
     db = get_db()
+    max_id = db.execute(
+        "SELECT MAX(id) as max_id FROM notifications WHERE username=? OR username IS NULL",
+        (username,)
+    ).fetchone()["max_id"] or 0
     db.execute(
-        "UPDATE notifications SET read_at=? WHERE username=? AND read_at IS NULL",
-        (int(time.time()), username)
+        "UPDATE penguins SET last_seen_notification_id=? WHERE username=?",
+        (max_id, username)
     )
     db.commit()
     db.close()
