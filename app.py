@@ -8779,6 +8779,15 @@ def barracks_shop(username):
     gold = get_gold(db, username)
     res = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
     p = db.execute("SELECT level FROM penguins WHERE username=?", (username,)).fetchone()
+    equipped_rows = db.execute(
+        "SELECT slot, name, combat_power, set_name FROM gear WHERE username=? AND equipped=1 AND type='combat'",
+        (username,)
+    ).fetchall()
+    equipped_by_slot = {
+        r["slot"]: {"name": r["name"], "combat_power": r["combat_power"] or 0, "set_name": r["set_name"]}
+        for r in equipped_rows
+    }
+    active_set_bonuses = calculate_set_bonuses(db, username).get("active_bonuses", [])
     db.close()
     return jsonify({
         "status": "ok",
@@ -8787,6 +8796,8 @@ def barracks_shop(username):
         "gold": gold,
         "resources": dict(res) if res else {},
         "player_level": p["level"] if p else 1,
+        "equipped": equipped_by_slot,
+        "active_set_bonuses": active_set_bonuses,
     })
 
 
