@@ -5402,6 +5402,42 @@ def gathering_vote_status():
     return jsonify({"voting_open": True, "closes_at": closes_at, "tally": tally})
 
 
+@app.route("/gathering/vote", methods=["POST"])
+def gathering_vote():
+    """Web-session equivalent of /stream/gathering_vote (StreamerBot-authed,
+    for Twitch chat's !vote command) -- same gathering_votes INSERT OR
+    IGNORE and upcoming-hour window_start tagging, just gated by a logged-in
+    session instead of the StreamerBot secret, so a web player (not only
+    someone typing in Twitch chat) can cast the vote. Deliberately doesn't
+    require _stream_is_live() the way the chat route does -- that check
+    exists there to stop chat votes nobody's around to see accumulate while
+    offline, which doesn't apply to a web player actively using the app."""
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    data        = request.get_json(silent=True) or {}
+    building_id = data.get("building_id", "").strip()
+    if building_id not in BUILDING_EVENTS:
+        return jsonify({"status": "error", "message": "Not a gathering-eligible building."}), 400
+
+    db = get_db()
+    if _active_gathering_row(db) or not _gathering_vote_window_open():
+        db.close()
+        return jsonify({"status": "error", "message": "Voting isn't open right now."})
+
+    window_start = ((int(time.time()) // 3600) + 1) * 3600
+    cur = db.execute(
+        "INSERT OR IGNORE INTO gathering_votes (window_start, building_id, voter, created_at) "
+        "VALUES (?,?,?,?)",
+        (window_start, building_id, username, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    if cur.rowcount == 0:
+        return jsonify({"status": "already_voted"})
+    return jsonify({"status": "ok"})
+
+
 @app.route("/gathering/checkin", methods=["POST"])
 def gathering_checkin():
     username = session.get("username")
@@ -7153,6 +7189,42 @@ def village_moment_resolve():
     db.close()
     outcome = row["option_a_outcome"] if resolution == "a" else row["option_b_outcome"]
     return jsonify({"status": "success", "resolution": resolution, "outcome": outcome})
+
+
+@app.route("/village/moment/vote", methods=["POST"])
+def village_moment_vote():
+    """Web-session equivalent of /stream/moment_vote (StreamerBot-authed,
+    for Twitch chat's !resolve command) -- same moment_votes INSERT OR
+    IGNORE, just gated by a logged-in session instead of the StreamerBot
+    secret. Doesn't resolve the moment itself, only accumulates a vote;
+    resolve_stale_moments() tallies these once window_closes_at passes,
+    same as the chat-vote path. Either owner can still resolve the moment
+    directly and instantly via /village/moment/resolve above, untouched --
+    this route doesn't check for/exclude owners either, same as the chat
+    route it mirrors."""
+    username = session.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    data       = request.get_json(silent=True) or {}
+    resolution = data.get("resolution", "")
+    if resolution not in ("a", "b"):
+        return jsonify({"status": "error", "message": "resolution must be 'a' or 'b'."}), 400
+
+    db  = get_db()
+    row = _active_moment_row(db)
+    if not row:
+        db.close()
+        return jsonify({"status": "error", "message": "No moment is currently active."})
+
+    cur = db.execute(
+        "INSERT OR IGNORE INTO moment_votes (moment_id, resolution, voter, created_at) VALUES (?,?,?,?)",
+        (row["id"], resolution, username, int(time.time()))
+    )
+    db.commit()
+    db.close()
+    if cur.rowcount == 0:
+        return jsonify({"status": "already_voted"})
+    return jsonify({"status": "ok"})
 
 
 def _tally_moment_vote_winner(db, moment_id):
