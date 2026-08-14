@@ -228,6 +228,46 @@ def init_db():
         )
     """)
 
+    # One row per player per host's piano per calendar day -- unlike
+    # minigame_scores (one ledger row per attempt, no cap), grand_piano is
+    # the only minigame with a once-a-day-per-piano limit, so this single
+    # row doubles as both that limit check (UNIQUE below) and the score
+    # record /minigame/complete compares a guest's run against the host's
+    # own best-known score. played_date is a 'YYYY-MM-DD' string (get_today()),
+    # matching the login-streak convention -- a calendar-day boundary, not a
+    # rolling 24h window.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS piano_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            host_username TEXT NOT NULL,
+            player_username TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            played_date TEXT NOT NULL,
+            score INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            UNIQUE(host_username, player_username, item_id, played_date)
+        )
+    """)
+
+    # General-purpose per-user notification feed -- the nav bell icon polls
+    # /notifications/recent and shows an unread-count badge (read_at NULL =
+    # unread), marking everything read via /notifications/mark_read when the
+    # panel is opened. `type` is a free-form tag ("piano_played" is the only
+    # producer so far) so future event types can reuse this same table/UI
+    # instead of each growing their own. Deliberately separate from
+    # mayor_messages/lifecycle_notices() (patch notes/announcements) and the
+    # village_moments popup system -- those aren't migrated here.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            type TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            read_at INTEGER DEFAULT NULL
+        )
+    """)
+
     # One row per weekly per-game win -- each of the 5 minigames resolves its
     # own independent weekly leaderboard (see resolve_weekly_minigame_leaderboard()
     # in app.py), so a single week can produce up to 5 rows here (one per

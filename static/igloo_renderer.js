@@ -68,6 +68,7 @@ const IglooRenderer = (function () {
     let _editMode = false, _pendingItem = null;
     let _hoverCell = null, _selectedId = null;
     let _hostUsername = null; // whose igloo is currently loaded -- set via load(), used by the view-mode interactive-furniture click path
+    let _glowAnimFrame = null; // pending rAF handle for the interactive-furniture glow pulse -- only scheduled while such an item is actually on screen (see _render())
     // Paint mode state
     let _paintMode = null;  // null | 'floor' | 'wall'
     let _paintBrush = null; // selected type id
@@ -301,6 +302,32 @@ const IglooRenderer = (function () {
             _ctx.restore();
         }
 
+        // Pulsing "clickable" glow for interactive furniture (currently just
+        // the Grand Piano) -- applies regardless of edit/view mode and
+        // regardless of sprite vs. box+emoji fallback above, since a visiting
+        // guest needs to recognize it as playable without being told. Drawn
+        // on a footprint expanded outward from center (not the bare `fp`
+        // polygon the selection border above uses) so the two never share
+        // the same path -- distinct in both color (blue vs. the selection
+        // border's pink) and position, even when an item is both interactive
+        // and currently selected in edit mode.
+        if (defn.interactive) {
+            const gcx = (fp[0].x + fp[1].x + fp[2].x + fp[3].x) / 4;
+            const gcy = (fp[0].y + fp[1].y + fp[2].y + fp[3].y) / 4;
+            const glowExpand = 5;
+            const glowPts = fp.map(p => {
+                const dx = p.x - gcx, dy = p.y - gcy;
+                const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                return { x: p.x + (dx / len) * glowExpand, y: p.y + (dy / len) * glowExpand };
+            });
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 350);
+            _ctx.save();
+            _ctx.shadowColor = '#4a9eff';
+            _ctx.shadowBlur  = 8 + pulse * 10;
+            _poly(_ctx, glowPts, null, `rgba(74,158,255,${0.45 + pulse * 0.4})`, 2.5);
+            _ctx.restore();
+        }
+
         if (cat === 'special') {
             _ctx.strokeStyle = '#FFD700';
             _ctx.lineWidth = 2;
@@ -412,12 +439,26 @@ const IglooRenderer = (function () {
         const sorted = [...(_data.furniture || [])].sort(
             (a, b) => (a.grid_x + a.grid_y) - (b.grid_x + b.grid_y)
         );
-        for (const item of sorted) _drawItem(item, s);
+        let hasInteractive = false;
+        for (const item of sorted) {
+            if ((IGLOO_FURNITURE_CLIENT[item.item_id] || {}).interactive) hasInteractive = true;
+            _drawItem(item, s);
+        }
 
         if (_paintMode) {
             _drawPaintHover(s);
         } else if (_editMode) {
             _drawHover(s);
+        }
+
+        // Keep re-rendering only while at least one interactive item is on
+        // screen -- this file otherwise only redraws on-demand from mouse
+        // events (see the comment on FurnitureSprites above), so the glow's
+        // pulse needs its own loop to actually animate rather than sit
+        // frozen between clicks. Self-limiting: stops scheduling itself the
+        // moment no interactive furniture is placed/visible.
+        if (hasInteractive && _glowAnimFrame === null) {
+            _glowAnimFrame = requestAnimationFrame(() => { _glowAnimFrame = null; _render(); });
         }
     }
 

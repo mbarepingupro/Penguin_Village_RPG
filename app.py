@@ -12160,6 +12160,10 @@ def minigame_start():
     # grand_piano isn't a building -- it's igloo furniture, playable by the
     # owner or any visiting guest, so the check is on where the piano is
     # physically placed rather than on who's asking (any logged-in player).
+    # It's also the only minigame with a once-a-day-per-piano limit (the
+    # other 5 building minigames are unlimited) -- checked here, before any
+    # energy is spent, via piano_scores' UNIQUE(host_username,
+    # player_username, item_id, played_date) row for today.
     if building_id == "grand_piano":
         if not host_username:
             return jsonify({"status": "error", "message": "No piano to play."})
@@ -12168,9 +12172,17 @@ def minigame_start():
             "SELECT 1 FROM igloo_furniture WHERE username=? AND item_id='grand_piano'",
             (host_username,)
         ).fetchone()
-        piano_db.close()
         if not piano:
+            piano_db.close()
             return jsonify({"status": "error", "message": "There's no Grand Piano there to play."})
+        already_played = piano_db.execute(
+            "SELECT 1 FROM piano_scores WHERE host_username=? AND player_username=? "
+            "AND item_id='grand_piano' AND played_date=?",
+            (host_username, username, get_today())
+        ).fetchone()
+        piano_db.close()
+        if already_played:
+            return jsonify({"status": "error", "message": "You've already played this piano today — come back tomorrow!"})
 
     # This route didn't flush accrued passive regen before, so a player
     # could see/spend a stale (too-low) energy value here.
@@ -12193,7 +12205,11 @@ def minigame_start():
         db.commit()
         energy -= 10
 
-    session["active_minigame"] = {"username": username, "building_id": building_id}
+    # host_username is carried through the session (not re-read from the
+    # client) at /minigame/complete, same trust boundary as username/
+    # building_id already get -- only meaningful for grand_piano, harmless
+    # and unused for the other 5 minigames.
+    session["active_minigame"] = {"username": username, "building_id": building_id, "host_username": host_username}
     db.close()
     return jsonify({"status": "success", "energy_remaining": energy})
 
@@ -12239,22 +12255,111 @@ def minigame_complete():
                 (amount, username)
             )
 
-    now = int(time.time())
+    now   = int(time.time())
+    today = get_today()
     if building_id in MINIGAME_BUILDING_IDS:
         db.execute(
             "INSERT INTO minigame_scores (username, building_id, score, played_at) VALUES (?,?,?,?)",
             (username, building_id, score, now)
         )
 
+    # grand_piano-only: record this run (the /minigame/start daily-limit
+    # check already guarantees no UNIQUE conflict here) and compare against
+    # the host's own most recent score on their piano -- bragging rights
+    # only, doesn't affect rewards above. Playing your own piano just
+    # records the score with no self-comparison; a host who's never played
+    # their own piano yet has no score to compare against either, so both
+    # cases collapse to the same beat_owner/owner_score: null response,
+    # which the frontend reads as "be the first to set a score here."
+    beat_owner   = None
+    owner_score  = None
+    if building_id == "grand_piano":
+        host_username = active.get("host_username") or ""
+        db.execute(
+            "INSERT INTO piano_scores (host_username, player_username, item_id, played_date, score, created_at) "
+            "VALUES (?,?,?,?,?,?)",
+            (host_username, username, "grand_piano", today, score, now)
+        )
+        if username != host_username:
+            owner_row = db.execute(
+                "SELECT score FROM piano_scores WHERE host_username=? AND player_username=? "
+                "AND item_id='grand_piano' ORDER BY played_date DESC, created_at DESC LIMIT 1",
+                (host_username, host_username)
+            ).fetchone()
+            if owner_row:
+                owner_score = owner_row["score"]
+                beat_owner  = score > owner_score
+
+            notif_message = f"🎹 {username} played your piano and scored {score}!"
+            if beat_owner:
+                notif_message += " — they beat your score!"
+            db.execute(
+                "INSERT INTO notifications (username, type, message, created_at) VALUES (?,?,?,?)",
+                (host_username, "piano_played", notif_message, now)
+            )
+
     log_event(db, "work", f"{username} played the {building_id} mini-game! Score: {score}", username)
 
-    today = get_today()
     db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
     db.execute("UPDATE daily_activity_summary SET minigames_played=minigames_played+1 WHERE date=?", (today,))
 
     db.commit()
     db.close()
-    return jsonify({"status": "success", "rewards": rewards, "level_up": level_up_info})
+    resp = {"status": "success", "rewards": rewards, "level_up": level_up_info}
+    if building_id == "grand_piano":
+        resp["beat_owner"]  = beat_owner
+        resp["owner_score"] = owner_score
+    return jsonify(resp)
+
+
+# ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+# General-purpose per-user feed (see the `notifications` table) -- the nav
+# bell icon polls /notifications/recent and marks everything read via
+# /notifications/mark_read when opened. grand_piano's "someone played your
+# piano" event (above) is the only producer wired up so far; deliberately
+# separate from mayor_messages/lifecycle_notices() and village_moments,
+# which stay on their own delivery paths.
+
+@app.route("/notifications/recent")
+def notifications_recent():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in.", "notifications": [], "unread_count": 0})
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, type, message, created_at, read_at FROM notifications "
+        "WHERE username=? ORDER BY created_at DESC LIMIT 50",
+        (username,)
+    ).fetchall()
+    unread_count = db.execute(
+        "SELECT COUNT(*) as c FROM notifications WHERE username=? AND read_at IS NULL",
+        (username,)
+    ).fetchone()["c"]
+    db.close()
+    return jsonify({
+        "status": "success",
+        "notifications": [
+            {"id": r["id"], "type": r["type"], "message": r["message"],
+             "created_at": r["created_at"], "read_at": r["read_at"]}
+            for r in rows
+        ],
+        "unread_count": unread_count,
+    })
+
+
+@app.route("/notifications/mark_read", methods=["POST"])
+def notifications_mark_read():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    db = get_db()
+    db.execute(
+        "UPDATE notifications SET read_at=? WHERE username=? AND read_at IS NULL",
+        (int(time.time()), username)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
 
 
 @app.route("/award-hall/minigame-records")

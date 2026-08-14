@@ -3288,6 +3288,94 @@
       to   { opacity: 1; transform: translateX(0); }
     }
 
+    /* ── NOTIFICATIONS PANEL ── (general-purpose nav bell; see /notifications/*
+       routes -- mirrors the global chat panel's visual convention above, just
+       nav-anchored via position:fixed instead of absolute within .map-area) */
+    #notif-btn { position: relative; }
+    #notif-badge {
+      display: none;
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: #ff4444;
+      color: #fff;
+      font-family: 'Silkscreen', monospace;
+      font-size: 13px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      line-height: 18px;
+      text-align: center;
+      padding: 0 4px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    #notif-panel {
+      display: none;
+      position: fixed;
+      top: 56px;
+      right: 16px;
+      width: 300px;
+      max-height: 70vh;
+      z-index: 90050;
+      background: rgba(10, 10, 20, 0.96);
+      border: 2px solid #4a9eff;
+      flex-direction: column;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+    }
+    #notif-panel.open { display: flex; }
+    #notif-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: #12121e;
+      border-bottom: 1px solid #4a9eff;
+      color: #4a9eff;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    #notif-panel-header button {
+      background: none;
+      border: none;
+      color: #8888a8;
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+    }
+    #notif-panel-header button:hover { color: #fff; }
+    #notif-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 60px;
+    }
+    .notif-item {
+      background: #1a1a2e;
+      border-left: 2px solid #4a9eff33;
+      padding: 6px 8px;
+      border-radius: 2px;
+      word-break: break-word;
+    }
+    .notif-item.unread { border-left-color: #4a9eff; }
+    .notif-item-text { color: #d8d8f0; font-size: 16px; display: block; }
+    .notif-item-time {
+      color: #4a4a70;
+      font-size: 16px;
+      display: block;
+      text-align: right;
+      margin-top: 2px;
+    }
+    .notif-empty { color: #6868a0; font-size: 16px; text-align: center; padding: 20px; }
+    @media (max-width: 768px) {
+      #notif-panel { top: 52px; right: 8px; width: calc(100vw - 16px); max-width: 320px; }
+    }
+
     /* ── INTERESTS ── */
     .interests-section {
       padding: 8px 12px 10px;
@@ -3424,6 +3512,14 @@
         <button id="mute-btn" onclick="Sounds.toggleMute()" title="Toggle sound" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔊</button>
         <button id="music-mute-btn" onclick="toggleMusicMute()" title="Toggle music" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🎵</button>
         <button id="help-btn" onclick="resetHelpTooltips();replayTutorial()" title="Help &amp; Tutorial">❓</button>
+        <button id="notif-btn" onclick="Notifications.toggle()" title="Notifications" style="background:none;border:none;font-size:27px;cursor:pointer;padding:4px 6px;color:#fff;line-height:1;vertical-align:middle;">🔔<span id="notif-badge"></span></button>
+        <div id="notif-panel">
+          <div id="notif-panel-header">
+            <span>🔔 NOTIFICATIONS</span>
+            <button onclick="Notifications.toggle()" title="Close">✕</button>
+          </div>
+          <div id="notif-list"></div>
+        </div>
         <button id="mobile-player-btn" class="mobile-player-btn" onclick="openMobilePlayerPanel()">
           <span class="mobile-player-btn-row">🐧 <span id="mobile-player-name">{{ penguin['username'] }}</span></span>
           <span class="mobile-player-energy" id="mobile-player-energy">⚡ {{ penguin['energy'] }}/100</span>
@@ -4816,6 +4912,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       // Same piggyback again for the two map-level vote status banners.
       pollGatheringVoteStatus();
       pollMomentVoteStatus();
+      // Same piggyback for the nav notification bell's unread badge/list.
+      Notifications.refresh();
     },
 
     startPolling: function() {
@@ -4863,6 +4961,73 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         this._setStatus('Network error.');
       }
     }
+  };
+
+  // ── NOTIFICATIONS ── General-purpose nav bell (see /notifications/* routes).
+  // Piggybacks GlobalChat._poll()'s existing 4s/on-map-tab tick (see the
+  // Notifications.refresh() call added there) instead of its own
+  // setInterval, same convention pollGatheringActive() etc. already use.
+  // Unlike GlobalChat's unread tracking (client-side localStorage marker),
+  // read state here is server-side (`read_at`), so there's no local
+  // last-read bookkeeping to maintain -- /notifications/mark_read is the
+  // single source of truth.
+  var Notifications = {
+    _open: false,
+
+    toggle: async function() {
+      this._open = !this._open;
+      var panel = document.getElementById('notif-panel');
+      if (panel) panel.classList.toggle('open', this._open);
+      if (this._open) {
+        // Mark read BEFORE refreshing (not concurrently) -- otherwise the
+        // list fetch can win the race and re-render with the still-unread
+        // counts/rows it read before mark_read's write landed.
+        await this._markRead();
+        this.refresh();
+      }
+    },
+
+    refresh: async function() {
+      try {
+        var res = await fetch('/notifications/recent');
+        var data = await res.json();
+        this._setUnread(data.unread_count || 0);
+        if (this._open) this._render(data.notifications || []);
+      } catch (e) {}
+    },
+
+    _markRead: async function() {
+      try {
+        await fetch('/notifications/mark_read', { method: 'POST' });
+      } catch (e) {}
+    },
+
+    _setUnread: function(count) {
+      var badge = document.getElementById('notif-badge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+    },
+
+    _render: function(items) {
+      var list = document.getElementById('notif-list');
+      if (!list) return;
+      if (!items.length) {
+        list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+        return;
+      }
+      list.innerHTML = items.map(function(n) {
+        var cls = 'notif-item' + (n.read_at ? '' : ' unread');
+        return '<div class="' + cls + '">' +
+          '<span class="notif-item-text">' + GlobalChat._esc(n.message) + '</span>' +
+          '<span class="notif-item-time">' + GlobalChat._relTime(n.created_at) + '</span>' +
+        '</div>';
+      }).join('');
+    },
   };
 
   // Hook tab changes to pause/resume polling
@@ -6568,6 +6733,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           <div style="color:#FF8C00;font-size:18px;">🪙 ${costStr}</div>
           ${ownedCount > 0
             ? `<div style="color:#4aff6b;font-size:17px;margin-top:4px;">✅ OWNED x${ownedCount}</div>`
+            : ''
+          }
+          ${defn.interactive
+            ? `<div style="color:#4a9eff;font-size:17px;margin-top:4px;">🎮 PLAYABLE</div>`
             : ''
           }
           ${defn.cost
@@ -8366,6 +8535,22 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           if (r.blood_gems)      parts.push('+' + r.blood_gems + ' 💎');
           if (r.bones)           parts.push('+' + r.bones + ' 🦴');
           if (parts.length) _flyEmojiCollection(parts);
+          // grand_piano-only: bragging-rights message from the host-score
+          // comparison /minigame/complete returns -- no reward difference
+          // between the three cases, purely a toast. beat_owner/owner_score
+          // are both null for "no comparison to make" (nobody's played this
+          // piano yet, or you just played your own), which reads fine as
+          // "be the first" either way.
+          if (buildingId === 'grand_piano') {
+            const hostUsername = extraStartBody.host_username;
+            if (cData.beat_owner === true) {
+              showToast(`🎉 You beat ${hostUsername}'s score!`, 'ok');
+            } else if (cData.beat_owner === false) {
+              showToast(`So close — ${hostUsername} scored higher.`);
+            } else {
+              showToast('Be the first to set a score here!');
+            }
+          }
           if (cData.level_up && cData.level_up.leveled) {
             setTimeout(function() {
               queueCelebration({type:'level_up', oldLevel: cData.level_up.level - 1, newLevel: cData.level_up.level});
