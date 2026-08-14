@@ -250,23 +250,59 @@ def init_db():
     """)
 
     # General-purpose per-user notification feed -- the nav bell icon polls
-    # /notifications/recent and shows an unread-count badge (read_at NULL =
-    # unread), marking everything read via /notifications/mark_read when the
-    # panel is opened. `type` is a free-form tag ("piano_played" is the only
-    # producer so far) so future event types can reuse this same table/UI
-    # instead of each growing their own. Deliberately separate from
+    # /notifications/recent and shows an unread-count badge, marking
+    # everything read via /notifications/mark_read when the panel is opened.
+    # `type` is a free-form tag ("piano_played" was the first producer;
+    # gathering start/vote/wrapup and moment created/resolved broadcasts
+    # followed) so future event types can reuse this same table/UI instead
+    # of each growing their own. Deliberately separate from
     # mayor_messages/lifecycle_notices() (patch notes/announcements) and the
     # village_moments popup system -- those aren't migrated here.
+    #
+    # username NULL means a village-wide broadcast row, visible to every
+    # player, instead of one recipient -- unread state is tracked via
+    # penguins.last_seen_notification_id (same per-player "last delivered
+    # id" cursor convention as last_seen_announcement_id/last_seen_moment_id
+    # below) rather than the read_at column, since a per-row read timestamp
+    # can't represent "read by this player" for a row shared by everyone
+    # (marking it read for one player would mark it read for all of them).
+    # read_at is unused now; see app.py's /notifications/* routes.
     c.execute("""
         CREATE TABLE IF NOT EXISTS notifications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
+            username TEXT,
             type TEXT NOT NULL,
             message TEXT NOT NULL,
             created_at INTEGER NOT NULL,
             read_at INTEGER DEFAULT NULL
         )
     """)
+
+    # Migrate notifications: relax username to nullable for broadcast rows.
+    # SQLite can't ALTER COLUMN to drop a NOT NULL constraint in place, so
+    # this uses the same rename/recreate/copy/drop pattern already used
+    # above for igloo_items' schema change.
+    try:
+        row = c.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='notifications'"
+        ).fetchone()
+        if row and row[0] and "username TEXT NOT NULL" in row[0]:
+            c.execute("ALTER TABLE notifications RENAME TO notifications_old")
+            c.execute("""CREATE TABLE notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                type TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                read_at INTEGER DEFAULT NULL
+            )""")
+            c.execute("""
+                INSERT INTO notifications (id, username, type, message, created_at, read_at)
+                SELECT id, username, type, message, created_at, read_at FROM notifications_old
+            """)
+            c.execute("DROP TABLE notifications_old")
+    except Exception:
+        pass
 
     # One row per weekly per-game win -- each of the 5 minigames resolves its
     # own independent weekly leaderboard (see resolve_weekly_minigame_leaderboard()
@@ -945,6 +981,13 @@ def init_db():
     # last_seen_patch_notes_id above, but for village_moments -- see
     # lifecycle_notices() and app.py's interactive_moments feature.
     _add_col(c, "penguins", "last_seen_moment_id INTEGER DEFAULT NULL")
+    # Same marker pattern again, for the notifications table -- see
+    # app.py's /notifications/recent and /notifications/mark_read. Unlike
+    # the notice_*/last_seen_moment_id markers above (each tracks one
+    # specific popup type shown at most once), this tracks a whole feed:
+    # any notifications row with id > this cursor is "unread" for that
+    # player, and mark_read just advances the cursor to the current max id.
+    _add_col(c, "penguins", "last_seen_notification_id INTEGER DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:

@@ -2368,16 +2368,23 @@
     .gathering-vote-toast-close { background: transparent; border: none; color: #8888A8; font-size: 18px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
     .gathering-vote-toast-close:hover { color: #FFFFFF; }
     .gathering-vote-toast-tally { font-size: 16px; color: #D8D8F0; line-height: 1.9; }
-    .gathering-vote-toast-tally-row { display: flex; justify-content: space-between; gap: 10px; }
-    .gathering-vote-toast-tally-cmd { color: #8888A8; font-size: 13px; }
+    .gathering-vote-toast-tally-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .gathering-vote-toast-tally-cmd {
+      background: transparent; border: 1px solid #6EA8FF55; border-radius: 3px;
+      color: #6EA8FF; font-size: 13px; font-family: 'Silkscreen', monospace;
+      padding: 2px 8px; cursor: pointer; flex-shrink: 0;
+    }
+    .gathering-vote-toast-tally-cmd:hover { background: #6EA8FF22; border-color: #6EA8FF; }
+    .gathering-vote-toast-tally-cmd:disabled { opacity: 0.4; cursor: default; }
 
     /* ── MOMENT VOTE TOAST -- same card family, distinct from .moment-toast
        (that one's the two participants' own direct-action card): this is
-       the informational chat-vote tally shown to everyone else while a
-       moment is open, resolved via chat commands, not by clicking here.
-       Reuses .moment-toast-penguins/.moment-toast-canvas/etc (generic
-       "pair of penguin portraits" markup, not specific to the other
-       toast) so viewers can see who's actually involved too. ── */
+       the tally shown to everyone else while a moment is open, resolved by
+       either a chat command or clicking one of these buttons -- both feed
+       the same moment_votes table (see /village/moment/vote). Reuses
+       .moment-toast-penguins/.moment-toast-canvas/etc (generic "pair of
+       penguin portraits" markup, not specific to the other toast) so
+       viewers can see who's actually involved too. ── */
     .moment-vote-toast { border: 3px solid #C77DFF; }
     .moment-vote-toast-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .moment-vote-toast-icon { font-size: 22px; flex-shrink: 0; }
@@ -2386,8 +2393,14 @@
     .moment-vote-toast-close { background: transparent; border: none; color: #8888A8; font-size: 18px; cursor: pointer; padding: 0 2px; flex-shrink: 0; }
     .moment-vote-toast-close:hover { color: #FFFFFF; }
     .moment-vote-toast-tally { font-size: 16px; color: #D8D8F0; line-height: 1.9; }
-    .moment-vote-toast-tally-row { display: flex; justify-content: space-between; gap: 10px; }
-    .moment-vote-toast-tally-cmd { color: #8888A8; font-size: 13px; }
+    .moment-vote-toast-tally-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .moment-vote-toast-tally-cmd {
+      background: transparent; border: 1px solid #C77DFF55; border-radius: 3px;
+      color: #C77DFF; font-size: 13px; font-family: 'Silkscreen', monospace;
+      padding: 2px 8px; cursor: pointer; flex-shrink: 0;
+    }
+    .moment-vote-toast-tally-cmd:hover { background: #C77DFF22; border-color: #C77DFF; }
+    .moment-vote-toast-tally-cmd:disabled { opacity: 0.4; cursor: default; }
 
     /* ── Help button in nav ── */
     #help-btn {
@@ -5020,10 +5033,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
         return;
       }
+      // n.message is rendered as raw HTML, not escaped -- moment broadcasts
+      // carry highlight_name()'s <span class="pname-hl"> markup baked in,
+      // same convention loadNewsTicker() already renders event_log.message
+      // with (unescaped) everywhere else in the app.
       list.innerHTML = items.map(function(n) {
-        var cls = 'notif-item' + (n.read_at ? '' : ' unread');
+        var cls = 'notif-item' + (n.unread ? ' unread' : '');
         return '<div class="' + cls + '">' +
-          '<span class="notif-item-text">' + GlobalChat._esc(n.message) + '</span>' +
+          '<span class="notif-item-text">' + n.message + '</span>' +
           '<span class="notif-item-time">' + GlobalChat._relTime(n.created_at) + '</span>' +
         '</div>';
       }).join('');
@@ -6260,6 +6277,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // the next 4s poll (still voting_open, same window) doesn't immediately
   // recreate it -- a fresh window (new closes_at) clears this and shows again.
   let _gatheringVoteDismissedWindow = null;
+  // Same idea, for a window this player has already cast a vote in --
+  // without this, the next poll's tally refresh (see _renderGatheringVoteToast's
+  // "update in place" branch, which always rebuilds fresh, un-disabled
+  // buttons from the latest tally) would silently re-enable the buttons
+  // castGatheringVote() just disabled.
+  let _gatheringVoteVotedWindow = null;
+  // The closes_at of whatever window is currently rendered -- castGatheringVote()
+  // reads this to know which window to mark voted, since /gathering/vote's
+  // response doesn't echo it back.
+  let _gatheringVoteCurrentCloses = null;
 
   async function pollGatheringVoteStatus() {
     let data;
@@ -6278,6 +6305,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (existing) existing.remove();
       if (_gatheringVoteCountdownTimer) { clearInterval(_gatheringVoteCountdownTimer); _gatheringVoteCountdownTimer = null; }
       _gatheringVoteDismissedWindow = null;
+      _gatheringVoteVotedWindow = null;
       return;
     }
     if (data.closes_at !== _gatheringVoteDismissedWindow) {
@@ -6285,12 +6313,17 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } else {
       return; // dismissed for this window -- stay hidden until it closes/reopens
     }
+    _gatheringVoteCurrentCloses = data.closes_at;
 
+    const alreadyVoted = data.closes_at === _gatheringVoteVotedWindow;
     const tallyRows = Object.keys(data.tally || {}).map(function(bid) {
       const info = _GATHERING_VOTE_BUILDINGS[bid] || { icon: '🏛️', name: bid, command: '' };
       return '<div class="gathering-vote-toast-tally-row">' +
         '<span>' + info.icon + ' ' + GlobalChat._esc(info.name) + ': ' + data.tally[bid] + '</span>' +
-        '<span class="gathering-vote-toast-tally-cmd">' + GlobalChat._esc(info.command) + '</span>' +
+        '<button type="button" class="gathering-vote-toast-tally-cmd" ' + (alreadyVoted ? 'disabled ' : '') +
+          'onclick="castGatheringVote(\'' + bid + '\', this)" title="' + GlobalChat._esc(info.command) + '">' +
+          GlobalChat._esc(info.command) +
+        '</button>' +
         '</div>';
     }).join('');
 
@@ -6329,6 +6362,38 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     _startGatheringVoteCountdown(data.closes_at);
   }
 
+  // A player can only vote once per window regardless of which building
+  // they pick (gathering_votes' UNIQUE(window_start, voter)), so a
+  // successful vote -- or finding out they'd already voted -- disables
+  // every option in the toast, not just the one clicked.
+  async function castGatheringVote(buildingId, btnEl) {
+    const toastEl = document.getElementById('gathering-vote-toast');
+    const buttons = toastEl ? toastEl.querySelectorAll('.gathering-vote-toast-tally-cmd') : [];
+    buttons.forEach(b => b.disabled = true);
+    try {
+      const res  = await fetch('/gathering/vote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ building_id: buildingId }),
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        if (window.GameSounds) GameSounds.uiClick();
+        showToast('Vote cast!', 'ok');
+        _gatheringVoteVotedWindow = _gatheringVoteCurrentCloses;
+        pollGatheringVoteStatus();
+      } else if (data.status === 'already_voted') {
+        showToast("You've already voted this round.", 'err');
+        _gatheringVoteVotedWindow = _gatheringVoteCurrentCloses;
+      } else {
+        showToast(data.message || 'Could not cast vote.', 'err');
+        buttons.forEach(b => b.disabled = false);
+      }
+    } catch (e) {
+      showToast('Error casting vote.', 'err');
+      buttons.forEach(b => b.disabled = false);
+    }
+  }
+
   function _startGatheringVoteCountdown(closesAt) {
     if (_gatheringVoteCountdownTimer) clearInterval(_gatheringVoteCountdownTimer);
     function tick() {
@@ -6347,6 +6412,15 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   let _momentVoteCountdownTimer = null;
   // Same per-window dismiss tracking as _gatheringVoteDismissedWindow above.
   let _momentVoteDismissedWindow = null;
+  // Same "already voted" + "current closes_at" tracking as
+  // _gatheringVoteVotedWindow/_gatheringVoteCurrentCloses above, and for the
+  // same reason -- the "update in place" render branch below always rebuilds
+  // fresh, un-disabled buttons from the latest tally, which would otherwise
+  // silently re-enable what castMomentVote() just disabled. There's no
+  // moment id in this endpoint's response, so closes_at doubles as the
+  // per-moment identity here too (same as the dismiss-tracking already does).
+  let _momentVoteVotedFor = null;
+  let _momentVoteCurrentCloses = null;
 
   async function pollMomentVoteStatus() {
     let data;
@@ -6365,6 +6439,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (existing) existing.remove();
       if (_momentVoteCountdownTimer) { clearInterval(_momentVoteCountdownTimer); _momentVoteCountdownTimer = null; }
       _momentVoteDismissedWindow = null;
+      _momentVoteVotedFor = null;
       return;
     }
     if (data.closes_at !== _momentVoteDismissedWindow) {
@@ -6372,16 +6447,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } else {
       return; // dismissed for this window -- stay hidden until it closes/reopens
     }
+    _momentVoteCurrentCloses = data.closes_at;
 
+    const alreadyVoted = data.closes_at === _momentVoteVotedFor;
     const tally = data.tally || { a: 0, b: 0 };
     const tallyRows =
       '<div class="moment-vote-toast-tally-row">' +
         '<span>🤝 ' + GlobalChat._esc(data.option_a_label) + ': ' + tally.a + '</span>' +
-        '<span class="moment-vote-toast-tally-cmd">!resolve a</span>' +
+        '<button type="button" class="moment-vote-toast-tally-cmd" ' + (alreadyVoted ? 'disabled ' : '') +
+          'onclick="castMomentVote(\'a\')" title="!resolve a">' + GlobalChat._esc(data.option_a_label) + '</button>' +
       '</div>' +
       '<div class="moment-vote-toast-tally-row">' +
         '<span>😤 ' + GlobalChat._esc(data.option_b_label) + ': ' + tally.b + '</span>' +
-        '<span class="moment-vote-toast-tally-cmd">!resolve b</span>' +
+        '<button type="button" class="moment-vote-toast-tally-cmd" ' + (alreadyVoted ? 'disabled ' : '') +
+          'onclick="castMomentVote(\'b\')" title="!resolve b">' + GlobalChat._esc(data.option_b_label) + '</button>' +
       '</div>';
 
     // Update in place if already showing (avoid replaying the pop-in
@@ -6452,6 +6531,38 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     });
 
     _startMomentVoteCountdown(data.closes_at);
+  }
+
+  // A player can only vote once per moment regardless of which option they
+  // pick (moment_votes' UNIQUE(moment_id, voter)), so a successful vote --
+  // or finding out they'd already voted -- disables both options, not just
+  // the one clicked.
+  async function castMomentVote(resolution) {
+    const toastEl = document.getElementById('moment-vote-toast');
+    const buttons = toastEl ? toastEl.querySelectorAll('.moment-vote-toast-tally-cmd') : [];
+    buttons.forEach(b => b.disabled = true);
+    try {
+      const res  = await fetch('/village/moment/vote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution: resolution }),
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        if (window.GameSounds) GameSounds.uiClick();
+        showToast('Vote cast!', 'ok');
+        _momentVoteVotedFor = _momentVoteCurrentCloses;
+        pollMomentVoteStatus();
+      } else if (data.status === 'already_voted') {
+        showToast("You've already voted on this moment.", 'err');
+        _momentVoteVotedFor = _momentVoteCurrentCloses;
+      } else {
+        showToast(data.message || 'Could not cast vote.', 'err');
+        buttons.forEach(b => b.disabled = false);
+      }
+    } catch (e) {
+      showToast('Error casting vote.', 'err');
+      buttons.forEach(b => b.disabled = false);
+    }
   }
 
   function _startMomentVoteCountdown(closesAt) {
