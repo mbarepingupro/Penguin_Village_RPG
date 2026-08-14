@@ -12290,6 +12290,14 @@ def minigame_complete():
                 owner_score = owner_row["score"]
                 beat_owner  = score > owner_score
 
+            notif_message = f"🎹 {username} played your piano and scored {score}!"
+            if beat_owner:
+                notif_message += " — they beat your score!"
+            db.execute(
+                "INSERT INTO notifications (username, type, message, created_at) VALUES (?,?,?,?)",
+                (host_username, "piano_played", notif_message, now)
+            )
+
     log_event(db, "work", f"{username} played the {building_id} mini-game! Score: {score}", username)
 
     db.execute("INSERT OR IGNORE INTO daily_activity_summary (date) VALUES (?)", (today,))
@@ -12302,6 +12310,56 @@ def minigame_complete():
         resp["beat_owner"]  = beat_owner
         resp["owner_score"] = owner_score
     return jsonify(resp)
+
+
+# ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+# General-purpose per-user feed (see the `notifications` table) -- the nav
+# bell icon polls /notifications/recent and marks everything read via
+# /notifications/mark_read when opened. grand_piano's "someone played your
+# piano" event (above) is the only producer wired up so far; deliberately
+# separate from mayor_messages/lifecycle_notices() and village_moments,
+# which stay on their own delivery paths.
+
+@app.route("/notifications/recent")
+def notifications_recent():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in.", "notifications": [], "unread_count": 0})
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, type, message, created_at, read_at FROM notifications "
+        "WHERE username=? ORDER BY created_at DESC LIMIT 50",
+        (username,)
+    ).fetchall()
+    unread_count = db.execute(
+        "SELECT COUNT(*) as c FROM notifications WHERE username=? AND read_at IS NULL",
+        (username,)
+    ).fetchone()["c"]
+    db.close()
+    return jsonify({
+        "status": "success",
+        "notifications": [
+            {"id": r["id"], "type": r["type"], "message": r["message"],
+             "created_at": r["created_at"], "read_at": r["read_at"]}
+            for r in rows
+        ],
+        "unread_count": unread_count,
+    })
+
+
+@app.route("/notifications/mark_read", methods=["POST"])
+def notifications_mark_read():
+    username = session.get("username", "")
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    db = get_db()
+    db.execute(
+        "UPDATE notifications SET read_at=? WHERE username=? AND read_at IS NULL",
+        (int(time.time()), username)
+    )
+    db.commit()
+    db.close()
+    return jsonify({"status": "success"})
 
 
 @app.route("/award-hall/minigame-records")
