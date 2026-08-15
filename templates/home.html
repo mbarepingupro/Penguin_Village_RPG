@@ -9072,6 +9072,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     const ownedIds = data.owned_ids || [];
     const shop = data.shop || {};
     const playerLevel = data.player_level || 1;
+    const equippedBySlot = data.equipped || {};
+    const activeSetBonuses = data.active_set_bonuses || [];
     const slotIcons = Object.fromEntries(COMBAT_SLOTS.map(s => [s.key, s.icon]));
 
     // shop is keyed by rarity (dict of rarity -> item list, items carry no
@@ -9116,6 +9118,25 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const costStr = Object.entries(item.cost).map(([r,v]) => `${_RESOURCE_ICONS[r]||r} ${v}`).join(' | ');
       const slotIcon = slotIcons[item.slot] || '❓';
 
+      // Compare against whatever's currently equipped in this slot (combat
+      // slots only -- the Gear Shop never sells cosmetic wear-slot items).
+      const equipped = equippedBySlot[item.slot] || null;
+      const equippedCp = equipped ? (equipped.combat_power || 0) : 0;
+      const cpDelta = (item.combat_power || 0) - equippedCp;
+      const deltaColor = cpDelta > 0 ? '#4aff6b' : '#ff6b6b';
+      const deltaStr = cpDelta > 0 ? `+${cpDelta}` : `${cpDelta}`;
+      // Reuse the server's own set-bonus completion check (calculate_set_bonuses,
+      // surfaced here as active_set_bonuses) rather than recounting set pieces
+      // client-side -- only warn if the equipped piece is actually part of an
+      // active bonus that swapping it out would drop.
+      const breaksSet = !!(equipped && equipped.set_name && equipped.set_name !== item.set_name &&
+        activeSetBonuses.some(b => b.startsWith(equipped.set_name + ' ')));
+      const comparisonHtml = `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #222230;">
+        <div style="color:#8888A8;font-size:15px;">Equipped: ${equipped ? `${equipped.name} (CP: ${equippedCp})` : 'None equipped'}</div>
+        <div style="color:${deltaColor};font-size:15px;">CP ${deltaStr}</div>
+        ${breaksSet ? `<div style="color:#FF8C00;font-size:14px;margin-top:2px;">⚠ Breaks ${equipped.set_name} set bonus</div>` : ''}
+      </div>`;
+
       html += `<div style="background:#111;border:1px solid ${underLevel ? '#4a4a55' : '#303045'};padding:8px;margin-bottom:6px;${underLevel ? 'opacity:0.55;' : ''}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
@@ -9125,6 +9146,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
             <div style="color:${underLevel ? '#ff6b6b' : '#8888A8'};font-size:16px;margin-top:2px;">${underLevel ? '🔒 ' : ''}Requires Level ${reqLevel}</div>
             <div style="color:#aaa;font-size:16px;margin-top:4px;">${costStr}</div>
             ${!canAfford && !owned ? `<div style="color:#ff6b6b;font-size:16px;margin-top:2px;">Need: ${shortList.join(', ')}</div>` : ''}
+            ${comparisonHtml}
           </div>
           <div style="flex-shrink:0;margin-left:8px;">
             ${owned
