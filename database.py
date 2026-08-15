@@ -506,6 +506,15 @@ def init_db():
     """)
 
     c.execute("""
+        CREATE TABLE IF NOT EXISTS seen_monsters (
+            username TEXT NOT NULL,
+            monster_type TEXT NOT NULL,
+            seen_at INTEGER NOT NULL,
+            PRIMARY KEY (username, monster_type)
+        )
+    """)
+
+    c.execute("""
         CREATE TABLE IF NOT EXISTS bank_listings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             seller_username TEXT NOT NULL,

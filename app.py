@@ -6007,9 +6007,18 @@ def combat_monsters(username):
             (row["monster_type"], row["variant_name"]) for row in
             db.execute("SELECT monster_type, variant_name FROM first_kills WHERE username=?", (username,))
         }
+        seen_monster_types = {
+            row["monster_type"] for row in
+            db.execute("SELECT monster_type FROM seen_monsters WHERE username=?", (username,))
+        }
         db.close()
         player_cp = get_combat_power(username)
         result = []
+        # Unlocked-but-never-seen monsters (i.e. newly available since the
+        # player's level last crossed a tier's min_level) -- reuses the same
+        # `locked` level-gate check below rather than recomputing it, so
+        # this can't drift from what actually gates the monster in the UI.
+        newly_unlocked_ids = []
         for type_id, mtype in MONSTER_TYPES.items():
             variant    = get_daily_variant(type_id)
             mcp        = mtype["combat_power"]
@@ -6017,6 +6026,9 @@ def combat_monsters(username):
             rdef       = mtype["rewards"]
             res_parts  = [f"{lo}-{hi} {k.replace('_',' ')}" for k, (lo, hi) in rdef["resources"].items()]
             is_new     = (type_id, variant["name"]) not in first_kills_done
+            locked     = player_level < mtype["min_level"]
+            if not locked and type_id not in seen_monster_types:
+                newly_unlocked_ids.append(type_id)
             result.append({
                 "type":         type_id,
                 "name":         variant["name"],
@@ -6035,8 +6047,23 @@ def combat_monsters(username):
                 "evaluation":   get_evaluation(win_chance),
                 "killed_today": type_id in killed_today,
                 "is_new":       is_new,
-                "locked":       player_level < mtype["min_level"],
+                "locked":       locked,
             })
+
+        # Viewing this tab marks the newly-unlocked monsters seen -- no
+        # separate "acknowledge" step, so the badge naturally clears itself
+        # once the player has looked at the tab.
+        if newly_unlocked_ids:
+            now  = int(time.time())
+            db2  = get_db()
+            for type_id in newly_unlocked_ids:
+                db2.execute(
+                    "INSERT OR IGNORE INTO seen_monsters (username, monster_type, seen_at) VALUES (?,?,?)",
+                    (username, type_id, now)
+                )
+            db2.commit()
+            db2.close()
+
         return jsonify({
             "monsters":           result,
             "player_cp":          player_cp,
@@ -6045,6 +6072,7 @@ def combat_monsters(username):
             "player_max_energy":  p["max_energy"] if p else 100,
             "first_kills_count":  len(first_kills_done),
             "max_first_kills":    _MAX_FIRST_KILLS,
+            "new_monster_ids":    newly_unlocked_ids,
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e), "monsters": []})

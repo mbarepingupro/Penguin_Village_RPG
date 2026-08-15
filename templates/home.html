@@ -3323,6 +3323,19 @@
       pointer-events: none;
       z-index: 1;
     }
+    /* Small unread-style dot for "new monster unlocked" indicators (Barracks
+       MONSTERS tab) -- same red-circle language as #notif-badge above, just
+       inline (no count text) since it only ever needs to signal presence. */
+    .new-unlock-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      background: #ff4444;
+      border-radius: 50%;
+      margin-left: 4px;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
     #notif-panel {
       display: none;
       position: fixed;
@@ -9208,6 +9221,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       const tiers = {};
       data.monsters.forEach(m => { (tiers[m.tier] = tiers[m.tier] || []).push(m); });
 
+      // Monsters unlocked (by level) since the player last looked at this
+      // tab -- server marks them seen as soon as it returns them here, so
+      // this dot self-clears on the next load.
+      const newIds = new Set(data.new_monster_ids || []);
+
       const fkCount = data.first_kills_count || 0;
       const fkMax   = data.max_first_kills   || 93;
 
@@ -9219,6 +9237,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         const minLv     = tierMinLevels[tier] || 99;
         const label     = tierLabels[tier] || `TIER ${tier}`;
         const tcls      = `t${tier}`;
+        const tierNewDot = (tiers[tier]||[]).some(m => newIds.has(m.type)) ? '<span class="new-unlock-dot" title="New monster unlocked!"></span>' : '';
 
         if (isLocked) {
           html += `<div class="tier-group">
@@ -9232,17 +9251,17 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           if (isLower) {
             html += `<div class="tier-group">
               <div class="tier-header ${tcls}" style="opacity:0.7;cursor:pointer;display:flex;justify-content:space-between;align-items:center;" onclick="toggleTierGroup(${tier})">
-                <span>${label}</span><span id="${toggleId}" style="font-size:16px;">▼ SHOW</span>
+                <span>${label}${tierNewDot}</span><span id="${toggleId}" style="font-size:16px;">▼ SHOW</span>
               </div>
               <div id="${gridId}" class="monster-grid" style="display:none;opacity:0.8;">`;
           } else {
             html += `<div class="tier-group">
               <div class="tier-header ${tcls}" style="display:flex;justify-content:space-between;align-items:center;">
-                <span>${label}</span>
+                <span>${label}${tierNewDot}</span>
               </div>
               <div id="${gridId}" class="monster-grid">`;
           }
-          tiers[tier].forEach(m => html += buildMonsterCard(m, energy));
+          tiers[tier].forEach(m => html += buildMonsterCard(m, energy, newIds.has(m.type)));
           html += '</div></div>';
         }
       });
@@ -9263,11 +9282,15 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (toggle) toggle.textContent = hidden ? '▲ HIDE' : '▼ SHOW';
   }
 
-  function buildMonsterCard(m, playerEnergy) {
+  function buildMonsterCard(m, playerEnergy, isNewUnlock) {
     const winPct    = m.win_chance;
     const losePct   = 100 - winPct;
     const tierBadge = `tier-badge-${m.tier}`;
     const isNew     = m.is_new && !m.killed_today;
+    // Distinct from isNew/newBadge below (which flags an un-first-killed
+    // monster for the 2x reward), this flags a monster that only just
+    // became available at the player's current level.
+    const unlockDot = isNewUnlock ? '<span class="new-unlock-dot" title="New monster unlocked!"></span>' : '';
     let btnHtml;
     if (m.killed_today) {
       btnHtml = `<button class="fight-btn defeated" disabled>DEFEATED ✅</button>`;
@@ -9291,7 +9314,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     <div class="monster-card${m.killed_today?' killed':''}" id="mcard-${m.type}">
       <div class="monster-header">
         <span class="monster-icon">${m.icon}</span>
-        <span class="monster-name">${m.name.toUpperCase()}</span>
+        <span class="monster-name">${m.name.toUpperCase()}${unlockDot}</span>
         ${newBadge}
         <span class="monster-tier ${tierBadge}">T${m.tier}</span>
       </div>
