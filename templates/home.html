@@ -8406,7 +8406,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   function renderLootboxesTab() {
     const unopened    = _invLootboxData.filter(lb => !lb.opened);
     const openedCount = _invLootboxData.length - unopened.length;
-    let html = '<div class="inv-slot-group"><div class="inv-slot-title">🎁 N00TBOXES</div>';
+    let html = '<div class="inv-slot-group">';
+    html += '<div class="inv-slot-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">';
+    html += '<span>🎁 N00TBOXES</span>';
+    // Only worth offering in bulk once there's more than one box to open --
+    // disabled (rather than hidden) while a bulk run is already in flight so
+    // a second click can't start an overlapping queue.
+    if (unopened.length >= 2) {
+      html += `<button class="inv-btn open-action" onclick="invOpenAllLootboxes()" ${_bulkLootboxOpening ? 'disabled' : ''}>${_bulkLootboxOpening ? 'OPENING…' : `OPEN ALL (${unopened.length})`}</button>`;
+    }
+    html += '</div>';
     if (unopened.length === 0) {
       html += '<div class="inv-empty">No N00Tboxes to open right now.</div>';
     } else {
@@ -8416,7 +8425,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
             <div class="inv-item-name">🎁 MYSTERY N00TBOX</div>
             <div class="inv-item-source">${(lb.source || '').replace(/_/g, ' ')}</div>
           </div>
-          <div class="inv-btn-pair"><button class="inv-btn open-action" onclick="invOpenLootbox(${lb.id})">OPEN</button></div>
+          <div class="inv-btn-pair"><button class="inv-btn open-action" onclick="invOpenLootbox(${lb.id})" ${_bulkLootboxOpening ? 'disabled' : ''}>OPEN</button></div>
         </div>`;
       }
     }
@@ -8427,21 +8436,77 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     return html;
   }
 
+  // Returns the reward payload on success (or null on failure) so
+  // invOpenAllLootboxes() can reuse this exact open path for its queue
+  // instead of duplicating the fetch, while single-box callers that ignore
+  // the return value keep working unchanged.
   async function invOpenLootbox(lootboxId) {
     try {
       const res  = await fetch(`/lootbox/open/${lootboxId}`, { method: 'POST' });
       const data = await res.json();
       if (data.status !== 'success') {
         showToast(data.message || 'Could not open N00Tbox.', 'err');
-        return;
+        return null;
       }
       const target = _invLootboxData.find(lb => lb.id === lootboxId);
       if (target) target.opened = 1;
       renderInventory();
       showLootboxReveal(data);
       if (window.TutorialManager) TutorialManager._notifyLootboxOpened();
+      return data;
     } catch (e) {
       showToast('N00Tbox open failed. Try again.', 'err');
+      return null;
+    }
+  }
+
+  let _bulkLootboxOpening = false;
+
+  // Opens every unopened N00Tbox back-to-back, reusing invOpenLootbox() (same
+  // fetch + reveal animation as a single open) for each one. Boxes are
+  // opened strictly one at a time -- the loop awaits the full pop/explode/
+  // reveal duration and closes the overlay before starting the next fetch --
+  // both so the reveal animation never stacks (same one-at-a-time
+  // serialization queueCelebration() uses elsewhere) and so requests land a
+  // couple seconds apart rather than firing in a burst. open_lootbox() on
+  // the backend has no rate limit and no per-open side effect (XP, event
+  // log) that rapid calls would trip, so no additional artificial delay is
+  // needed beyond the animation's own pacing.
+  async function invOpenAllLootboxes() {
+    if (_bulkLootboxOpening) return;
+    const queue = _invLootboxData.filter(lb => !lb.opened).map(lb => lb.id);
+    if (queue.length < 2) return;
+
+    _bulkLootboxOpening = true;
+    renderInventory();
+
+    const totals = { boxes: 0, gold: 0, resources: {} };
+    for (const lootboxId of queue) {
+      const data = await invOpenLootbox(lootboxId);
+      if (data) {
+        totals.boxes++;
+        totals.gold += data.gold || 0;
+        if (data.resource) {
+          totals.resources[data.resource.type] = (totals.resources[data.resource.type] || 0) + data.resource.amount;
+        }
+        await new Promise(r => setTimeout(r, 1800)); // let the pop/explode/reveal play out
+        closeLootboxReveal();
+        await new Promise(r => setTimeout(r, 200));  // brief gap before the next box pops
+      }
+    }
+
+    _bulkLootboxOpening = false;
+    renderInventory();
+
+    if (totals.boxes > 0) {
+      const resParts = Object.entries(totals.resources).map(([type, amt]) => {
+        const meta = _LOOTBOX_RESOURCE_META[type] || ['🎁', type];
+        return `${meta[0]} +${amt} ${meta[1]}`;
+      });
+      const summary = `Opened ${totals.boxes} N00Tbox${totals.boxes === 1 ? '' : 'es'}: `
+        + `${totals.boxes} gear item${totals.boxes === 1 ? '' : 's'}, 🪙 +${totals.gold} Gold`
+        + (resParts.length ? `, ${resParts.join(', ')}` : '');
+      showToast(summary, 'ok');
     }
   }
 
