@@ -249,6 +249,20 @@ def init_db():
         )
     """)
 
+    # One row per player per calendar day -- unlike piano_scores, bed use is
+    # owner-only and has no per-piece score to record, so the cap is simply
+    # "once per player per day" regardless of which of their beds (item_id)
+    # they click; no host/guest or item_id split needed in the key.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS bed_rests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            rested_date TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            UNIQUE(username, rested_date)
+        )
+    """)
+
     # General-purpose per-user notification feed -- the nav bell icon polls
     # /notifications/recent and shows an unread-count badge, marking
     # everything read via /notifications/mark_read when the panel is opened.

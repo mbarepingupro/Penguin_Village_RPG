@@ -13,9 +13,9 @@ const IglooRenderer = (function () {
     const FUR_COLORS = { furniture: '#7a5c3c', decor: '#3c6a5a', special: '#7a6c1c' };
     const FUR_EMOJI = {
         small_table: '🪑', wooden_chair: '🪑', rug_small: '🟫', candle: '🕯️',
-        bookshelf: '📚', potted_plant: '🌿', bed: '🛏️', fireplace: '🔥',
+        bookshelf: '📚', potted_plant: '🌿', bed: '🛏️', bunk_bed: '🛏️', fireplace: '🔥',
         fish_tank: '🐠', painting: '🖼️', lamp: '💡', desk: '✏️',
-        wardrobe: '👗', rug_large: '🟫', throne: '👑', grand_piano: '🎹',
+        wardrobe: '👗', rug_large: '🟫', throne: '👑', canopy_bed: '🛏️', grand_piano: '🎹',
         fountain: '⛲', trophy_case: '🏆', crystal_chandelier: '💎',
         mayors_portrait: '🎭', golden_fish: '🐟', combat_banner: '⚔️',
     };
@@ -79,7 +79,7 @@ const IglooRenderer = (function () {
         onFurnitureSelect: null,
         onPaintCell: null,  // (gx, gy, type)
         onWallClick: null,  // (side, index, type)
-        onInteractiveFurnitureClick: null,  // (itemId, hostUsername) -- view-mode click on furniture with interactive:"minigame"
+        onInteractiveFurnitureClick: null,  // (itemId, hostUsername) -- view-mode click on furniture with any truthy interactive value ("minigame", "rest", ...)
     };
 
     function _ox(s) { return s * TW / 2; }
@@ -506,8 +506,11 @@ const IglooRenderer = (function () {
         if (!_editMode) {
             // View mode -- owner just looking at their room, or a guest
             // visiting. Separate from the edit-mode selection path below:
-            // this fires a minigame-start callback instead of a selection
-            // callback, and only for furniture flagged interactive:"minigame".
+            // this fires an interactive-furniture callback instead of a
+            // selection callback, for any furniture flagged interactive
+            // (currently "minigame" for the Grand Piano, or "rest" for
+            // beds) -- the callback itself branches on itemId/interactive
+            // type, this gate just decides whether to fire it at all.
             //
             // _drawItem() renders furniture raised above its ground-level
             // footprint (by BOX_H for the box+emoji fallback every item
@@ -535,7 +538,7 @@ const IglooRenderer = (function () {
             }
             if (hit) {
                 const defn = IGLOO_FURNITURE_CLIENT[hit.item_id] || {};
-                if (defn.interactive === 'minigame' && pub.onInteractiveFurnitureClick) {
+                if (defn.interactive && pub.onInteractiveFurnitureClick) {
                     pub.onInteractiveFurnitureClick(hit.item_id, _hostUsername);
                 }
             }
