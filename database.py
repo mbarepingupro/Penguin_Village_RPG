@@ -201,6 +201,22 @@ def init_db():
         )
     """)
 
+    # Single-row Village Era progression state -- once every BUILDING_UPGRADES
+    # building has reached its current max_level, app.py's /village/era/status
+    # flips this to 'maxed_waiting' so the Mayor can call /mayor/advance_era to
+    # raise every building's max_level by ERA_LEVEL_STEP and open a new era.
+    # `id` pinned to 1 so there's ever only one row -- same pattern as
+    # weekly_build_leaderboard_state below.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS village_era (
+            id          INTEGER PRIMARY KEY CHECK (id = 1),
+            era         INTEGER DEFAULT 1,
+            status      TEXT DEFAULT 'active',
+            advanced_at INTEGER
+        )
+    """)
+    c.execute("INSERT OR IGNORE INTO village_era (id, era, status) VALUES (1, 1, 'active')")
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS building_donations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

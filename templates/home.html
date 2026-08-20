@@ -292,6 +292,13 @@
     #buff-banner.show { display: flex; }
     @keyframes buffpulse { 0%,100%{border-color:#FF7FE5} 50%{border-color:#A86EFF} }
 
+    /* ── VILLAGE ERA BANNER ── */
+    /* Read-only notice for everyone; only the Mayor dashboard gets an action
+       button (ADVANCE ERA) for this state -- see mayor.html. */
+    #village-era-banner { display: none; background: #1a1a0a; border-bottom: 2px solid #ffd700; padding: 5px 16px; text-align: center; font-size: 16px; color: #ffd700; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; animation: erapulse 2s infinite; }
+    #village-era-banner.show { display: flex; }
+    @keyframes erapulse { 0%,100%{border-color:#ffd700} 50%{border-color:#fff0a8} }
+
     /* ── SEAL SHOP MODAL ── */
     /* z-index 90033: reachable from #mobile-player-overlay's (80000) Stats tab. */
     #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 90033; align-items: center; justify-content: center; }
@@ -3567,6 +3574,9 @@
     STREAM IS LIVE &mdash; EARNING MAYOR'S SEALS!
   </div>
   <div id="buff-banner"></div>
+  <div id="village-era-banner">
+    🏔️ The village has reached its peak! Waiting for the Mayor to advance the Era!
+  </div>
 
   {% if not logged_in %}
   <!-- LOGIN SCREEN -->
@@ -11930,6 +11940,20 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch(e) {}
   }
 
+  // Read-only banner shown when every building has hit its current max_level
+  // and the village is waiting on the Mayor to advance the era (see
+  // /mayor/advance_era on mayor.html). Piggybacks on checkLifecycleNotices()'s
+  // 60s poll (see the INIT block below) instead of starting a second interval,
+  // same shape as checkPendingBuildAnimation().
+  async function checkVillageEraStatus() {
+    try {
+      const res  = await fetch('/village/era/status');
+      const data = await res.json();
+      document.getElementById('village-era-banner')
+        .classList.toggle('show', data.era_status === 'maxed_waiting');
+    } catch(e) {}
+  }
+
   // ── INTERACTIVE MOMENT TOAST ─────────────────────────────────────────────
   // Persistent map overlay (not a one-shot celebration popup -- see
   // checkLifecycleNotices() routing interactive_moment notices here instead
@@ -12691,13 +12715,15 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   checkWelcomeBack();
   checkLifecycleNotices();
   checkPendingBuildAnimation();
+  checkVillageEraStatus();
   setInterval(checkLiveStatus, 60000);
   setInterval(refreshStats, 60000);
   setInterval(loadBuildingLevels, 300000);
-  // Both share this one 60s interval rather than checkPendingBuildAnimation
-  // getting its own setInterval -- see its own comment above for why it's
-  // piggybacking on checkLifecycleNotices()'s existing poll cadence.
-  setInterval(function() { checkLifecycleNotices(); checkPendingBuildAnimation(); }, 60000);
+  // All three share this one 60s interval rather than checkPendingBuildAnimation
+  // and checkVillageEraStatus getting their own setIntervals -- see their own
+  // comments above for why they piggyback on checkLifecycleNotices()'s
+  // existing poll cadence.
+  setInterval(function() { checkLifecycleNotices(); checkPendingBuildAnimation(); checkVillageEraStatus(); }, 60000);
   loadSocialMode();
   loadIglooVisits();
   loadFriendsList();
