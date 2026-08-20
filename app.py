@@ -1449,7 +1449,8 @@ IGLOO_FURNITURE = {
     "candle":             {"name": "Candle",             "width": 1, "height": 1, "cost": {"gold": 50},   "category": "decor"},
     "bookshelf":          {"name": "Bookshelf",          "width": 2, "height": 1, "cost": {"gold": 200},  "category": "furniture"},
     "potted_plant":       {"name": "Potted Plant",       "width": 1, "height": 1, "cost": {"gold": 120},  "category": "decor"},
-    "bed":                {"name": "Bed",                "width": 2, "height": 2, "cost": {"gold": 400},  "category": "furniture"},
+    "bed":                {"name": "Bed",                "width": 2, "height": 2, "cost": {"gold": 400},  "category": "furniture", "interactive": "rest"},
+    "bunk_bed":           {"name": "Bunk Bed",           "width": 2, "height": 1, "cost": {"gold": 600},  "category": "furniture", "interactive": "rest"},
     "fireplace":          {"name": "Fireplace",          "width": 2, "height": 1, "cost": {"gold": 500},  "category": "furniture"},
     "fish_tank":          {"name": "Fish Tank",          "width": 2, "height": 1, "cost": {"gold": 350, "fish": 50},   "category": "decor"},
     "painting":           {"name": "Painting",           "width": 1, "height": 1, "cost": {"gold": 300},  "category": "decor"},
@@ -1458,6 +1459,7 @@ IGLOO_FURNITURE = {
     "wardrobe":           {"name": "Wardrobe",           "width": 2, "height": 1, "cost": {"gold": 400},  "category": "furniture"},
     "rug_large":          {"name": "Large Rug",          "width": 3, "height": 3, "cost": {"gold": 500},  "category": "decor"},
     "throne":             {"name": "Throne",             "width": 2, "height": 2, "cost": {"gold": 2000}, "category": "furniture"},
+    "canopy_bed":         {"name": "Canopy Bed",         "width": 2, "height": 2, "cost": {"gold": 2200}, "category": "furniture", "interactive": "rest"},
     "grand_piano":        {"name": "Grand Piano",        "width": 3, "height": 2, "cost": {"gold": 3000}, "category": "furniture", "interactive": "minigame"},
     "fountain":           {"name": "Indoor Fountain",    "width": 2, "height": 2, "cost": {"gold": 2500, "spell_fragments": 50}, "category": "decor"},
     "trophy_case":        {"name": "Trophy Case",        "width": 2, "height": 1, "cost": {"gold": 1500}, "category": "furniture"},
@@ -5870,6 +5872,82 @@ def hotel_rest(username):
         "message":         "Fully rested!",
         "energy_restored": to_restore,
         "gold_spent":      cost,
+        "new_energy":      max_e,
+    })
+
+
+# Every IGLOO_FURNITURE item_id flagged "interactive": "rest" -- the
+# equivalent of MINIGAME_BUILDING_IDS (app.py, near /minigame/start) but for
+# the bed's simple free-use-once-a-day action instead of an actual minigame,
+# so it deliberately does NOT go through /minigame/start /-complete or get
+# added to MINIGAME_BUILDING_IDS (no score, no leaderboard, no energy cost).
+BED_ITEM_IDS = ("bed", "bunk_bed", "canopy_bed")
+
+
+@app.route("/igloo/bed/use", methods=["POST"])
+def igloo_bed_use():
+    data          = request.get_json(silent=True) or {}
+    username      = session.get("username", "")
+    host_username = data.get("host_username", "")
+    item_id       = data.get("item_id", "")
+
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if item_id not in BED_ITEM_IDS:
+        return jsonify({"status": "error", "message": "That furniture can't be used to rest."})
+
+    # Unlike the Grand Piano (playable by the owner or any visiting guest --
+    # bragging rights are the point), resting only makes sense for the
+    # igloo's own occupant, so this adds an owner check on top of the
+    # piano's placement-check pattern rather than just mirroring it as-is.
+    if host_username != username:
+        return jsonify({"status": "error", "message": "You can only rest in your own bed!"})
+
+    db  = get_db()
+    bed = db.execute(
+        "SELECT 1 FROM igloo_furniture WHERE username=? AND item_id=?",
+        (username, item_id)
+    ).fetchone()
+    if not bed:
+        db.close()
+        return jsonify({"status": "error", "message": "There's no bed there to rest in."})
+
+    # Flush accrued passive regen first so energy/max_energy below reflect
+    # reality, same as /minigame/start does before its own energy check.
+    update_passive_energy(username, db)
+    p = db.execute("SELECT energy, max_energy FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    max_e  = p["max_energy"] or 100
+    energy = p["energy"] or 0
+    if energy >= max_e:
+        db.close()
+        return jsonify({"status": "error", "message": "Your penguin is already fully rested!"})
+
+    today = get_today()
+    already_rested = db.execute(
+        "SELECT 1 FROM bed_rests WHERE username=? AND rested_date=?",
+        (username, today)
+    ).fetchone()
+    if already_rested:
+        db.close()
+        return jsonify({"status": "error", "message": "You've already rested today — come back tomorrow!"})
+
+    to_restore = max_e - energy
+    now = int(time.time())
+    db.execute("UPDATE penguins SET energy=?, last_energy_update=? WHERE username=?", (max_e, now, username))
+    db.execute(
+        "INSERT INTO bed_rests (username, rested_date, created_at) VALUES (?,?,?)",
+        (username, today, now)
+    )
+    log_event(db, "village", f"{username} took a nap and woke up fully rested (+{to_restore} energy, free)", username)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status":          "success",
+        "message":         "Fully rested!",
+        "energy_restored": to_restore,
         "new_energy":      max_e,
     })
 

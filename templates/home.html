@@ -10409,14 +10409,44 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     iglooRenderEditPanel();
   }
 
-  // View-mode click on a piece of furniture flagged interactive:"minigame"
-  // (currently just the Grand Piano) -- fires for the owner looking at their
-  // own room or any visiting guest, since IglooRenderer's callback carries
-  // whichever username's igloo is currently loaded.
+  // Mirrors app.py's BED_ITEM_IDS -- every IGLOO_FURNITURE item_id flagged
+  // interactive:"rest".
+  const BED_ITEM_IDS = ['bed', 'bunk_bed', 'canopy_bed'];
+
+  // View-mode click on a piece of interactive furniture -- fires for the
+  // owner looking at their own room or any visiting guest, since
+  // IglooRenderer's callback carries whichever username's igloo is
+  // currently loaded; each branch below decides for itself whether a guest
+  // is actually allowed to trigger it (the piano allows guests, beds don't
+  // -- enforced server-side either way).
   function iglooOnInteractiveFurnitureClick(itemId, hostUsername) {
     if (itemId === 'grand_piano') {
       startMiniGame(itemId, { host_username: hostUsername });
+    } else if (BED_ITEM_IDS.includes(itemId)) {
+      iglooUseBed(itemId, hostUsername);
     }
+  }
+
+  // Free once-a-day full energy restore -- no game loop, no gold cost
+  // (unlike Hotel Rest), the click itself is the only confirmation needed.
+  // Mirrors bpRest()'s (Hotel Rest's) success/failure handling above.
+  async function iglooUseBed(itemId, hostUsername) {
+    try {
+      const res  = await fetch('/igloo/bed/use', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ host_username: hostUsername, item_id: itemId }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        if (window.GameSounds) GameSounds.hotelRest();
+        showToast('Fully rested! 💤', 'ok');
+        Effects.smoothFillBar(document.getElementById('energy-bar'), 100, 500);
+        Effects.floatText(document.getElementById('stat-energy') || document.getElementById('sidebar-collect-btn'), '💤 Fully Rested!', '#4aff6b');
+        await refreshStats();
+      } else {
+        showToast(data.message, 'err');
+      }
+    } catch(e) { showToast('Error resting.', 'err'); }
   }
 
   async function iglooDoRemove(placementId) {
