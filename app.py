@@ -10214,13 +10214,17 @@ def village_layout():
             return jsonify({"error": "layout not found"}), 404
 
     db = get_db()
-    rows = db.execute("SELECT building_id, current_level FROM building_upgrades").fetchall()
+    rows = db.execute("SELECT building_id, current_level, max_level FROM building_upgrades").fetchall()
     db.close()
     levels = {r["building_id"]: r["current_level"] for r in rows}
     for bid in BUILDING_UPGRADES:
         levels.setdefault(bid, 1)
+    max_levels = {r["building_id"]: r["max_level"] for r in rows}
+    for bid in BUILDING_UPGRADES:
+        max_levels.setdefault(bid, 3)
 
     layout["building_levels"] = levels
+    layout["building_max_levels"] = max_levels
     return jsonify(layout)
 
 
