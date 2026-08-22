@@ -570,6 +570,11 @@ BUILDING_UPGRADES = {
     },
 }
 
+# Village Era progression -- once every BUILDING_UPGRADES building hits its
+# current max_level, /mayor/advance_era raises max_level by this many levels
+# per building (see _all_buildings_maxed() near ensure_building_row() below).
+ERA_LEVEL_STEP = 3
+
 CONTRIBUTION_MILESTONES = {
     100:  {"name": "Contributor's Frame",      "description": "A warm glow for those who give back."},
     500:  {"name": "Builder's Canvas",          "description": "The village remembers your generosity."},
@@ -818,6 +823,21 @@ def ensure_building_row(db, building_id):
     db.execute(
         "INSERT OR IGNORE INTO building_upgrades (building_id) VALUES (?)", (building_id,)
     )
+
+
+def _all_buildings_maxed(db):
+    """True only if every BUILDING_UPGRADES building has a building_upgrades
+    row with current_level >= max_level -- used to gate /village/era/status's
+    'maxed_waiting' flip and to guard /mayor/advance_era against firing early."""
+    for building_id in BUILDING_UPGRADES:
+        ensure_building_row(db, building_id)
+        row = db.execute(
+            "SELECT current_level, max_level FROM building_upgrades WHERE building_id=?",
+            (building_id,)
+        ).fetchone()
+        if row["current_level"] < row["max_level"]:
+            return False
+    return True
 
 
 # ── BUILDINGS ─────────────────────────────────────────────────────────────────
@@ -8680,6 +8700,102 @@ def building_donate():
     })
 
 
+# ── VILLAGE ERA ───────────────────────────────────────────────────────────────
+
+@app.route("/village/era/status")
+def village_era_status():
+    db  = get_db()
+    row = db.execute("SELECT era, status FROM village_era WHERE id=1").fetchone()
+    era, era_status = (row["era"], row["status"]) if row else (1, "active")
+    all_maxed = _all_buildings_maxed(db)
+    # Flip once, not on every poll -- and revert if a max_level bump (e.g. a
+    # mayor debug tool) ever makes 'maxed_waiting' stale before advance_era
+    # runs, so the banner never gets stuck showing when there's nothing to
+    # advance to.
+    if all_maxed and era_status == "active":
+        era_status = "maxed_waiting"
+        db.execute("UPDATE village_era SET status=? WHERE id=1", (era_status,))
+        db.commit()
+    elif not all_maxed and era_status == "maxed_waiting":
+        era_status = "active"
+        db.execute("UPDATE village_era SET status=? WHERE id=1", (era_status,))
+        db.commit()
+    db.close()
+    return jsonify({
+        "status":     "success",
+        "era":        era,
+        "era_status": era_status,
+        "all_maxed":  all_maxed,
+    })
+
+
+@app.route("/mayor/advance_era", methods=["POST"])
+def mayor_advance_era():
+    if not _is_mayor_authed():
+        return jsonify({"status": "error", "message": "Unauthorized."}), 403
+    data  = request.get_json(silent=True) or {}
+    force = bool(data.get("force"))
+
+    db  = get_db()
+    row = db.execute("SELECT era, status FROM village_era WHERE id=1").fetchone()
+    era, era_status = (row["era"], row["status"]) if row else (1, "active")
+
+    if era_status != "maxed_waiting" and not force:
+        db.close()
+        return jsonify({
+            "status":  "error",
+            "message": f"The village hasn't reached its peak yet (era status: '{era_status}'). "
+                       f"Resend with force=true to advance anyway.",
+        })
+
+    new_levels_added = {}
+    for building_id, cfg in BUILDING_UPGRADES.items():
+        ensure_building_row(db, building_id)
+        row_b   = db.execute(
+            "SELECT max_level FROM building_upgrades WHERE building_id=?", (building_id,)
+        ).fetchone()
+        old_max = row_b["max_level"]
+        new_max = old_max + ERA_LEVEL_STEP
+        db.execute(
+            "UPDATE building_upgrades SET max_level=? WHERE building_id=?",
+            (new_max, building_id)
+        )
+        # PLACEHOLDER upgrade requirements -- balance not designed yet.
+        # Reuses level 3's resource keys at 1.5x the amount so every newly
+        # opened level is immediately donatable-toward instead of crashing
+        # the donate/upgrade routes on a missing levels[] entry. Needs a real
+        # balance pass before these ship for real, same as the original Ice
+        # Blocks donation thresholds did when they were first added.
+        level3_req = {k: v for k, v in cfg["levels"].get(3, {}).items() if k != "benefit"}
+        added = []
+        for lvl in range(old_max + 1, new_max + 1):
+            if lvl not in cfg["levels"]:
+                cfg["levels"][lvl] = {
+                    **{res: int(round(amt * 1.5)) for res, amt in level3_req.items()},
+                    "benefit": f"Era {era + 1} upgrade — balance pending",
+                }
+                added.append(lvl)
+        new_levels_added[building_id] = added
+
+    new_era = era + 1
+    now     = int(time.time())
+    db.execute(
+        "UPDATE village_era SET era=?, status='active', advanced_at=? WHERE id=1",
+        (new_era, now)
+    )
+    log_event(db, "village",
+              f"🎆 The village has advanced to Era {new_era}! New building upgrades are now available!",
+              None)
+    db.commit()
+    db.close()
+    return jsonify({
+        "status":           "success",
+        "era":              new_era,
+        "era_status":       "active",
+        "new_levels_added": new_levels_added,
+    })
+
+
 @app.route("/building/contributors/<building_id>")
 def building_contributors(building_id):
     db   = get_db()
@@ -10098,13 +10214,17 @@ def village_layout():
             return jsonify({"error": "layout not found"}), 404
 
     db = get_db()
-    rows = db.execute("SELECT building_id, current_level FROM building_upgrades").fetchall()
+    rows = db.execute("SELECT building_id, current_level, max_level FROM building_upgrades").fetchall()
     db.close()
     levels = {r["building_id"]: r["current_level"] for r in rows}
     for bid in BUILDING_UPGRADES:
         levels.setdefault(bid, 1)
+    max_levels = {r["building_id"]: r["max_level"] for r in rows}
+    for bid in BUILDING_UPGRADES:
+        max_levels.setdefault(bid, 3)
 
     layout["building_levels"] = levels
+    layout["building_max_levels"] = max_levels
     return jsonify(layout)
 
 

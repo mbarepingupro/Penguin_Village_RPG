@@ -70,11 +70,17 @@ function _versionedAsset(relPath) {
 // Shared by drawBuilding() and getBuildingAtScreenPos() -- both need the
 // exact same resolved sprite (render vs. hit-box sizing), or clicks miss
 // the visible art whenever a level's art differs in size from the base
-// file. Falls back to the level-less base file since per-level art is
-// backfilled per-building, not all at once (see loadAllSprites()).
+// file. Walks downward from the current level so a building without art for
+// its own tier still shows the nearest lower tier's art instead of jumping
+// straight to the level-less base file -- per-level art is backfilled
+// per-building/per-level, not all at once (see loadAllSprites()). Falls back
+// to the base file only once no level from `level` down to 1 has art.
 function _getBuildingSprite(id, level) {
-    return SpriteLoader.get(_versionedAsset(`buildings/${id}_lv${level}.png`))
-        || SpriteLoader.get(_versionedAsset(`buildings/${id}.png`));
+    for (let lv = level; lv >= 1; lv--) {
+        const sprite = SpriteLoader.get(_versionedAsset(`buildings/${id}_lv${lv}.png`));
+        if (sprite) return sprite;
+    }
+    return SpriteLoader.get(_versionedAsset(`buildings/${id}.png`));
 }
 
 const TILE_SPRITE_NAMES = { 0: 'snow', 1: 'path', 2: 'water', 3: 'tree', 5: 'fence' };
@@ -101,17 +107,25 @@ async function loadPenguinSprites() {
 
 async function loadAllSprites() {
     const tileLoads = Object.values(TILE_SPRITE_NAMES).map(name => SpriteLoader.load(_versionedAsset(`tiles/${name}.png`)));
-    // Base file plus all 3 level variants, per building -- SpriteLoader.load()
-    // resolves to null (never rejects) on a 404, so attempting every level
-    // unconditionally is safe even for buildings with no per-level art yet
-    // (most of them, until backfilled) and doesn't need to know in advance
-    // which files actually exist.
-    const buildingLoads = Object.keys(buildingLayout).flatMap(id => [
-        SpriteLoader.load(_versionedAsset(`buildings/${id}.png`)),
-        SpriteLoader.load(_versionedAsset(`buildings/${id}_lv1.png`)),
-        SpriteLoader.load(_versionedAsset(`buildings/${id}_lv2.png`)),
-        SpriteLoader.load(_versionedAsset(`buildings/${id}_lv3.png`)),
-    ]);
+    // Base file plus every level variant up to the building's current
+    // max_level (buildings can now exceed level 3 via the Village Era
+    // system, see _all_buildings_maxed()/ERA_LEVEL_STEP in app.py), per
+    // building -- SpriteLoader.load() resolves to null (never rejects) on a
+    // 404, so attempting every level unconditionally is safe even for
+    // buildings with no per-level art yet (most of them, until backfilled)
+    // and doesn't need to know in advance which files actually exist.
+    // Falls back to 3 for any building missing a buildingMaxLevels entry
+    // (matches pre-Era behavior), which shouldn't normally happen since
+    // buildingMaxLevels is populated from the same /village/layout fetch
+    // this function is called after.
+    const buildingLoads = Object.keys(buildingLayout).flatMap(id => {
+        const maxLevel = buildingMaxLevels[id] || 3;
+        const loads = [SpriteLoader.load(_versionedAsset(`buildings/${id}.png`))];
+        for (let lv = 1; lv <= maxLevel; lv++) {
+            loads.push(SpriteLoader.load(_versionedAsset(`buildings/${id}_lv${lv}.png`)));
+        }
+        return loads;
+    });
     await Promise.all([...tileLoads, ...buildingLoads]);
     await loadPenguinSprites();
 }
@@ -158,6 +172,7 @@ let _pinchDist = 0;
 let grid = [];
 let buildingLayout = {};
 let buildingLevels = {};
+let buildingMaxLevels = {};
 let treeSeed = {};
 // Fence orientation per grid cell, keyed "x,y" -> 0-3, set by the map editor's
 // ROTATE FENCE tool and saved alongside grid/buildings. See drawFence().
@@ -1627,6 +1642,7 @@ function initEngine(canvasEl, username, openBuildingCallback) {
             grid = data.grid || [];
             buildingLayout = data.buildings || {};
             buildingLevels = data.building_levels || {};
+            buildingMaxLevels = data.building_max_levels || {};
             tileRotations = data.tileRotations || {};
 
             treeSeed = {};
