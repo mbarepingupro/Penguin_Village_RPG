@@ -5080,10 +5080,10 @@ def _start_gathering(db, building_id, duration_minutes):
         return None
 
     log_event(db, "mayor", cfg["message"], MAYOR_USERNAME)
-    post_chat_message(db, MAYOR_USERNAME, cfg["message"], now)
     # Broadcast (username=NULL) so every player sees it in the notification
     # tab, not just the ones watching chat/Discord when it fired -- redirects
-    # this announcement there instead of notify_channels().
+    # this announcement there instead of notify_channels() or Global Chat
+    # (no post_chat_message() call here on purpose).
     db.execute(
         "INSERT INTO notifications (username, type, message, created_at) VALUES (NULL,?,?,?)",
         ("gathering_start", cfg["message"], now)
@@ -5523,8 +5523,8 @@ def tick_gathering_resolve():
                           f"{len(participants)} penguin(s) received {reward_amount} {reward_type}.")
             else:
                 wrapup = f"🎪 The gathering at {building_name} has ended! Nobody checked in this time."
-            post_chat_message(db, MAYOR_USERNAME, wrapup, now)
-            # Broadcast into the notification tab instead of notify_channels().
+            # Broadcast into the notification tab instead of notify_channels()
+            # or Global Chat (no post_chat_message() call here on purpose).
             db.execute(
                 "INSERT INTO notifications (username, type, message, created_at) VALUES (NULL,?,?,?)",
                 ("gathering_wrapup", wrapup, now)
