@@ -8716,6 +8716,7 @@ def village_era_status():
         era_status = "maxed_waiting"
         db.execute("UPDATE village_era SET status=? WHERE id=1", (era_status,))
         db.commit()
+        _generate_draft_layout(db)
     elif not all_maxed and era_status == "maxed_waiting":
         era_status = "active"
         db.execute("UPDATE village_era SET status=? WHERE id=1", (era_status,))
@@ -8777,6 +8778,22 @@ def mayor_advance_era():
                 added.append(lvl)
         new_levels_added[building_id] = added
 
+    # Promote the Mayor's prepared draft map to live, if one exists (normally
+    # seeded by village_era_status() the moment the banner flipped to
+    # 'maxed_waiting' -- see _generate_draft_layout()). If the Mayor never
+    # opened the editor to design one, generate + promote one now so
+    # advancing the era never fails for lack of a draft.
+    if os.path.exists(_VILLAGE_LAYOUT_DRAFT_PATH):
+        layout_source = "draft"
+    else:
+        _generate_draft_layout(db)
+        layout_source = "auto_generated"
+    with open(_VILLAGE_LAYOUT_DRAFT_PATH) as f:
+        draft_layout = f.read()
+    with open(_VILLAGE_LAYOUT_PATH, "w") as f:
+        f.write(draft_layout)
+    os.remove(_VILLAGE_LAYOUT_DRAFT_PATH)
+
     new_era = era + 1
     now     = int(time.time())
     db.execute(
@@ -8793,6 +8810,7 @@ def mayor_advance_era():
         "era":              new_era,
         "era_status":       "active",
         "new_levels_added": new_levels_added,
+        "layout_source":    layout_source,
     })
 
 
@@ -10091,6 +10109,16 @@ os.makedirs(os.path.dirname(_VILLAGE_LAYOUT_PATH), exist_ok=True)
 # thing a live mayor edit gets lost to.
 _VILLAGE_LAYOUT_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout_default.json")
 
+# Next-era map the Mayor can design ahead of time once the village hits
+# 'maxed_waiting' (see _generate_draft_layout()/village_era_status() below) --
+# lives beside _VILLAGE_LAYOUT_PATH so it survives deploys the same way.
+# Promoted to the live layout by mayor_advance_era(), then deleted.
+_VILLAGE_LAYOUT_DRAFT_PATH = os.path.join(os.path.dirname(_VILLAGE_LAYOUT_PATH), "village_layout_draft.json")
+
+# How many tiles the draft map grows in every direction beyond the current
+# live grid -- see _generate_draft_layout().
+EXPANSION_MARGIN = 20
+
 # Fallback only -- these were hand-picked against a much older map layout
 # and drifted 10-47 tiles away from where these buildings actually sit now
 # (buildings have been resized/repositioned multiple times since). Used only
@@ -10125,6 +10153,61 @@ def _load_current_layout():
         except FileNotFoundError:
             continue
     return None
+
+
+def _generate_draft_layout(db):
+    """Seeds _VILLAGE_LAYOUT_DRAFT_PATH from the current live layout, grown by
+    EXPANSION_MARGIN tiles on every side (new tiles default to TILE_EXPAND=6,
+    the existing 'under construction' tile) with the old grid/buildings
+    recentered inside it. No-op if a draft already exists -- never clobber a
+    Mayor's in-progress edits, e.g. if this fires again from
+    village_layout/draft's own safety-net call after the banner already
+    triggered it once."""
+    if os.path.exists(_VILLAGE_LAYOUT_DRAFT_PATH):
+        return
+    old = _load_current_layout()
+    if not old:
+        return
+    old_grid = old.get("grid") or []
+    old_h    = len(old_grid)
+    old_w    = len(old_grid[0]) if old_h else 0
+    new_h    = old_h + 2 * EXPANSION_MARGIN
+    new_w    = old_w + 2 * EXPANSION_MARGIN
+
+    new_grid = [[6] * new_w for _ in range(new_h)]  # TILE_EXPAND, matches static/village_map.js
+    for y, row in enumerate(old_grid):
+        for x, tile in enumerate(row):
+            new_grid[y + EXPANSION_MARGIN][x + EXPANSION_MARGIN] = tile
+
+    new_buildings = {}
+    for bid, bdef in (old.get("buildings") or {}).items():
+        new_buildings[bid] = {
+            **bdef,
+            "gridX": bdef["gridX"] + EXPANSION_MARGIN,
+            "gridY": bdef["gridY"] + EXPANSION_MARGIN,
+        }
+
+    draft = {"grid": new_grid, "buildings": new_buildings}
+    # Fence rotations are keyed "x,y" in absolute grid coordinates (see
+    # village_editor.js's tileRotations) -- shift them along with the grid so
+    # existing fences don't end up unrotated relative to their new position.
+    # Not explicitly called out by the original spec for this feature, but
+    # left unshifted these would silently point the wrong way as soon as the
+    # draft opens.
+    old_rotations = old.get("tileRotations")
+    if isinstance(old_rotations, dict):
+        new_rotations = {}
+        for key, rot in old_rotations.items():
+            x_str, _, y_str = key.partition(",")
+            try:
+                x, y = int(x_str), int(y_str)
+            except ValueError:
+                continue
+            new_rotations[f"{x + EXPANSION_MARGIN},{y + EXPANSION_MARGIN}"] = rot
+        draft["tileRotations"] = new_rotations
+
+    with open(_VILLAGE_LAYOUT_DRAFT_PATH, "w") as f:
+        json.dump(draft, f, indent=2)
 
 
 def _building_entrance_tile(bdef):
@@ -10226,6 +10309,41 @@ def village_layout():
     layout["building_levels"] = levels
     layout["building_max_levels"] = max_levels
     return jsonify(layout)
+
+
+@app.route("/village/layout/draft/save", methods=["POST"])
+def save_village_layout_draft():
+    """Mirrors save_village_layout() exactly, writing to the draft path
+    instead -- the Mayor's editor toggles between the two via draftMode
+    (see static/village_editor.js)."""
+    username = session.get("username")
+    if username != MAYOR_USERNAME:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 403
+    data = request.get_json(silent=True)
+    if not data or "grid" not in data or "buildings" not in data:
+        return jsonify({"status": "error", "message": "Invalid data"}), 400
+    with open(_VILLAGE_LAYOUT_DRAFT_PATH, "w") as f:
+        json.dump(data, f, indent=2)
+    return jsonify({"status": "success"})
+
+
+@app.route("/village/layout/draft")
+def village_layout_draft():
+    """Mirrors village_layout() exactly, reading the draft path instead --
+    minus the building_levels/building_max_levels merge, which is specific to
+    the live layout's in-game rendering, not the editor. Generates the draft
+    on demand if it doesn't exist yet (safety net for opening draft mode
+    before /village/era/status has ever flipped to 'maxed_waiting')."""
+    if not os.path.exists(_VILLAGE_LAYOUT_DRAFT_PATH):
+        db = get_db()
+        _generate_draft_layout(db)
+        db.close()
+    try:
+        with open(_VILLAGE_LAYOUT_DRAFT_PATH) as f:
+            draft = json.load(f)
+    except FileNotFoundError:
+        return jsonify({"error": "draft not found"}), 404
+    return jsonify(draft)
 
 
 @app.route("/village/penguins")

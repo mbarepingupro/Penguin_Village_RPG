@@ -52,6 +52,10 @@ let buildings = {};
 // cells where grid[y][x] === 5 (TILE_FENCE) -- stale entries left behind by
 // painting over a fence tile with something else are harmless (ignored).
 let tileRotations = {};
+// Toggled by #btn-draft-mode (only shown once /village/era/status reports
+// 'maxed_waiting') -- when true, loadLayout()/saveLayout() and init()'s
+// initial fetch all target the draft endpoints instead of the live ones.
+let draftMode = false;
 let selectedTool = 0;
 let lastTileType  = 0; // last numeric tile type selected; used as fill target
 let buildingMode = false;
@@ -705,10 +709,31 @@ function showFlash(msg, isError) {
     }, 2000);
 }
 
+// ── DRAFT MODE ────────────────────────────────────────────────────────────────
+// #btn-draft-mode only makes sense once the village has a next-era draft to
+// design (era_status === 'maxed_waiting' -- see _generate_draft_layout() in
+// app.py). Checked once on page load; the button stays hidden/disabled with
+// an explanatory tooltip otherwise.
+async function checkDraftAvailability() {
+    const btn = document.getElementById('btn-draft-mode');
+    if (!btn) return;
+    try {
+        const resp = await fetch('/village/era/status');
+        const data = await resp.json();
+        if (data.era_status === 'maxed_waiting') {
+            btn.style.display = '';
+            btn.disabled = false;
+            btn.title = 'Toggle between the live layout and the next era\'s draft map.';
+        }
+    } catch (e) {
+        // Leave hidden/disabled -- no draft to design if the check fails.
+    }
+}
+
 // ── SAVE / LOAD ───────────────────────────────────────────────────────────────
 async function saveLayout() {
     try {
-        const resp = await fetch('/village/layout/save', {
+        const resp = await fetch(draftMode ? '/village/layout/draft/save' : '/village/layout/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ grid, buildings, tileRotations }),
@@ -730,7 +755,7 @@ async function loadLayout() {
         if (!confirm('You have unsaved changes. Load anyway?')) return;
     }
     try {
-        const resp = await fetch('/village/layout');
+        const resp = await fetch(draftMode ? '/village/layout/draft' : '/village/layout');
         if (!resp.ok) throw new Error('fetch failed');
         const data = await resp.json();
         applyLayout(data);
@@ -939,6 +964,14 @@ function setupToolbar() {
     document.getElementById('btn-show-paths').addEventListener('click', function () {
         showPaths = !showPaths;
         this.classList.toggle('active', showPaths);
+    });
+
+    // Draft mode toggle -- reloads whichever layout (live/draft) matches the
+    // new mode immediately, same "flip state + refresh" shape as Show Paths.
+    document.getElementById('btn-draft-mode').addEventListener('click', function () {
+        draftMode = !draftMode;
+        this.classList.toggle('active', draftMode);
+        loadLayout();
     });
 
     // Load / Save / Reset layout
@@ -1171,7 +1204,7 @@ async function init() {
 
     // Try to load existing layout
     try {
-        const resp = await fetch('/village/layout');
+        const resp = await fetch(draftMode ? '/village/layout/draft' : '/village/layout');
         if (resp.ok) {
             const data = await resp.json();
             applyLayout(data);
@@ -1179,6 +1212,12 @@ async function init() {
     } catch (e) {
         // Start with blank grid
     }
+
+    // Fire-and-forget -- only shows/enables #btn-draft-mode once a draft is
+    // actually available (era_status === 'maxed_waiting'); draftMode is
+    // still false at this point either way, so it can't affect the fetch
+    // just above.
+    checkDraftAvailability();
 
     updateInfoPanel();
     rebuildBuildingsList();
