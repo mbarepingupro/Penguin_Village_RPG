@@ -2583,6 +2583,37 @@
     .build-btn.crit { background: #d94040 url('/static/images/build_button_red.png') center/contain no-repeat; border-color: transparent; }
     .build-btn.crit:hover:not(:disabled) { background-color: #e85555; }
 
+    /* ── AUTO-ROLL TOGGLE ──
+       Anchored off .build-btn's own left:50% centering, mirrored to the
+       left side of it (the leaderboard widget already claims the right
+       side) so it always sits just next to Build!/Free Build! regardless
+       of map-area width. */
+    .auto-roll-btn {
+      position: absolute;
+      bottom: 16px;
+      left: calc(50% - 52px);
+      transform: translateX(-100%);
+      z-index: 60;
+      padding: 6px 10px;
+      background: #252535;
+      border: 2px solid #4aafff;
+      color: #4aafff;
+      font-family: 'Silkscreen', monospace;
+      font-size: 12px;
+      line-height: 1.3;
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .auto-roll-btn:hover { background: #16324a; }
+    .auto-roll-btn.active { background: #1f6b3a; border-color: #4aff6b; color: #4aff6b; }
+    .auto-roll-btn.active:hover { background: #26843f; }
+    @media (max-width: 768px) {
+      .auto-roll-btn { left: calc(50% - 40px); bottom: 12px; font-size: 11px; padding: 5px 8px; }
+    }
+
     /* ── RECENTER MAP BUTTON ── */
     #recenter-map-btn {
       position: absolute;
@@ -2822,6 +2853,12 @@
     }
 
     #d20-die.tumbling { animation: d20Tumble 1.1s cubic-bezier(0.15, 0.6, 0.2, 1.0) forwards; }
+    /* Auto-Roll variant -- same keyframes/easing/fill-mode as the normal
+       tumble (inherited from the rule above; only duration is overridden
+       here, via higher selector specificity), just compressed so back-to-
+       back auto-rolls don't force the player to sit through the full 1.1s
+       animation every single roll. See showD20()'s `fast` param. */
+    #d20-die.tumbling.fast { animation-duration: 0.35s; }
 
     /* ── Pop effect fires on settle (after tumble ends) ── */
     @keyframes d20Pop {
@@ -3905,6 +3942,7 @@
           <div id="map-center-toasts"></div>
           <button class="world-map-btn" id="world-map-btn" title="World Map">🌍</button>
           <button class="build-btn" id="build-btn">Build!</button>
+          <button class="auto-roll-btn" id="auto-roll-btn" title="Auto-Roll: keep rolling Build! back-to-back after your next click">🔁 Auto-Roll</button>
           {% if features.get("weekly_build_leaderboard", True) %}
           <div id="build-leaderboard-widget">
             <button id="build-leaderboard-btn" title="Weekly Building Leaderboard" onclick="BuildLeaderboard.openModal()">🧊</button>
@@ -14261,6 +14299,38 @@ async function _loadMobileTab(tabName) {
   var mode         = 'build';
   var bossDefeated = false;
 
+  // ── AUTO-ROLL ── Build! only (never Attack!/raid), off by default. Turning
+  // it on has no immediate effect -- it only takes hold from the player's
+  // *next* manual Build! click onward, since chaining is decided inside
+  // showD20's onSettle callback below, which only ever runs after an actual
+  // roll. See performRoll()/onSettle for where the chain continues/stops.
+  var autoRollBtn = document.getElementById('auto-roll-btn');
+  var autoRollOn  = false;
+
+  function setAutoRollBtnState() {
+    if (!autoRollBtn) return;
+    autoRollBtn.classList.toggle('active', autoRollOn);
+    autoRollBtn.textContent = autoRollOn ? '🔁 Auto-Roll: ON' : '🔁 Auto-Roll';
+  }
+
+  // Stops the chain without touching a roll already in flight -- that roll
+  // always finishes its animation/bookkeeping normally; this only keeps
+  // onSettle from firing another one afterward. Safe to call any time
+  // (toggle click mid-chain, out of energy, leaving the map tab, switching
+  // to Attack mode) -- no-ops if Auto-Roll was already off.
+  function stopAutoRoll() {
+    if (!autoRollOn) return;
+    autoRollOn = false;
+    setAutoRollBtnState();
+  }
+
+  if (autoRollBtn) {
+    autoRollBtn.addEventListener('click', function() {
+      autoRollOn = !autoRollOn;
+      setAutoRollBtnState();
+    });
+  }
+
   function setBtnState(freeRolls) {
     if (mode === 'attack' && bossDefeated) {
       btn.disabled = true;
@@ -14278,7 +14348,7 @@ async function _loadMobileTab(tabName) {
   }
 
   /*
-   * showD20 — full reveal sequence:
+   * showD20 — full reveal sequence (normal timings; see `fast` below):
    *   0 ms    : overlay shown, tumble animation starts, numbers cycle
    *   880 ms  : number locks → pop sound + crit/normal_return sounds fire
    *             → confetti burst if nat 20
@@ -14287,9 +14357,16 @@ async function _loadMobileTab(tabName) {
    *   1 360 ms: pop finishes — die visible, static, result readable
    *   2 360 ms: 1 000 ms hold complete → overlay hidden, onSettle fires
    *             (button re-enable, counter update, toast, refreshStats)
+   *
+   * `fast` (Auto-Roll only) proportionally compresses the same sequence --
+   * same steps/order, same CSS keyframes (only the tumble's animation-
+   * duration is overridden, via the .tumbling.fast rule) -- just shortened
+   * so chained rolls don't force the player through the full ~2.4s reveal
+   * every single time. Every step below still runs (lock timing/sounds/
+   * confetti/pop/hold), nothing is skipped, just sped up.
    */
-  function showD20(rollValue, isCrit, isNormalReturn, onSettle) {
-    die.classList.remove('tumbling', 'popping', 'crit');
+  function showD20(rollValue, isCrit, isNormalReturn, onSettle, fast) {
+    die.classList.remove('tumbling', 'popping', 'crit', 'fast');
     die.style.transform = '';
     faceText.textContent = '?';
     overlay.classList.add('active');
@@ -14297,6 +14374,7 @@ async function _loadMobileTab(tabName) {
     // Force reflow so animation re-triggers cleanly on repeated (free) rolls
     void die.offsetWidth;
     die.classList.add('tumbling');
+    if (fast) die.classList.add('fast');
     // NOTE: crit class is NOT added here — adding it now would show the red
     // tint immediately, spoiling the result before the roll lands.
 
@@ -14305,7 +14383,11 @@ async function _loadMobileTab(tabName) {
       faceText.textContent = Math.floor(Math.random() * 20) + 1;
     }, 65);
 
-    // 880 ms — number locks; crit tint, sounds + confetti all fire here together
+    var lockMs = fast ? 260 : 880;   // number locks; crit tint, sounds + confetti fire together
+    var popMs  = fast ? 400 : 1150;  // tumble keyframe naturally ended (duration + 50ms buffer)
+    var holdMs = fast ? 300 : 1000;  // hold time once popped, before tearing down
+    var doneMs = popMs + 210 + holdMs; // +210 = d20Pop keyframe's own fixed duration
+
     var lockTimer = setTimeout(function() {
       clearInterval(cycleInterval);
       faceText.textContent = rollValue;
@@ -14323,28 +14405,32 @@ async function _loadMobileTab(tabName) {
       if (isCrit && window.Effects && Effects.confettiBurst) {
         Effects.confettiBurst(die, 28);
       }
-    }, 880);
+    }, lockMs);
 
-    // 1 150 ms — tumble keyframe has naturally ended (1.1 s + 50 ms buffer);
-    // swap to pop animation without a visible jump by pinning the settled
-    // transform (all axes are multiples of 360° = identity) as inline style first
+    // Tumble keyframe has naturally ended; swap to pop animation without a
+    // visible jump by pinning the settled transform (all axes are exact
+    // multiples of 360° = identity) as inline style first
     var popTimer = setTimeout(function() {
       die.style.transform = 'perspective(500px)';
       die.classList.remove('tumbling');
       void die.offsetWidth;            // reflow so popping animation starts fresh
       die.classList.add('popping');
-    }, 1150);
+    }, popMs);
 
-    // 2 360 ms — 1 000 ms hold complete; tear down overlay, fire results
+    // Hold complete; tear down overlay, fire results
     var doneTimer = setTimeout(function() {
       overlay.classList.remove('active');
-      die.classList.remove('popping', 'crit');
+      die.classList.remove('popping', 'crit', 'fast');
       die.style.transform = '';
       onSettle();
-    }, 2360);
+    }, doneMs);
   }
 
-  btn.addEventListener('click', async function() {
+  // Shared by the manual click and Auto-Roll's back-to-back chaining --
+  // isAuto only affects which d20 animation speed is used and what happens
+  // to the Auto-Roll toggle on failure; the fetch, reward crediting, XP,
+  // and pop/confetti/sound reveal are identical either way.
+  async function performRoll(isAuto) {
     if (btn.disabled) return;
     btn.disabled = true;
 
@@ -14361,16 +14447,23 @@ async function _loadMobileTab(tabName) {
     } catch(e) {
       showToast((mode === 'attack' ? 'Attack' : 'Build') + ' failed. Try again.', 'err');
       btn.disabled = false;
+      if (isAuto) stopAutoRoll();
       return;
     }
 
     if (data.status === 'error' || data.status === 'disabled') {
       showToast(data.message || 'Cannot act right now.', 'err');
       btn.disabled = false;
+      if (isAuto) stopAutoRoll();
       return;
     }
 
     var isCrit = (mode === 'attack') ? data.was_crit : data.is_crit;
+
+    // Auto-Roll's fast tumble only ever applies to Build! (never a raid
+    // Attack! roll) -- see BuildAttackButton.setAttackMode below, which
+    // stops Auto-Roll outright the moment a raid takes over the button.
+    var useFast = isAuto && mode === 'build';
 
     // Sounds are handled inside showD20; onSettle only does UI bookkeeping
     showD20(data.roll, isCrit, data.normal_return, function() {
@@ -14415,8 +14508,26 @@ async function _loadMobileTab(tabName) {
       setBtnState(data.free_rolls_remaining || 0);
       if (typeof refreshStats === 'function') refreshStats();
       btn.disabled = bossDefeated;   // stays frozen once the boss is down
-    });
-  });
+
+      // Auto-Roll chaining -- Build! only. A free roll (from a nat-20 crit)
+      // chains even at 0 energy, matching _perform_build_roll()'s free-roll
+      // energy exemption (Session 6); a normal roll still needs the same
+      // 5-energy cost the backend enforces, checked here first so the chain
+      // stops cleanly on empty energy instead of round-tripping into a
+      // rejected roll and a confusing error toast.
+      if (mode === 'build' && autoRollOn && !bossDefeated) {
+        var canContinue = (data.free_rolls_remaining > 0) || (data.energy_remaining >= 5);
+        if (canContinue) {
+          performRoll(true);
+        } else {
+          stopAutoRoll();
+          showToast('Out of energy — Auto-Roll stopped.', '');
+        }
+      }
+    }, useFast);
+  }
+
+  btn.addEventListener('click', function() { performRoll(false); });
 
   // Exposed so raid.js can swap this button between Build and Attack duty
   // without duplicating the click handler or the d20 animation.
@@ -14425,6 +14536,7 @@ async function _loadMobileTab(tabName) {
       if (active === (mode === 'attack')) return;
       mode = active ? 'attack' : 'build';
       bossDefeated = false;
+      if (active) stopAutoRoll();   // Auto-Roll only ever applies to Build!
       btn.classList.toggle('attack-mode', active);
       btn.classList.toggle('defeated', false);
       if (!btn.disabled) setBtnState(0);
@@ -14439,6 +14551,17 @@ async function _loadMobileTab(tabName) {
       }
     }
   };
+
+  // Auto-Roll must never keep firing once the player has navigated away
+  // from the map tab -- same wrap-switchContentTab convention GlobalChat's
+  // onTabChange hook already uses (see above) to react to tab changes.
+  if (typeof switchContentTab === 'function') {
+    var _origSwitchForAutoRoll = switchContentTab;
+    switchContentTab = function(name, btnEl) {
+      _origSwitchForAutoRoll(name, btnEl);
+      if (name !== 'map') stopAutoRoll();
+    };
+  }
 })();
 </script>
 <div id="res-tooltip"></div>
