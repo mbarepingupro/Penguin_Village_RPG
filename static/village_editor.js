@@ -4,7 +4,13 @@
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 const TILE_W = 64;
 const TILE_H = 32;
-const GRID_SIZE = 40;
+// GRID_W/GRID_H used to be a single hardcoded GRID_SIZE=40 (every layout was
+// 40x40). A Village Era draft map can now be larger (see EXPANSION_MARGIN in
+// app.py), so these are `let`s, re-derived from the actual loaded grid's
+// dimensions every time one loads -- see applyLayout(). 40 is just the
+// starting default before any layout has loaded.
+let GRID_W = 40;
+let GRID_H = 40;
 
 const TILE_COLORS = {
     0: "#C8DADA",
@@ -52,6 +58,10 @@ let buildings = {};
 // cells where grid[y][x] === 5 (TILE_FENCE) -- stale entries left behind by
 // painting over a fence tile with something else are harmless (ignored).
 let tileRotations = {};
+// Toggled by #btn-draft-mode (only shown once /village/era/status reports
+// 'maxed_waiting') -- when true, loadLayout()/saveLayout() and init()'s
+// initial fetch all target the draft endpoints instead of the live ones.
+let draftMode = false;
 let selectedTool = 0;
 let lastTileType  = 0; // last numeric tile type selected; used as fill target
 let buildingMode = false;
@@ -84,12 +94,13 @@ function screenToGrid(sx, sy) {
     return { x: gx, y: gy };
 }
 
-// Returns the zoom level that fits the full 40×40 isometric grid in the canvas.
-// Isometric world extents: X spans ±(GRID_SIZE-1)*TILE_W/2, Y spans 0..(GRID_SIZE-1)*TILE_H.
+// Returns the zoom level that fits the full GRID_W×GRID_H isometric grid in
+// the canvas. Isometric world extents: X spans ±(GRID_W-1)*TILE_W/2, Y spans
+// 0..(GRID_H-1)*TILE_H.
 function calculateFitZoom() {
     if (!canvas || !canvas.width) return 0.4;
-    const worldW = (GRID_SIZE - 1) * TILE_W;   // total X extent (left corner to right corner)
-    const worldH = (GRID_SIZE - 1) * TILE_H;   // total Y extent (top corner to bottom corner)
+    const worldW = (GRID_W - 1) * TILE_W;   // total X extent (left corner to right corner)
+    const worldH = (GRID_H - 1) * TILE_H;   // total Y extent (top corner to bottom corner)
     const zoomW  = (canvas.width  * 0.9) / worldW;
     const zoomH  = (canvas.height * 0.9) / worldH;
     return Math.max(MIN_ZOOM, Math.min(zoomW, zoomH));
@@ -97,8 +108,8 @@ function calculateFitZoom() {
 
 function initCamera() {
     zoomLevel = calculateFitZoom();
-    // Isometric grid center: world X = 0, world Y = (GRID_SIZE-1)*TILE_H/2
-    const gridCenterY = (GRID_SIZE - 1) * (TILE_H / 2);
+    // Isometric grid center: world X = 0, world Y = (GRID_H-1)*TILE_H/2
+    const gridCenterY = (GRID_H - 1) * (TILE_H / 2);
     camX = canvas.width  / 2;
     camY = canvas.height / 2 - gridCenterY * zoomLevel;
 }
@@ -124,7 +135,7 @@ function drawZoomIndicator() {
 }
 
 function inBounds(x, y) {
-    return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
+    return x >= 0 && x < GRID_W && y >= 0 && y < GRID_H;
 }
 
 // ── COLOR HELPERS ────────────────────────────────────────────────────────────
@@ -189,8 +200,8 @@ async function preloadSprites() {
 function initGrid() {
     grid = [];
     tileRotations = {};
-    for (let y = 0; y < GRID_SIZE; y++) {
-        grid.push(new Array(GRID_SIZE).fill(0));
+    for (let y = 0; y < GRID_H; y++) {
+        grid.push(new Array(GRID_W).fill(0));
     }
 }
 
@@ -462,10 +473,14 @@ function render() {
     // Track which buildings have been drawn this frame
     const drawnBuildings = new Set();
 
-    // Painter's algorithm: front-to-back diagonal order
-    for (let diag = 0; diag <= (GRID_SIZE - 1) * 2; diag++) {
-        const xiMin = Math.max(0, diag - (GRID_SIZE - 1));
-        const xiMax = Math.min(diag, GRID_SIZE - 1);
+    // Painter's algorithm: front-to-back diagonal order. Bounds generalized
+    // for a non-square GRID_W×GRID_H (a live 40×40 map vs. a larger Village
+    // Era draft, see EXPANSION_MARGIN in app.py) -- xi/y are still clamped
+    // per-axis by inBounds() below, so this only needs to be a safe
+    // superset of the real diagonal range.
+    for (let diag = 0; diag <= (GRID_W - 1) + (GRID_H - 1); diag++) {
+        const xiMin = Math.max(0, diag - (GRID_H - 1));
+        const xiMax = Math.min(diag, GRID_W - 1);
         for (let xi = xiMin; xi <= xiMax; xi++) {
             const x = xi;
             const y = diag - xi;
@@ -517,14 +532,14 @@ function render() {
         drawBuildingFootprintPreview(selectedBuilding, previewGX, previewGY);
     }
 
-    // Faint purple outline around the entire 40×40 grid boundary
+    // Faint purple outline around the entire GRID_W×GRID_H grid boundary
     {
         const gs = gridToScreen;
-        const n = GRID_SIZE - 1;
+        const nx = GRID_W - 1, ny = GRID_H - 1;
         const top = gs(0, 0);
-        const rgt = gs(n, 0);
-        const bot = gs(n, n);
-        const lft = gs(0, n);
+        const rgt = gs(nx, 0);
+        const bot = gs(nx, ny);
+        const lft = gs(0, ny);
         ctx.beginPath();
         ctx.moveTo(top.x, top.y - TILE_H / 2);
         ctx.lineTo(rgt.x, rgt.y - TILE_H / 2);
@@ -656,8 +671,8 @@ function updateInfoPanel() {
     let walkable = 0, path = 0, trees = 0, water = 0;
     const buildingTileSet = getBuildingTileSet();
 
-    for (let y = 0; y < GRID_SIZE; y++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
+    for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
             const t = grid[y][x];
             if (t === 0) walkable++;
             else if (t === 1) path++;
@@ -705,10 +720,31 @@ function showFlash(msg, isError) {
     }, 2000);
 }
 
+// ── DRAFT MODE ────────────────────────────────────────────────────────────────
+// #btn-draft-mode only makes sense once the village has a next-era draft to
+// design (era_status === 'maxed_waiting' -- see _generate_draft_layout() in
+// app.py). Checked once on page load; the button stays hidden/disabled with
+// an explanatory tooltip otherwise.
+async function checkDraftAvailability() {
+    const btn = document.getElementById('btn-draft-mode');
+    if (!btn) return;
+    try {
+        const resp = await fetch('/village/era/status');
+        const data = await resp.json();
+        if (data.era_status === 'maxed_waiting') {
+            btn.style.display = '';
+            btn.disabled = false;
+            btn.title = 'Toggle between the live layout and the next era\'s draft map.';
+        }
+    } catch (e) {
+        // Leave hidden/disabled -- no draft to design if the check fails.
+    }
+}
+
 // ── SAVE / LOAD ───────────────────────────────────────────────────────────────
 async function saveLayout() {
     try {
-        const resp = await fetch('/village/layout/save', {
+        const resp = await fetch(draftMode ? '/village/layout/draft/save' : '/village/layout/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ grid, buildings, tileRotations }),
@@ -730,11 +766,16 @@ async function loadLayout() {
         if (!confirm('You have unsaved changes. Load anyway?')) return;
     }
     try {
-        const resp = await fetch('/village/layout');
+        const resp = await fetch(draftMode ? '/village/layout/draft' : '/village/layout');
         if (!resp.ok) throw new Error('fetch failed');
         const data = await resp.json();
         applyLayout(data);
         setDirty(false);
+        // Grid dimensions may have just changed (e.g. toggling into/out of
+        // draft mode -- a Village Era draft is larger than the live map, see
+        // EXPANSION_MARGIN in app.py), so re-fit the camera to whatever size
+        // just loaded instead of leaving it framed for the old one.
+        resetView();
         updateInfoPanel();
         rebuildBuildingsList();
     } catch (e) {
@@ -743,20 +784,28 @@ async function loadLayout() {
 }
 
 function applyLayout(data) {
-    // Apply grid
-    if (data.grid && Array.isArray(data.grid)) {
+    // Apply grid -- sized to whatever the loaded layout actually is, not
+    // clamped to a fixed 40×40. The live layout is 40×40 today, but a
+    // Village Era draft can be larger (see EXPANSION_MARGIN in app.py); this
+    // is what lets GRID_W/GRID_H (and everything derived from them: camera
+    // fit, bounds checks, the diagonal draw order) track the map actually
+    // being edited.
+    if (data.grid && Array.isArray(data.grid) && data.grid.length > 0) {
+        GRID_H = data.grid.length;
+        GRID_W = Math.max(...data.grid.map(row => Array.isArray(row) ? row.length : 0));
         grid = [];
-        for (let y = 0; y < GRID_SIZE; y++) {
+        for (let y = 0; y < GRID_H; y++) {
             if (data.grid[y] && Array.isArray(data.grid[y])) {
-                grid.push(data.grid[y].slice(0, GRID_SIZE).map(Number));
+                grid.push(data.grid[y].slice(0, GRID_W).map(Number));
                 // Pad if needed
-                while (grid[y].length < GRID_SIZE) grid[y].push(0);
+                while (grid[y].length < GRID_W) grid[y].push(0);
             } else {
-                grid.push(new Array(GRID_SIZE).fill(0));
+                grid.push(new Array(GRID_W).fill(0));
             }
         }
-        while (grid.length < GRID_SIZE) grid.push(new Array(GRID_SIZE).fill(0));
     } else {
+        GRID_W = 40;
+        GRID_H = 40;
         initGrid();
     }
 
@@ -823,6 +872,7 @@ function uploadBackup(file) {
         }
         applyLayout(data);
         setDirty(true);
+        resetView(); // re-fit camera in case the uploaded file is a different size
         updateInfoPanel();
         rebuildBuildingsList();
         showFlash('LOADED FROM FILE — REVIEW & SAVE', false);
@@ -939,6 +989,14 @@ function setupToolbar() {
     document.getElementById('btn-show-paths').addEventListener('click', function () {
         showPaths = !showPaths;
         this.classList.toggle('active', showPaths);
+    });
+
+    // Draft mode toggle -- reloads whichever layout (live/draft) matches the
+    // new mode immediately, same "flip state + refresh" shape as Show Paths.
+    document.getElementById('btn-draft-mode').addEventListener('click', function () {
+        draftMode = !draftMode;
+        this.classList.toggle('active', draftMode);
+        loadLayout();
     });
 
     // Load / Save / Reset layout
@@ -1171,7 +1229,7 @@ async function init() {
 
     // Try to load existing layout
     try {
-        const resp = await fetch('/village/layout');
+        const resp = await fetch(draftMode ? '/village/layout/draft' : '/village/layout');
         if (resp.ok) {
             const data = await resp.json();
             applyLayout(data);
@@ -1179,6 +1237,12 @@ async function init() {
     } catch (e) {
         // Start with blank grid
     }
+
+    // Fire-and-forget -- only shows/enables #btn-draft-mode once a draft is
+    // actually available (era_status === 'maxed_waiting'); draftMode is
+    // still false at this point either way, so it can't affect the fetch
+    // just above.
+    checkDraftAvailability();
 
     updateInfoPanel();
     rebuildBuildingsList();
@@ -1192,7 +1256,7 @@ async function init() {
             canvas.width  = wrapper.clientWidth;
             canvas.height = wrapper.clientHeight;
         }
-        resetView(); // fit the full 40×40 grid
+        resetView(); // fit the full grid, whatever size just loaded
         requestAnimationFrame(render);
     });
 }

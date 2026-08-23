@@ -1087,6 +1087,24 @@
 
       <div class="mh-actions">
 
+        <!-- Village Era advance -- only shown once every building has hit
+             its current max_level (fetched from /village/era/status when
+             this tab loads, same gating pattern the other Mayor tabs use
+             for their own action buttons). -->
+        <div class="mh-action-card" id="era-advance-card" style="display:none;">
+          <div class="mh-action-title">🏔️ ADVANCE VILLAGE ERA</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Every building has reached its current max level. Advancing opens
+            3 more levels per building for the new era (ERA_LEVEL_STEP in
+            app.py). The newly opened levels start with placeholder costs
+            (scaled off level 3) pending a real balance pass.
+          </div>
+          <div style="margin-bottom:10px;font-size:16px;">
+            Current era: <span id="era-advance-current">1</span>
+          </div>
+          <button class="mh-btn danger" onclick="mayorAdvanceEra()">🎆 ADVANCE ERA</button>
+        </div>
+
         <!-- Building reset -->
         <div class="mh-action-card">
           <div class="mh-action-title">🏗️ BUILDING RESET</div>
@@ -1206,6 +1224,7 @@
     if (tab === 'items') loadCatalogItems(_itemsCatalog);
     if (tab === 'events') { loadEventVisibility(); loadEventsList(); }
     if (tab === 'overview') loadOverview(document.getElementById('ov-date-select')?.value || '');
+    if (tab === 'buildings') loadVillageEraStatus();
   }
 
   // ── CLOCK ──
@@ -2082,6 +2101,32 @@
   loadTopicSuggestions();
 
   // ── BUILDINGS & AWARDS DEBUG ──
+
+  // Gates the ADVANCE ERA card -- fetched when the Buildings & Awards tab
+  // loads (see switchMayorTab()), same pattern the other Mayor tabs use to
+  // decide whether their own action buttons should show.
+  async function loadVillageEraStatus() {
+    try {
+      const res  = await fetch('/village/era/status' + KEY_PARAM);
+      const data = await res.json();
+      document.getElementById('era-advance-current').textContent = data.era;
+      document.getElementById('era-advance-card').style.display =
+        data.era_status === 'maxed_waiting' ? 'block' : 'none';
+    } catch(e) {}
+  }
+
+  async function mayorAdvanceEra() {
+    if (!confirm('🎆 Advance the village to the next Era? This raises every building\'s max level by 3, opening new upgrade tiers with placeholder costs. Cannot be undone.')) return;
+    const btn  = event.target;
+    const data = await api('/mayor/advance_era', {}, btn);
+    if (data.status === 'success') {
+      toast(`✅ Village advanced to Era ${data.era}!`);
+      loadVillageEraStatus();
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
   async function bdBuildingReset() {
     const sel  = document.getElementById('bd-building-select');
     const id   = sel.value;
