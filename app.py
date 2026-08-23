@@ -3743,6 +3743,13 @@ def home():
 
     streak_reward = session.pop("streak_reward", None)
     daily_reward  = session.pop("daily_reward",  None)
+    # One-shot result of a /link/twitch or /link/discord round-trip -- see
+    # those routes and the two /auth/*/callback link-mode branches. Stashed
+    # in the session (not a query param) so it survives the OAuth provider's
+    # own redirect chain and, like streak_reward/daily_reward above, fires
+    # exactly once instead of re-showing on every refresh of a `?linked=...`
+    # URL.
+    link_result   = session.pop("link_result",   None)
     return render_template(
         "home.html",
         logged_in=True,
@@ -3751,6 +3758,7 @@ def home():
         streak=streak_row["current_streak"] if streak_row else 1,
         streak_reward=streak_reward,
         daily_reward=daily_reward,
+        link_result=link_result,
         daily_lootbox_awarded=daily_lootbox_awarded,
         daily_lootbox_id=daily_lootbox_id,
         build_leaderboard_reward=build_leaderboard_reward,
@@ -3764,6 +3772,30 @@ def home():
         interest_traits=INTEREST_TRAITS,
         quirk_traits=QUIRK_TRAITS,
         auth_error=auth_error,
+    )
+
+
+@app.route("/link/twitch")
+def link_twitch():
+    """Starts the account-linking version of the Twitch OAuth flow -- same
+    authorize URL/redirect_uri as /login (so /auth/callback is indistinguishable
+    from a normal login at the transport level), except this stashes
+    auth_link_mode=True in the session first. That flag is the only thing
+    that tells /auth/callback to link the result onto the already-logged-in
+    penguin below instead of running its normal login/signup path -- it
+    survives the round trip to Twitch and back on the same session cookie,
+    same as session['username'] already does for a normal login.
+
+    Requires an existing session -- there's nothing to link onto otherwise.
+    """
+    if not session.get("username"):
+        return redirect(url_for("home"))
+    session["auth_link_mode"] = True
+    return redirect(
+        "https://id.twitch.tv/oauth2/authorize"
+        f"?client_id={TWITCH_CLIENT_ID}"
+        f"&redirect_uri={TWITCH_REDIRECT_URI}"
+        "&response_type=code&scope=user:read:email"
     )
 
 
@@ -3808,29 +3840,85 @@ def callback():
         print(f"[TwitchAuth] OAuth callback failed: {type(e).__name__}: {e}")
         import traceback; traceback.print_exc()
         return redirect("/?error=twitch_auth_failed")
+
+    # Account-linking round trip (see /link/twitch) -- write twitch_user_id
+    # onto the ALREADY-logged-in penguin's row instead of running the normal
+    # login/signup path below. Popped (not just read) so it can never leak
+    # into a later plain login on the same session.
+    if session.pop("auth_link_mode", False):
+        linking_username = session.get("username")
+        if not linking_username:
+            # Session died mid-flow (e.g. logged out in another tab) --
+            # nothing to link onto.
+            return redirect(url_for("home"))
+        db = get_db()
+        conflict = db.execute(
+            "SELECT username FROM penguins WHERE twitch_user_id=? AND username!=?",
+            (twitch_user_id, linking_username)
+        ).fetchone()
+        if conflict:
+            db.close()
+            session["link_result"] = {
+                "status":   "error",
+                "provider": "twitch",
+                "message":  "That Twitch account is already linked to a different penguin.",
+            }
+            return redirect(url_for("home"))
+        db.execute("UPDATE penguins SET twitch_user_id=? WHERE username=?", (twitch_user_id, linking_username))
+        db.commit()
+        db.close()
+        session["link_result"] = {
+            "status":   "success",
+            "provider": "twitch",
+            "message":  "Twitch account linked! You can now log in with either provider.",
+        }
+        return redirect(url_for("home"))
+
     session["username"] = username
 
     db = get_db()
     new_player_message = None
-    try:
-        db.execute(
-            "INSERT INTO penguins (username, twitch_user_id) VALUES (?, ?)",
-            (username, twitch_user_id)
-        )
-        session["new_user"] = True
-        new_player_message = f"🐧 {username} joined the village!"
-        log_event(db, "village", f"{username} joined the village! 🐧", username)
-        ensure_resources(db, username)
-        db.execute(
-            "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
-            (username, "first_login", int(time.time()))
-        )
-    except Exception:
+
+    # Stable-id lookup first -- covers a penguin whose row was originally
+    # created under Discord and has since linked Twitch (see /link/twitch),
+    # or whose Twitch login name has changed since it was stored. Without
+    # this, such an account would fall through to the INSERT below, which
+    # keys on the *current* Twitch login name rather than this stable id --
+    # either silently creating a duplicate row (if that name happens to be
+    # free) or landing on someone else's account entirely (if it's taken),
+    # instead of reaching the row this id was actually linked to. Doesn't
+    # change anything for the vast majority of logins where twitch_user_id
+    # was never linked to a different username -- that case falls straight
+    # through to the unchanged try/except below, same as before this existed.
+    linked_row = db.execute(
+        "SELECT username FROM penguins WHERE twitch_user_id=?", (twitch_user_id,)
+    ).fetchone() if twitch_user_id else None
+
+    if linked_row:
+        username = linked_row["username"]
+        session["username"] = username
         session["new_user"] = False
-        # Existing account (INSERT failed on the username UNIQUE constraint) --
-        # keep twitch_user_id current on every login. Also backfills accounts
-        # created before this column existed, on their next login.
-        db.execute("UPDATE penguins SET twitch_user_id=? WHERE username=?", (twitch_user_id, username))
+    else:
+        try:
+            db.execute(
+                "INSERT INTO penguins (username, twitch_user_id) VALUES (?, ?)",
+                (username, twitch_user_id)
+            )
+            session["new_user"] = True
+            new_player_message = f"🐧 {username} joined the village!"
+            log_event(db, "village", f"{username} joined the village! 🐧", username)
+            ensure_resources(db, username)
+            db.execute(
+                "INSERT OR IGNORE INTO achievements (username, achievement_id, unlocked_at) VALUES (?,?,?)",
+                (username, "first_login", int(time.time()))
+            )
+        except Exception:
+            session["new_user"] = False
+            # Existing account (INSERT failed on the username UNIQUE constraint) --
+            # keep twitch_user_id current on every login. Also backfills accounts
+            # created before this column existed, on their next login.
+            db.execute("UPDATE penguins SET twitch_user_id=? WHERE username=?", (twitch_user_id, username))
+
     ensure_player_data(db, username)
     db.commit()
     db.close()
@@ -3847,6 +3935,21 @@ def logout():
 
 @app.route("/login/discord")
 def login_discord():
+    return redirect(
+        "https://discord.com/oauth2/authorize"
+        f"?client_id={DISCORD_CLIENT_ID}"
+        f"&redirect_uri={DISCORD_REDIRECT_URI}"
+        "&response_type=code&scope=identify"
+    )
+
+
+@app.route("/link/discord")
+def link_discord():
+    """Account-linking counterpart to /login/discord -- see /link/twitch's
+    docstring for how auth_link_mode routes the shared callback."""
+    if not session.get("username"):
+        return redirect(url_for("home"))
+    session["auth_link_mode"] = True
     return redirect(
         "https://discord.com/oauth2/authorize"
         f"?client_id={DISCORD_CLIENT_ID}"
@@ -3889,6 +3992,38 @@ def discord_callback():
         print(f"[DiscordAuth] OAuth callback failed: {type(e).__name__}: {e}")
         import traceback; traceback.print_exc()
         return redirect("/?error=discord_auth_failed")
+
+    # Account-linking round trip (see /link/discord) -- write discord_id
+    # onto the ALREADY-logged-in penguin's row instead of running the normal
+    # login/signup path below. Popped (not just read) so it can never leak
+    # into a later plain login on the same session. Mirrors the Twitch
+    # callback's link-mode branch above.
+    if session.pop("auth_link_mode", False):
+        linking_username = session.get("username")
+        if not linking_username:
+            return redirect(url_for("home"))
+        db = get_db()
+        conflict = db.execute(
+            "SELECT username FROM penguins WHERE discord_id=? AND username!=?",
+            (discord_id, linking_username)
+        ).fetchone()
+        if conflict:
+            db.close()
+            session["link_result"] = {
+                "status":   "error",
+                "provider": "discord",
+                "message":  "That Discord account is already linked to a different penguin.",
+            }
+            return redirect(url_for("home"))
+        db.execute("UPDATE penguins SET discord_id=? WHERE username=?", (discord_id, linking_username))
+        db.commit()
+        db.close()
+        session["link_result"] = {
+            "status":   "success",
+            "provider": "discord",
+            "message":  "Discord account linked! You can now log in with either provider.",
+        }
+        return redirect(url_for("home"))
 
     db = get_db()
     new_player_message = None

@@ -3520,6 +3520,41 @@
     }
     .interests-suggest-btn:hover { background: #0a1208; }
 
+    /* ── LINKED ACCOUNTS (sidebar Penguin tab) ──
+       Same "-section" card shape/spacing as .interests-section above, one
+       row per provider. See /link/twitch, /link/discord in app.py. */
+    .linked-accounts-section {
+      padding: 8px 12px 10px;
+      border-top: 1px solid #2a2a40;
+      margin-top: 4px;
+    }
+    .linked-accounts-title {
+      font-size: 16px;
+      color: #8888A8;
+      letter-spacing: 1px;
+      margin-bottom: 7px;
+    }
+    .linked-account-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 16px;
+      color: #d8d8f0;
+      padding: 4px 0;
+    }
+    .linked-account-status { color: #4aff6b; }
+    .linked-account-btn {
+      font-family: 'Silkscreen', monospace;
+      font-size: 14px;
+      background: #1a1030;
+      border: 1px solid #A86EFF;
+      color: #A86EFF;
+      padding: 4px 9px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .linked-account-btn:hover { background: #100820; }
+
     /* ── MODIFY INTERESTS MODAL ── */
     /* z-index 90030: must render above #mobile-player-overlay (80000) since it's
        reachable from that overlay's Penguin tab — see the mobile-popup-stacking
@@ -3734,6 +3769,32 @@
             <button class="interests-suggest-btn" onclick="suggestInterest()">+ SUGGEST</button>
           </div>
           <span class="interests-status" id="interests-status"></span>
+        </div>
+
+        <!-- LINKED ACCOUNTS -- prove ownership of the other provider via its
+             own OAuth flow to link it onto this same penguin (/link/twitch,
+             /link/discord); a bare username/id match is never accepted as
+             proof. Whichever provider you're currently logged in via is
+             always "linked" by definition, so only the other one ever shows
+             a LINK button. -->
+        <div class="linked-accounts-section">
+          <div class="linked-accounts-title">🔗 LINKED ACCOUNTS</div>
+          <div class="linked-account-row">
+            <span>🎮 Twitch</span>
+            {% if penguin['twitch_user_id'] %}
+              <span class="linked-account-status">✅ Linked</span>
+            {% else %}
+              <a href="/link/twitch" class="linked-account-btn">LINK</a>
+            {% endif %}
+          </div>
+          <div class="linked-account-row">
+            <span>💬 Discord</span>
+            {% if penguin['discord_id'] %}
+              <span class="linked-account-status">✅ Linked</span>
+            {% else %}
+              <a href="/link/discord" class="linked-account-btn">LINK</a>
+            {% endif %}
+          </div>
         </div>
 
       </div>
@@ -12846,6 +12907,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     label: 'OPEN',
     onClick: function() { invOpenLootbox({{ daily_lootbox_id | tojson }}); }
   });
+  {% endif %}
+
+  {% if link_result %}
+  showToast({{ link_result.message | tojson }}, {{ ('ok' if link_result.status == 'success' else 'err') | tojson }});
   {% endif %}
 
   {% if build_leaderboard_reward %}
