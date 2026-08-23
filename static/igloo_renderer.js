@@ -524,11 +524,24 @@ const IglooRenderer = (function () {
             const sorted = [...furniture].sort(
                 (a, b) => (b.grid_x + b.grid_y) - (a.grid_x + a.grid_y)
             );
+            // A non-interactive item sharing/overlapping the same cell(s) --
+            // most commonly a rug placed under a bed -- would otherwise win
+            // this tie by sort order alone and silently swallow the click,
+            // since the loop below returns on the first overlap regardless
+            // of whether it's actually interactive. Scan every overlapping
+            // item at the cell and prefer one flagged interactive over the
+            // plain front-most match, so co-located decor can't mask an
+            // interactive piece of furniture; falls back to the old
+            // front-most-wins result when nothing there is interactive.
             const findHit = (gx, gy) => {
+                let fallback = null;
                 for (const f of sorted) {
-                    if (_overlaps(gx, gy, 1, 1, f.grid_x, f.grid_y, f.width || 1, f.height || 1)) return f;
+                    if (_overlaps(gx, gy, 1, 1, f.grid_x, f.grid_y, f.width || 1, f.height || 1)) {
+                        if (!fallback) fallback = f;
+                        if ((IGLOO_FURNITURE_CLIENT[f.item_id] || {}).interactive) return f;
+                    }
                 }
-                return null;
+                return fallback;
             };
             const g = _s2g(sx, sy, s);
             let hit = findHit(g.gx, g.gy);
