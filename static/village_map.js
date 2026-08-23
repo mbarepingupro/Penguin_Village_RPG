@@ -3,7 +3,13 @@
 
 const TILE_W = 64;
 const TILE_H = 32;
-const GRID_SIZE = 40;
+// GRID_W/GRID_H used to be a single hardcoded GRID_SIZE=40 (every layout was
+// 40x40). A Village Era draft map can now be larger (see EXPANSION_MARGIN in
+// app.py), so these are `let`s, re-derived from the actually-loaded grid's
+// real dimensions right after fetching /village/layout -- see initEngine()
+// below. 40 is just the starting default before any layout has loaded.
+let GRID_W = 40;
+let GRID_H = 40;
 
 const TILE_SNOW = 0, TILE_PATH = 1, TILE_WATER = 2, TILE_TREE = 3, TILE_BUILD = 4, TILE_FENCE = 5, TILE_EXPAND = 6;
 
@@ -782,7 +788,7 @@ function isPenguinBehindBuilding(penguinX, penguinY) {
 }
 
 function isWalkable(gx, gy) {
-    if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return false;
+    if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) return false;
     const t = grid[gy] && grid[gy][gx];
     return t === TILE_SNOW || t === TILE_PATH;
 }
@@ -803,6 +809,15 @@ function findPath(sx, sy, ex, ey) {
     const visited = new Set();
     visited.add(sx + ',' + sy);
     const dirs = [[0,-1],[0,1],[-1,0],[1,0]];
+    // Safety cap on how many tiles a single search will visit before giving
+    // up and treating the destination as unreachable, rather than let a
+    // pathological click hang the frame walking the whole grid. Originally a
+    // flat 1200 against a fixed 40x40 (1600-tile) grid -- scaled by the same
+    // ~0.75 ratio against the actual grid area (recomputed per call, since
+    // GRID_W/GRID_H can change after a Village Era layout reload) so a
+    // larger map keeps the same relative search budget instead of clipping
+    // legitimate longer paths.
+    const visitedCap = Math.round(GRID_W * GRID_H * 0.75);
     while (queue.length > 0) {
         const cur = queue.shift();
         for (const [dx, dy] of dirs) {
@@ -813,7 +828,7 @@ function findPath(sx, sy, ex, ey) {
                 const newPath = cur.path.concat([{ x: nx, y: ny }]);
                 if (nx === ex && ny === ey) return newPath;
                 queue.push({ x: nx, y: ny, path: newPath });
-                if (visited.size > 1200) return null; // safety limit
+                if (visited.size > visitedCap) return null; // safety limit
             }
         }
     }
@@ -868,7 +883,10 @@ function movePlayerTo(targetX, targetY) {
 
 function nearestWalkable(gx, gy) {
     if (isWalkable(gx, gy)) return { x: gx, y: gy };
-    for (let r = 1; r < GRID_SIZE; r++) {
+    // The larger of the two dimensions, so the ring search still reaches
+    // every tile on a non-square grid -- isWalkable()'s own bounds check
+    // (against GRID_W/GRID_H) filters out-of-range candidates along the way.
+    for (let r = 1; r < Math.max(GRID_W, GRID_H); r++) {
         for (let dx = -r; dx <= r; dx++) {
             for (let dy = -r; dy <= r; dy++) {
                 if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
@@ -881,8 +899,8 @@ function nearestWalkable(gx, gy) {
 
 function randomWalkableTile() {
     const walkable = [];
-    for (let y = 0; y < GRID_SIZE; y++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
+    for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
             if (isWalkable(x, y)) walkable.push({ x, y });
         }
     }
@@ -1323,7 +1341,7 @@ function attachEvents() {
 
         // 2. Building click
         const g = screenToGrid(sx, sy);
-        let bid = (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE)
+        let bid = (g.x >= 0 && g.x < GRID_W && g.y >= 0 && g.y < GRID_H)
             ? getBuildingAtTile(g.x, g.y) : null;
         if (!bid) {
             const wx = (sx - cameraX) / zoomLevel;
@@ -1333,7 +1351,7 @@ function attachEvents() {
         if (bid && openBuildingFn) { if (window.GameSounds) GameSounds.buildingClick(); openBuildingFn(bid); return; }
 
         // 3. Click-to-move — move the player's penguin to the clicked tile
-        if (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE) {
+        if (g.x >= 0 && g.x < GRID_W && g.y >= 0 && g.y < GRID_H) {
             movePlayerTo(g.x, g.y);
         }
     });
@@ -1397,7 +1415,7 @@ function attachEvents() {
             }
 
             const g = screenToGrid(sx, sy);
-            let bid = (g.x >= 0 && g.x < GRID_SIZE && g.y >= 0 && g.y < GRID_SIZE)
+            let bid = (g.x >= 0 && g.x < GRID_W && g.y >= 0 && g.y < GRID_H)
                 ? getBuildingAtTile(g.x, g.y) : null;
             if (!bid) {
                 const wx = (sx - cameraX) / zoomLevel;
@@ -1450,8 +1468,13 @@ function gameLoop(ts) {
 
     // ── Phase 1: Ground tiles (always flat — draw first) ─────────────────────
     const margin = TILE_W * 2;
-    for (let diag = 0; diag < 2 * GRID_SIZE - 1; diag++) {
-        for (let xi = Math.max(0, diag - GRID_SIZE + 1); xi <= Math.min(diag, GRID_SIZE - 1); xi++) {
+    // Bounds generalized for a non-square GRID_W×GRID_H (a live 40×40 map vs.
+    // a larger Village Era draft, see EXPANSION_MARGIN in app.py) -- same
+    // diagonal-enumeration fix as village_editor.js's render().
+    for (let diag = 0; diag <= (GRID_W - 1) + (GRID_H - 1); diag++) {
+        const xiMin = Math.max(0, diag - (GRID_H - 1));
+        const xiMax = Math.min(diag, GRID_W - 1);
+        for (let xi = xiMin; xi <= xiMax; xi++) {
             const x = xi;
             const y = diag - xi;
             const pos = gridToScreen(x, y);
@@ -1508,8 +1531,8 @@ function gameLoop(ts) {
     const uprightObjects = [];
 
     // Trees — sort key is their single grid cell
-    for (let y = 0; y < GRID_SIZE; y++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
+    for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
             if (grid[y] && grid[y][x] === TILE_TREE) {
                 uprightObjects.push({ type: 'tree', gridX: x, gridY: y, sortKey: x + y });
             }
@@ -1517,8 +1540,8 @@ function gameLoop(ts) {
     }
 
     // Fences — same single-grid-cell sort key convention as trees
-    for (let y = 0; y < GRID_SIZE; y++) {
-        for (let x = 0; x < GRID_SIZE; x++) {
+    for (let y = 0; y < GRID_H; y++) {
+        for (let x = 0; x < GRID_W; x++) {
             if (grid[y] && grid[y][x] === TILE_FENCE) {
                 uprightObjects.push({ type: 'fence', gridX: x, gridY: y, sortKey: x + y });
             }
@@ -1640,14 +1663,21 @@ function initEngine(canvasEl, username, openBuildingCallback) {
         .then(r => r.json())
         .then(data => {
             grid = data.grid || [];
+            // Re-derive from the actually-loaded grid instead of assuming a
+            // fixed 40x40 -- a Village Era draft promoted to live can be
+            // larger (see EXPANSION_MARGIN in app.py). Every GRID_W/GRID_H
+            // consumer below (isWalkable, findPath, the diagonal draw order,
+            // etc.) picks this up since they're plain module-level `let`s.
+            GRID_H = grid.length;
+            GRID_W = grid[0]?.length || 0;
             buildingLayout = data.buildings || {};
             buildingLevels = data.building_levels || {};
             buildingMaxLevels = data.building_max_levels || {};
             tileRotations = data.tileRotations || {};
 
             treeSeed = {};
-            for (let y = 0; y < GRID_SIZE; y++) {
-                for (let x = 0; x < GRID_SIZE; x++) {
+            for (let y = 0; y < GRID_H; y++) {
+                for (let x = 0; x < GRID_W; x++) {
                     if (grid[y] && grid[y][x] === TILE_TREE) {
                         treeSeed[x + ',' + y] = Math.floor(Math.random() * 256);
                     }
