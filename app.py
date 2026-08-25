@@ -536,36 +536,41 @@ BUILDING_UPGRADES = {
     "sea_lion_pit": {
         "name": "Ash's Sea Lion Pit",
         "levels": {
-            2: {"fish": 2500,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% fish rate for everyone"},
-            3: {"fish": 12500, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% fish rate for everyone"},
+            # Stage-0 rebalance (FAUCET_SINK_AUDIT.md): fish x4, gold x4, ice_blocks untouched.
+            2: {"fish": 10000, "gold": 5000,  "ice_blocks": 5000,  "benefit": "+15% fish rate for everyone"},
+            3: {"fish": 50000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% fish rate for everyone"},
         },
     },
     "club_soda": {
         "name": "Club Soda",
         "levels": {
-            2: {"herbs": 2500,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% herb rate for everyone"},
-            3: {"herbs": 12500, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% herb rate for everyone"},
+            # Stage-0 rebalance (FAUCET_SINK_AUDIT.md): herbs x4, gold x4, ice_blocks untouched.
+            2: {"herbs": 10000, "gold": 5000,  "ice_blocks": 5000,  "benefit": "+15% herb rate for everyone"},
+            3: {"herbs": 50000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% herb rate for everyone"},
         },
     },
     "parkmusement": {
         "name": "Ash's Parkmusement",
         "levels": {
-            2: {"gold": 3750,  "ice_blocks": 5000,  "benefit": "+15% gold rate for everyone"},
-            3: {"gold": 18750, "ice_blocks": 10000, "benefit": "+30% gold rate for everyone"},
+            # Stage-0 rebalance (FAUCET_SINK_AUDIT.md): gold x4, ice_blocks untouched.
+            2: {"gold": 15000, "ice_blocks": 5000,  "benefit": "+15% gold rate for everyone"},
+            3: {"gold": 75000, "ice_blocks": 10000, "benefit": "+30% gold rate for everyone"},
         },
     },
     "cursed_temple": {
         "name": "Cursed Temple",
         "levels": {
-            2: {"spell_fragments": 2000,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% XP rate for everyone"},
-            3: {"spell_fragments": 10000, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% XP rate for everyone"},
+            # Stage-0 rebalance (FAUCET_SINK_AUDIT.md): spell_fragments x5, gold x4, ice_blocks untouched.
+            2: {"spell_fragments": 10000, "gold": 5000,  "ice_blocks": 5000,  "benefit": "+15% XP rate for everyone"},
+            3: {"spell_fragments": 50000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% XP rate for everyone"},
         },
     },
     "guillotine": {
         "name": "Gil the Guillotine",
         "levels": {
-            2: {"blood_gems": 500,  "bones": 500,  "gold": 1250, "ice_blocks": 5000,  "benefit": "+15% blood gem and bone rate for everyone"},
-            3: {"blood_gems": 2500, "bones": 2500, "gold": 6250, "ice_blocks": 10000, "benefit": "+30% rate for everyone"},
+            # Stage-0 rebalance (FAUCET_SINK_AUDIT.md): blood_gems x10, bones x10, gold x4, ice_blocks untouched.
+            2: {"blood_gems": 5000,  "bones": 5000,  "gold": 5000,  "ice_blocks": 5000,  "benefit": "+15% blood gem and bone rate for everyone"},
+            3: {"blood_gems": 25000, "bones": 25000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% rate for everyone"},
         },
     },
 }
