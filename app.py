@@ -714,6 +714,77 @@ BUILDING_CARD_BACKGROUNDS = {
 
 BUILDING_BONUS_RATES = {1: 0.0, 2: 0.15, 3: 0.30}
 
+# ── INFINITE BUILDING LEVELING (soft-cap past level 3) ──────────────────────
+# The 5 BUILDING_UPGRADES buildings no longer have a hard level ceiling --
+# building_upgrades.max_level (bumped +3 per village_era advance) is still
+# written by that system but is no longer read as a gate anywhere below; it's
+# simply inert now that there's no ceiling for it to raise. See
+# _building_upgrade_info()/building_donate()/mayor_building_boost().
+#
+# Cost: continues each building's own EXISTING lvl1->2 / lvl2->3 ratio per
+# resource, derived here (never hand-picked) -- e.g. sea_lion_pit's fish cost
+# lvl1->2=10,000, lvl2->3=50,000 -> growth=5x, so lvl3->4=250,000,
+# lvl4->5=1,250,000, forever. ice_blocks' ratio is 2x for every building
+# (5,000 -> 10,000) and continues the same way. Same base*growth**(level-1)
+# shape as CORNUCOPIA_BASE_COST/CORNUCOPIA_GROWTH's cornucopia_cost().
+_BUILDING_COST_RATIOS = {
+    bid: {
+        res: (cfg["levels"][2][res], cfg["levels"][3][res] // cfg["levels"][2][res])
+        for res in cfg["levels"][2] if res != "benefit"
+    }
+    for bid, cfg in BUILDING_UPGRADES.items()
+}
+
+
+def building_cost(building_id, resource, level):
+    """Amount of `resource` needed to advance `building_id` FROM `level` to
+    `level+1`, for any level >= 1 -- infinite past the old level-3 cap.
+    Levels 1->2 and 2->3 reproduce BUILDING_UPGRADES' original stored values
+    exactly; level 3+ continues the same per-resource growth ratio."""
+    base, growth = _BUILDING_COST_RATIOS[building_id][resource]
+    return base * (growth ** (level - 1))
+
+
+def get_building_bonus_rate(level):
+    """Production bonus (the `(1 + building_bonus)` multiplier's bonus term
+    in /work/collect) for a building at `level`. Levels 1/2/3 are exactly
+    BUILDING_BONUS_RATES' original 0%/15%/30% -- level 3 is the last level
+    with a meaningful jump. Every level past 3 instead adds a much smaller
+    +0.5%, stacking ADDITIVELY on the 30% base forever (never compounds,
+    never plateaus): level 10 = 33.5%, level 50 = 53.5%. Replaces direct
+    BUILDING_BONUS_RATES lookups, which silently fell back to 0% for any
+    level not in {1,2,3} -- a bug now that buildings can exceed level 3."""
+    if level <= 1:
+        return 0.0
+    if level == 2:
+        return 0.15
+    return 0.30 + 0.005 * (level - 3)
+
+
+# Per-building flavor label for _building_benefit_text() below -- mirrors the
+# resource each building's original hardcoded level-2/3 "benefit" string
+# named, so e.g. sea_lion_pit still reads "+15% fish rate for everyone" at
+# level 2 and "+30% fish rate for everyone" at level 3, unchanged.
+_BUILDING_BONUS_LABEL = {
+    "sea_lion_pit":  "fish rate",
+    "club_soda":     "herb rate",
+    "parkmusement":  "gold rate",
+    "cursed_temple": "XP rate",
+    "guillotine":    "blood gem and bone rate",
+}
+
+
+def _building_benefit_text(building_id, level):
+    """Human-readable current/next-level benefit string, replacing the old
+    static per-level 'benefit' text in BUILDING_UPGRADES[*]['levels'] (which
+    only ever had entries for levels 2 and 3)."""
+    rate = get_building_bonus_rate(level)
+    if rate <= 0:
+        return "Base level — no bonus yet"
+    label = _BUILDING_BONUS_LABEL.get(building_id, "resource rate")
+    return f"+{rate * 100:g}% {label} for everyone"
+
+
 STARTER_COLORS = {
     "classic_black":  {"name": "Classic Black",   "body": "#1a1a1a", "belly": "#e8e8e8", "beak": "#FF8C00", "feet": "#FF8C00"},
     "midnight_blue":  {"name": "Midnight Blue",   "body": "#1a1a4e", "belly": "#c8c8e8", "beak": "#FF8C00", "feet": "#FF8C00"},
@@ -5920,7 +5991,7 @@ def work_collect():
     gathering_bonus = get_total_gathering_bonus(player_level) / 100.0
     stream_mult     = STREAM_RATES.get(p["stream_tier"] or 0, 1.0)
     ensure_building_row(db, p["job"])
-    building_bonus  = BUILDING_BONUS_RATES.get(get_building_level(db, p["job"]), 0.0)
+    building_bonus  = get_building_bonus_rate(get_building_level(db, p["job"]))
     # Flat, additive Cornucopia bonus (app.py's CORNUCOPIA_JOB_BONUS_PER_LEVEL)
     # -- added to the base rate_per_hour below, same as every other job-rate
     # read site, never a rewrite of BUILDINGS[*]['produces'] itself.
@@ -8640,7 +8711,13 @@ def titles_grant():
 # ── VILLAGE BUILDING UPGRADE ENDPOINTS ───────────────────────────────────────
 
 def _building_upgrade_info(db, building_id):
-    """Return full upgrade state for a building (dict, or None if unknown)."""
+    """Return full upgrade state for a building (dict, or None if unknown).
+    Uncapped: max_level is always returned as None (regardless of the
+    building_upgrades.max_level DB column, which village_era still bumps but
+    which is no longer read as a gate) so the frontend's existing infinite-
+    level handling -- built for the Cornucopia's _renderModalContent()/
+    _renderContributionHtml() null-maxLvl branches -- applies here too, with
+    no new frontend code."""
     cfg = BUILDING_UPGRADES.get(building_id)
     if not cfg:
         return None
@@ -8649,34 +8726,29 @@ def _building_upgrade_info(db, building_id):
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    max_level     = row["max_level"]     if row else 3
-    levels_cfg    = cfg["levels"]
-    next_level    = current_level + 1 if current_level < max_level else None
-    next_req      = levels_cfg.get(next_level, {}) if next_level else {}
+    next_level    = current_level + 1
+    next_req      = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
     # Derived from _RES_COL (the same map /building/donate uses to pick the
     # column to write) so every donatable resource — including ice_blocks —
     # is covered here without needing to be hand-added to a second list.
     donated       = {res: ((row[col] if row else 0) or 0) for res, col in _RES_COL.items()}
     progress = {}
     for res, need in next_req.items():
-        if res == "benefit":
-            continue
         have = donated.get(res, 0)
         progress[res] = {
             "needed": need, "donated": have,
             "pct": min(100, round(have / need * 100)) if need else 100,
         }
-    # current benefit
-    cur_benefit  = levels_cfg.get(current_level, {}).get("benefit", "Base level") if current_level > 1 else "Base level"
-    next_benefit = next_req.get("benefit") if next_req else None
+    cur_benefit  = _building_benefit_text(building_id, current_level)
+    next_benefit = _building_benefit_text(building_id, next_level)
     return {
         "building_id":    building_id,
         "name":           cfg["name"],
         "current_level":  current_level,
-        "max_level":      max_level,
+        "max_level":      None,
         "current_benefit": cur_benefit,
         "next_level":     next_level,
-        "next_req":       {k: v for k, v in next_req.items() if k != "benefit"},
+        "next_req":       next_req,
         "next_benefit":   next_benefit,
         "progress":       progress,
     }
@@ -8774,14 +8846,14 @@ def building_donate():
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    max_level     = row["max_level"]     if row else 3
 
-    if current_level >= max_level:
-        db.close()
-        return jsonify({"status": "error", "message": "Building is already max level."})
-
+    # No level ceiling -- building_cost() continues this building's own
+    # lvl1->2/lvl2->3 ratio per resource indefinitely (see the
+    # "INFINITE BUILDING LEVELING" block near BUILDING_UPGRADES). The old
+    # `current_level >= max_level` gate is gone; building_upgrades.max_level
+    # itself is left alone for village_era to keep bumping, just unread here.
     next_level = current_level + 1
-    next_req   = {k: v for k, v in cfg["levels"][next_level].items() if k != "benefit"}
+    next_req   = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
     if resource_type not in next_req:
         db.close()
         return jsonify({"status": "error", "message": f"{_resource_display_name(resource_type)} is not needed for the next upgrade."})
@@ -8918,7 +8990,7 @@ def building_donate():
             "WHERE building_id=?",
             (new_level, building_id)
         )
-        benefit = cfg["levels"][new_level].get("benefit", "")
+        benefit = _building_benefit_text(building_id, new_level)
         levelup_message = f"🏗️ {cfg['name']} has been upgraded to Level {new_level}! {benefit} Thanks to the village!"
         log_event(db, "building_levelup", levelup_message, None)
         leveled_up = True
@@ -9274,7 +9346,7 @@ def mayor_advance_era():
         })
 
     new_levels_added = {}
-    for building_id, cfg in BUILDING_UPGRADES.items():
+    for building_id in BUILDING_UPGRADES:
         ensure_building_row(db, building_id)
         row_b   = db.execute(
             "SELECT max_level FROM building_upgrades WHERE building_id=?", (building_id,)
@@ -9285,22 +9357,14 @@ def mayor_advance_era():
             "UPDATE building_upgrades SET max_level=? WHERE building_id=?",
             (new_max, building_id)
         )
-        # PLACEHOLDER upgrade requirements -- balance not designed yet.
-        # Reuses level 3's resource keys at 1.5x the amount so every newly
-        # opened level is immediately donatable-toward instead of crashing
-        # the donate/upgrade routes on a missing levels[] entry. Needs a real
-        # balance pass before these ship for real, same as the original Ice
-        # Blocks donation thresholds did when they were first added.
-        level3_req = {k: v for k, v in cfg["levels"].get(3, {}).items() if k != "benefit"}
-        added = []
-        for lvl in range(old_max + 1, new_max + 1):
-            if lvl not in cfg["levels"]:
-                cfg["levels"][lvl] = {
-                    **{res: int(round(amt * 1.5)) for res, amt in level3_req.items()},
-                    "benefit": f"Era {era + 1} upgrade — balance pending",
-                }
-                added.append(lvl)
-        new_levels_added[building_id] = added
+        # max_level itself is no longer read as a donation ceiling anywhere
+        # (building_cost()/get_building_bonus_rate() compute cost/benefit for
+        # any level >= 1 from this building's own existing lvl1->2/lvl2->3
+        # ratio, forever -- see the "INFINITE BUILDING LEVELING" block near
+        # BUILDING_UPGRADES) -- this bump is kept only because village_era's
+        # own progression still expects to track/report it; it just no
+        # longer unlocks anything that wasn't already donatable.
+        new_levels_added[building_id] = list(range(old_max + 1, new_max + 1))
 
     # Promote the Mayor's prepared draft map to live, if one exists (normally
     # seeded by village_era_status() the moment the banner flipped to
@@ -11783,9 +11847,9 @@ def mayor_building_boost():
     current_level = row["current_level"]
     leveled_up    = False
     levelup_messages = []
-    while current_level < (row["max_level"] or 5):
+    while True:  # no level ceiling -- see building_cost()
         next_level = current_level + 1
-        reqs = {k: v for k, v in cfg["levels"][next_level].items() if k != "benefit"}
+        reqs = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
         donated = {k: (row[_RES_COL[k]] if k in _RES_COL else 0) for k in reqs}
         # re-read row after potential update
         row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()

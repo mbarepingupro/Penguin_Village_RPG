@@ -515,7 +515,13 @@ function drawBuilding(id, bdef, level) {
         if (!cfg.noLevelBadge) {
             ctx.font = "14px 'C&C Red Alert', monospace";
             const lvBorderColors = { 1: '#8888A8', 2: '#4a9eff', 3: '#FF8C00' };
-            const badgeText   = lv >= 3 ? '★ MAX' : ('LV.' + lv);
+            // The 5 donation-upgradeable buildings level infinitely past 3
+            // now (soft-cap cost curve, see building_cost() in app.py) --
+            // there's no real "MAX" state left to show, so this always
+            // reads the actual level. (No other building carrying a level
+            // badge can reach level 3+ in the first place -- only these 5
+            // ever increment current_level past 1.)
+            const badgeText   = 'LV.' + lv;
             const badgeBorder = lvBorderColors[lv] || '#8888A8';
             const tw   = ctx.measureText(badgeText).width;
             const padX = 3, padY = 2;

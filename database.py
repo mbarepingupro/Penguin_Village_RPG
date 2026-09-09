@@ -1108,22 +1108,6 @@ def init_db():
     except Exception:
         pass
 
-    # Migrate building levels from 5-level to 3-level system
-    try:
-        c.execute(
-            "UPDATE building_upgrades SET max_level=3 "
-            "WHERE building_id IN ('sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine') "
-            "AND max_level=5"
-        )
-        # Clamp any current_level > 3 down to 3
-        c.execute(
-            "UPDATE building_upgrades SET current_level=3 "
-            "WHERE building_id IN ('sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine') "
-            "AND current_level > 3"
-        )
-    except Exception:
-        pass
-
     # Migrate gear slot names to standardized names
     try:
         c.execute("UPDATE gear SET slot = 'armor' WHERE slot IN ('arm', 'chest', 'cape') AND type = 'combat'")
