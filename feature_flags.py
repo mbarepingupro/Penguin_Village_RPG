@@ -49,6 +49,14 @@ FEATURES = {
                                     # -- only the tally-vs-random branch inside auto_start_gathering()
                                     # checks it. /mayor/debug/run_gathering_vote_resolve always
                                     # tallies regardless of this flag, for testing.
+    "era_advance": False,   # Gates POST /mayor/advance_era itself -- off means the route
+                            # refuses to execute (a clear error response, not a silent
+                            # no-op) regardless of village_era.status or the `force` flag.
+                            # The village_era table, _era_advanced()/_all_buildings_maxed()
+                            # checks, the max_level+=ERA_LEVEL_STEP bump, and the Mayor
+                            # dashboard's "Advance Era" button all stay fully in place --
+                            # this only blocks the one route from actually running. Flip to
+                            # True to re-enable era advancement with zero rebuilding.
     "interactive_moments": True,   # Some requires_other autonomous-action interactions (any
                                     # category) get promoted to an interactive "moment" -- a
                                     # two-option scenario (see moment_scenarios.MOMENT_SCENARIOS,

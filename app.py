@@ -583,12 +583,12 @@ ERA_LEVEL_STEP = 3
 
 def _era_advanced(db):
     """True once the Mayor has advanced the village era at least once
-    (era >= 2). Gates two features that ship dark until then: infinite
-    building leveling past level 3 (see building_donate()/
-    _building_upgrade_info()/mayor_building_boost()) and the Penguin
-    Cornucopia (see /village/layout, /cornucopia/donate, /cornucopia/status).
-    Both stay exactly as they were before either feature existed until the
-    Mayor advances via POST /mayor/advance_era."""
+    (era >= 2). Gates the Penguin Cornucopia (see /village/layout,
+    /cornucopia/donate, /cornucopia/status), which stays exactly as it was
+    before it existed until the Mayor advances via POST /mayor/advance_era
+    -- itself now gated off by default behind FEATURES["era_advance"].
+    Infinite building leveling (building_donate()/_building_upgrade_info()/
+    mayor_building_boost()) no longer depends on this -- it's unconditional."""
     row = db.execute("SELECT era FROM village_era WHERE id=1").fetchone()
     return (row["era"] if row else 1) >= 2
 
@@ -8725,15 +8725,12 @@ def titles_grant():
 def _building_upgrade_info(db, building_id):
     """Return full upgrade state for a building (dict, or None if unknown).
 
-    Uncapped past level 3 ONLY once _era_advanced(db) is true (the Mayor has
-    advanced the village era at least once) -- until then this behaves
-    exactly as it did before infinite leveling existed: max_level is the
-    real building_upgrades.max_level (3, until an era advance bumps it), and
-    next_level/next_req go empty once current_level reaches it. Once
-    unlocked, max_level is always returned as None so the frontend's
-    existing infinite-level handling -- built for the Cornucopia's
-    _renderModalContent()/_renderContributionHtml() null-maxLvl branches --
-    applies here too, with no new frontend code."""
+    Unconditionally uncapped past level 3 -- building_upgrades.max_level is
+    no longer read as a ceiling here (see the "INFINITE BUILDING LEVELING"
+    block near BUILDING_UPGRADES). max_level is always returned as None so
+    the frontend's existing infinite-level handling -- built for the
+    Cornucopia's _renderModalContent()/_renderContributionHtml() null-maxLvl
+    branches -- applies here too, with no new frontend code."""
     cfg = BUILDING_UPGRADES.get(building_id)
     if not cfg:
         return None
@@ -8742,11 +8739,8 @@ def _building_upgrade_info(db, building_id):
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    db_max_level  = row["max_level"] if row else 3
-    unlocked      = _era_advanced(db)
-    max_level     = None if unlocked else db_max_level
-    next_level    = current_level + 1 if (unlocked or current_level < db_max_level) else None
-    next_req      = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]} if next_level else {}
+    next_level    = current_level + 1
+    next_req      = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
     # Derived from _RES_COL (the same map /building/donate uses to pick the
     # column to write) so every donatable resource — including ice_blocks —
     # is covered here without needing to be hand-added to a second list.
@@ -8759,12 +8753,12 @@ def _building_upgrade_info(db, building_id):
             "pct": min(100, round(have / need * 100)) if need else 100,
         }
     cur_benefit  = _building_benefit_text(building_id, current_level)
-    next_benefit = _building_benefit_text(building_id, next_level) if next_level else None
+    next_benefit = _building_benefit_text(building_id, next_level)
     return {
         "building_id":    building_id,
         "name":           cfg["name"],
         "current_level":  current_level,
-        "max_level":      max_level,
+        "max_level":      None,
         "current_benefit": cur_benefit,
         "next_level":     next_level,
         "next_req":       next_req,
@@ -8865,20 +8859,12 @@ def building_donate():
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    db_max_level  = row["max_level"] if row else 3
 
-    # The level ceiling only lifts once the Mayor has advanced the era at
-    # least once (_era_advanced()) -- until then this is the exact same
-    # `current_level >= max_level` gate that existed before infinite
-    # leveling did. Once unlocked, building_cost() continues this building's
-    # own lvl1->2/lvl2->3 ratio per resource indefinitely (see the
-    # "INFINITE BUILDING LEVELING" block near BUILDING_UPGRADES);
-    # building_upgrades.max_level itself is left alone for village_era to
-    # keep bumping either way, just unread here once unlocked.
-    if not _era_advanced(db) and current_level >= db_max_level:
-        db.close()
-        return jsonify({"status": "error", "message": "Building is already max level."})
-
+    # No level ceiling -- building_cost() continues this building's own
+    # lvl1->2/lvl2->3 ratio per resource indefinitely (see the "INFINITE
+    # BUILDING LEVELING" block near BUILDING_UPGRADES). building_upgrades.
+    # max_level itself is left alone for village_era to keep bumping, just
+    # unread here.
     next_level = current_level + 1
     next_req   = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
     if resource_type not in next_req:
@@ -9363,6 +9349,8 @@ def village_era_status():
 
 @app.route("/mayor/advance_era", methods=["POST"])
 def mayor_advance_era():
+    if not FEATURES.get("era_advance", False):
+        return jsonify({"status": "error", "message": "Era advancement is not enabled yet."})
     if not _is_mayor_authed():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     data  = request.get_json(silent=True) or {}
@@ -10938,11 +10926,6 @@ def village_layout():
 
     layout["building_levels"] = levels
     layout["building_max_levels"] = max_levels
-    # Read by village_map.js's level-badge rendering -- while locked, a
-    # building at level 3 still shows "★ MAX" (the original behavior);
-    # once unlocked, it always shows the real level number instead. See
-    # _era_advanced()'s docstring for what else this same flag gates.
-    layout["era_advanced"] = era_advanced
     return jsonify(layout)
 
 
@@ -11892,11 +11875,9 @@ def mayor_building_boost():
     # Check if building levels up
     row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
     current_level = row["current_level"]
-    db_max_level  = row["max_level"] or 3
-    unlocked      = _era_advanced(db)  # same era gate as building_donate()
     leveled_up    = False
     levelup_messages = []
-    while unlocked or current_level < db_max_level:
+    while True:  # no level ceiling -- same as building_donate()
         next_level = current_level + 1
         reqs = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
         donated = {k: (row[_RES_COL[k]] if k in _RES_COL else 0) for k in reqs}
