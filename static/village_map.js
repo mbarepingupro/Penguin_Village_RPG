@@ -148,6 +148,10 @@ const BUILDING_CFG = {
     barracks:      { color: "#922B21", name: "BARRACKS" },
     horny_jail:    { color: "#FF7FE5", name: "HORNY JAIL" },
     boutique:      { color: "#FF7FE5", name: "THE BOUTIQUE", noLevelBadge: true },
+    // Infinitely levelable -- no per-level numeric badge on the map sprite
+    // (same reasoning as boutique's noLevelBadge), unlike the 5 fixed-max-
+    // level-3 BUILDING_UPGRADES buildings.
+    cornucopia:    { color: "#E8A33D", name: "PENGUIN CORNUCOPIA", noLevelBadge: true },
 };
 
 const JOB_ICONS = {

@@ -526,6 +526,35 @@ def init_db():
         )
     """)
 
+    # Penguin Cornucopia -- a standalone, infinitely-levelable communal sink,
+    # separate from BUILDING_UPGRADES' 5 fixed-max-level buildings (see
+    # app.py's CORNUCOPIA_BASE_COST/CORNUCOPIA_GROWTH). Single-row state,
+    # same id-pinned singleton pattern as village_era/weekly_build_leaderboard_state.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS cornucopia_state (
+            id            INTEGER PRIMARY KEY CHECK (id = 1),
+            current_level INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+    c.execute("INSERT OR IGNORE INTO cornucopia_state (id, current_level) VALUES (1, 1)")
+
+    # Same shape as building_donations, plus `level` -- each donation is
+    # tagged with the Cornucopia level it counted toward, so per-level
+    # progress and per-level top-donor standings are both plain SUM/GROUP BY
+    # queries over this table (WHERE level=<current_level>) with no separate
+    # running-total columns to reset on level-up, unlike building_upgrades'
+    # *_donated columns.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS cornucopia_donations (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            resource   TEXT    NOT NULL,
+            amount     INTEGER NOT NULL,
+            level      INTEGER NOT NULL,
+            donated_at INTEGER NOT NULL
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS discovered_sets (
             username TEXT NOT NULL,

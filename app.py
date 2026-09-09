@@ -580,6 +580,65 @@ BUILDING_UPGRADES = {
 # per building (see _all_buildings_maxed() near ensure_building_row() below).
 ERA_LEVEL_STEP = 3
 
+# ── PENGUIN CORNUCOPIA ───────────────────────────────────────────────────────
+# A standalone, infinitely-levelable communal sink -- deliberately separate
+# from BUILDING_UPGRADES (which is fixed-max-level-3 per building, and whose
+# donate/upgrade routes this does NOT reuse). Per FAUCET_SINK_AUDIT.md,
+# ice_blocks is the one resource that is NOT in oversupply (it's rate-limited
+# by the d20 Build!/roll+energy system) -- it must never appear in
+# CORNUCOPIA_BASE_COST/CORNUCOPIA_GROWTH, and /cornucopia/donate rejects it
+# explicitly as a defense-in-depth check on top of it simply not being a key
+# here.
+CORNUCOPIA_BASE_COST = {
+    "fish": 100000, "herbs": 100000, "spell_fragments": 100000,
+    "blood_gems": 50000, "bones": 50000, "gold": 70000,
+}
+CORNUCOPIA_GROWTH = {
+    "fish": 5, "herbs": 5, "spell_fragments": 5, "blood_gems": 5, "bones": 5, "gold": 5,
+}
+CORNUCOPIA_RESOURCES = tuple(CORNUCOPIA_BASE_COST.keys())  # ice_blocks is never a key here -- see above
+
+
+def cornucopia_cost(resource, level):
+    """Amount of `resource` that must be donated to advance the Cornucopia
+    FROM `level` to `level+1`. Infinite/geometric per resource:
+    cost = base[resource] * growth[resource] ** (level - 1)."""
+    return CORNUCOPIA_BASE_COST[resource] * (CORNUCOPIA_GROWTH[resource] ** (level - 1))
+
+
+def get_cornucopia_state(db):
+    """Return the single cornucopia_state row (seeding it if this DB predates
+    the table -- same INSERT OR IGNORE seeding convention as ensure_building_row())."""
+    db.execute("INSERT OR IGNORE INTO cornucopia_state (id, current_level) VALUES (1, 1)")
+    return db.execute("SELECT current_level FROM cornucopia_state WHERE id=1").fetchone()
+
+
+# Flat, ADDITIVE bonus every passive job's produces[] rate gains per
+# Cornucopia level above 1. Level N contributes a running total of
+# (N-1) * this constant -- e.g. level 5 = +4/hr total -- linear/additive
+# across levels, NEVER compounding or multiplicative.
+CORNUCOPIA_JOB_BONUS_PER_LEVEL = 1.0
+
+
+def get_cornucopia_job_bonus(db):
+    """Flat +CORNUCOPIA_JOB_BONUS_PER_LEVEL/hr bonus applied to every key in
+    every job BUILDINGS[*]['produces'] dict (fish/herbs/gold/etc., including
+    xp), added at READ time by every call site that consumes `produces` --
+    never rewrites the BUILDINGS[*]['produces'] base constants themselves.
+    No job currently produces ice_blocks, so this never touches it either."""
+    row = get_cornucopia_state(db)
+    level = row["current_level"] if row else 1
+    return max(0, level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL
+
+
+def apply_cornucopia_milestone_unlock(level):
+    """Hook point for future level-gated Cornucopia unlocks (a new minigame
+    variant, village map ambient effects, etc.) -- intentionally a no-op.
+    Called once from POST /cornucopia/donate right after cornucopia_state.
+    current_level advances to `level`. Add level-keyed unlock content here
+    later without touching the core leveling/donation logic above it."""
+    pass
+
 CONTRIBUTION_MILESTONES = {
     100:  {"name": "Contributor's Frame",      "description": "A warm glow for those who give back."},
     500:  {"name": "Builder's Canvas",          "description": "The village remembers your generosity."},
@@ -635,6 +694,21 @@ BUILDING_CARD_BACKGROUNDS = {
         "image": "card_bg_hotel.png",
         "color": "#C0392B",
         "source": "Penguin Hotel",
+    },
+    # Not granted by the unlock_amount-threshold check every other entry here
+    # uses (that check is hardwired to /building/donate, which the Cornucopia
+    # never goes through) -- granted instead to each level's top donor by
+    # _grant_cornucopia_top_donor_reward() from POST /cornucopia/donate. Kept
+    # in this same dict purely so card_backgrounds()/_generate_card_image()'s
+    # generic BUILDING_CARD_BACKGROUNDS-driven lookup (name/color/image/
+    # source) covers it for free, with zero new frontend/rendering code.
+    "cornucopia": {
+        "name": "Cornucopia Patron",
+        "description": "Overflowing harvest, woven in gold",
+        "unlock_amount": None,
+        "image": "card_bg_cornucopia.png",
+        "color": "#E8A33D",
+        "source": "Penguin Cornucopia",
     },
 }
 
@@ -920,6 +994,19 @@ BUILDINGS = {
         "desc": "Coming soon. Your savings are definitely safe here.",
         "type": "placeholder",
         "pos": {"x": 11, "y": 15},
+    },
+    # Standalone communal prestige structure -- deliberately NOT type "job"
+    # and NOT a key in BUILDING_UPGRADES (see the "PENGUIN CORNUCOPIA" block
+    # above for its own separate, infinitely-levelable cost/donation system:
+    # POST /cornucopia/donate, GET /cornucopia/status). Present here purely
+    # so GET /building/cornucopia (icon/name/desc, via the existing
+    # building_info() route) and the village-map render/click pipeline
+    # (village_layout's "buildings" dict + drawBuilding()'s id-driven sprite
+    # loading) both pick it up for free, with zero new backend/map code.
+    "cornucopia": {
+        "name": "Penguin Cornucopia", "icon": "🌽",
+        "desc": "An endless harvest, fed by the whole village. Every level feeds every job.",
+        "type": "cornucopia",
     },
 }
 
@@ -5722,6 +5809,7 @@ def building_info(building_id):
     hotel_uses = p["hotel_uses_today"] or 0
     last_hotel = p["last_hotel_date"] or ""
     hotel_remaining = 2 if last_hotel != today_str else max(0, 2 - hotel_uses)
+    cornucopia_bonus = get_cornucopia_job_bonus(db)
     db.close()
 
     working_here     = p["job"] == building_id
@@ -5733,7 +5821,12 @@ def building_info(building_id):
         elapsed_secs   = int(time.time()) - job_started_ts
         hours_worked   = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
         for res, rate in b.get("produces", {}).items():
-            preview_earnings[res] = int(rate * hours_worked)
+            preview_earnings[res] = int((rate + cornucopia_bonus) * hours_worked)
+
+    # Effective (bonused) rates shown on the "START JOB" preview -- includes
+    # the flat Cornucopia bonus so the displayed rate matches what /work/collect
+    # will actually pay out, same reasoning as preview_earnings above.
+    produces_effective = {res: rate + cornucopia_bonus for res, rate in b.get("produces", {}).items()}
 
     return jsonify({
         "status":          "success",
@@ -5743,7 +5836,7 @@ def building_info(building_id):
         "desc":            b.get("desc", ""),
         "type":            b["type"],
         "job_label":       b.get("job_label", "WORK"),
-        "produces":        b.get("produces", {}),
+        "produces":        produces_effective,
         "rest_cost":        b.get("rest_cost", 0),
         "player_job":       p["job"],
         "player_energy":    p["energy"] or 0,
@@ -5828,6 +5921,10 @@ def work_collect():
     stream_mult     = STREAM_RATES.get(p["stream_tier"] or 0, 1.0)
     ensure_building_row(db, p["job"])
     building_bonus  = BUILDING_BONUS_RATES.get(get_building_level(db, p["job"]), 0.0)
+    # Flat, additive Cornucopia bonus (app.py's CORNUCOPIA_JOB_BONUS_PER_LEVEL)
+    # -- added to the base rate_per_hour below, same as every other job-rate
+    # read site, never a rewrite of BUILDINGS[*]['produces'] itself.
+    cornucopia_bonus = get_cornucopia_job_bonus(db)
 
     # Apply active mayor buffs
     xp_mult = resource_mult = gold_mult = 1.0
@@ -5842,7 +5939,8 @@ def work_collect():
     level_ups = []
     ensure_resources(db, username)
 
-    for resource, rate_per_hour in b.get("produces", {}).items():
+    for resource, base_rate_per_hour in b.get("produces", {}).items():
+        rate_per_hour = base_rate_per_hour + cornucopia_bonus
         if resource == "xp":
             amount = int(rate_per_hour * stream_mult * (1 + building_bonus) * hours_worked * xp_mult)
         elif resource == "gold":
@@ -5969,10 +6067,12 @@ def work_status():
     hours_worked  = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
     hours_remaining = max(0.0, JOB_CAP_HOURS - hours_worked)
     complete      = hours_worked >= JOB_CAP_HOURS
+    cornucopia_bonus = get_cornucopia_job_bonus(db)
     preview       = {
-        res: int(rate * hours_worked)
+        res: int((rate + cornucopia_bonus) * hours_worked)
         for res, rate in b.get("produces", {}).items()
     }
+    produces_effective = {res: rate + cornucopia_bonus for res, rate in b.get("produces", {}).items()}
     db.close()
     return jsonify({
         "working":          True,
@@ -5983,7 +6083,7 @@ def work_status():
         "hours_remaining":  round(hours_remaining, 2),
         "complete":         complete,
         "preview":          preview,
-        "produces":         b.get("produces", {}),
+        "produces":         produces_effective,
         "job_started_ts":   job_started,
         "job_cap_ts":       job_started + int(JOB_CAP_HOURS * 3600),
     })
@@ -8282,12 +8382,13 @@ def welcome_back(username):
             hours_worked = min(elapsed_secs / 3600.0, JOB_CAP_HOURS)
             hours_remaining = max(0.0, JOB_CAP_HOURS - hours_worked)
             wb_bonus = get_total_gathering_bonus(p["level"] or 1) / 100.0
+            cornucopia_bonus = get_cornucopia_job_bonus(db)
             produces  = b.get("produces", {})
             # Pick the primary non-gold, non-xp resource for the preview
             resource_type   = next((r for r in produces if r not in ("gold", "xp")), None)
-            res_rate        = produces.get(resource_type, 0) if resource_type else 0
-            gold_rate       = produces.get("gold", 0)
-            xp_rate         = produces.get("xp", 0)
+            res_rate        = (produces.get(resource_type, 0) + cornucopia_bonus) if resource_type else 0
+            gold_rate       = produces.get("gold", 0) + cornucopia_bonus
+            xp_rate         = produces.get("xp", 0) + cornucopia_bonus
             resources_so_far = int(res_rate * (1 + wb_bonus) * hours_worked) if resource_type else 0
             gold_so_far      = int(gold_rate * (1 + wb_bonus) * hours_worked)
             xp_so_far        = int(xp_rate * hours_worked)
@@ -8837,6 +8938,275 @@ def building_donate():
         "milestone_unlocked":      milestone_unlocked,
         "level_ups":               donation_level_ups,
         "building_bg_unlocked":    building_bg_unlocked,
+    })
+
+
+# ── PENGUIN CORNUCOPIA ───────────────────────────────────────────────────────
+# Standalone communal sink, infinitely levelable -- see the CORNUCOPIA_* block
+# near BUILDING_UPGRADES for the cost curve/job-bonus helpers this uses.
+# Deliberately does NOT reuse /building/donate or /building/upgrade/<id>
+# (those are hardwired to BUILDING_UPGRADES' fixed-max-level-3 buildings) --
+# but the frontend's _renderModalContent()/_renderContributionHtml()/
+# _renderDonateControls() rendering IS reused as-is, by shaping this route's
+# response to the same field names those already read (current_level,
+# max_level, next_level, next_benefit, next_req, progress, contributors,
+# player_resources).
+
+def _grant_cornucopia_top_donor_reward(db, username, level_completed):
+    """Grant the Cornucopia's per-level top-donor reward: the same idempotent
+    gear-insert pattern /building/donate uses for BUILDING_CARD_BACKGROUNDS
+    (a 'cornucopia' entry lives in that same dict -- see its comment), plus a
+    ceremonial title via the same append-if-absent pattern POST /titles/grant
+    uses on penguins.ceremonial_titles. Both are granted once ever (re-winning
+    a later level is a no-op for whichever half a player already has) --
+    idempotent the same way a building's 100-donated card background is only
+    ever granted once."""
+    bg_info    = BUILDING_CARD_BACKGROUNDS.get("cornucopia")
+    item_id    = "card_bg_cornucopia"
+    bg_granted = False
+    if bg_info:
+        existing_bg = db.execute(
+            "SELECT COUNT(*) as cnt FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+            (username, item_id)
+        ).fetchone()
+        if not existing_bg or existing_bg["cnt"] == 0:
+            db.execute(
+                "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+                "VALUES (?,?,?,'cosmetic','card_background','building',0,?)",
+                (username, item_id, bg_info["name"], int(time.time()))
+            )
+            bg_granted = True
+
+    title         = "Cornucopia Patron"
+    title_granted = False
+    p = db.execute("SELECT ceremonial_titles FROM penguins WHERE username=?", (username,)).fetchone()
+    if p:
+        try:
+            existing_titles = json.loads(p["ceremonial_titles"] or "[]")
+        except Exception:
+            existing_titles = []
+        if title not in existing_titles:
+            existing_titles.append(title)
+            db.execute("UPDATE penguins SET ceremonial_titles=? WHERE username=?",
+                       (json.dumps(existing_titles), username))
+            title_granted = True
+
+    log_event(db, "milestone",
+              f"🌽 {username} was the top donor to the Penguin Cornucopia's Level {level_completed} push!",
+              username, reaction="🎉")
+
+    return {
+        "username":                 username,
+        "level_completed":          level_completed,
+        "card_background":          bg_info["name"] if bg_info else None,
+        "background_newly_granted": bg_granted,
+        "title":                    title,
+        "title_newly_granted":      title_granted,
+    }
+
+
+@app.route("/cornucopia/donate", methods=["POST"])
+def cornucopia_donate():
+    data     = request.get_json(silent=True) or {}
+    username = session.get("username", "").strip()
+    resource = data.get("resource", "").strip()
+    amount   = int(data.get("amount", 0))
+
+    if not username:
+        return jsonify({"status": "error", "message": "Not logged in."})
+    if amount <= 0:
+        return jsonify({"status": "error", "message": "Amount must be positive."})
+    if resource == "ice_blocks":
+        return jsonify({"status": "error", "message": "Ice Blocks can't be donated to the Cornucopia -- it draws on the other six resources only."})
+    if resource not in CORNUCOPIA_RESOURCES:
+        return jsonify({"status": "error", "message": "Invalid resource."})
+
+    db    = get_db()
+    state = get_cornucopia_state(db)
+    current_level = state["current_level"]
+
+    ensure_resources(db, username)
+    if resource == "gold":
+        player_have = get_gold(db, username)
+    else:
+        r = db.execute(f"SELECT {resource} FROM resources WHERE username=?", (username,)).fetchone()
+        player_have = (r[resource] if r else 0) or 0
+    if player_have < amount:
+        db.close()
+        return jsonify({"status": "error", "message": f"Not enough {_resource_display_name(resource)}. Have {player_have}, need {amount}."})
+
+    donated_so_far = (db.execute(
+        "SELECT COALESCE(SUM(amount),0) as total FROM cornucopia_donations WHERE resource=? AND level=?",
+        (resource, current_level)
+    ).fetchone())["total"]
+    needed    = cornucopia_cost(resource, current_level)
+    remaining = max(0, needed - donated_so_far)
+    if remaining <= 0:
+        db.close()
+        return jsonify({"status": "error", "message": f"{_resource_display_name(resource)} is already fully funded for this level."})
+    # Clamp to what's still needed -- donating past the requirement banks
+    # nothing extra toward a level that isn't open yet, same "full amount
+    # required, nothing wasted" contract /building/donate's next_req check
+    # enforces (there, overshoot is simply rejected pre-transfer; here it's
+    # clamped so a donor's resources aren't silently discarded).
+    amount = min(amount, remaining)
+
+    if resource == "gold":
+        db.execute("UPDATE resources SET gold=gold-? WHERE username=?", (amount, username))
+    else:
+        db.execute(f"UPDATE resources SET {resource}={resource}-? WHERE username=?", (amount, username))
+
+    db.execute(
+        "INSERT INTO cornucopia_donations (username, resource, amount, level, donated_at) VALUES (?,?,?,?,?)",
+        (username, resource, amount, current_level, int(time.time()))
+    )
+    log_event(db, "donation", f"{username} donated {amount} {_resource_display_name(resource)} to the Penguin Cornucopia", username)
+
+    # XP reward -- same tiering /building/donate uses.
+    if resource == "gold":
+        xp_earned = amount // 4
+    elif resource in ("blood_gems", "bones"):
+        xp_earned = amount
+    else:
+        xp_earned = amount // 2
+    level_ups = []
+    if xp_earned > 0:
+        _, level_ups = award_xp(db, username, xp_earned)
+
+    # All 6 resources fully funded for this level?
+    progress_rows = db.execute(
+        "SELECT resource, COALESCE(SUM(amount),0) as total FROM cornucopia_donations "
+        "WHERE level=? GROUP BY resource", (current_level,)
+    ).fetchall()
+    totals  = {row["resource"]: row["total"] for row in progress_rows}
+    all_met = all(totals.get(res, 0) >= cornucopia_cost(res, current_level) for res in CORNUCOPIA_RESOURCES)
+
+    level_up  = False
+    new_level = current_level
+    top_donor_reward = None
+    if all_met:
+        new_level = current_level + 1
+        db.execute("UPDATE cornucopia_state SET current_level=? WHERE id=1", (new_level,))
+        level_up = True
+
+        # Top donor of the level just completed. Different resources' amounts
+        # aren't directly comparable (100,000 fish != 50,000 blood_gems), so
+        # "most total value" is approximated as each donation's share of that
+        # resource's own requirement (donated / cornucopia_cost), summed
+        # across all 6 -- a donor who single-handedly covered one resource
+        # contributes 1.0 to their score, same weighting for every resource.
+        donor_rows = db.execute(
+            "SELECT username, resource, SUM(amount) as total FROM cornucopia_donations "
+            "WHERE level=? GROUP BY username, resource", (current_level,)
+        ).fetchall()
+        donor_scores = {}
+        for row in donor_rows:
+            weight = row["total"] / cornucopia_cost(row["resource"], current_level)
+            donor_scores[row["username"]] = donor_scores.get(row["username"], 0) + weight
+        if donor_scores:
+            top_donor = max(donor_scores, key=donor_scores.get)
+            top_donor_reward = _grant_cornucopia_top_donor_reward(db, top_donor, current_level)
+
+        job_bonus = max(0, new_level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL
+        levelup_message = (
+            f"🌽 The Penguin Cornucopia reached Level {new_level}! "
+            f"Every passive job now yields +{job_bonus:g} resource/hr, village-wide, forever."
+        )
+        log_event(db, "building_levelup", levelup_message, None)
+        apply_cornucopia_milestone_unlock(new_level)
+
+    db.commit()
+
+    # Refreshed per-resource progress for the response. After a level-up this
+    # reflects the NEW level's (higher) requirements with 0 donated so far --
+    # correct with no explicit reset step, since donations are tagged by level.
+    progress = {}
+    next_req = {}
+    for res in CORNUCOPIA_RESOURCES:
+        res_needed = cornucopia_cost(res, new_level)
+        res_have   = totals.get(res, 0) if new_level == current_level else 0
+        next_req[res] = res_needed
+        progress[res] = {
+            "needed": res_needed, "donated": res_have,
+            "pct": min(100, round(res_have / res_needed * 100)) if res_needed else 100,
+        }
+
+    contributor_rows = db.execute(
+        "SELECT username, SUM(amount) as total FROM cornucopia_donations WHERE level=? "
+        "GROUP BY username ORDER BY total DESC LIMIT 5", (new_level,)
+    ).fetchall()
+    contributors = [{"rank": i + 1, "username": r["username"], "total": r["total"]} for i, r in enumerate(contributor_rows)]
+
+    db.close()
+    if level_up:
+        notify_channels(levelup_message)
+    return jsonify({
+        "status":            "success",
+        "resource":          resource,
+        "donated":           amount,
+        "xp_earned":         xp_earned,
+        "level_ups":         level_ups,
+        "level_up":          level_up,
+        "old_level":         current_level,
+        "new_level":         new_level,
+        "current_level":     new_level,
+        "job_bonus_per_hour": max(0, new_level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL,
+        "top_donor_reward":  top_donor_reward,
+        "next_level":        new_level + 1,
+        "next_req":          next_req,
+        "progress":          progress,
+        "contributors":      contributors,
+    })
+
+
+@app.route("/cornucopia/status")
+def cornucopia_status():
+    username = request.args.get("username", "")
+    db    = get_db()
+    state = get_cornucopia_state(db)
+    level = state["current_level"]
+
+    progress_rows = db.execute(
+        "SELECT resource, COALESCE(SUM(amount),0) as total FROM cornucopia_donations "
+        "WHERE level=? GROUP BY resource", (level,)
+    ).fetchall()
+    donated_by_resource = {row["resource"]: row["total"] for row in progress_rows}
+    progress = {}
+    next_req = {}
+    for res in CORNUCOPIA_RESOURCES:
+        needed = cornucopia_cost(res, level)
+        have   = donated_by_resource.get(res, 0)
+        next_req[res] = needed
+        progress[res] = {
+            "needed": needed, "donated": have,
+            "pct": min(100, round(have / needed * 100)) if needed else 100,
+        }
+
+    contributor_rows = db.execute(
+        "SELECT username, SUM(amount) as total FROM cornucopia_donations WHERE level=? "
+        "GROUP BY username ORDER BY total DESC LIMIT 5", (level,)
+    ).fetchall()
+    contributors = [{"rank": i + 1, "username": r["username"], "total": r["total"]} for i, r in enumerate(contributor_rows)]
+
+    player_resources = {}
+    if username:
+        ensure_resources(db, username)
+        r = db.execute("SELECT * FROM resources WHERE username=?", (username,)).fetchone()
+        if r:
+            player_resources = {res: (r[res] or 0) for res in CORNUCOPIA_RESOURCES if res != "gold"}
+        player_resources["gold"] = get_gold(db, username)
+
+    db.close()
+    return jsonify({
+        "status":            "success",
+        "current_level":     level,
+        "next_level":        level + 1,
+        "next_benefit":      f"+{CORNUCOPIA_JOB_BONUS_PER_LEVEL:g} resource/hr to every passive job, village-wide, forever",
+        "next_req":          next_req,
+        "progress":          progress,
+        "contributors":      contributors,
+        "player_resources":  player_resources,
+        "job_bonus_per_hour": max(0, level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL,
     })
 
 
