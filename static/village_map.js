@@ -148,6 +148,10 @@ const BUILDING_CFG = {
     barracks:      { color: "#922B21", name: "BARRACKS" },
     horny_jail:    { color: "#FF7FE5", name: "HORNY JAIL" },
     boutique:      { color: "#FF7FE5", name: "THE BOUTIQUE", noLevelBadge: true },
+    // Infinitely levelable -- no per-level numeric badge on the map sprite
+    // (same reasoning as boutique's noLevelBadge), unlike the 5 fixed-max-
+    // level-3 BUILDING_UPGRADES buildings.
+    cornucopia:    { color: "#E8A33D", name: "PENGUIN CORNUCOPIA", noLevelBadge: true },
 };
 
 const JOB_ICONS = {
@@ -179,6 +183,12 @@ let grid = [];
 let buildingLayout = {};
 let buildingLevels = {};
 let buildingMaxLevels = {};
+// Mirrors app.py's _era_advanced() -- while false, the 5 donation-
+// upgradeable buildings are still capped at level 3 (the level badge below
+// shows "★ MAX" there, same as before infinite leveling existed); once the
+// Mayor advances the era, it flips true and the badge always shows the
+// real level instead. Set from /village/layout's response in initEngine().
+let eraAdvanced = false;
 let treeSeed = {};
 // Fence orientation per grid cell, keyed "x,y" -> 0-3, set by the map editor's
 // ROTATE FENCE tool and saved alongside grid/buildings. See drawFence().
@@ -511,7 +521,14 @@ function drawBuilding(id, bdef, level) {
         if (!cfg.noLevelBadge) {
             ctx.font = "14px 'C&C Red Alert', monospace";
             const lvBorderColors = { 1: '#8888A8', 2: '#4a9eff', 3: '#FF8C00' };
-            const badgeText   = lv >= 3 ? '★ MAX' : ('LV.' + lv);
+            // The 5 donation-upgradeable buildings level infinitely past 3
+            // (soft-cap cost curve, see building_cost() in app.py) but only
+            // once the Mayor has advanced the era (eraAdvanced) -- until
+            // then they're still hard-capped at 3, same "★ MAX" as before
+            // this feature existed. (No other building carrying a level
+            // badge can reach level 3+ in the first place -- only these 5
+            // ever increment current_level past 1.)
+            const badgeText   = (!eraAdvanced && lv >= 3) ? '★ MAX' : ('LV.' + lv);
             const badgeBorder = lvBorderColors[lv] || '#8888A8';
             const tw   = ctx.measureText(badgeText).width;
             const padX = 3, padY = 2;
@@ -1673,6 +1690,7 @@ function initEngine(canvasEl, username, openBuildingCallback) {
             buildingLayout = data.buildings || {};
             buildingLevels = data.building_levels || {};
             buildingMaxLevels = data.building_max_levels || {};
+            eraAdvanced = !!data.era_advanced;
             tileRotations = data.tileRotations || {};
 
             treeSeed = {};

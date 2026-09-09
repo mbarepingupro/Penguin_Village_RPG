@@ -526,6 +526,35 @@ def init_db():
         )
     """)
 
+    # Penguin Cornucopia -- a standalone, infinitely-levelable communal sink,
+    # separate from BUILDING_UPGRADES' 5 fixed-max-level buildings (see
+    # app.py's CORNUCOPIA_BASE_COST/CORNUCOPIA_GROWTH). Single-row state,
+    # same id-pinned singleton pattern as village_era/weekly_build_leaderboard_state.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS cornucopia_state (
+            id            INTEGER PRIMARY KEY CHECK (id = 1),
+            current_level INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+    c.execute("INSERT OR IGNORE INTO cornucopia_state (id, current_level) VALUES (1, 1)")
+
+    # Same shape as building_donations, plus `level` -- each donation is
+    # tagged with the Cornucopia level it counted toward, so per-level
+    # progress and per-level top-donor standings are both plain SUM/GROUP BY
+    # queries over this table (WHERE level=<current_level>) with no separate
+    # running-total columns to reset on level-up, unlike building_upgrades'
+    # *_donated columns.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS cornucopia_donations (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            username   TEXT    NOT NULL,
+            resource   TEXT    NOT NULL,
+            amount     INTEGER NOT NULL,
+            level      INTEGER NOT NULL,
+            donated_at INTEGER NOT NULL
+        )
+    """)
+
     c.execute("""
         CREATE TABLE IF NOT EXISTS discovered_sets (
             username TEXT NOT NULL,
@@ -1076,22 +1105,6 @@ def init_db():
     # Existing players (level > 1) skip character creation — they can reshape at the Cursed Temple
     try:
         c.execute("UPDATE penguins SET character_created = 1 WHERE character_created = 0 AND level > 1")
-    except Exception:
-        pass
-
-    # Migrate building levels from 5-level to 3-level system
-    try:
-        c.execute(
-            "UPDATE building_upgrades SET max_level=3 "
-            "WHERE building_id IN ('sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine') "
-            "AND max_level=5"
-        )
-        # Clamp any current_level > 3 down to 3
-        c.execute(
-            "UPDATE building_upgrades SET current_level=3 "
-            "WHERE building_id IN ('sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine') "
-            "AND current_level > 3"
-        )
     except Exception:
         pass
 

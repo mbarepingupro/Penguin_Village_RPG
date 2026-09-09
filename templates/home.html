@@ -6225,6 +6225,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       openBoutique();
       return;
     }
+    if (buildingId === 'cornucopia') {
+      openCornucopia();
+      return;
+    }
 
     if (window.GameSounds) GameSounds.modalOpen();
     document.getElementById('bm-overlay').style.display = 'block';
@@ -6262,6 +6266,39 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       if (_bldgHelp[buildingId]) showHelpBanner('bldg_' + buildingId, '#bm-content', _bldgHelp[buildingId]);
       _renderGatheringBanner(buildingId);
     } catch(e) { showToast('Error loading building.', 'err'); closeBuildingPanel(); }
+  }
+
+  // Cornucopia is a standalone structure (not in BUILDING_UPGRADES_IDS) with
+  // its own status/donate routes -- same dual-fetch shape as openBuilding()'s
+  // /building/<id> + /building/upgrade/<id> pair, and the SAME
+  // _renderModalContent()/_renderContributionHtml()/_renderDonateControls()
+  // rendering, reused as-is by shaping /cornucopia/status's response to the
+  // same field names those already read (current_level, max_level(absent --
+  // infinite), next_level, next_benefit, next_req, progress, contributors,
+  // player_resources).
+  async function openCornucopia() {
+    if (window.GameSounds) GameSounds.modalOpen();
+    document.getElementById('bm-overlay').style.display = 'block';
+    const modal = document.getElementById('building-modal');
+    modal.style.display = 'block';
+    document.getElementById('bm-content').innerHTML =
+      `<div style="text-align:center;color:#8888A8;padding:40px 0;font-size:16px;">LOADING...</div>`;
+    _currentDonateBuilding = 'cornucopia';
+    try {
+      const [bRes, sRes] = await Promise.all([
+        fetch(`/building/cornucopia?username=${CURRENT_USER}`),
+        fetch(`/cornucopia/status?username=${CURRENT_USER}`),
+      ]);
+      const bData = await bRes.json();
+      const sData = await sRes.json();
+      if (bData.status === 'error' || sData.status === 'error') {
+        showToast(sData.message || bData.message || 'Could not load the Cornucopia.', 'err');
+        closeBuildingPanel();
+        return;
+      }
+      _currentUpgData = sData;
+      _renderModalContent(bData, sData);
+    } catch(e) { showToast('Error loading Cornucopia.', 'err'); closeBuildingPanel(); }
   }
 
   function closeBuildingPanel() {
@@ -7004,7 +7041,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   function _renderModalContent(bData, upgData) {
     const buildingId = bData.building_id;
     const lvl    = upgData ? (upgData.current_level || 1) : 1;
-    const maxLvl = upgData ? (upgData.max_level || 3) : 3;
+    // null/undefined maxLvl means "infinitely levelable" (the Cornucopia --
+    // /cornucopia/status never sends max_level, unlike the 5 fixed-cap
+    // BUILDING_UPGRADES buildings, which always send a real number here).
+    const maxLvl = upgData ? (upgData.max_level != null ? upgData.max_level : null) : 3;
     const lvColor = _BM_LV_COLORS[lvl] || '#A86EFF';
 
     let html = `<span class="bm-close" onclick="closeBuildingPanel()">✕</span>`;
@@ -7012,7 +7052,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     html += `<div style="color:#A86EFF;font-size:23px;text-align:center;margin-bottom:8px;">${(bData.name||'').toUpperCase()}</div>`;
     if (upgData) {
       html += `<div style="text-align:center;margin-bottom:8px;">`;
-      html += `<span style="border:2px solid ${lvColor};color:${lvColor};padding:2px 8px;font-size:16px;">LEVEL ${lvl} / ${maxLvl}</span>`;
+      html += `<span style="border:2px solid ${lvColor};color:${lvColor};padding:2px 8px;font-size:16px;">LEVEL ${lvl}${maxLvl ? ' / ' + maxLvl : ''}</span>`;
       html += `</div>`;
     }
     html += `<div style="color:#B8B8D0;font-size:16px;text-align:center;line-height:2;margin-bottom:12px;">${bData.desc||''}</div>`;
@@ -7020,7 +7060,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
     if (upgData) {
       html += `<div style="color:#4aff6b;font-size:17px;margin-bottom:4px;">CURRENT BONUS</div>`;
-      if (lvl >= maxLvl) {
+      if (maxLvl && lvl >= maxLvl) {
         html += `<div style="color:#FF8C00;font-size:17px;margin-bottom:10px;">★ MAX LEVEL — ALL BONUSES ACTIVE</div>`;
       } else {
         html += `<div style="color:#fff;font-size:17px;margin-bottom:10px;">${upgData.current_benefit||'Base level — no bonus yet'}</div>`;
@@ -7575,8 +7615,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   function _renderContributionHtml(buildingId, upgData) {
     const lvl  = upgData.current_level || 1;
-    const maxLvl = upgData.max_level || 3;
-    const isMax = lvl >= maxLvl;
+    // null/undefined max_level (the Cornucopia) never "maxes out" -- see the
+    // matching maxLvl comment in _renderModalContent above.
+    const maxLvl = upgData.max_level != null ? upgData.max_level : null;
+    const isMax = maxLvl ? (lvl >= maxLvl) : false;
     let html = '';
 
     if (isMax) {
@@ -7709,6 +7751,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (!amount || amount <= 0) { showToast('Enter a valid amount.', 'err'); return; }
     const donateBtn = document.getElementById('bm-donate-btn');
     if (donateBtn) donateBtn.disabled = true;
+    if (_currentDonateBuilding === 'cornucopia') {
+      await _cpDonate(amount, donateBtn);
+      return;
+    }
     try {
       const res = await fetch('/building/donate', {
         method: 'POST',
@@ -7762,6 +7808,68 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           await refreshStats();
           const savedBuilding = _currentDonateBuilding;
           await openBuilding(savedBuilding);
+        }
+      } else {
+        showToast(data.message || 'Donation failed.', 'err');
+        if (donateBtn) donateBtn.disabled = false;
+      }
+    } catch(e) { showToast('Error.', 'err'); if (donateBtn) donateBtn.disabled = false; }
+  }
+
+  // Cornucopia's donate branch of bpDonate() -- separate function (rather
+  // than more inline branching in bpDonate() itself) since /cornucopia/donate
+  // takes a different body shape ({resource, amount}, no building_id) and
+  // returns a different reward shape (top_donor_reward instead of
+  // milestone_unlocked/building_bg_unlocked, a flat job_bonus_per_hour
+  // instead of a per-building benefit string) -- everything else (the DOM
+  // ids, the donate-then-refresh flow, the celebration-then-reopen pattern)
+  // mirrors bpDonate()'s building_level_up handling exactly.
+  async function _cpDonate(amount, donateBtn) {
+    try {
+      const res = await fetch('/cornucopia/donate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: _currentDonateResource, amount }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        if (window.GameSounds) GameSounds.donate();
+        showToast(`Donated ${data.donated.toLocaleString()} ${_resDisplayName(data.resource)}!`, 'ok');
+        const anchor = donateBtn || document.getElementById('bm-content');
+        if (anchor) Effects.floatText(anchor, `+${data.donated.toLocaleString()} donated!`, '#E8A33D');
+        if ((data.xp_earned||0) > 0) {
+          setTimeout(() => { if (anchor) Effects.floatText(anchor, `+${data.xp_earned} XP`, '#A86EFF'); }, 250);
+        }
+        if (data.level_ups && data.level_ups.length) {
+          data.level_ups.forEach(function(lu) {
+            queueCelebration({type:'level_up', oldLevel: lu.level - 1, newLevel: lu.level});
+          });
+        }
+        if (data.level_up) {
+          const rewards = [];
+          if (data.top_donor_reward) {
+            const tdr = data.top_donor_reward;
+            rewards.push({text: `🏆 Top Donor: ${tdr.username.toUpperCase()} earned the "${tdr.title}" title + card background!`, color:'#E8A33D'});
+          }
+          // Same "close now, reopen once the celebration is dismissed"
+          // reasoning as bpDonate()'s building_level_up handling -- avoids
+          // the reopened (dimmed) panel sitting directly behind the
+          // celebration showing the same info underneath it.
+          queueCelebration({
+            type: 'cornucopia_level_up',
+            icon: '🌽',
+            title: 'THE CORNUCOPIA OVERFLOWS!',
+            subtitle: `LEVEL ${data.new_level}`,
+            description: `Every passive job now yields +${data.job_bonus_per_hour} resource/hr, village-wide, forever.`,
+            context: data.new_level,
+            rewards,
+            onCelebrationDone: () => openCornucopia(),
+          });
+          closeBuildingPanel();
+          await refreshStats();
+        } else {
+          await refreshStats();
+          await openCornucopia();
         }
       } else {
         showToast(data.message || 'Donation failed.', 'err');
@@ -11693,6 +11801,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "The village keeps changing. Try to keep up, would you?",
         "New patch, new village. Scroll down, it\'s worth your time.",
       ],
+      cornucopia_level_up: [
+        "Look at that harvest! Every job in the village just got a little sweeter.",
+        "The Cornucopia never stops giving — and neither does this village, apparently.",
+        "Abundance, penguins! That's what teamwork looks like from up here.",
+        "The horn overflows again! I hope you're all hungry for more work — it pays better now.",
+      ],
     };
     var pool = quotes[type] || quotes.level_up;
     var hash = 0;
@@ -11705,7 +11819,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (!window.GameSounds) return;
     if (type === 'achievement' || type === 'title') GameSounds.achievement();
     else if (type === 'first_kill')                 GameSounds.firstKill();
-    else if (type === 'milestone')                  GameSounds.buildingLevelUp();
+    else if (type === 'milestone' || type === 'cornucopia_level_up') GameSounds.buildingLevelUp();
     else if (type === 'challenge_start' || type === 'raid_start') GameSounds.mayorAppears();
     else if (type === 'challenge_result_success')   GameSounds.achievement();
     else if (type === 'challenge_result_fail')      GameSounds.error();
