@@ -459,6 +459,8 @@
     #res-bones        .res-count { color: #CCCCCC; }
     #res-spell_fragments { border-color: #A86EFF; }
     #res-spell_fragments .res-count { color: #A86EFF; }
+    #res-eggs         { border-color: #F5C518; }
+    #res-eggs         .res-count { color: #F5C518; }
     .flying-emoji {
       position: fixed; font-size: 30px;
       pointer-events: none; z-index: 10000;
@@ -4007,6 +4009,10 @@
             <span class="res-icon">🧊</span>
             <span class="res-count" id="count-ice_blocks">0</span>
           </div>
+          <div class="resource-item" id="res-eggs" data-resource="eggs">
+            <span class="res-icon">🥚</span>
+            <span class="res-count" id="count-eggs">0</span>
+          </div>
         </div>
         <div class="map-area" id="map-area">
           <div id="map-toasts-backdrop"></div>
@@ -5889,7 +5895,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         const _rv = {
           fish: rData.fish || 0, herbs: rData.herbs || 0,
           blood_gems: rData.blood_gems || 0, bones: rData.bones || 0,
-          spell_fragments: rData.spell_fragments || 0,
+          spell_fragments: rData.spell_fragments || 0, eggs: rData.eggs || 0,
         };
         for (const [k, v] of Object.entries(_rv)) {
           const bar = document.getElementById('count-' + k);
@@ -5947,7 +5953,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     try {
       const res  = await fetch(`/resources/${CURRENT_USER}`);
       const data = await res.json();
-      const keys = ['gold','fish','herbs','blood_gems','bones','spell_fragments','ice_blocks'];
+      const keys = ['gold','fish','herbs','blood_gems','bones','spell_fragments','ice_blocks','eggs'];
       for (const k of keys) {
         if (data[k] === undefined) continue;
         const el = document.getElementById('count-' + k);
@@ -6207,11 +6213,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   const _BM_RES_COLORS = {
     fish: '#4a9eff', herbs: '#4aff6b', gold: '#FF8C00',
-    blood_gems: '#ff6b6b', bones: '#CCCCCC', spell_fragments: '#A86EFF'
+    blood_gems: '#ff6b6b', bones: '#CCCCCC', spell_fragments: '#A86EFF',
+    eggs: '#F5C518'
   };
   const _BM_RES_ICONS = {
     fish: '🐟', herbs: '🌿', gold: '🪙',
-    blood_gems: '💎', bones: '🦴', spell_fragments: '✨', ice_blocks: '🧊'
+    blood_gems: '💎', bones: '🦴', spell_fragments: '✨', ice_blocks: '🧊',
+    eggs: '🥚'
   };
   // Display-name overrides for resource keys whose raw key doesn't read
   // naturally as a label (currently only ice_blocks). Internal keys/DB
@@ -7247,9 +7255,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         <div id="mg-weekly-section"></div>
       </div>`;
     } else if (btype === 'placeholder') {
-      if (data.building_id === 'horny_jail')
-        html += bpComingSoon('🔒', 'YOU KNOW WHAT YOU DID.', 'Coming Soon. Maybe. Behave.');
-      else if (data.building_id === 'bank')
+      if (data.building_id === 'bank')
         html += `<button class="bp-btn" onclick="switchContentTab('bank', document.querySelector('[data-tab=bank]')); closeBuildingPanel();">OPEN BANK</button>`;
       else
         html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
@@ -7787,6 +7793,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         if (data.building_bg_unlocked) {
           var bg = data.building_bg_unlocked;
           queueCelebration({type:'milestone', icon:'🖼️', title:'CARD BACKGROUND UNLOCKED!', subtitle:bg.name||'New Background', description:(bg.description||'')+' Go to VIEW CARD to equip it!'});
+        }
+        if (data.horny_jail_milestone_unlocked) {
+          var hj = data.horny_jail_milestone_unlocked;
+          queueCelebration({type:'milestone', icon:'🥚', title:'MILESTONE UNLOCKED!', subtitle:hj.title||'New Title', description:`Earned the "${hj.title}" title` + (hj.card_background ? ` and the "${hj.card_background}" card background!` : '!') + ' Go to VIEW CARD to equip it!'});
         }
         if (data.level_up) {
           const leveledBuilding = _currentDonateBuilding;

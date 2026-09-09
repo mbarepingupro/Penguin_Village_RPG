@@ -1013,6 +1013,10 @@ def init_db():
     _add_col(c, "resources", "ice_blocks INTEGER DEFAULT 0")
     _add_col(c, "penguins", "build_free_rolls INTEGER DEFAULT 0")
     _add_col(c, "building_upgrades", "ice_blocks_donated INTEGER DEFAULT 0")
+    # Horny Jail's job resource -- same ice_blocks-style bolt-on (new column,
+    # DEFAULT 0, no backfill needed since nobody could have any yet).
+    _add_col(c, "resources", "eggs INTEGER DEFAULT 0")
+    _add_col(c, "building_upgrades", "eggs_donated INTEGER DEFAULT 0")
     _add_col(c, "raid_participants", "reward_summary TEXT DEFAULT NULL")
     # One-shot login-toast marker for raid rewards, same idea as
     # weekly_build_leaderboard_archive's own `notified` column above --

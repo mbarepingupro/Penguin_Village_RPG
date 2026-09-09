@@ -573,6 +573,17 @@ BUILDING_UPGRADES = {
             3: {"blood_gems": 25000, "bones": 25000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% rate for everyone"},
         },
     },
+    "horny_jail": {
+        "name": "Horny Jail",
+        "levels": {
+            # Same fish/herbs-tier cost curve as sea_lion_pit/club_soda: eggs
+            # x5, gold x5, ice_blocks untouched (2x) -- infinite leveling
+            # (see the "INFINITE BUILDING LEVELING" block below) continues
+            # this same per-resource ratio past level 3 from day one.
+            2: {"eggs": 10000, "gold": 5000,  "ice_blocks": 5000,  "benefit": "+15% egg rate for everyone"},
+            3: {"eggs": 50000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% egg rate for everyone"},
+        },
+    },
 }
 
 # Village Era progression -- once every BUILDING_UPGRADES building hits its
@@ -722,6 +733,63 @@ BUILDING_CARD_BACKGROUNDS = {
         "color": "#E8A33D",
         "source": "Penguin Cornucopia",
     },
+    # Horny Jail's 4 donor-tier backgrounds (100/500/1000/5000 total
+    # contributed to horny_jail specifically) -- unlike every entry above,
+    # NOT granted by /building/donate's generic single-100-threshold
+    # "building_id in BUILDING_CARD_BACKGROUNDS" check (there's deliberately
+    # no plain "horny_jail" key here, so that check never fires for it).
+    # Granted instead by _grant_horny_jail_milestone_reward(), one tier at a
+    # time, alongside a title -- see HORNY_JAIL_DONOR_MILESTONES below. Kept
+    # in this dict purely so the generic card_backgrounds()/
+    # _generate_card_image() lookup (name/color/image/source) covers all 4
+    # for free, same trick the "cornucopia" entry above uses.
+    "horny_jail_100": {
+        "name": "Straw Nest Background",
+        "description": "A humble bed of straw for your finest eggs.",
+        "unlock_amount": 100,
+        "image": "card_bg_horny_jail_100.png",
+        "color": "#D8B36A",
+        "source": "Horny Jail",
+    },
+    "horny_jail_500": {
+        "name": "Speckled Shell Background",
+        "description": "Mottled shells from a clutch well-tended.",
+        "unlock_amount": 500,
+        "image": "card_bg_horny_jail_500.png",
+        "color": "#C97B4A",
+        "source": "Horny Jail",
+    },
+    "horny_jail_1000": {
+        "name": "Golden Yolk Background",
+        "description": "Yolk spun to gold by devoted care.",
+        "unlock_amount": 1000,
+        "image": "card_bg_horny_jail_1000.png",
+        "color": "#F5C518",
+        "source": "Horny Jail",
+    },
+    "horny_jail_5000": {
+        "name": "Ancient Roost Background",
+        "description": "A roost as old as the village itself.",
+        "unlock_amount": 5000,
+        "image": "card_bg_horny_jail_5000.png",
+        "color": "#8B5E3C",
+        "source": "Horny Jail",
+    },
+}
+
+# Horny Jail's multi-tier donor rewards -- title + the matching
+# BUILDING_CARD_BACKGROUNDS entry above, granted at each cumulative-donation
+# threshold (building_contributions_tracker.total_contributed for
+# building_id="horny_jail", the same per-building running total every other
+# BUILDING_CARD_BACKGROUNDS-keyed building already accrues via
+# /building/donate). Reuses that same tracker table/column -- only the
+# threshold count (4, not 1) and the reward shape (title + background, not
+# just a background) differ from the existing single-tier pattern.
+HORNY_JAIL_DONOR_MILESTONES = {
+    100:  {"title": "Egg Wrangler",       "bg_key": "horny_jail_100"},
+    500:  {"title": "Clutch Keeper",      "bg_key": "horny_jail_500"},
+    1000: {"title": "Broodmaster",        "bg_key": "horny_jail_1000"},
+    5000: {"title": "The Hatchery Baron", "bg_key": "horny_jail_5000"},
 }
 
 BUILDING_BONUS_RATES = {1: 0.0, 2: 0.15, 3: 0.30}
@@ -783,6 +851,7 @@ _BUILDING_BONUS_LABEL = {
     "parkmusement":  "gold rate",
     "cursed_temple": "XP rate",
     "guillotine":    "blood gem and bone rate",
+    "horny_jail":    "egg rate",
 }
 
 
@@ -839,6 +908,7 @@ _RES_COL = {
     "fish": "fish_donated", "herbs": "herbs_donated", "gold": "gold_donated",
     "blood_gems": "blood_gems_donated", "bones": "bones_donated",
     "spell_fragments": "spell_fragments_donated", "ice_blocks": "ice_blocks_donated",
+    "eggs": "eggs_donated",
 }
 
 # Player-facing display names for resource keys whose raw internal key doesn't
@@ -1016,7 +1086,8 @@ BUILDINGS = {
     "horny_jail": {
         "name": "Horny Jail", "icon": "🔒",
         "desc": "You know what you did.",
-        "type": "placeholder",
+        "type": "job", "job_label": "EGG WRANGLING",
+        "produces": {"eggs": 12.5, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 24, "y": 63},
     },
     "boutique": {
@@ -8813,18 +8884,25 @@ def building_upgrade_info(building_id):
                 next_milestone = {"threshold": threshold, **CONTRIBUTION_MILESTONES[threshold]}
                 break
 
-    # Building background progress
-    player_bg_progress = 0
-    player_bg_unlocked = False
+    # Building background progress -- only for the single-tier-at-100
+    # BUILDING_CARD_BACKGROUNDS buildings. Omitted (not just zeroed) for
+    # horny_jail: it deliberately has no plain "horny_jail" key in that dict
+    # (see HORNY_JAIL_DONOR_MILESTONES' comment), so this would otherwise
+    # show a misleading "donate 100 to unlock" message on top of its own
+    # 4-tier title+background progression, which has no frontend display of
+    # its own yet -- the reward is still granted correctly on donation
+    # (_grant_horny_jail_milestone_reward()), it just isn't previewed here.
+    bg_progress_fields = {}
     if username and building_id in BUILDING_CARD_BACKGROUNDS:
         bct = db.execute(
             "SELECT total_contributed, background_unlocked FROM building_contributions_tracker "
             "WHERE username=? AND building_id=?",
             (username, building_id)
         ).fetchone()
-        if bct:
-            player_bg_progress = bct["total_contributed"] or 0
-            player_bg_unlocked = bool(bct["background_unlocked"])
+        bg_progress_fields = {
+            "player_bg_progress": (bct["total_contributed"] or 0) if bct else 0,
+            "player_bg_unlocked": bool(bct["background_unlocked"]) if bct else False,
+        }
 
     db.close()
     return jsonify({"status": "success", **info,
@@ -8833,8 +8911,58 @@ def building_upgrade_info(building_id):
                     "player_building_total": player_building_total,
                     "player_total_contributions": player_total_contributions,
                     "next_milestone": next_milestone,
-                    "player_bg_progress": player_bg_progress,
-                    "player_bg_unlocked": player_bg_unlocked})
+                    **bg_progress_fields})
+
+
+def _grant_horny_jail_milestone_reward(db, username, threshold):
+    """Grant one HORNY_JAIL_DONOR_MILESTONES tier: the matching
+    BUILDING_CARD_BACKGROUNDS[...] card background via the same idempotent
+    gear-insert pattern /building/donate uses for every other building's
+    card background, plus a ceremonial title via the same append-if-absent
+    pattern _grant_cornucopia_top_donor_reward() uses on
+    penguins.ceremonial_titles. Both are granted once ever per tier."""
+    tier    = HORNY_JAIL_DONOR_MILESTONES[threshold]
+    bg_info = BUILDING_CARD_BACKGROUNDS.get(tier["bg_key"])
+    item_id = f"card_bg_{tier['bg_key']}"
+    bg_granted = False
+    if bg_info:
+        existing_bg = db.execute(
+            "SELECT COUNT(*) as cnt FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+            (username, item_id)
+        ).fetchone()
+        if not existing_bg or existing_bg["cnt"] == 0:
+            db.execute(
+                "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+                "VALUES (?,?,?,'cosmetic','card_background','building',0,?)",
+                (username, item_id, bg_info["name"], int(time.time()))
+            )
+            bg_granted = True
+
+    title         = tier["title"]
+    title_granted = False
+    p = db.execute("SELECT ceremonial_titles FROM penguins WHERE username=?", (username,)).fetchone()
+    if p:
+        try:
+            existing_titles = json.loads(p["ceremonial_titles"] or "[]")
+        except Exception:
+            existing_titles = []
+        if title not in existing_titles:
+            existing_titles.append(title)
+            db.execute("UPDATE penguins SET ceremonial_titles=? WHERE username=?",
+                       (json.dumps(existing_titles), username))
+            title_granted = True
+
+    log_event(db, "milestone",
+              f"🥚 {username} reached {threshold:,} total contributed to the Horny Jail and earned '{title}'!",
+              username, reaction="🎉")
+
+    return {
+        "threshold":                threshold,
+        "title":                    title,
+        "title_newly_granted":      title_granted,
+        "card_background":          bg_info["name"] if bg_info else None,
+        "background_newly_granted": bg_granted,
+    }
 
 
 @app.route("/building/donate", methods=["POST"])
@@ -8965,6 +9093,30 @@ def building_donate():
                 "source": bg_info["source"],
             }
 
+    # Horny Jail's own multi-tier donor rewards (title + card background at
+    # 100/500/1000/5000 total contributed to horny_jail specifically) -- a
+    # separate running total from the generic building_bg_unlocked block
+    # above (which never fires for horny_jail; see HORNY_JAIL_DONOR_
+    # MILESTONES' comment for why), tracked in the same
+    # building_contributions_tracker table/columns.
+    horny_jail_milestone_unlocked = None
+    if building_id == "horny_jail":
+        db.execute(
+            "INSERT INTO building_contributions_tracker (username, building_id, total_contributed, background_unlocked) "
+            "VALUES (?, ?, ?, 0) ON CONFLICT(username, building_id) DO UPDATE SET "
+            "total_contributed = total_contributed + excluded.total_contributed",
+            (username, building_id, amount)
+        )
+        bct = db.execute(
+            "SELECT total_contributed FROM building_contributions_tracker WHERE username=? AND building_id=?",
+            (username, building_id)
+        ).fetchone()
+        hj_new_total = (bct["total_contributed"] if bct else 0) or 0
+        hj_old_total = hj_new_total - amount
+        for threshold in sorted(HORNY_JAIL_DONOR_MILESTONES.keys()):
+            if hj_old_total < threshold <= hj_new_total:
+                horny_jail_milestone_unlocked = _grant_horny_jail_milestone_reward(db, username, threshold)
+
     # Milestone check
     milestone_unlocked = None
     for milestone, reward in sorted(CONTRIBUTION_MILESTONES.items()):
@@ -8999,8 +9151,8 @@ def building_donate():
         # Reset donated counters
         db.execute(
             "UPDATE building_upgrades SET current_level=?, fish_donated=0, herbs_donated=0, "
-            "gold_donated=0, blood_gems_donated=0, bones_donated=0, spell_fragments_donated=0 "
-            "WHERE building_id=?",
+            "gold_donated=0, blood_gems_donated=0, bones_donated=0, spell_fragments_donated=0, "
+            "eggs_donated=0 WHERE building_id=?",
             (new_level, building_id)
         )
         benefit = _building_benefit_text(building_id, new_level)
@@ -9023,6 +9175,7 @@ def building_donate():
         "milestone_unlocked":      milestone_unlocked,
         "level_ups":               donation_level_ups,
         "building_bg_unlocked":    building_bg_unlocked,
+        "horny_jail_milestone_unlocked": horny_jail_milestone_unlocked,
     })
 
 
@@ -13797,11 +13950,12 @@ def mayor_debug_penguin_fetch():
 _ALL_BUILDING_IDS = set(BUILDINGS.keys())
 
 # building_upgrades' full set of per-resource donation columns (see
-# database.py's CREATE TABLE + the ice_blocks_donated _add_col backfill).
+# database.py's CREATE TABLE + the ice_blocks_donated/eggs_donated _add_col
+# backfills).
 _BUILDING_DONATION_COLS = (
     "fish_donated", "herbs_donated", "gold_donated",
     "blood_gems_donated", "bones_donated", "spell_fragments_donated",
-    "ice_blocks_donated",
+    "ice_blocks_donated", "eggs_donated",
 )
 
 
@@ -13818,13 +13972,15 @@ def mayor_debug_building_reset():
     and was never touched by this route before, which is exactly why a
     "reset" building kept showing old top donators.
 
-    Only 5 of the 11 BUILDINGS ids (BUILDING_UPGRADES' keys) actually carry a
-    building_upgrades row in practice -- the other 6 (hotel, horny_jail,
-    boutique, award_hall, barracks, bank) aren't donation-upgradeable, so
-    their building_upgrades reset is a harmless no-op (0 rows). hotel is the
-    one exception worth noting: it has no building_upgrades row but DOES have
-    its own card-background milestone (BUILDING_CARD_BACKGROUNDS), so
-    resetting it still clears something real via building_contributions_tracker."""
+    Only 6 of the 12 BUILDINGS ids (BUILDING_UPGRADES' keys) actually carry a
+    building_upgrades row in practice -- the other 5 (hotel, boutique,
+    award_hall, barracks, bank) aren't donation-upgradeable (cornucopia is a
+    12th BUILDINGS id with its own entirely separate leveling system, not
+    reset by this tool at all), so their building_upgrades reset is a
+    harmless no-op (0 rows). hotel is the one exception worth noting: it has
+    no building_upgrades row but DOES have its own card-background milestone
+    (BUILDING_CARD_BACKGROUNDS), so resetting it still clears something real
+    via building_contributions_tracker."""
     if not _is_mayor_authed():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     data        = request.get_json(silent=True) or {}
