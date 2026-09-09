@@ -580,6 +580,18 @@ BUILDING_UPGRADES = {
 # per building (see _all_buildings_maxed() near ensure_building_row() below).
 ERA_LEVEL_STEP = 3
 
+
+def _era_advanced(db):
+    """True once the Mayor has advanced the village era at least once
+    (era >= 2). Gates two features that ship dark until then: infinite
+    building leveling past level 3 (see building_donate()/
+    _building_upgrade_info()/mayor_building_boost()) and the Penguin
+    Cornucopia (see /village/layout, /cornucopia/donate, /cornucopia/status).
+    Both stay exactly as they were before either feature existed until the
+    Mayor advances via POST /mayor/advance_era."""
+    row = db.execute("SELECT era FROM village_era WHERE id=1").fetchone()
+    return (row["era"] if row else 1) >= 2
+
 # ── PENGUIN CORNUCOPIA ───────────────────────────────────────────────────────
 # A standalone, infinitely-levelable communal sink -- deliberately separate
 # from BUILDING_UPGRADES (which is fixed-max-level-3 per building, and whose
@@ -8712,12 +8724,16 @@ def titles_grant():
 
 def _building_upgrade_info(db, building_id):
     """Return full upgrade state for a building (dict, or None if unknown).
-    Uncapped: max_level is always returned as None (regardless of the
-    building_upgrades.max_level DB column, which village_era still bumps but
-    which is no longer read as a gate) so the frontend's existing infinite-
-    level handling -- built for the Cornucopia's _renderModalContent()/
-    _renderContributionHtml() null-maxLvl branches -- applies here too, with
-    no new frontend code."""
+
+    Uncapped past level 3 ONLY once _era_advanced(db) is true (the Mayor has
+    advanced the village era at least once) -- until then this behaves
+    exactly as it did before infinite leveling existed: max_level is the
+    real building_upgrades.max_level (3, until an era advance bumps it), and
+    next_level/next_req go empty once current_level reaches it. Once
+    unlocked, max_level is always returned as None so the frontend's
+    existing infinite-level handling -- built for the Cornucopia's
+    _renderModalContent()/_renderContributionHtml() null-maxLvl branches --
+    applies here too, with no new frontend code."""
     cfg = BUILDING_UPGRADES.get(building_id)
     if not cfg:
         return None
@@ -8726,8 +8742,11 @@ def _building_upgrade_info(db, building_id):
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    next_level    = current_level + 1
-    next_req      = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
+    db_max_level  = row["max_level"] if row else 3
+    unlocked      = _era_advanced(db)
+    max_level     = None if unlocked else db_max_level
+    next_level    = current_level + 1 if (unlocked or current_level < db_max_level) else None
+    next_req      = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]} if next_level else {}
     # Derived from _RES_COL (the same map /building/donate uses to pick the
     # column to write) so every donatable resource — including ice_blocks —
     # is covered here without needing to be hand-added to a second list.
@@ -8740,12 +8759,12 @@ def _building_upgrade_info(db, building_id):
             "pct": min(100, round(have / need * 100)) if need else 100,
         }
     cur_benefit  = _building_benefit_text(building_id, current_level)
-    next_benefit = _building_benefit_text(building_id, next_level)
+    next_benefit = _building_benefit_text(building_id, next_level) if next_level else None
     return {
         "building_id":    building_id,
         "name":           cfg["name"],
         "current_level":  current_level,
-        "max_level":      None,
+        "max_level":      max_level,
         "current_benefit": cur_benefit,
         "next_level":     next_level,
         "next_req":       next_req,
@@ -8846,12 +8865,20 @@ def building_donate():
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
+    db_max_level  = row["max_level"] if row else 3
 
-    # No level ceiling -- building_cost() continues this building's own
-    # lvl1->2/lvl2->3 ratio per resource indefinitely (see the
-    # "INFINITE BUILDING LEVELING" block near BUILDING_UPGRADES). The old
-    # `current_level >= max_level` gate is gone; building_upgrades.max_level
-    # itself is left alone for village_era to keep bumping, just unread here.
+    # The level ceiling only lifts once the Mayor has advanced the era at
+    # least once (_era_advanced()) -- until then this is the exact same
+    # `current_level >= max_level` gate that existed before infinite
+    # leveling did. Once unlocked, building_cost() continues this building's
+    # own lvl1->2/lvl2->3 ratio per resource indefinitely (see the
+    # "INFINITE BUILDING LEVELING" block near BUILDING_UPGRADES);
+    # building_upgrades.max_level itself is left alone for village_era to
+    # keep bumping either way, just unread here once unlocked.
+    if not _era_advanced(db) and current_level >= db_max_level:
+        db.close()
+        return jsonify({"status": "error", "message": "Building is already max level."})
+
     next_level = current_level + 1
     next_req   = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
     if resource_type not in next_req:
@@ -9093,7 +9120,11 @@ def cornucopia_donate():
     if resource not in CORNUCOPIA_RESOURCES:
         return jsonify({"status": "error", "message": "Invalid resource."})
 
-    db    = get_db()
+    db = get_db()
+    if not _era_advanced(db):
+        db.close()
+        return jsonify({"status": "error", "message": "The Penguin Cornucopia hasn't been unlocked yet -- the Mayor needs to advance the village era first."})
+
     state = get_cornucopia_state(db)
     current_level = state["current_level"]
 
@@ -9241,7 +9272,11 @@ def cornucopia_donate():
 @app.route("/cornucopia/status")
 def cornucopia_status():
     username = request.args.get("username", "")
-    db    = get_db()
+    db = get_db()
+    if not _era_advanced(db):
+        db.close()
+        return jsonify({"status": "error", "message": "The Penguin Cornucopia hasn't been unlocked yet -- the Mayor needs to advance the village era first."})
+
     state = get_cornucopia_state(db)
     level = state["current_level"]
 
@@ -10885,6 +10920,13 @@ def village_layout():
             return jsonify({"error": "layout not found"}), 404
 
     db = get_db()
+    era_advanced = _era_advanced(db)
+    # The Cornucopia ships dark until the Mayor advances the era at least
+    # once -- stripped here (not just gated at /cornucopia/donate) so it
+    # can't render or be clicked on the live map even if it was already
+    # placed via the editor ahead of time. See _era_advanced()'s docstring.
+    if not era_advanced and "cornucopia" in layout.get("buildings", {}):
+        layout["buildings"] = {k: v for k, v in layout["buildings"].items() if k != "cornucopia"}
     rows = db.execute("SELECT building_id, current_level, max_level FROM building_upgrades").fetchall()
     db.close()
     levels = {r["building_id"]: r["current_level"] for r in rows}
@@ -10896,6 +10938,11 @@ def village_layout():
 
     layout["building_levels"] = levels
     layout["building_max_levels"] = max_levels
+    # Read by village_map.js's level-badge rendering -- while locked, a
+    # building at level 3 still shows "★ MAX" (the original behavior);
+    # once unlocked, it always shows the real level number instead. See
+    # _era_advanced()'s docstring for what else this same flag gates.
+    layout["era_advanced"] = era_advanced
     return jsonify(layout)
 
 
@@ -11845,9 +11892,11 @@ def mayor_building_boost():
     # Check if building levels up
     row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
     current_level = row["current_level"]
+    db_max_level  = row["max_level"] or 3
+    unlocked      = _era_advanced(db)  # same era gate as building_donate()
     leveled_up    = False
     levelup_messages = []
-    while True:  # no level ceiling -- see building_cost()
+    while unlocked or current_level < db_max_level:
         next_level = current_level + 1
         reqs = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
         donated = {k: (row[_RES_COL[k]] if k in _RES_COL else 0) for k in reqs}

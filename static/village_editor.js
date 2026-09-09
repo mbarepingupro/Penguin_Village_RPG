@@ -51,6 +51,17 @@ const BUILDING_DEFS = {
 
 const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
 
+// Whether the Penguin Cornucopia is offered as a placeable building yet --
+// mirrors app.py's _era_advanced() (village_era.era >= 2). Fetched once at
+// init() via checkCornucopiaUnlocked(); defaults to false (hidden) until
+// that resolves, so a slow/failed check fails closed rather than briefly
+// offering a building that isn't actually unlocked server-side yet.
+let cornucopiaUnlocked = false;
+
+function placeableBuildingKeys() {
+    return cornucopiaUnlocked ? BUILDING_KEYS : BUILDING_KEYS.filter(k => k !== 'cornucopia');
+}
+
 // ── STATE ────────────────────────────────────────────────────────────────────
 let grid = [];
 let buildings = {};
@@ -686,13 +697,16 @@ function updateInfoPanel() {
     const statsEl = document.getElementById('info-stats');
     const allPlacedEl = document.getElementById('info-all-placed');
 
-    // BUILDING_KEYS.length, not a hardcoded count -- was stuck at the literal
-    // number 10 (stale even before this change: BUILDING_DEFS already had 11
-    // entries), so it undercounted and "ALL PLACED" could never show once a
-    // 12th (or 11th) building existed.
-    statsEl.textContent = `WALKABLE: ${walkable} | PATH: ${path} | TREES: ${trees} | WATER: ${water} | BUILDINGS: ${bCount}/${BUILDING_KEYS.length}`;
+    // placeableBuildingKeys().length, not a hardcoded count -- was stuck at
+    // the literal number 10 (stale even before this change: BUILDING_DEFS
+    // already had 11 entries), so it undercounted and "ALL PLACED" could
+    // never show once a 12th (or 11th) building existed. Excludes the
+    // Cornucopia from the denominator while it isn't unlocked yet, same as
+    // the sidebar list below.
+    const placeableCount = placeableBuildingKeys().length;
+    statsEl.textContent = `WALKABLE: ${walkable} | PATH: ${path} | TREES: ${trees} | WATER: ${water} | BUILDINGS: ${bCount}/${placeableCount}`;
 
-    if (bCount >= BUILDING_KEYS.length) {
+    if (bCount >= placeableCount) {
         allPlacedEl.style.display = 'inline';
     } else {
         allPlacedEl.style.display = 'none';
@@ -723,6 +737,24 @@ function showFlash(msg, isError) {
     flashTimeout = setTimeout(() => {
         el.classList.remove('visible');
     }, 2000);
+}
+
+// Mirrors app.py's _era_advanced() (village_era.era >= 2) -- the Cornucopia
+// stays out of the BUILDINGS palette (and the placeable-count denominator)
+// until the Mayor has advanced the era at least once. Checked once on page
+// load, same fire-and-forget pattern as checkDraftAvailability() below;
+// re-renders the sidebar/info panel once it resolves since both are already
+// built by the time this fetch lands.
+async function checkCornucopiaUnlocked() {
+    try {
+        const resp = await fetch('/village/era/status');
+        const data = await resp.json();
+        cornucopiaUnlocked = (data.era || 1) >= 2;
+    } catch (e) {
+        cornucopiaUnlocked = false; // fail closed -- stay hidden if the check fails
+    }
+    updateInfoPanel();
+    rebuildBuildingsList();
 }
 
 // ── DRAFT MODE ────────────────────────────────────────────────────────────────
@@ -903,7 +935,7 @@ function rebuildBuildingsList() {
     const list = document.getElementById('buildings-list');
     list.innerHTML = '';
 
-    for (const key of BUILDING_KEYS) {
+    for (const key of placeableBuildingKeys()) {
         const def = BUILDING_DEFS[key];
         const isPlaced = !!buildings[key];
         const isSelected = selectedBuilding === key;
@@ -1036,7 +1068,8 @@ function setBuildingMode(val) {
         cvs.classList.add('building-mode');
         // Default select first unplaced building, or first building
         if (!selectedBuilding) {
-            selectedBuilding = BUILDING_KEYS.find(k => !buildings[k]) || BUILDING_KEYS[0];
+            const placeable = placeableBuildingKeys();
+            selectedBuilding = placeable.find(k => !buildings[k]) || placeable[0];
             rebuildBuildingsList();
         }
     } else {
@@ -1248,6 +1281,10 @@ async function init() {
     // still false at this point either way, so it can't affect the fetch
     // just above.
     checkDraftAvailability();
+    // Also fire-and-forget -- cornucopiaUnlocked defaults to false, so the
+    // very first render below already hides it; this just re-renders once
+    // the real era check lands (a no-op re-render if it's still locked).
+    checkCornucopiaUnlocked();
 
     updateInfoPanel();
     rebuildBuildingsList();
