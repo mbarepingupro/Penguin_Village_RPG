@@ -7060,7 +7060,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
     if (upgData) {
       html += `<div style="color:#4aff6b;font-size:17px;margin-bottom:4px;">CURRENT BONUS</div>`;
-      if (lvl >= maxLvl) {
+      if (maxLvl && lvl >= maxLvl) {
         html += `<div style="color:#FF8C00;font-size:17px;margin-bottom:10px;">★ MAX LEVEL — ALL BONUSES ACTIVE</div>`;
       } else {
         html += `<div style="color:#fff;font-size:17px;margin-bottom:10px;">${upgData.current_benefit||'Base level — no bonus yet'}</div>`;

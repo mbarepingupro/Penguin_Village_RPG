@@ -9137,6 +9137,12 @@ def cornucopia_donate():
     ).fetchall()
     contributors = [{"rank": i + 1, "username": r["username"], "total": r["total"]} for i, r in enumerate(contributor_rows)]
 
+    current_bonus = max(0, new_level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL
+    current_benefit = (
+        "Base level — no bonus yet" if current_bonus <= 0
+        else f"+{current_bonus:g} resource/hr to every passive job, village-wide"
+    )
+
     db.close()
     if level_up:
         notify_channels(levelup_message)
@@ -9150,7 +9156,8 @@ def cornucopia_donate():
         "old_level":         current_level,
         "new_level":         new_level,
         "current_level":     new_level,
-        "job_bonus_per_hour": max(0, new_level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL,
+        "current_benefit":   current_benefit,
+        "job_bonus_per_hour": current_bonus,
         "top_donor_reward":  top_donor_reward,
         "next_level":        new_level + 1,
         "next_req":          next_req,
@@ -9196,17 +9203,24 @@ def cornucopia_status():
             player_resources = {res: (r[res] or 0) for res in CORNUCOPIA_RESOURCES if res != "gold"}
         player_resources["gold"] = get_gold(db, username)
 
+    current_bonus = max(0, level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL
+    current_benefit = (
+        "Base level — no bonus yet" if current_bonus <= 0
+        else f"+{current_bonus:g} resource/hr to every passive job, village-wide"
+    )
+
     db.close()
     return jsonify({
         "status":            "success",
         "current_level":     level,
+        "current_benefit":   current_benefit,
         "next_level":        level + 1,
         "next_benefit":      f"+{CORNUCOPIA_JOB_BONUS_PER_LEVEL:g} resource/hr to every passive job, village-wide, forever",
         "next_req":          next_req,
         "progress":          progress,
         "contributors":      contributors,
         "player_resources":  player_resources,
-        "job_bonus_per_hour": max(0, level - 1) * CORNUCOPIA_JOB_BONUS_PER_LEVEL,
+        "job_bonus_per_hour": current_bonus,
     })
 
 
