@@ -7856,7 +7856,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           // the reopened (dimmed) panel sitting directly behind the
           // celebration showing the same info underneath it.
           queueCelebration({
-            type: 'cornucopia_level_up',
+            type: 'milestone',
             icon: '🌽',
             title: 'THE CORNUCOPIA OVERFLOWS!',
             subtitle: `LEVEL ${data.new_level}`,
@@ -11819,7 +11819,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (!window.GameSounds) return;
     if (type === 'achievement' || type === 'title') GameSounds.achievement();
     else if (type === 'first_kill')                 GameSounds.firstKill();
-    else if (type === 'milestone' || type === 'cornucopia_level_up') GameSounds.buildingLevelUp();
+    else if (type === 'milestone') GameSounds.buildingLevelUp();
     else if (type === 'challenge_start' || type === 'raid_start') GameSounds.mayorAppears();
     else if (type === 'challenge_result_success')   GameSounds.achievement();
     else if (type === 'challenge_result_fail')      GameSounds.error();
