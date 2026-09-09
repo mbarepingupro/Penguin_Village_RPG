@@ -46,6 +46,7 @@ const BUILDING_DEFS = {
     barracks:      { name: "PENGUIN BARRACKS",   color: "#922B21", width: 3, height: 3 },
     horny_jail:    { name: "HORNY JAIL",         color: "#FF7FE5", width: 3, height: 3 },
     boutique:      { name: "THE BOUTIQUE",       color: "#FF7FE5", width: 3, height: 3 },
+    cornucopia:    { name: "PENGUIN CORNUCOPIA", color: "#E8A33D", width: 3, height: 3 },
 };
 
 const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
@@ -685,9 +686,13 @@ function updateInfoPanel() {
     const statsEl = document.getElementById('info-stats');
     const allPlacedEl = document.getElementById('info-all-placed');
 
-    statsEl.textContent = `WALKABLE: ${walkable} | PATH: ${path} | TREES: ${trees} | WATER: ${water} | BUILDINGS: ${bCount}/10`;
+    // BUILDING_KEYS.length, not a hardcoded count -- was stuck at the literal
+    // number 10 (stale even before this change: BUILDING_DEFS already had 11
+    // entries), so it undercounted and "ALL PLACED" could never show once a
+    // 12th (or 11th) building existed.
+    statsEl.textContent = `WALKABLE: ${walkable} | PATH: ${path} | TREES: ${trees} | WATER: ${water} | BUILDINGS: ${bCount}/${BUILDING_KEYS.length}`;
 
-    if (bCount >= 10) {
+    if (bCount >= BUILDING_KEYS.length) {
         allPlacedEl.style.display = 'inline';
     } else {
         allPlacedEl.style.display = 'none';
