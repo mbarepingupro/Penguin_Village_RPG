@@ -91,6 +91,30 @@
       user-select: none;
     }
 
+    .toolbar-select, .toolbar-input {
+      padding: 4px 6px;
+      background: #181820;
+      border: 1px solid #3A3A50;
+      color: #B8B8D0;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      flex-shrink: 0;
+      outline: none;
+    }
+    .toolbar-select:hover, .toolbar-input:hover,
+    .toolbar-select:focus, .toolbar-input:focus {
+      border-color: #A86EFF;
+    }
+    .toolbar-input { width: 60px; }
+
+    #editing-target-label {
+      color: #4aff6b;
+      font-family: 'Silkscreen', monospace;
+      font-size: 16px;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
     #btn-save.dirty {
       border-color: #4aff6b;
       color: #4aff6b;
@@ -333,8 +357,24 @@
 
     <span class="toolbar-sep">|</span>
 
-    <button class="toolbar-btn" id="btn-draft-mode" style="display:none;" disabled
-            title="No draft available yet -- every building must reach its max level first.">DRAFT MODE</button>
+    <button class="toolbar-btn active" id="btn-edit-live" title="Edit the live village map.">LIVE MAP</button>
+    <input type="number" class="toolbar-input" id="era-target-input" min="2" placeholder="era #"
+           title="Type a future era number, then EDIT ERA -- design that era's map anytime, well ahead of actually advancing to it.">
+    <button class="toolbar-btn" id="btn-edit-era" title="Switch to editing that era's map.">EDIT ERA</button>
+    <select class="toolbar-select" id="saved-era-select" title="Jump straight to an era that already has a saved map.">
+      <option value="">— saved eras —</option>
+    </select>
+
+    <span class="toolbar-sep">|</span>
+
+    <select class="toolbar-select" id="import-source-select"
+            title="Load another map as the starting point for the one you're currently editing -- so a village can build on itself instead of starting from scratch every era. Still needs SAVE to keep it.">
+      <option value="live">LIVE MAP</option>
+    </select>
+    <button class="toolbar-btn" id="btn-import" title="Import the selected map into the current editing buffer.">IMPORT ⤵</button>
+
+    <span class="toolbar-sep">|</span>
+
     <button class="toolbar-btn" id="btn-load">LOAD</button>
     <button class="toolbar-btn" id="btn-save">SAVE</button>
     <button class="toolbar-btn" id="btn-download">DOWNLOAD</button>
@@ -346,6 +386,7 @@
 
     <button class="toolbar-btn" id="btn-reset-view" title="Reset zoom and pan (R)">RESET VIEW</button>
 
+    <span id="editing-target-label">Editing: LIVE MAP</span>
     <span id="coord-display">[-, -]</span>
   </div>
 

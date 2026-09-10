@@ -71,10 +71,14 @@ let buildings = {};
 // cells where grid[y][x] === 5 (TILE_FENCE) -- stale entries left behind by
 // painting over a fence tile with something else are harmless (ignored).
 let tileRotations = {};
-// Toggled by #btn-draft-mode (only shown once /village/era/status reports
-// 'maxed_waiting') -- when true, loadLayout()/saveLayout() and init()'s
-// initial fetch all target the draft endpoints instead of the live ones.
-let draftMode = false;
+// ── ERA EDITOR ──────────────────────────────────────────────────────────────
+// 'live', or an integer era number > currentEra -- which map loadLayout()/
+// saveLayout() target. Not gated behind era_status the way the old single-
+// draft mechanism was; any future era can be designed anytime, well ahead
+// of actually advancing to it. See populateEraUI()/renderEraControls().
+let editingTarget = 'live';
+let currentEra = 1;
+let savedEras = [];  // era numbers (>1) that already have a saved map
 let selectedTool = 0;
 let lastTileType  = 0; // last numeric tile type selected; used as fill target
 let buildingMode = false;
@@ -743,7 +747,7 @@ function showFlash(msg, isError) {
 // Mirrors app.py's _era_advanced() (village_era.era >= 2) -- the Cornucopia
 // stays out of the BUILDINGS palette (and the placeable-count denominator)
 // until the Mayor has advanced the era at least once. Checked once on page
-// load, same fire-and-forget pattern as checkDraftAvailability() below;
+// load, same fire-and-forget pattern as populateEraUI() below;
 // re-renders the sidebar/info panel once it resolves since both are already
 // built by the time this fetch lands.
 async function checkCornucopiaUnlocked() {
@@ -758,31 +762,75 @@ async function checkCornucopiaUnlocked() {
     rebuildBuildingsList();
 }
 
-// ── DRAFT MODE ────────────────────────────────────────────────────────────────
-// #btn-draft-mode only makes sense once the village has a next-era draft to
-// design (era_status === 'maxed_waiting' -- see _generate_draft_layout() in
-// app.py). Checked once on page load; the button stays hidden/disabled with
-// an explanatory tooltip otherwise.
-async function checkDraftAvailability() {
-    const btn = document.getElementById('btn-draft-mode');
-    if (!btn) return;
+// ── ERA EDITOR ──────────────────────────────────────────────────────────────
+// Populates the era-picker/import-source controls -- unlike the old single-
+// draft mechanism, these are always available (no era_status gate): any
+// future era can be designed well ahead of actually advancing to it.
+async function populateEraUI() {
     try {
-        const resp = await fetch('/village/era/status');
-        const data = await resp.json();
-        if (data.era_status === 'maxed_waiting') {
-            btn.style.display = '';
-            btn.disabled = false;
-            btn.title = 'Toggle between the live layout and the next era\'s draft map.';
-        }
+        const [statusResp, availResp] = await Promise.all([
+            fetch('/village/era/status'),
+            fetch('/village/layout/era/available'),
+        ]);
+        const statusData = await statusResp.json();
+        const availData  = await availResp.json();
+        currentEra = statusData.era || 1;
+        savedEras  = availData.saved_eras || [];
     } catch (e) {
-        // Leave hidden/disabled -- no draft to design if the check fails.
+        currentEra = 1;
+        savedEras  = [];
+    }
+    renderEraControls();
+}
+
+function renderEraControls() {
+    const savedSel = document.getElementById('saved-era-select');
+    if (savedSel) {
+        savedSel.innerHTML = '<option value="">— saved eras —</option>' +
+            savedEras.map(n => `<option value="${n}">ERA ${n}</option>`).join('');
+    }
+
+    // Import source list: the live map plus every saved era, minus whichever
+    // one is currently being edited (importing a map into itself is a no-op).
+    const importSel = document.getElementById('import-source-select');
+    if (importSel) {
+        let html = `<option value="live">LIVE MAP</option>`;
+        html += savedEras.map(n => `<option value="${n}">ERA ${n}</option>`).join('');
+        importSel.innerHTML = html;
+        Array.from(importSel.options).forEach(o => {
+            o.disabled = (o.value === String(editingTarget));
+        });
+    }
+
+    const eraInput = document.getElementById('era-target-input');
+    if (eraInput) {
+        eraInput.min = currentEra + 1;
+        if (!eraInput.value || parseInt(eraInput.value, 10) <= currentEra) {
+            eraInput.value = currentEra + 1;
+        }
+    }
+
+    document.getElementById('btn-edit-live')?.classList.toggle('active', editingTarget === 'live');
+    document.getElementById('btn-edit-era')?.classList.toggle('active', editingTarget !== 'live');
+
+    const label = document.getElementById('editing-target-label');
+    if (label) {
+        if (editingTarget === 'live') {
+            label.textContent = `Editing: LIVE MAP (Era ${currentEra})`;
+        } else {
+            const saved = savedEras.includes(editingTarget);
+            label.textContent = `Editing: ERA ${editingTarget}${saved ? '' : ' (default preview -- not yet saved)'}`;
+        }
     }
 }
 
 // ── SAVE / LOAD ───────────────────────────────────────────────────────────────
+// Both target whichever map `editingTarget` currently points at -- 'live'
+// or a future era number (see the ERA EDITOR block above).
 async function saveLayout() {
+    const url = editingTarget === 'live' ? '/village/layout/save' : `/village/layout/era/${editingTarget}/save`;
     try {
-        const resp = await fetch(draftMode ? '/village/layout/draft/save' : '/village/layout/save', {
+        const resp = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ grid, buildings, tileRotations }),
@@ -791,6 +839,11 @@ async function saveLayout() {
         if (data.status === 'success') {
             setDirty(false);
             showFlash('SAVED ✅', false);
+            if (editingTarget !== 'live' && !savedEras.includes(editingTarget)) {
+                savedEras.push(editingTarget);
+                savedEras.sort((a, b) => a - b);
+            }
+            renderEraControls();
         } else {
             showFlash('SAVE FAILED ❌', true);
         }
@@ -803,21 +856,48 @@ async function loadLayout() {
     if (isDirty) {
         if (!confirm('You have unsaved changes. Load anyway?')) return;
     }
+    const url = editingTarget === 'live' ? '/village/layout' : `/village/layout/era/${editingTarget}`;
     try {
-        const resp = await fetch(draftMode ? '/village/layout/draft' : '/village/layout');
+        const resp = await fetch(url);
         if (!resp.ok) throw new Error('fetch failed');
         const data = await resp.json();
         applyLayout(data);
         setDirty(false);
-        // Grid dimensions may have just changed (e.g. toggling into/out of
-        // draft mode -- a Village Era draft is larger than the live map, see
-        // EXPANSION_MARGIN in app.py), so re-fit the camera to whatever size
-        // just loaded instead of leaving it framed for the old one.
+        // Grid dimensions may have just changed (switching to/from a future
+        // era's map -- an unplanned era's default is larger than whatever
+        // it's based on, see EXPANSION_MARGIN in app.py), so re-fit the
+        // camera to whatever size just loaded instead of leaving it framed
+        // for the old one.
         resetView();
         updateInfoPanel();
         rebuildBuildingsList();
     } catch (e) {
         showFlash('LOAD FAILED', true);
+    }
+}
+
+// Loads another map (live, or any saved era) into the CURRENT editing
+// buffer without switching `editingTarget` or saving -- the Mayor still
+// has to hit SAVE to keep it under whichever map they're editing. This is
+// what lets a village "build on itself": import last era's finished map as
+// the starting point instead of hand-recreating it.
+async function importLayoutFrom(source) {
+    if (!source) return;
+    const label = source === 'live' ? 'the live map' : `Era ${source}`;
+    if (isDirty && !confirm(`Import ${label}? This replaces everything currently in the editor -- you'll still need to SAVE to keep it.`)) return;
+    const url = source === 'live' ? '/village/layout' : `/village/layout/era/${source}`;
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('fetch failed');
+        const data = await resp.json();
+        applyLayout(data);
+        setDirty(true); // imported content isn't saved under the current target yet
+        resetView();
+        updateInfoPanel();
+        rebuildBuildingsList();
+        showFlash('IMPORTED — remember to SAVE', false);
+    } catch (e) {
+        showFlash('IMPORT FAILED', true);
     }
 }
 
@@ -1029,12 +1109,39 @@ function setupToolbar() {
         this.classList.toggle('active', showPaths);
     });
 
-    // Draft mode toggle -- reloads whichever layout (live/draft) matches the
-    // new mode immediately, same "flip state + refresh" shape as Show Paths.
-    document.getElementById('btn-draft-mode').addEventListener('click', function () {
-        draftMode = !draftMode;
-        this.classList.toggle('active', draftMode);
+    // Era Editor -- switch which map (live, or a future era) LOAD/SAVE
+    // target. Always available, unlike the old draft mode's era_status gate.
+    document.getElementById('btn-edit-live').addEventListener('click', function () {
+        if (editingTarget === 'live') return;
+        if (isDirty && !confirm('You have unsaved changes. Switch to the live map anyway?')) return;
+        editingTarget = 'live';
+        renderEraControls();
         loadLayout();
+    });
+
+    document.getElementById('btn-edit-era').addEventListener('click', function () {
+        const n = parseInt(document.getElementById('era-target-input').value, 10);
+        if (!n || n <= currentEra) {
+            showFlash(`Pick an era after the current one (${currentEra})`, true);
+            return;
+        }
+        if (editingTarget === n) return;
+        if (isDirty && !confirm('You have unsaved changes. Switch maps anyway?')) return;
+        editingTarget = n;
+        renderEraControls();
+        loadLayout();
+    });
+
+    document.getElementById('saved-era-select').addEventListener('change', function () {
+        const n = parseInt(this.value, 10);
+        this.value = '';
+        if (!n) return;
+        document.getElementById('era-target-input').value = n;
+        document.getElementById('btn-edit-era').click();
+    });
+
+    document.getElementById('btn-import').addEventListener('click', function () {
+        importLayoutFrom(document.getElementById('import-source-select').value);
     });
 
     // Load / Save / Reset layout
@@ -1266,9 +1373,9 @@ async function init() {
     loadFont();
     preloadSprites(); // fire-and-forget; render loop picks up sprites as they load
 
-    // Try to load existing layout
+    // Always opens on the live map -- editingTarget defaults to 'live'.
     try {
-        const resp = await fetch(draftMode ? '/village/layout/draft' : '/village/layout');
+        const resp = await fetch('/village/layout');
         if (resp.ok) {
             const data = await resp.json();
             applyLayout(data);
@@ -1277,11 +1384,9 @@ async function init() {
         // Start with blank grid
     }
 
-    // Fire-and-forget -- only shows/enables #btn-draft-mode once a draft is
-    // actually available (era_status === 'maxed_waiting'); draftMode is
-    // still false at this point either way, so it can't affect the fetch
-    // just above.
-    checkDraftAvailability();
+    // Fire-and-forget -- fills in the era-picker/import-source lists once
+    // /village/era/status + /village/layout/era/available resolve.
+    populateEraUI();
     // Also fire-and-forget -- cornucopiaUnlocked defaults to false, so the
     // very first render below already hides it; this just re-renders once
     // the real era check lands (a no-op re-render if it's still locked).
