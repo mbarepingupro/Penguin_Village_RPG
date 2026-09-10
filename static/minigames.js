@@ -1737,6 +1737,7 @@ var SportTossGame = {
   MAX_TARGET: 95,      // range (0-100) each throw, kept off the very edges
                         // so it's always reachable both rising and falling.
   ZONE_HALF_WIDTH: 8,  // a release within +-8 power of the target is a hit
+  FLIGHT_MS: 450,      // snowball travel time from penguin to landing spot
 
   _canvas: null,
   _ctx: null,
@@ -1744,14 +1745,16 @@ var SportTossGame = {
   _animFrame: null,
 
   _throwIdx: 0,      // throws taken so far this session (0-based)
-  _phase: 'ready',   // ready | charging | result
-  _power: 0,         // 0-100, current meter value while charging
+  _phase: 'ready',   // ready | charging | throwing | result
+  _power: 0,         // 0-100, current gauge value while charging
   _direction: 1,     // 1 while rising toward 100, -1 while falling toward 0
-  _cycleMs: 900,     // ms for the meter to cross 0->100 (or 100->0) -- shrinks each throw
+  _cycleMs: 900,     // ms for the gauge to cross 0->100 (or 100->0) -- shrinks each throw
   _target: 50,
-  _lastHit: null,
-  _lastPower: 0,
+  _outcome: null,    // 'hit' | 'short' | 'over'
+  _landingX: 0,
+  _flightStart: 0,
   _resultUntil: 0,
+  _leanT: 0,         // 0-1, decays after release -- the throw-snap lean
   _hits: 0,
 
   init: function(canvas, ctx) {
@@ -1760,7 +1763,30 @@ var SportTossGame = {
     this._running = true;
     this._throwIdx = 0;
     this._hits = 0;
-    this._lastHit = null;
+    this._outcome = null;
+    this._leanT = 0;
+
+    // Scene layout -- computed once from this session's actual canvas size
+    // (MiniGameManager sizes it per-viewport, so this can't be hardcoded
+    // like a fixed-canvas preview could) and reused every frame. The 🎯
+    // never moves; only where the snowball lands relative to it changes.
+    var W = canvas.width, H = canvas.height;
+    this._W = W; this._H = H;
+    this._groundY = H * 0.78;
+    this._penguinX = W * 0.16;
+    this._targetX = W * 0.78;
+    // To the penguin's LEFT (clear of its body/flipper, which reach from
+    // about -27 to +50px of penguinX) rather than directly overhead -- an
+    // overhead gauge would sit inside the character's own footprint on a
+    // short canvas. Height uses a capped fraction of H so it still fits (and
+    // scales down instead of clipping) on an unusually short viewport.
+    this._gaugeX = this._penguinX - 50;
+    this._gaugeW = 13;
+    this._gaugeTop = this._groundY - Math.min(175, H * 0.62);
+    this._gaugeBottom = this._groundY - Math.min(95, H * 0.34);
+    this._pxPerPowerUnit = W / 232; // scales a power/target miss onto the ground
+    this._landingMinX = this._penguinX + W * 0.09;
+    this._landingMaxX = W * 0.965;
 
     var self = this;
     var down = function(e) { e.preventDefault(); self._startCharge(); };
@@ -1795,9 +1821,9 @@ var SportTossGame = {
 
   _release: function() {
     if (!this._running || this._phase !== 'charging') return;
-    var hit = Math.abs(this._power - this._target) <= this.ZONE_HALF_WIDTH;
-    this._lastHit = hit;
-    this._lastPower = this._power;
+    var diff = this._power - this._target;
+    var hit = Math.abs(diff) <= this.ZONE_HALF_WIDTH;
+    this._outcome = hit ? 'hit' : (diff < 0 ? 'short' : 'over');
     if (hit) {
       this._hits++;
       MiniGameManager.addScore(15);
@@ -1805,16 +1831,190 @@ var SportTossGame = {
     } else if (window.GameSounds) {
       GameSounds.minigameMiss();
     }
+
+    // Landing spot is the FIXED target plus how far off-power the release
+    // was -- under the window lands short of it, over the window sails past
+    // it, exactly matching the target's own tolerance band in scale.
+    this._landingX = hit ? this._targetX
+      : Math.max(this._landingMinX, Math.min(this._landingMaxX, this._targetX + diff * this._pxPerPowerUnit));
+
     this._throwIdx++;
-    this._phase = 'result';
-    this._resultUntil = performance.now() + 1100;
+    this._phase = 'throwing';
+    this._flightStart = performance.now();
+    this._leanT = 1;
+  },
+
+  // ── Drawing (all layout fields read from init()'s one-time scene calc) ──
+
+  _drawGround: function(ctx) {
+    ctx.strokeStyle = '#1f5c3c';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(this._penguinX - 30, this._groundY);
+    ctx.lineTo(this._W - 20, this._groundY);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 1;
+    for (var x = this._penguinX - 20; x < this._W - 20; x += 26) {
+      ctx.beginPath();
+      ctx.arc(x, this._groundY + 3, 5, Math.PI, 0);
+      ctx.stroke();
+    }
+  },
+
+  // Still the real aiming feedback -- the marked band is this throw's actual
+  // target +-tolerance, the same window _release() checks against, just
+  // drawn as a vertical gauge next to the penguin instead of a bar under it.
+  _drawGauge: function(ctx) {
+    var gh = this._gaugeBottom - this._gaugeTop;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(this._gaugeX, this._gaugeTop, this._gaugeW, gh);
+    ctx.strokeStyle = '#1f5c3c';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(this._gaugeX, this._gaugeTop, this._gaugeW, gh);
+
+    var zoneTopY = this._gaugeBottom - gh * ((this._target + this.ZONE_HALF_WIDTH) / 100);
+    var zoneH = gh * (this.ZONE_HALF_WIDTH * 2 / 100);
+    ctx.fillStyle = 'rgba(74,255,107,0.34)';
+    ctx.fillRect(this._gaugeX, zoneTopY, this._gaugeW, zoneH);
+    ctx.strokeStyle = '#4aff6b';
+    ctx.strokeRect(this._gaugeX, zoneTopY, this._gaugeW, zoneH);
+
+    if (this._phase === 'ready' || this._phase === 'charging') {
+      var markerY = this._gaugeBottom - gh * (this._power / 100);
+      ctx.beginPath();
+      ctx.arc(this._gaugeX + this._gaugeW / 2, markerY, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFD700';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  },
+
+  // A small illustrated penguin -- body, belly, a jersey (clothes), beak,
+  // feet, and a flipper that swings back while charging and snaps forward
+  // on release. Handball/dodgeball framing, no weapon imagery.
+  _drawPenguin: function(ctx) {
+    var lean = this._phase === 'charging' ? -0.16 * (this._power / 100) : (0.30 * this._leanT);
+    ctx.save();
+    ctx.translate(this._penguinX, this._groundY);
+    ctx.rotate(lean);
+
+    ctx.fillStyle = '#f2a63d';
+    ctx.beginPath(); ctx.ellipse(-11, 1, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(11, 1, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#182a23';
+    ctx.beginPath(); ctx.ellipse(0, -46, 27, 47, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#eef7f0';
+    ctx.beginPath(); ctx.ellipse(1, -40, 15, 34, 0, 0, Math.PI * 2); ctx.fill();
+    // jersey (clothes) -- the sport's own accent green, numbered
+    ctx.fillStyle = '#2f9e5c';
+    ctx.beginPath(); ctx.ellipse(0, -60, 21, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#eef7f0';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('7', 0, -58);
+
+    // throwing flipper -- swings back on the charge, snaps forward on release
+    var flipperA = this._phase === 'charging' ? 0.9 + 0.5 * (this._power / 100) : 0.9 - 1.5 * this._leanT;
+    ctx.save();
+    ctx.translate(20, -56);
+    ctx.rotate(flipperA);
+    ctx.fillStyle = '#182a23';
+    ctx.beginPath(); ctx.ellipse(14, 0, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = '#182a23';
+    ctx.beginPath(); ctx.arc(0, -86, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f2a63d';
+    ctx.beginPath(); ctx.moveTo(11, -87); ctx.lineTo(27, -83); ctx.lineTo(11, -79); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(6, -91, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(7, -91, 1.7, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+  },
+
+  _drawTarget: function(ctx) {
+    ctx.save();
+    ctx.translate(this._targetX, this._groundY);
+    // tolerance ring -- the same +-8 window shown on the gauge, to scale on the ground
+    ctx.setLineDash([4, 5]);
+    ctx.strokeStyle = 'rgba(74,255,107,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, -14, this.ZONE_HALF_WIDTH * this._pxPerPowerUnit, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '28px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🎯', 0, -14);
+    ctx.restore();
+  },
+
+  _drawSnowball: function(ctx) {
+    if (this._phase !== 'throwing' && this._phase !== 'result') return;
+    var t = this._phase === 'result' ? 1 : Math.min(1, (performance.now() - this._flightStart) / this.FLIGHT_MS);
+    var startX = this._penguinX + 34, startY = this._groundY - 58;
+    var x = startX + (this._landingX - startX) * t;
+    var arc = Math.sin(t * Math.PI) * 34; // a small toss arc, not real physics
+    var y = (startY + (this._groundY - startY) * t) - arc;
+
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = '#f4fbf6';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(16,36,26,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (t >= 1) {
+      var markColor = this._outcome === 'hit' ? '#4aff6b' : '#ff6b6b';
+      ctx.beginPath();
+      ctx.ellipse(this._landingX, this._groundY + 4, 14, 5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = markColor + '55';
+      ctx.fill();
+      ctx.strokeStyle = markColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  },
+
+  _drawHud: function(ctx) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#4aff6b';
+    ctx.font = 'bold 15px monospace';
+    ctx.fillText('THROW ' + Math.min(this._throwIdx + 1, this.THROW_COUNT) + ' / ' + this.THROW_COUNT, this._W / 2, 30);
+
+    ctx.font = '12px monospace';
+    if (this._phase === 'ready') {
+      ctx.fillStyle = '#B8B8D0';
+      ctx.fillText(this._throwIdx === 0 ? 'PRESS & HOLD TO WIND UP' : 'NEXT THROW — PRESS & HOLD', this._W / 2, 52);
+    } else if (this._phase === 'charging') {
+      ctx.fillStyle = '#B8B8D0';
+      ctx.fillText('RELEASE IN THE MARKED BAND', this._W / 2, 52);
+    } else if (this._phase === 'throwing') {
+      ctx.fillStyle = '#B8B8D0';
+      ctx.fillText('...', this._W / 2, 52);
+    } else if (this._phase === 'result') {
+      var labels = { hit: '✓ ON TARGET!', short: '✗ FELL SHORT', over: '✗ SAILED OVER' };
+      ctx.fillStyle = this._outcome === 'hit' ? '#4aff6b' : '#ff6b6b';
+      ctx.fillText(labels[this._outcome], this._W / 2, 52);
+    }
+
+    ctx.fillStyle = '#8888A8';
+    ctx.fillText('Hits: ' + this._hits + ' / ' + this.THROW_COUNT, this._W / 2, this._H - 14);
+    ctx.textAlign = 'left';
   },
 
   _render: function() {
     if (!this._running) return;
     var self = this;
     var ctx = this._ctx;
-    var canvas = this._canvas;
     var last = null;
 
     function loop(ts) {
@@ -1823,14 +2023,16 @@ var SportTossGame = {
       last = ts;
       var now = performance.now();
 
-      ctx.fillStyle = '#08140c';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       if (self._phase === 'charging') {
         var stepPct = (dt * 1000 / self._cycleMs) * 100;
         self._power += self._direction * stepPct;
         if (self._power >= 100) { self._power = 100; self._direction = -1; }
         else if (self._power <= 0) { self._power = 0; self._direction = 1; }
+      } else if (self._phase === 'throwing') {
+        if (now - self._flightStart >= self.FLIGHT_MS) {
+          self._phase = 'result';
+          self._resultUntil = now + 1000;
+        }
       } else if (self._phase === 'result' && now >= self._resultUntil) {
         if (self._throwIdx >= self.THROW_COUNT) {
           self._finishSession();
@@ -1838,65 +2040,17 @@ var SportTossGame = {
         }
         self._newTarget();
       }
+      if (self._leanT > 0) self._leanT = Math.max(0, self._leanT - dt * 2.7);
 
-      // ── Power field ──
-      var barX = canvas.width * 0.1, barW = canvas.width * 0.8;
-      var barY = canvas.height * 0.55, barH = 26;
-      ctx.fillStyle = '#14241a';
-      ctx.fillRect(barX, barY, barW, barH);
-      ctx.strokeStyle = '#2a4a34';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(barX, barY, barW, barH);
+      ctx.fillStyle = '#08140c';
+      ctx.fillRect(0, 0, self._W, self._H);
+      self._drawGround(ctx);
+      self._drawTarget(ctx);
+      self._drawGauge(ctx);
+      self._drawPenguin(ctx);
+      self._drawSnowball(ctx);
+      self._drawHud(ctx);
 
-      var zoneX = barX + barW * ((self._target - self.ZONE_HALF_WIDTH) / 100);
-      var zoneW = barW * (self.ZONE_HALF_WIDTH * 2 / 100);
-      ctx.fillStyle = 'rgba(74,255,107,0.35)';
-      ctx.fillRect(zoneX, barY, zoneW, barH);
-      ctx.strokeStyle = '#4aff6b';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(zoneX, barY, zoneW, barH);
-
-      var markerPower = (self._phase === 'result') ? self._lastPower : self._power;
-      var markerX = barX + barW * (markerPower / 100);
-      var markerColor = self._phase === 'result' ? (self._lastHit ? '#4aff6b' : '#ff6b6b') : '#FFD700';
-      ctx.beginPath();
-      ctx.arc(markerX, barY + barH / 2, 12, 0, Math.PI * 2);
-      ctx.fillStyle = markerColor;
-      ctx.fill();
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Handball/dodgeball flavor -- penguin at the throw line, goal at the
-      // far end. No weapon/shooting-range imagery anywhere.
-      ctx.font = '28px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🐧', barX - 14, barY + barH / 2);
-      ctx.font = '22px serif';
-      ctx.fillText('🥅', barX + barW + 16, barY + barH / 2);
-
-      // ── HUD text ──
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillStyle = '#4aff6b';
-      ctx.font = 'bold 15px monospace';
-      ctx.fillText('THROW ' + Math.min(self._throwIdx + 1, self.THROW_COUNT) + ' / ' + self.THROW_COUNT, canvas.width / 2, 30);
-      ctx.font = '12px monospace';
-      if (self._phase === 'ready') {
-        ctx.fillStyle = '#B8B8D0';
-        ctx.fillText('PRESS & HOLD to wind up, RELEASE in the green zone!', canvas.width / 2, 54);
-      } else if (self._phase === 'charging') {
-        ctx.fillStyle = '#B8B8D0';
-        ctx.fillText('RELEASE NOW!', canvas.width / 2, 54);
-      } else if (self._phase === 'result') {
-        ctx.fillStyle = self._lastHit ? '#4aff6b' : '#ff6b6b';
-        ctx.fillText(self._lastHit ? '✓ NICE THROW!' : '✗ MISSED THE ZONE', canvas.width / 2, 54);
-      }
-      ctx.fillStyle = '#8888A8';
-      ctx.fillText('Hits: ' + self._hits + ' / ' + self.THROW_COUNT, canvas.width / 2, canvas.height - 14);
-
-      ctx.textAlign = 'left';
       self._animFrame = requestAnimationFrame(loop);
     }
     self._animFrame = requestAnimationFrame(loop);
