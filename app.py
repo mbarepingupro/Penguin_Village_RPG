@@ -573,6 +573,17 @@ BUILDING_UPGRADES = {
             3: {"blood_gems": 25000, "bones": 25000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% rate for everyone"},
         },
     },
+    "horny_jail": {
+        "name": "Horny Jail",
+        "levels": {
+            # Same fish/herbs-tier cost curve as sea_lion_pit/club_soda: eggs
+            # x5, gold x5, ice_blocks untouched (2x) -- infinite leveling
+            # (see the "INFINITE BUILDING LEVELING" block below) continues
+            # this same per-resource ratio past level 3 from day one.
+            2: {"eggs": 10000, "gold": 5000,  "ice_blocks": 5000,  "benefit": "+15% egg rate for everyone"},
+            3: {"eggs": 50000, "gold": 25000, "ice_blocks": 10000, "benefit": "+30% egg rate for everyone"},
+        },
+    },
 }
 
 # Village Era progression -- once every BUILDING_UPGRADES building hits its
@@ -583,12 +594,12 @@ ERA_LEVEL_STEP = 3
 
 def _era_advanced(db):
     """True once the Mayor has advanced the village era at least once
-    (era >= 2). Gates two features that ship dark until then: infinite
-    building leveling past level 3 (see building_donate()/
-    _building_upgrade_info()/mayor_building_boost()) and the Penguin
-    Cornucopia (see /village/layout, /cornucopia/donate, /cornucopia/status).
-    Both stay exactly as they were before either feature existed until the
-    Mayor advances via POST /mayor/advance_era."""
+    (era >= 2). Gates the Penguin Cornucopia (see /village/layout,
+    /cornucopia/donate, /cornucopia/status), which stays exactly as it was
+    before it existed until the Mayor advances via POST /mayor/advance_era
+    -- itself now gated off by default behind FEATURES["era_advance"].
+    Infinite building leveling (building_donate()/_building_upgrade_info()/
+    mayor_building_boost()) no longer depends on this -- it's unconditional."""
     row = db.execute("SELECT era FROM village_era WHERE id=1").fetchone()
     return (row["era"] if row else 1) >= 2
 
@@ -722,6 +733,63 @@ BUILDING_CARD_BACKGROUNDS = {
         "color": "#E8A33D",
         "source": "Penguin Cornucopia",
     },
+    # Horny Jail's 4 donor-tier backgrounds (100/500/1000/5000 total
+    # contributed to horny_jail specifically) -- unlike every entry above,
+    # NOT granted by /building/donate's generic single-100-threshold
+    # "building_id in BUILDING_CARD_BACKGROUNDS" check (there's deliberately
+    # no plain "horny_jail" key here, so that check never fires for it).
+    # Granted instead by _grant_horny_jail_milestone_reward(), one tier at a
+    # time, alongside a title -- see HORNY_JAIL_DONOR_MILESTONES below. Kept
+    # in this dict purely so the generic card_backgrounds()/
+    # _generate_card_image() lookup (name/color/image/source) covers all 4
+    # for free, same trick the "cornucopia" entry above uses.
+    "horny_jail_100": {
+        "name": "Straw Nest Background",
+        "description": "A humble bed of straw for your finest eggs.",
+        "unlock_amount": 100,
+        "image": "card_bg_horny_jail_100.png",
+        "color": "#D8B36A",
+        "source": "Horny Jail",
+    },
+    "horny_jail_500": {
+        "name": "Speckled Shell Background",
+        "description": "Mottled shells from a clutch well-tended.",
+        "unlock_amount": 500,
+        "image": "card_bg_horny_jail_500.png",
+        "color": "#C97B4A",
+        "source": "Horny Jail",
+    },
+    "horny_jail_1000": {
+        "name": "Golden Yolk Background",
+        "description": "Yolk spun to gold by devoted care.",
+        "unlock_amount": 1000,
+        "image": "card_bg_horny_jail_1000.png",
+        "color": "#F5C518",
+        "source": "Horny Jail",
+    },
+    "horny_jail_5000": {
+        "name": "Ancient Roost Background",
+        "description": "A roost as old as the village itself.",
+        "unlock_amount": 5000,
+        "image": "card_bg_horny_jail_5000.png",
+        "color": "#8B5E3C",
+        "source": "Horny Jail",
+    },
+}
+
+# Horny Jail's multi-tier donor rewards -- title + the matching
+# BUILDING_CARD_BACKGROUNDS entry above, granted at each cumulative-donation
+# threshold (building_contributions_tracker.total_contributed for
+# building_id="horny_jail", the same per-building running total every other
+# BUILDING_CARD_BACKGROUNDS-keyed building already accrues via
+# /building/donate). Reuses that same tracker table/column -- only the
+# threshold count (4, not 1) and the reward shape (title + background, not
+# just a background) differ from the existing single-tier pattern.
+HORNY_JAIL_DONOR_MILESTONES = {
+    100:  {"title": "Egg Wrangler",       "bg_key": "horny_jail_100"},
+    500:  {"title": "Clutch Keeper",      "bg_key": "horny_jail_500"},
+    1000: {"title": "Broodmaster",        "bg_key": "horny_jail_1000"},
+    5000: {"title": "The Hatchery Baron", "bg_key": "horny_jail_5000"},
 }
 
 BUILDING_BONUS_RATES = {1: 0.0, 2: 0.15, 3: 0.30}
@@ -783,6 +851,7 @@ _BUILDING_BONUS_LABEL = {
     "parkmusement":  "gold rate",
     "cursed_temple": "XP rate",
     "guillotine":    "blood gem and bone rate",
+    "horny_jail":    "egg rate",
 }
 
 
@@ -839,6 +908,7 @@ _RES_COL = {
     "fish": "fish_donated", "herbs": "herbs_donated", "gold": "gold_donated",
     "blood_gems": "blood_gems_donated", "bones": "bones_donated",
     "spell_fragments": "spell_fragments_donated", "ice_blocks": "ice_blocks_donated",
+    "eggs": "eggs_donated",
 }
 
 # Player-facing display names for resource keys whose raw internal key doesn't
@@ -1016,7 +1086,8 @@ BUILDINGS = {
     "horny_jail": {
         "name": "Horny Jail", "icon": "🔒",
         "desc": "You know what you did.",
-        "type": "placeholder",
+        "type": "job", "job_label": "EGG WRANGLING",
+        "produces": {"eggs": 12.5, "gold": 5.0, "xp": 2.0},
         "pos": {"x": 24, "y": 63},
     },
     "boutique": {
@@ -1090,6 +1161,16 @@ BUILDINGS = {
         "name": "Penguin Cornucopia", "icon": "🌽",
         "desc": "An endless harvest, fed by the whole village. Every level feeds every job.",
         "type": "cornucopia",
+    },
+    # Minigame-only, like grand_piano -- no "produces" (no passive job), and
+    # deliberately NOT a BUILDING_UPGRADES key (no donation/leveling). type
+    # "minigame" is new: _renderBuildingActionsHtml() (home.html) renders
+    # just a PLAY button for it, skipping the job/rest/shop/combat/
+    # achievements/placeholder branches every other type hits.
+    "sports_centre": {
+        "name": "Penguin Sports Centre", "icon": "🤾",
+        "desc": "Handballs, dodgeballs, and village bragging rights. No refunds.",
+        "type": "minigame",
     },
 }
 
@@ -1579,6 +1660,18 @@ COSMETIC_SET_BONUSES = {
         },
         "secret": True,
     },
+    # Nest Guardian -- Horny Jail's 4-piece cosmetic set (Eggshell Helm/Downy
+    # Cloak/Talon Boots/Nest-Woven Gloves, sold via /horny_jail/gear/buy for
+    # eggs only). One extra required item vs. every 3-piece set above, so its
+    # +2 eggs/hr sits a little above the plain single-resource 3-piece bonuses
+    # (Beach Day/Mystic Wanderer/Dark Lord's +1) rather than matching them
+    # exactly. check_cosmetic_sets() matches by equipped gear.name same as
+    # every other entry here -- no set_name column involved.
+    "Nest Guardian": {
+        "required_items": ["Eggshell Helm", "Downy Cloak", "Talon Boots", "Nest-Woven Gloves"],
+        "bonus": {"eggs_per_hour": 2, "description": "+2 eggs/hr passive gathering"},
+        "secret": True,
+    },
 }
 
 # ── ACHIEVEMENT DEFINITIONS ───────────────────────────────────────────────────
@@ -1659,6 +1752,16 @@ IGLOO_FURNITURE = {
     "fountain":           {"name": "Indoor Fountain",    "width": 2, "height": 2, "cost": {"gold": 2500, "spell_fragments": 50}, "category": "decor"},
     "trophy_case":        {"name": "Trophy Case",        "width": 2, "height": 1, "cost": {"gold": 1500}, "category": "furniture"},
     "crystal_chandelier": {"name": "Crystal Chandelier", "width": 1, "height": 1, "cost": {"gold": 4000, "spell_fragments": 100}, "category": "decor"},
+    # Horny Jail's 3 furniture items -- purely cosmetic/decorative, no
+    # "interactive" key (unlike bed/bunk_bed/canopy_bed's "rest" or
+    # grand_piano's "minigame" -- both static/igloo_renderer.js and
+    # templates/home.html's igloo-shop rendering already treat a missing
+    # "interactive" key as non-interactive, same as every other decor-only
+    # item above). gold + a modest eggs component, same "themed resource"
+    # pricing convention as fish_tank/fountain/crystal_chandelier above.
+    "nest_bed":           {"name": "Nest Bed",           "width": 2, "height": 2, "cost": {"gold": 500, "eggs": 150}, "category": "furniture"},
+    "incubator_lamp":     {"name": "Incubator Lamp",     "width": 1, "height": 1, "cost": {"gold": 250, "eggs": 75},  "category": "decor"},
+    "henhouse_decoration":{"name": "Henhouse Decoration","width": 2, "height": 1, "cost": {"gold": 400, "eggs": 100},"category": "decor"},
     "mayors_portrait":    {"name": "Mayor's Portrait",   "width": 1, "height": 1, "cost": None, "category": "special", "source": "Mayor gift"},
     "golden_fish":        {"name": "Golden Fish Trophy", "width": 1, "height": 1, "cost": None, "category": "special", "source": "500 fish collected"},
     "combat_banner":      {"name": "Combat Banner",      "width": 1, "height": 2, "cost": None, "category": "special", "source": "50 monsters defeated"},
@@ -1682,6 +1785,26 @@ SEAL_SHOP = [
     {"id": "golden_frame",        "name": "Golden Card Frame",     "cost": 60,  "slot": "card_frame",  "description": "Makes your Penguin Card shine."},
     {"id": "animated_sparkle",    "name": "Sparkle Effect",        "cost": 120, "slot": "card_effect", "description": "Animated sparkles on your Penguin Card."},
     {"id": "mayor_council_badge", "name": "Mayor's Council Badge", "cost": 150, "slot": "accessory",   "description": "You have the Mayor's ear. Use it wisely."},
+]
+
+# Horny Jail's cosmetic-only "Nest Guardian" set -- same shape as SEAL_SHOP
+# (flat single-resource `cost`, no combat_power, plain list not DB-backed via
+# catalog.py) but priced in eggs instead of mayor_seals. NOT part of the
+# 26-set/5-tier combat gear balance (DEFAULT_GEAR_TEMPLATES/barracks_shop) --
+# sold through its own /horny_jail/gear/shop + /horny_jail/gear/buy routes,
+# inserted into `gear` as type='cosmetic' same as every SEAL_SHOP purchase.
+# Slots use the cosmetic vocabulary (hat/outfit/footwear/accessory) that
+# BOUTIQUE_ITEMS/SEAL_SHOP both use, not the combat gear slot names
+# (helmet/armor/boots) -- there is no cosmetic "helmet" or "armor" slot in
+# this codebase. The matching hidden set bonus lives in
+# COSMETIC_SET_BONUSES["Nest Guardian"] below, discovered the same way as
+# Street Style/Beach Day/etc. (see gear_cosmetics_equip()) -- nothing here
+# needs to reference that bonus directly.
+HORNY_JAIL_GEAR_SHOP = [
+    {"id": "eggshell_helm",      "name": "Eggshell Helm",       "cost": 2000, "slot": "hat",       "description": "A cracked eggshell, worn with pride."},
+    {"id": "downy_cloak",        "name": "Downy Cloak",         "cost": 2500, "slot": "outfit",    "description": "Soft as a hatchling's first feathers."},
+    {"id": "talon_boots",        "name": "Talon Boots",         "cost": 2000, "slot": "footwear",  "description": "Grip the nest like you mean it."},
+    {"id": "nest_woven_gloves",  "name": "Nest-Woven Gloves",   "cost": 1800, "slot": "accessory", "description": "Hand-woven from the finest twigs."},
 ]
 
 # ── MISSION DEFINITIONS ───────────────────────────────────────────────────────
@@ -5050,6 +5173,54 @@ def seals_buy():
     return jsonify({"status": "success", "item": shop_item})
 
 
+@app.route("/horny_jail/gear/shop")
+def horny_jail_gear_shop():
+    return jsonify({"items": HORNY_JAIL_GEAR_SHOP})
+
+
+@app.route("/horny_jail/gear/buy", methods=["POST"])
+def horny_jail_gear_buy():
+    """Buy one Nest Guardian piece with eggs -- mirrors seals_buy() exactly
+    (flat single-resource cost, gear inserted as type='cosmetic'), substituting
+    eggs for mayor_seals. Cosmetic-only: no combat_power, no set_name column,
+    not part of the 26-set/5-tier combat gear balance. The hidden 4-piece set
+    bonus (COSMETIC_SET_BONUSES["Nest Guardian"]) is discovered automatically
+    once all 4 are equipped -- gear_cosmetics_equip() already matches by
+    equipped gear.name across every source, nothing extra needed here."""
+    data     = request.get_json(silent=True) or {}
+    username = session.get("username", "").strip()
+    item_id  = data.get("item_id", "").strip()
+    shop_item = next((i for i in HORNY_JAIL_GEAR_SHOP if i["id"] == item_id), None)
+    if not shop_item:
+        return jsonify({"status": "error", "message": "Item not found."})
+    db = get_db()
+    p  = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    ensure_resources(db, username)
+    r = db.execute("SELECT eggs FROM resources WHERE username=?", (username,)).fetchone()
+    eggs = r["eggs"] if r else 0
+    if eggs < shop_item["cost"]:
+        db.close()
+        return jsonify({"status": "error", "message": f"Not enough Eggs. Need {shop_item['cost']}, have {eggs}."})
+    already = db.execute(
+        "SELECT id FROM gear WHERE username=? AND item_id=?", (username, item_id)
+    ).fetchone()
+    if already:
+        db.close()
+        return jsonify({"status": "error", "message": "You already own this item."})
+    db.execute("UPDATE resources SET eggs=eggs-? WHERE username=?", (shop_item["cost"], username))
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, type, slot, rarity, obtained_at) VALUES (?,?,?,?,?,?,?)",
+        (username, item_id, shop_item["name"], "cosmetic", shop_item["slot"], "exclusive", int(time.time()))
+    )
+    log_event(db, "shop", f"{username} purchased {shop_item['name']} from the Horny Jail's gear rack!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "item": shop_item})
+
+
 # ── STREAM PRESENCE ──────────────────────────────────────────────────────────
 
 @app.route("/stream/presence", methods=["POST"])
@@ -6056,6 +6227,7 @@ def work_collect():
         extra_bones       = int(cosmetic_bonuses.get("bones_per_hour", 0)            * hours_worked)
         extra_blood_gems  = int(cosmetic_bonuses.get("blood_gems_per_hour", 0)       * hours_worked)
         extra_frags       = int(cosmetic_bonuses.get("spell_fragments_per_hour", 0)  * hours_worked)
+        extra_eggs        = int(cosmetic_bonuses.get("eggs_per_hour", 0)             * hours_worked)
         extra_xp          = int(cosmetic_bonuses.get("xp_per_hour", 0)               * hours_worked)
         if extra_gold > 0:
             add_gold(db, username, extra_gold)
@@ -6065,6 +6237,7 @@ def work_collect():
         _cb_earn("bones",            "bones",            extra_bones)
         _cb_earn("blood_gems",       "blood_gems",       extra_blood_gems)
         _cb_earn("spell_fragments",  "spell_fragments",  extra_frags)
+        _cb_earn("eggs",             "eggs",             extra_eggs)
         if extra_xp > 0:
             _, lvl_rewards = award_xp(db, username, extra_xp)
             level_ups.extend(lvl_rewards)
@@ -8725,15 +8898,12 @@ def titles_grant():
 def _building_upgrade_info(db, building_id):
     """Return full upgrade state for a building (dict, or None if unknown).
 
-    Uncapped past level 3 ONLY once _era_advanced(db) is true (the Mayor has
-    advanced the village era at least once) -- until then this behaves
-    exactly as it did before infinite leveling existed: max_level is the
-    real building_upgrades.max_level (3, until an era advance bumps it), and
-    next_level/next_req go empty once current_level reaches it. Once
-    unlocked, max_level is always returned as None so the frontend's
-    existing infinite-level handling -- built for the Cornucopia's
-    _renderModalContent()/_renderContributionHtml() null-maxLvl branches --
-    applies here too, with no new frontend code."""
+    Unconditionally uncapped past level 3 -- building_upgrades.max_level is
+    no longer read as a ceiling here (see the "INFINITE BUILDING LEVELING"
+    block near BUILDING_UPGRADES). max_level is always returned as None so
+    the frontend's existing infinite-level handling -- built for the
+    Cornucopia's _renderModalContent()/_renderContributionHtml() null-maxLvl
+    branches -- applies here too, with no new frontend code."""
     cfg = BUILDING_UPGRADES.get(building_id)
     if not cfg:
         return None
@@ -8742,11 +8912,8 @@ def _building_upgrade_info(db, building_id):
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    db_max_level  = row["max_level"] if row else 3
-    unlocked      = _era_advanced(db)
-    max_level     = None if unlocked else db_max_level
-    next_level    = current_level + 1 if (unlocked or current_level < db_max_level) else None
-    next_req      = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]} if next_level else {}
+    next_level    = current_level + 1
+    next_req      = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
     # Derived from _RES_COL (the same map /building/donate uses to pick the
     # column to write) so every donatable resource — including ice_blocks —
     # is covered here without needing to be hand-added to a second list.
@@ -8759,12 +8926,12 @@ def _building_upgrade_info(db, building_id):
             "pct": min(100, round(have / need * 100)) if need else 100,
         }
     cur_benefit  = _building_benefit_text(building_id, current_level)
-    next_benefit = _building_benefit_text(building_id, next_level) if next_level else None
+    next_benefit = _building_benefit_text(building_id, next_level)
     return {
         "building_id":    building_id,
         "name":           cfg["name"],
         "current_level":  current_level,
-        "max_level":      max_level,
+        "max_level":      None,
         "current_benefit": cur_benefit,
         "next_level":     next_level,
         "next_req":       next_req,
@@ -8819,18 +8986,25 @@ def building_upgrade_info(building_id):
                 next_milestone = {"threshold": threshold, **CONTRIBUTION_MILESTONES[threshold]}
                 break
 
-    # Building background progress
-    player_bg_progress = 0
-    player_bg_unlocked = False
+    # Building background progress -- only for the single-tier-at-100
+    # BUILDING_CARD_BACKGROUNDS buildings. Omitted (not just zeroed) for
+    # horny_jail: it deliberately has no plain "horny_jail" key in that dict
+    # (see HORNY_JAIL_DONOR_MILESTONES' comment), so this would otherwise
+    # show a misleading "donate 100 to unlock" message on top of its own
+    # 4-tier title+background progression, which has no frontend display of
+    # its own yet -- the reward is still granted correctly on donation
+    # (_grant_horny_jail_milestone_reward()), it just isn't previewed here.
+    bg_progress_fields = {}
     if username and building_id in BUILDING_CARD_BACKGROUNDS:
         bct = db.execute(
             "SELECT total_contributed, background_unlocked FROM building_contributions_tracker "
             "WHERE username=? AND building_id=?",
             (username, building_id)
         ).fetchone()
-        if bct:
-            player_bg_progress = bct["total_contributed"] or 0
-            player_bg_unlocked = bool(bct["background_unlocked"])
+        bg_progress_fields = {
+            "player_bg_progress": (bct["total_contributed"] or 0) if bct else 0,
+            "player_bg_unlocked": bool(bct["background_unlocked"]) if bct else False,
+        }
 
     db.close()
     return jsonify({"status": "success", **info,
@@ -8839,8 +9013,58 @@ def building_upgrade_info(building_id):
                     "player_building_total": player_building_total,
                     "player_total_contributions": player_total_contributions,
                     "next_milestone": next_milestone,
-                    "player_bg_progress": player_bg_progress,
-                    "player_bg_unlocked": player_bg_unlocked})
+                    **bg_progress_fields})
+
+
+def _grant_horny_jail_milestone_reward(db, username, threshold):
+    """Grant one HORNY_JAIL_DONOR_MILESTONES tier: the matching
+    BUILDING_CARD_BACKGROUNDS[...] card background via the same idempotent
+    gear-insert pattern /building/donate uses for every other building's
+    card background, plus a ceremonial title via the same append-if-absent
+    pattern _grant_cornucopia_top_donor_reward() uses on
+    penguins.ceremonial_titles. Both are granted once ever per tier."""
+    tier    = HORNY_JAIL_DONOR_MILESTONES[threshold]
+    bg_info = BUILDING_CARD_BACKGROUNDS.get(tier["bg_key"])
+    item_id = f"card_bg_{tier['bg_key']}"
+    bg_granted = False
+    if bg_info:
+        existing_bg = db.execute(
+            "SELECT COUNT(*) as cnt FROM gear WHERE username=? AND item_id=? AND type='cosmetic'",
+            (username, item_id)
+        ).fetchone()
+        if not existing_bg or existing_bg["cnt"] == 0:
+            db.execute(
+                "INSERT INTO gear (username, item_id, name, type, slot, rarity, equipped, obtained_at) "
+                "VALUES (?,?,?,'cosmetic','card_background','building',0,?)",
+                (username, item_id, bg_info["name"], int(time.time()))
+            )
+            bg_granted = True
+
+    title         = tier["title"]
+    title_granted = False
+    p = db.execute("SELECT ceremonial_titles FROM penguins WHERE username=?", (username,)).fetchone()
+    if p:
+        try:
+            existing_titles = json.loads(p["ceremonial_titles"] or "[]")
+        except Exception:
+            existing_titles = []
+        if title not in existing_titles:
+            existing_titles.append(title)
+            db.execute("UPDATE penguins SET ceremonial_titles=? WHERE username=?",
+                       (json.dumps(existing_titles), username))
+            title_granted = True
+
+    log_event(db, "milestone",
+              f"🥚 {username} reached {threshold:,} total contributed to the Horny Jail and earned '{title}'!",
+              username, reaction="🎉")
+
+    return {
+        "threshold":                threshold,
+        "title":                    title,
+        "title_newly_granted":      title_granted,
+        "card_background":          bg_info["name"] if bg_info else None,
+        "background_newly_granted": bg_granted,
+    }
 
 
 @app.route("/building/donate", methods=["POST"])
@@ -8865,20 +9089,12 @@ def building_donate():
         "SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)
     ).fetchone()
     current_level = row["current_level"] if row else 1
-    db_max_level  = row["max_level"] if row else 3
 
-    # The level ceiling only lifts once the Mayor has advanced the era at
-    # least once (_era_advanced()) -- until then this is the exact same
-    # `current_level >= max_level` gate that existed before infinite
-    # leveling did. Once unlocked, building_cost() continues this building's
-    # own lvl1->2/lvl2->3 ratio per resource indefinitely (see the
-    # "INFINITE BUILDING LEVELING" block near BUILDING_UPGRADES);
-    # building_upgrades.max_level itself is left alone for village_era to
-    # keep bumping either way, just unread here once unlocked.
-    if not _era_advanced(db) and current_level >= db_max_level:
-        db.close()
-        return jsonify({"status": "error", "message": "Building is already max level."})
-
+    # No level ceiling -- building_cost() continues this building's own
+    # lvl1->2/lvl2->3 ratio per resource indefinitely (see the "INFINITE
+    # BUILDING LEVELING" block near BUILDING_UPGRADES). building_upgrades.
+    # max_level itself is left alone for village_era to keep bumping, just
+    # unread here.
     next_level = current_level + 1
     next_req   = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
     if resource_type not in next_req:
@@ -8979,6 +9195,30 @@ def building_donate():
                 "source": bg_info["source"],
             }
 
+    # Horny Jail's own multi-tier donor rewards (title + card background at
+    # 100/500/1000/5000 total contributed to horny_jail specifically) -- a
+    # separate running total from the generic building_bg_unlocked block
+    # above (which never fires for horny_jail; see HORNY_JAIL_DONOR_
+    # MILESTONES' comment for why), tracked in the same
+    # building_contributions_tracker table/columns.
+    horny_jail_milestone_unlocked = None
+    if building_id == "horny_jail":
+        db.execute(
+            "INSERT INTO building_contributions_tracker (username, building_id, total_contributed, background_unlocked) "
+            "VALUES (?, ?, ?, 0) ON CONFLICT(username, building_id) DO UPDATE SET "
+            "total_contributed = total_contributed + excluded.total_contributed",
+            (username, building_id, amount)
+        )
+        bct = db.execute(
+            "SELECT total_contributed FROM building_contributions_tracker WHERE username=? AND building_id=?",
+            (username, building_id)
+        ).fetchone()
+        hj_new_total = (bct["total_contributed"] if bct else 0) or 0
+        hj_old_total = hj_new_total - amount
+        for threshold in sorted(HORNY_JAIL_DONOR_MILESTONES.keys()):
+            if hj_old_total < threshold <= hj_new_total:
+                horny_jail_milestone_unlocked = _grant_horny_jail_milestone_reward(db, username, threshold)
+
     # Milestone check
     milestone_unlocked = None
     for milestone, reward in sorted(CONTRIBUTION_MILESTONES.items()):
@@ -9013,8 +9253,8 @@ def building_donate():
         # Reset donated counters
         db.execute(
             "UPDATE building_upgrades SET current_level=?, fish_donated=0, herbs_donated=0, "
-            "gold_donated=0, blood_gems_donated=0, bones_donated=0, spell_fragments_donated=0 "
-            "WHERE building_id=?",
+            "gold_donated=0, blood_gems_donated=0, bones_donated=0, spell_fragments_donated=0, "
+            "eggs_donated=0 WHERE building_id=?",
             (new_level, building_id)
         )
         benefit = _building_benefit_text(building_id, new_level)
@@ -9037,6 +9277,7 @@ def building_donate():
         "milestone_unlocked":      milestone_unlocked,
         "level_ups":               donation_level_ups,
         "building_bg_unlocked":    building_bg_unlocked,
+        "horny_jail_milestone_unlocked": horny_jail_milestone_unlocked,
     })
 
 
@@ -9363,6 +9604,8 @@ def village_era_status():
 
 @app.route("/mayor/advance_era", methods=["POST"])
 def mayor_advance_era():
+    if not FEATURES.get("era_advance", False):
+        return jsonify({"status": "error", "message": "Era advancement is not enabled yet."})
     if not _is_mayor_authed():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     data  = request.get_json(silent=True) or {}
@@ -10938,11 +11181,6 @@ def village_layout():
 
     layout["building_levels"] = levels
     layout["building_max_levels"] = max_levels
-    # Read by village_map.js's level-badge rendering -- while locked, a
-    # building at level 3 still shows "★ MAX" (the original behavior);
-    # once unlocked, it always shows the real level number instead. See
-    # _era_advanced()'s docstring for what else this same flag gates.
-    layout["era_advanced"] = era_advanced
     return jsonify(layout)
 
 
@@ -11892,11 +12130,9 @@ def mayor_building_boost():
     # Check if building levels up
     row = db.execute("SELECT * FROM building_upgrades WHERE building_id=?", (building_id,)).fetchone()
     current_level = row["current_level"]
-    db_max_level  = row["max_level"] or 3
-    unlocked      = _era_advanced(db)  # same era gate as building_donate()
     leveled_up    = False
     levelup_messages = []
-    while unlocked or current_level < db_max_level:
+    while True:  # no level ceiling -- same as building_donate()
         next_level = current_level + 1
         reqs = {res: building_cost(building_id, res, current_level) for res in _BUILDING_COST_RATIOS[building_id]}
         donated = {k: (row[_RES_COL[k]] if k in _RES_COL else 0) for k in reqs}
@@ -12882,7 +13118,7 @@ def bank_sell_to_bank():
     })
 
 
-MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano")
+MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano", "horny_jail", "sports_centre")
 
 # Mirrors templates/home.html's MINIGAME_LABELS -- kept as a separate copy
 # rather than a shared source since one lives in Python (chat announcements)
@@ -12894,6 +13130,8 @@ MINIGAME_LABELS = {
     "cursed_temple": "🔮 Rune Memory",
     "guillotine":    "💀 Whack-a-Target",
     "grand_piano":   "🎹 Piano Recital",
+    "horny_jail":    "🥚 Cell Block Beat",
+    "sports_centre": "🤾 Sport Toss",
 }
 
 
@@ -12905,6 +13143,12 @@ def calculate_minigame_rewards(building_id, score, player_level):
         "cursed_temple": {"spell_fragments": 12, "gold": 5, "xp": 10},
         "guillotine":    {"blood_gems": 6, "bones": 6, "gold": 5, "xp": 10},
         "grand_piano":   {"gold": 20, "xp": 10},
+        # Same tier as sea_lion_pit/club_soda -- horny_jail's job produces
+        # eggs at the identical 12.5/hr rate those produce fish/herbs at.
+        "horny_jail":    {"eggs": 15, "gold": 5, "xp": 10},
+        # Identical to grand_piano's -- both are minigame-only buildings with
+        # no passive job to tier the reward against.
+        "sports_centre": {"gold": 20, "xp": 10},
     }
     # `score` is now the player's raw, uncapped score (see minigame_complete --
     # scores used to be clamped to 0-100 before storage/display; now only the
@@ -13242,6 +13486,13 @@ def build_leaderboard_route():
     })
 
 
+# Energy spent per /minigame/start attempt, shared by every building
+# minigame (grand_piano included) -- was a bare inline 10 in two places
+# below; named here so a new minigame (or a future balance change) has one
+# place to read/change it instead of a second hand-copied literal.
+MINIGAME_ENERGY_COST = 10
+
+
 @app.route("/minigame/start", methods=["POST"])
 def minigame_start():
     data        = request.get_json(silent=True) or {}
@@ -13296,12 +13547,12 @@ def minigame_start():
         if p["job"]:
             db.close()
             return jsonify({"status": "error", "message": "Collect your passive job first!"})
-        if energy < 10:
+        if energy < MINIGAME_ENERGY_COST:
             db.close()
-            return jsonify({"status": "error", "message": "Need 10 energy to play! Rest at the hotel."})
-        db.execute("UPDATE penguins SET energy=energy-10 WHERE username=?", (username,))
+            return jsonify({"status": "error", "message": f"Need {MINIGAME_ENERGY_COST} energy to play! Rest at the hotel."})
+        db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (MINIGAME_ENERGY_COST, username))
         db.commit()
-        energy -= 10
+        energy -= MINIGAME_ENERGY_COST
 
     # host_username is carried through the session (not re-read from the
     # client) at /minigame/complete, same trust boundary as username/
@@ -13517,8 +13768,8 @@ def _minigame_week_bounds(reference_ts=None):
 
 
 def _compute_weekly_minigame_leaderboards_by_game(week_start, week_end):
-    """Independent per-game weekly rankings -- each of the 6 minigames has its
-    own leaderboard, unrelated to how anyone did in the other 4. Raw scores
+    """Independent per-game weekly rankings -- each of the 8 minigames has its
+    own leaderboard, unrelated to how anyone did in the others. Raw scores
     aren't comparable across games (fish caught vs combo points vs memory
     rounds), so there's no cross-game normalization or combined total here,
     just each player's own best raw score in that game this week.
@@ -13581,7 +13832,7 @@ def minigame_leaderboard_route():
 def resolve_weekly_minigame_leaderboard():
     """Saturday 00:00 UTC -- resolves the just-ended Mon->Sat minigame week.
 
-    Each of the 6 minigames is its own independent competition: whoever holds
+    Each of the 8 minigames is its own independent competition: whoever holds
     rank #1 in a given game gets exactly 1 N00Tbox (grant_lootbox, source
     "minigame_weekly_<building_id>") for that game -- no ranks 2/3, no
     resource curve for the rest of the field, and a game nobody played this
@@ -13816,11 +14067,12 @@ def mayor_debug_penguin_fetch():
 _ALL_BUILDING_IDS = set(BUILDINGS.keys())
 
 # building_upgrades' full set of per-resource donation columns (see
-# database.py's CREATE TABLE + the ice_blocks_donated _add_col backfill).
+# database.py's CREATE TABLE + the ice_blocks_donated/eggs_donated _add_col
+# backfills).
 _BUILDING_DONATION_COLS = (
     "fish_donated", "herbs_donated", "gold_donated",
     "blood_gems_donated", "bones_donated", "spell_fragments_donated",
-    "ice_blocks_donated",
+    "ice_blocks_donated", "eggs_donated",
 )
 
 
@@ -13837,13 +14089,15 @@ def mayor_debug_building_reset():
     and was never touched by this route before, which is exactly why a
     "reset" building kept showing old top donators.
 
-    Only 5 of the 11 BUILDINGS ids (BUILDING_UPGRADES' keys) actually carry a
-    building_upgrades row in practice -- the other 6 (hotel, horny_jail,
-    boutique, award_hall, barracks, bank) aren't donation-upgradeable, so
-    their building_upgrades reset is a harmless no-op (0 rows). hotel is the
-    one exception worth noting: it has no building_upgrades row but DOES have
-    its own card-background milestone (BUILDING_CARD_BACKGROUNDS), so
-    resetting it still clears something real via building_contributions_tracker."""
+    Only 6 of the 12 BUILDINGS ids (BUILDING_UPGRADES' keys) actually carry a
+    building_upgrades row in practice -- the other 5 (hotel, boutique,
+    award_hall, barracks, bank) aren't donation-upgradeable (cornucopia is a
+    12th BUILDINGS id with its own entirely separate leveling system, not
+    reset by this tool at all), so their building_upgrades reset is a
+    harmless no-op (0 rows). hotel is the one exception worth noting: it has
+    no building_upgrades row but DOES have its own card-background milestone
+    (BUILDING_CARD_BACKGROUNDS), so resetting it still clears something real
+    via building_contributions_tracker."""
     if not _is_mayor_authed():
         return jsonify({"status": "error", "message": "Unauthorized."}), 403
     data        = request.get_json(silent=True) or {}

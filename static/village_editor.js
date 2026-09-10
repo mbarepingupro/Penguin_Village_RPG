@@ -47,6 +47,7 @@ const BUILDING_DEFS = {
     horny_jail:    { name: "HORNY JAIL",         color: "#FF7FE5", width: 3, height: 3 },
     boutique:      { name: "THE BOUTIQUE",       color: "#FF7FE5", width: 3, height: 3 },
     cornucopia:    { name: "PENGUIN CORNUCOPIA", color: "#E8A33D", width: 3, height: 3 },
+    sports_centre: { name: "PENGUIN SPORTS CENTRE", color: "#4aff6b", width: 3, height: 3 },
 };
 
 const BUILDING_KEYS = Object.keys(BUILDING_DEFS);

@@ -69,6 +69,8 @@ var MiniGameManager = {
       cursed_temple: '🔮 RUNE MEMORY',
       guillotine:    '💀 WHACK-A-TARGET',
       grand_piano:   '🎹 PIANO RECITAL',
+      horny_jail:    '🥚 CELL BLOCK BEAT',
+      sports_centre: '🤾 SPORT TOSS',
     };
     var insts = {
       sea_lion_pit:  'Click fish to catch them! Avoid puffer fish! Golden fish = jackpot!',
@@ -77,6 +79,8 @@ var MiniGameManager = {
       cursed_temple: 'Watch the rune sequence, then repeat it in order!',
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
       grand_piano:   'Watch the keys light up, then play them back in order!',
+      horny_jail:    'Watch the beat, then tap it back — match the COUNT and the TIMING between taps!',
+      sports_centre: 'PRESS & HOLD to wind up, RELEASE in the green zone to score a hit!',
     };
     document.getElementById('mg-title').textContent = titles[buildingId] || 'MINI-GAME';
     document.getElementById('mg-instruction').textContent = insts[buildingId] || '';
@@ -89,6 +93,8 @@ var MiniGameManager = {
       case 'cursed_temple': this._activeGame = RuneMemoryGame;   break;
       case 'guillotine':    this._activeGame = ExecutionerGame;  break;
       case 'grand_piano':   this._activeGame = PianoRecitalGame; break;
+      case 'horny_jail':    this._activeGame = CellBlockBeatGame; break;
+      case 'sports_centre': this._activeGame = SportTossGame;    break;
       default:              this._activeGame = FishCatchGame;
     }
 
@@ -1428,5 +1434,651 @@ var ExecutionerGame = {
     if (this._spawnTimer) { clearInterval(this._spawnTimer); this._spawnTimer = null; }
     if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
     if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
+  },
+};
+
+// ─── Cell Block Beat (Horny Jail) ───────────────────────────────────────────
+// Timing-based, deliberately NOT a Rune Memory reskin: Rune Memory only
+// grades WHICH rune the player taps, in order -- position, never time (see
+// RuneMemoryGame._handleClick above, it just compares rn.idx to
+// this._sequence[pos]; nothing there ever reads a timestamp). This game
+// shows a pattern of clicks with specific gaps between them (ms) -- some
+// slow/even, some fast/back-to-back -- then grades the player's own taps on
+// TWO axes: did they land the right COUNT of taps, and did each gap between
+// two consecutive taps land close to the matching target gap. Screen
+// position is irrelevant (one big tap zone), only rhythm matters.
+var CellBlockBeatGame = {
+  duration: 45,
+  _canvas: null,
+  _ctx: null,
+  _running: false,
+  _animFrame: null,
+
+  _phase: 'show',   // show | input | result
+  _round: 0,
+  _pattern: [],     // target gaps (ms) between consecutive taps -- length tapCount-1
+  _tapCount: 0,
+
+  // Show-phase playback state
+  _showBeatIdx: 0,      // how many beats have played so far this round
+  _showNextBeatAt: 0,   // performance.now() timestamp the next beat plays at
+  _showPulse: 0,        // 0-1, decays after each beat -- drives the circle's flash
+
+  // Input-phase state
+  _inputTaps: [],        // performance.now() timestamps of the player's taps this round
+  _inputDeadline: 0,     // performance.now() timestamp -- round auto-ends (remaining taps = Miss) past this
+  _lastBand: null,       // 'perfect' | 'good' | 'miss' | 'start' -- last graded tap, for HUD/circle color
+  _tapPulse: 0,          // 0-1, decays after each tap
+
+  _resultUntil: 0,
+  _resultCounts: null,   // {perfect, good, miss} tallied for the round just finished
+
+  // Timing windows (ms): how far an actual inter-tap gap can be from the
+  // pattern's target gap and still count as Perfect/Good. Past GOOD_WINDOW_MS
+  // is a Miss -- no credit, same "no credit for Miss" as Bits & Bops' Hammer
+  // Time bands this is modeled on.
+  PERFECT_WINDOW_MS: 80,
+  GOOD_WINDOW_MS:    180,
+
+  // Points per graded gap. Calibrated against the shared 0-100 S/A/B/C/D
+  // grade scale (_showResults()'s gradeScore) so a strong run reaches S
+  // around round 4-5, not round 2 -- rounds ramp mostly via MORE graded
+  // gaps (tapCount grows) rather than steep per-tap point growth.
+  PERFECT_PTS: 6,
+  GOOD_PTS:    3,
+
+  // Gap durations (ms) patterns are built from -- SLOW is the evenly-spaced
+  // "click...click...click" baseline; MEDIUM/FAST mix in the "click-click"
+  // back-to-back feel the spec calls for, phased in from round 2 onward.
+  SLOW_GAP:   650,
+  MEDIUM_GAP: 400,
+  FAST_GAP:   180,
+
+  init: function(canvas, ctx) {
+    this._canvas = canvas;
+    this._ctx = ctx;
+    this._running = true;
+    this._round = 0;
+    this._resultCounts = null;
+
+    var handler = this._handleTap.bind(this);
+    canvas.onclick = handler;
+    canvas.ontouchend = function(e) { e.preventDefault(); handler(e.changedTouches[0]); };
+
+    this._startRound();
+    this._render();
+  },
+
+  // Round N: tapCount grows 3 -> 8 (capped) as N increases; the gaps between
+  // those taps start all-SLOW (round 1, a clean baseline) and increasingly
+  // mix in MEDIUM/FAST gaps as N grows -- "more clicks and/or more complex
+  // spacing patterns" per round, exactly as specced.
+  _buildPattern: function(round) {
+    var tapCount = Math.min(2 + round, 8);
+    var fastChance = Math.min(0.15 * (round - 1), 0.45);
+    var medChance  = Math.min(0.15 * (round - 1), 0.35);
+    var gaps = [];
+    for (var i = 0; i < tapCount - 1; i++) {
+      var gap = this.SLOW_GAP;
+      if (round > 1) {
+        var roll = Math.random();
+        if (roll < fastChance) gap = this.FAST_GAP;
+        else if (roll < fastChance + medChance) gap = this.MEDIUM_GAP;
+      }
+      gaps.push(gap);
+    }
+    return { tapCount: tapCount, gaps: gaps };
+  },
+
+  _startRound: function() {
+    this._round++;
+    var built = this._buildPattern(this._round);
+    this._tapCount = built.tapCount;
+    this._pattern = built.gaps;
+    this._phase = 'show';
+    this._showBeatIdx = 0;
+    this._showPulse = 0;
+    this._showNextBeatAt = performance.now() + 500; // brief pause before the round starts
+    this._inputTaps = [];
+    this._lastBand = null;
+  },
+
+  _handleTap: function(e) {
+    if (!this._running || this._phase !== 'input') return;
+    // Extra taps past tapCount are ignored rather than punished -- an
+    // accidental double-click shouldn't cost a Miss the player never
+    // actually had a gap to misjudge.
+    if (this._inputTaps.length >= this._tapCount) return;
+
+    var now = performance.now();
+    this._inputTaps.push(now);
+    this._tapPulse = 1;
+
+    var i = this._inputTaps.length - 1;
+    if (i === 0) {
+      // The first tap has no preceding gap to grade -- it only marks t0 that
+      // every later gap is measured from.
+      this._lastBand = 'start';
+    } else {
+      var actualGap = this._inputTaps[i] - this._inputTaps[i - 1];
+      var targetGap = this._pattern[i - 1];
+      var diff = Math.abs(actualGap - targetGap);
+      var band, pts;
+      if (diff <= this.PERFECT_WINDOW_MS)     { band = 'perfect'; pts = this.PERFECT_PTS; }
+      else if (diff <= this.GOOD_WINDOW_MS)   { band = 'good';    pts = this.GOOD_PTS;    }
+      else                                    { band = 'miss';    pts = 0;                }
+      this._lastBand = band;
+      if (pts > 0) MiniGameManager.addScore(pts);
+      if (!this._resultCounts) this._resultCounts = { perfect: 0, good: 0, miss: 0 };
+      this._resultCounts[band]++;
+      if (window.GameSounds) {
+        if (band === 'perfect') GameSounds.minigameCombo();
+        else if (band === 'good') GameSounds.minigameHit();
+        else GameSounds.minigameMiss();
+      }
+    }
+
+    if (this._inputTaps.length >= this._tapCount) this._endRoundInput(false);
+  },
+
+  // timedOut=true: the player ran out of time before landing tapCount taps.
+  // Every gap that never got a chance to be graded (including all of them,
+  // if they never tapped at all) is scored as a Miss -- reproducing the
+  // wrong COUNT is graded here, not just a wrong gap.
+  _endRoundInput: function(timedOut) {
+    if (timedOut) {
+      if (!this._resultCounts) this._resultCounts = { perfect: 0, good: 0, miss: 0 };
+      var gradedGaps = Math.max(0, this._inputTaps.length - 1);
+      var totalGaps  = this._tapCount - 1;
+      this._resultCounts.miss += Math.max(0, totalGaps - gradedGaps);
+    }
+    this._phase = 'result';
+    this._resultUntil = performance.now() + 1400;
+  },
+
+  _render: function() {
+    if (!this._running) return;
+    var self = this;
+    var ctx = this._ctx;
+    var canvas = this._canvas;
+    var last = null;
+
+    function loop(ts) {
+      if (!self._running) return;
+      var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
+      last = ts;
+      var now = performance.now();
+
+      ctx.fillStyle = '#0a0612';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (self._phase === 'show') {
+        if (self._showBeatIdx < self._tapCount && now >= self._showNextBeatAt) {
+          self._showPulse = 1;
+          if (window.GameSounds) GameSounds.minigameHit();
+          var justPlayedIdx = self._showBeatIdx;
+          self._showBeatIdx++;
+          self._showNextBeatAt = now + (self._showBeatIdx < self._tapCount
+            ? self._pattern[justPlayedIdx]
+            : 500); // breathing room after the last cue before input opens
+        } else if (self._showBeatIdx >= self._tapCount && now >= self._showNextBeatAt) {
+          self._phase = 'input';
+          // Deadline anchored from when input OPENS (not from show's start),
+          // so the pattern's own playback length never eats into the
+          // player's actual reaction/tap time.
+          var totalGapMs = self._pattern.reduce(function(a, b) { return a + b; }, 0);
+          self._inputDeadline = now + totalGapMs + 2500;
+        }
+        if (self._showPulse > 0) self._showPulse = Math.max(0, self._showPulse - dt * 3);
+      } else if (self._phase === 'input') {
+        if (self._tapPulse > 0) self._tapPulse = Math.max(0, self._tapPulse - dt * 3);
+        if (now >= self._inputDeadline) self._endRoundInput(true);
+      } else if (self._phase === 'result') {
+        if (now >= self._resultUntil) {
+          self._resultCounts = null;
+          self._startRound();
+        }
+      }
+
+      // ── Beat circle ──
+      var cx = canvas.width / 2;
+      var cy = canvas.height / 2 - 6;
+      var baseR = Math.min(canvas.width, canvas.height) * 0.18;
+      var pulse = self._phase === 'show' ? self._showPulse : self._tapPulse;
+      var r = baseR * (1 + pulse * 0.35);
+      var color = '#F5C518';
+      if (self._phase === 'input') {
+        if (self._lastBand === 'perfect') color = '#FFD700';
+        else if (self._lastBand === 'good') color = '#4aafff';
+        else if (self._lastBand === 'miss') color = '#ff6b6b';
+        else color = '#4aff6b';
+      }
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = color + '33';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.font = '38px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('🥚', cx, cy);
+
+      // ── HUD text ──
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      if (self._phase === 'show') {
+        ctx.fillStyle = '#F5C518';
+        ctx.font = 'bold 15px monospace';
+        ctx.fillText('WATCH THE BEAT...', cx, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        ctx.fillText('Round ' + self._round + ' — ' + self._tapCount + ' tap(s)', cx, 48);
+      } else if (self._phase === 'input') {
+        ctx.fillStyle = '#4aff6b';
+        ctx.font = 'bold 15px monospace';
+        ctx.fillText('YOUR TURN! (' + self._inputTaps.length + ' / ' + self._tapCount + ')', cx, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        var bandLabel = self._lastBand === 'perfect' ? 'PERFECT!'
+          : self._lastBand === 'good' ? 'GOOD'
+          : self._lastBand === 'miss' ? 'MISS'
+          : 'Tap the beat back';
+        ctx.fillText(bandLabel, cx, 48);
+      } else if (self._phase === 'result') {
+        var rc = self._resultCounts || { perfect: 0, good: 0, miss: 0 };
+        ctx.fillStyle = '#A86EFF';
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText('ROUND ' + self._round + ' COMPLETE', cx, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        ctx.fillText('★' + rc.perfect + '  ✓' + rc.good + '  ✗' + rc.miss, cx, 48);
+      }
+
+      ctx.textAlign = 'left';
+      self._animFrame = requestAnimationFrame(loop);
+    }
+    self._animFrame = requestAnimationFrame(loop);
+  },
+
+  stop: function() {
+    this._running = false;
+    if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
+    if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
+  },
+};
+
+// ─── Sport Toss (Penguin Sports Centre) ─────────────────────────────────────
+// Throw-COUNT-limited, not time-limited like every other game here (though
+// `duration` above still caps the session as a safety net -- see
+// _finishSession() below for how a normal run ends earlier than that).
+// Genuinely new mechanic: press-and-hold charges a power meter that
+// oscillates 0-100 back and forth; releasing reads the meter's value at that
+// instant as the throw's power, and only a release landing inside that
+// throw's own randomized target zone (different every throw, never the same
+// twice) counts as a hit -- release too early and it falls short, hold too
+// long and it overshoots. Binary hit/miss per throw, not graded bands like
+// CellBlockBeatGame's Perfect/Good/Miss -- the reward spec's own "per
+// successful hit" phrasing reads as a discrete outcome, and giving the two
+// newest minigames different scoring shapes (banded vs. binary) keeps them
+// feeling distinct rather than reskins of each other. Handball/dodgeball
+// framing throughout (🐧/🥅/🤾) -- no weapon or shooting-range visuals or
+// text anywhere here.
+var SportTossGame = {
+  duration: 55,       // generous safety cap -- THROW_COUNT below is what
+                       // actually ends a normal session (_finishSession()).
+  THROW_COUNT: 7,
+
+  MIN_TARGET: 15,      // target zone center is randomized within this power
+  MAX_TARGET: 95,      // range (0-100) each throw, kept off the very edges
+                        // so it's always reachable both rising and falling.
+  ZONE_HALF_WIDTH: 8,  // a release within +-8 power of the target is a hit
+  FLIGHT_MS: 450,      // snowball travel time from penguin to landing spot
+
+  _canvas: null,
+  _ctx: null,
+  _running: false,
+  _animFrame: null,
+
+  _throwIdx: 0,      // throws taken so far this session (0-based)
+  _phase: 'ready',   // ready | charging | throwing | result
+  _power: 0,         // 0-100, current gauge value while charging
+  _direction: 1,     // 1 while rising toward 100, -1 while falling toward 0
+  _cycleMs: 900,     // ms for the gauge to cross 0->100 (or 100->0) -- shrinks each throw
+  _target: 50,
+  _outcome: null,    // 'hit' | 'short' | 'over'
+  _landingX: 0,
+  _flightStart: 0,
+  _resultUntil: 0,
+  _leanT: 0,         // 0-1, decays after release -- the throw-snap lean
+  _hits: 0,
+
+  init: function(canvas, ctx) {
+    this._canvas = canvas;
+    this._ctx = ctx;
+    this._running = true;
+    this._throwIdx = 0;
+    this._hits = 0;
+    this._outcome = null;
+    this._leanT = 0;
+
+    // Scene layout -- computed once from this session's actual canvas size
+    // (MiniGameManager sizes it per-viewport, so this can't be hardcoded
+    // like a fixed-canvas preview could) and reused every frame. The 🎯
+    // never moves; only where the snowball lands relative to it changes.
+    var W = canvas.width, H = canvas.height;
+    this._W = W; this._H = H;
+    this._groundY = H * 0.78;
+    this._penguinX = W * 0.16;
+    this._targetX = W * 0.78;
+    // To the penguin's LEFT (clear of its body/flipper, which reach from
+    // about -27 to +50px of penguinX) rather than directly overhead -- an
+    // overhead gauge would sit inside the character's own footprint on a
+    // short canvas. Height uses a capped fraction of H so it still fits (and
+    // scales down instead of clipping) on an unusually short viewport.
+    this._gaugeX = this._penguinX - 50;
+    this._gaugeW = 13;
+    this._gaugeTop = this._groundY - Math.min(175, H * 0.62);
+    this._gaugeBottom = this._groundY - Math.min(95, H * 0.34);
+    this._pxPerPowerUnit = W / 232; // scales a power/target miss onto the ground
+    this._landingMinX = this._penguinX + W * 0.09;
+    this._landingMaxX = W * 0.965;
+
+    var self = this;
+    var down = function(e) { e.preventDefault(); self._startCharge(); };
+    var up   = function(e) { e.preventDefault(); self._release(); };
+    canvas.onmousedown  = down;
+    canvas.onmouseup    = up;
+    canvas.onmouseleave = up; // dragging off-canvas still releases, same as letting go of the button
+    canvas.ontouchstart = down;
+    canvas.ontouchend   = up;
+
+    this._newTarget();
+    this._render();
+  },
+
+  _newTarget: function() {
+    this._target = this.MIN_TARGET + Math.random() * (this.MAX_TARGET - this.MIN_TARGET);
+    this._phase = 'ready';
+    this._power = 0;
+    this._direction = 1;
+    // Shrinking cycle = a tighter release window -- this game's stand-in
+    // for a per-round difficulty ramp, since throws aren't rounds.
+    this._cycleMs = Math.max(420, 900 - this._throwIdx * 70);
+  },
+
+  _startCharge: function() {
+    if (!this._running || this._phase !== 'ready') return;
+    this._phase = 'charging';
+    this._power = 0;
+    this._direction = 1;
+    if (window.GameSounds) GameSounds.minigameStart();
+  },
+
+  _release: function() {
+    if (!this._running || this._phase !== 'charging') return;
+    var diff = this._power - this._target;
+    var hit = Math.abs(diff) <= this.ZONE_HALF_WIDTH;
+    this._outcome = hit ? 'hit' : (diff < 0 ? 'short' : 'over');
+    if (hit) {
+      this._hits++;
+      MiniGameManager.addScore(15);
+      if (window.GameSounds) GameSounds.minigameCombo();
+    } else if (window.GameSounds) {
+      GameSounds.minigameMiss();
+    }
+
+    // Landing spot is the FIXED target plus how far off-power the release
+    // was -- under the window lands short of it, over the window sails past
+    // it, exactly matching the target's own tolerance band in scale.
+    this._landingX = hit ? this._targetX
+      : Math.max(this._landingMinX, Math.min(this._landingMaxX, this._targetX + diff * this._pxPerPowerUnit));
+
+    this._throwIdx++;
+    this._phase = 'throwing';
+    this._flightStart = performance.now();
+    this._leanT = 1;
+  },
+
+  // ── Drawing (all layout fields read from init()'s one-time scene calc) ──
+
+  _drawGround: function(ctx) {
+    ctx.strokeStyle = '#1f5c3c';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(this._penguinX - 30, this._groundY);
+    ctx.lineTo(this._W - 20, this._groundY);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 1;
+    for (var x = this._penguinX - 20; x < this._W - 20; x += 26) {
+      ctx.beginPath();
+      ctx.arc(x, this._groundY + 3, 5, Math.PI, 0);
+      ctx.stroke();
+    }
+  },
+
+  // Still the real aiming feedback -- the marked band is this throw's actual
+  // target +-tolerance, the same window _release() checks against, just
+  // drawn as a vertical gauge next to the penguin instead of a bar under it.
+  _drawGauge: function(ctx) {
+    var gh = this._gaugeBottom - this._gaugeTop;
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.fillRect(this._gaugeX, this._gaugeTop, this._gaugeW, gh);
+    ctx.strokeStyle = '#1f5c3c';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(this._gaugeX, this._gaugeTop, this._gaugeW, gh);
+
+    var zoneTopY = this._gaugeBottom - gh * ((this._target + this.ZONE_HALF_WIDTH) / 100);
+    var zoneH = gh * (this.ZONE_HALF_WIDTH * 2 / 100);
+    ctx.fillStyle = 'rgba(74,255,107,0.34)';
+    ctx.fillRect(this._gaugeX, zoneTopY, this._gaugeW, zoneH);
+    ctx.strokeStyle = '#4aff6b';
+    ctx.strokeRect(this._gaugeX, zoneTopY, this._gaugeW, zoneH);
+
+    if (this._phase === 'ready' || this._phase === 'charging') {
+      var markerY = this._gaugeBottom - gh * (this._power / 100);
+      ctx.beginPath();
+      ctx.arc(this._gaugeX + this._gaugeW / 2, markerY, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFD700';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  },
+
+  // A small illustrated penguin -- body, belly, a jersey (clothes), beak,
+  // feet, and a flipper that swings back while charging and snaps forward
+  // on release. Handball/dodgeball framing, no weapon imagery.
+  _drawPenguin: function(ctx) {
+    var lean = this._phase === 'charging' ? -0.16 * (this._power / 100) : (0.30 * this._leanT);
+    ctx.save();
+    ctx.translate(this._penguinX, this._groundY);
+    ctx.rotate(lean);
+
+    ctx.fillStyle = '#f2a63d';
+    ctx.beginPath(); ctx.ellipse(-11, 1, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(11, 1, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#182a23';
+    ctx.beginPath(); ctx.ellipse(0, -46, 27, 47, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#eef7f0';
+    ctx.beginPath(); ctx.ellipse(1, -40, 15, 34, 0, 0, Math.PI * 2); ctx.fill();
+    // jersey (clothes) -- the sport's own accent green, numbered
+    ctx.fillStyle = '#2f9e5c';
+    ctx.beginPath(); ctx.ellipse(0, -60, 21, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#eef7f0';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('7', 0, -58);
+
+    // throwing flipper -- swings back on the charge, snaps forward on release
+    var flipperA = this._phase === 'charging' ? 0.9 + 0.5 * (this._power / 100) : 0.9 - 1.5 * this._leanT;
+    ctx.save();
+    ctx.translate(20, -56);
+    ctx.rotate(flipperA);
+    ctx.fillStyle = '#182a23';
+    ctx.beginPath(); ctx.ellipse(14, 0, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = '#182a23';
+    ctx.beginPath(); ctx.arc(0, -86, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f2a63d';
+    ctx.beginPath(); ctx.moveTo(11, -87); ctx.lineTo(27, -83); ctx.lineTo(11, -79); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(6, -91, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(7, -91, 1.7, 0, Math.PI * 2); ctx.fill();
+
+    ctx.restore();
+  },
+
+  _drawTarget: function(ctx) {
+    ctx.save();
+    ctx.translate(this._targetX, this._groundY);
+    // tolerance ring -- the same +-8 window shown on the gauge, to scale on the ground
+    ctx.setLineDash([4, 5]);
+    ctx.strokeStyle = 'rgba(74,255,107,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, -14, this.ZONE_HALF_WIDTH * this._pxPerPowerUnit, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = '28px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🎯', 0, -14);
+    ctx.restore();
+  },
+
+  _drawSnowball: function(ctx) {
+    if (this._phase !== 'throwing' && this._phase !== 'result') return;
+    var t = this._phase === 'result' ? 1 : Math.min(1, (performance.now() - this._flightStart) / this.FLIGHT_MS);
+    var startX = this._penguinX + 34, startY = this._groundY - 58;
+    var x = startX + (this._landingX - startX) * t;
+    var arc = Math.sin(t * Math.PI) * 34; // a small toss arc, not real physics
+    var y = (startY + (this._groundY - startY) * t) - arc;
+
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = '#f4fbf6';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(16,36,26,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (t >= 1) {
+      var markColor = this._outcome === 'hit' ? '#4aff6b' : '#ff6b6b';
+      ctx.beginPath();
+      ctx.ellipse(this._landingX, this._groundY + 4, 14, 5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = markColor + '55';
+      ctx.fill();
+      ctx.strokeStyle = markColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  },
+
+  _drawHud: function(ctx) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#4aff6b';
+    ctx.font = 'bold 15px monospace';
+    ctx.fillText('THROW ' + Math.min(this._throwIdx + 1, this.THROW_COUNT) + ' / ' + this.THROW_COUNT, this._W / 2, 30);
+
+    ctx.font = '12px monospace';
+    if (this._phase === 'ready') {
+      ctx.fillStyle = '#B8B8D0';
+      ctx.fillText(this._throwIdx === 0 ? 'PRESS & HOLD TO WIND UP' : 'NEXT THROW — PRESS & HOLD', this._W / 2, 52);
+    } else if (this._phase === 'charging') {
+      ctx.fillStyle = '#B8B8D0';
+      ctx.fillText('RELEASE IN THE MARKED BAND', this._W / 2, 52);
+    } else if (this._phase === 'throwing') {
+      ctx.fillStyle = '#B8B8D0';
+      ctx.fillText('...', this._W / 2, 52);
+    } else if (this._phase === 'result') {
+      var labels = { hit: '✓ ON TARGET!', short: '✗ FELL SHORT', over: '✗ SAILED OVER' };
+      ctx.fillStyle = this._outcome === 'hit' ? '#4aff6b' : '#ff6b6b';
+      ctx.fillText(labels[this._outcome], this._W / 2, 52);
+    }
+
+    ctx.fillStyle = '#8888A8';
+    ctx.fillText('Hits: ' + this._hits + ' / ' + this.THROW_COUNT, this._W / 2, this._H - 14);
+    ctx.textAlign = 'left';
+  },
+
+  _render: function() {
+    if (!this._running) return;
+    var self = this;
+    var ctx = this._ctx;
+    var last = null;
+
+    function loop(ts) {
+      if (!self._running) return;
+      var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
+      last = ts;
+      var now = performance.now();
+
+      if (self._phase === 'charging') {
+        var stepPct = (dt * 1000 / self._cycleMs) * 100;
+        self._power += self._direction * stepPct;
+        if (self._power >= 100) { self._power = 100; self._direction = -1; }
+        else if (self._power <= 0) { self._power = 0; self._direction = 1; }
+      } else if (self._phase === 'throwing') {
+        if (now - self._flightStart >= self.FLIGHT_MS) {
+          self._phase = 'result';
+          self._resultUntil = now + 1000;
+        }
+      } else if (self._phase === 'result' && now >= self._resultUntil) {
+        if (self._throwIdx >= self.THROW_COUNT) {
+          self._finishSession();
+          return; // session over -- don't draw or schedule another frame
+        }
+        self._newTarget();
+      }
+      if (self._leanT > 0) self._leanT = Math.max(0, self._leanT - dt * 2.7);
+
+      ctx.fillStyle = '#08140c';
+      ctx.fillRect(0, 0, self._W, self._H);
+      self._drawGround(ctx);
+      self._drawTarget(ctx);
+      self._drawGauge(ctx);
+      self._drawPenguin(ctx);
+      self._drawSnowball(ctx);
+      self._drawHud(ctx);
+
+      self._animFrame = requestAnimationFrame(loop);
+    }
+    self._animFrame = requestAnimationFrame(loop);
+  },
+
+  // All THROW_COUNT throws are used -- end the session right away instead of
+  // waiting out the rest of the safety-cap `duration`. Mirrors
+  // MiniGameManager._endGame() but clears its own countdown interval FIRST,
+  // so that interval can't also independently reach 0 and call _endGame() a
+  // second time (which would double-fire _showResults()/the reward flow).
+  _finishSession: function() {
+    this._running = false;
+    if (MiniGameManager._timer) {
+      clearInterval(MiniGameManager._timer);
+      MiniGameManager._timer = null;
+    }
+    MiniGameManager._endGame();
+  },
+
+  stop: function() {
+    this._running = false;
+    if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
+    if (this._canvas) {
+      this._canvas.onmousedown = null;
+      this._canvas.onmouseup = null;
+      this._canvas.onmouseleave = null;
+      this._canvas.ontouchstart = null;
+      this._canvas.ontouchend = null;
+    }
   },
 };

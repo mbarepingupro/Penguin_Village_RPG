@@ -303,6 +303,8 @@
     /* z-index 90033: reachable from #mobile-player-overlay's (80000) Stats tab. */
     #seal-shop-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 90033; align-items: center; justify-content: center; }
     #seal-shop-modal.show { display: flex; }
+    #horny-jail-gear-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 90033; align-items: center; justify-content: center; }
+    #horny-jail-gear-modal.show { display: flex; }
     .seal-shop-box { background: #252535; border: 3px solid #FF7FE5; padding: 16px; max-width: 360px; width: 90%; font-family: 'C&C Red Alert', monospace; max-height: 80vh; overflow-y: auto; animation: popIn 0.2s ease; }
     .seal-shop-header { color: #FF7FE5; font-size: 19px; margin-bottom: 4px; }
     .seal-shop-sub    { color: #B8B8D0; font-size: 16px; margin-bottom: 12px; line-height: 1.8; }
@@ -459,6 +461,8 @@
     #res-bones        .res-count { color: #CCCCCC; }
     #res-spell_fragments { border-color: #A86EFF; }
     #res-spell_fragments .res-count { color: #A86EFF; }
+    #res-eggs         { border-color: #F5C518; }
+    #res-eggs         .res-count { color: #F5C518; }
     .flying-emoji {
       position: fixed; font-size: 30px;
       pointer-events: none; z-index: 10000;
@@ -4007,6 +4011,10 @@
             <span class="res-icon">🧊</span>
             <span class="res-count" id="count-ice_blocks">0</span>
           </div>
+          <div class="resource-item" id="res-eggs" data-resource="eggs">
+            <span class="res-icon">🥚</span>
+            <span class="res-count" id="count-eggs">0</span>
+          </div>
         </div>
         <div class="map-area" id="map-area">
           <div id="map-toasts-backdrop"></div>
@@ -4391,6 +4399,18 @@
     <div class="seal-shop-count">Your Seals: <span id="seal-shop-player-count">0</span> 👑</div>
     <div id="seal-shop-list"><div style="color:#B8B8D0;font-size:16px;text-align:center;padding:20px;">LOADING...</div></div>
     <button class="seal-shop-close" onclick="closeSealShop()">CLOSE</button>
+  </div>
+</div>
+<!-- HORNY JAIL GEAR RACK MODAL -- reuses seal-shop's CSS classes/markup shape
+     exactly (single-resource shop, one item card style), just a different
+     resource (eggs) and item list (HORNY_JAIL_GEAR_SHOP). -->
+<div id="horny-jail-gear-modal">
+  <div class="seal-shop-box" style="border-color:#F5C518;">
+    <div class="seal-shop-header" style="color:#F5C518;">🥚 NEST GUARDIAN GEAR RACK</div>
+    <div class="seal-shop-sub">Cosmetic gear for the dedicated egg wrangler</div>
+    <div class="seal-shop-count">Your Eggs: <span id="horny-jail-gear-player-count">0</span> 🥚</div>
+    <div id="horny-jail-gear-list"><div style="color:#B8B8D0;font-size:16px;text-align:center;padding:20px;">LOADING...</div></div>
+    <button class="seal-shop-close" onclick="closeHornyJailGearShop()">CLOSE</button>
   </div>
 </div>
 <!-- PENGUIN CARD MODAL -->
@@ -5889,7 +5909,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         const _rv = {
           fish: rData.fish || 0, herbs: rData.herbs || 0,
           blood_gems: rData.blood_gems || 0, bones: rData.bones || 0,
-          spell_fragments: rData.spell_fragments || 0,
+          spell_fragments: rData.spell_fragments || 0, eggs: rData.eggs || 0,
         };
         for (const [k, v] of Object.entries(_rv)) {
           const bar = document.getElementById('count-' + k);
@@ -5947,7 +5967,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     try {
       const res  = await fetch(`/resources/${CURRENT_USER}`);
       const data = await res.json();
-      const keys = ['gold','fish','herbs','blood_gems','bones','spell_fragments','ice_blocks'];
+      const keys = ['gold','fish','herbs','blood_gems','bones','spell_fragments','ice_blocks','eggs'];
       for (const k of keys) {
         if (data[k] === undefined) continue;
         const el = document.getElementById('count-' + k);
@@ -6185,7 +6205,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
   // ── VILLAGE BUILDINGS ──
   let _buildingLevels = {};
   const BUILDING_UPGRADES_IDS = new Set([
-    'sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine'
+    'sea_lion_pit','club_soda','parkmusement','cursed_temple','guillotine','horny_jail'
   ]);
 
   async function loadBuildingLevels() {
@@ -6207,11 +6227,13 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
 
   const _BM_RES_COLORS = {
     fish: '#4a9eff', herbs: '#4aff6b', gold: '#FF8C00',
-    blood_gems: '#ff6b6b', bones: '#CCCCCC', spell_fragments: '#A86EFF'
+    blood_gems: '#ff6b6b', bones: '#CCCCCC', spell_fragments: '#A86EFF',
+    eggs: '#F5C518'
   };
   const _BM_RES_ICONS = {
     fish: '🐟', herbs: '🌿', gold: '🪙',
-    blood_gems: '💎', bones: '🦴', spell_fragments: '✨', ice_blocks: '🧊'
+    blood_gems: '💎', bones: '🦴', spell_fragments: '✨', ice_blocks: '🧊',
+    eggs: '🥚'
   };
   // Display-name overrides for resource keys whose raw key doesn't read
   // naturally as a label (currently only ice_blocks). Internal keys/DB
@@ -7074,6 +7096,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       html += _renderReshapeHtml(bData);
     }
 
+    if (buildingId === 'horny_jail') {
+      html += _renderHornyJailGearShopHtml();
+    }
+
     if (upgData) {
       html += `<hr class="bm-divider-thin">`;
       html += _renderContributionHtml(buildingId, upgData);
@@ -7247,12 +7273,16 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         <div id="mg-weekly-section"></div>
       </div>`;
     } else if (btype === 'placeholder') {
-      if (data.building_id === 'horny_jail')
-        html += bpComingSoon('🔒', 'YOU KNOW WHAT YOU DID.', 'Coming Soon. Maybe. Behave.');
-      else if (data.building_id === 'bank')
+      if (data.building_id === 'bank')
         html += `<button class="bp-btn" onclick="switchContentTab('bank', document.querySelector('[data-tab=bank]')); closeBuildingPanel();">OPEN BANK</button>`;
       else
         html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
+    } else if (btype === 'minigame') {
+      // Minigame-only, like grand_piano -- no job to work, no donation to
+      // upgrade, just the PLAY button (same startMiniGame() call the 'job'
+      // branch's "OR PLAY ACTIVELY" button above uses).
+      html += `<div class="bp-info" style="color:#B8B8D0;">Handballs, dodgeballs, and village bragging rights.</div>`;
+      html += `<button class="bp-btn" style="background:#1a1030;border-color:#A86EFF;color:#A86EFF;" onclick="startMiniGame('${data.building_id}')">🎮 PLAY MINI-GAME (10 ⚡)</button>`;
     }
     return html;
   }
@@ -7270,6 +7300,14 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       html += `<button class="bp-btn" disabled style="opacity:0.4;cursor:not-allowed;">RESHAPE</button>`;
       html += `<div style="color:#ff6b6b;font-size:16px;margin-top:6px;">Need 2,000 gold (you have ${gold.toLocaleString()})</div>`;
     }
+    return html;
+  }
+
+  function _renderHornyJailGearShopHtml() {
+    let html = `<hr class="bm-divider">`;
+    html += `<div style="color:#F5C518;font-size:17px;margin-bottom:6px;">🥚 NEST GUARDIAN GEAR RACK</div>`;
+    html += `<div style="color:#B8B8D0;font-size:16px;line-height:2;margin-bottom:8px;">Cosmetic gear, paid for in eggs. Rumor has it wearing the full set does... something.</div>`;
+    html += `<button class="bp-btn" style="border-color:#F5C518;color:#F5C518;" onclick="openHornyJailGearShop()">BROWSE GEAR RACK</button>`;
     return html;
   }
 
@@ -7788,6 +7826,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           var bg = data.building_bg_unlocked;
           queueCelebration({type:'milestone', icon:'🖼️', title:'CARD BACKGROUND UNLOCKED!', subtitle:bg.name||'New Background', description:(bg.description||'')+' Go to VIEW CARD to equip it!'});
         }
+        if (data.horny_jail_milestone_unlocked) {
+          var hj = data.horny_jail_milestone_unlocked;
+          queueCelebration({type:'milestone', icon:'🥚', title:'MILESTONE UNLOCKED!', subtitle:hj.title||'New Title', description:`Earned the "${hj.title}" title` + (hj.card_background ? ` and the "${hj.card_background}" card background!` : '!') + ' Go to VIEW CARD to equip it!'});
+        }
         if (data.level_up) {
           const leveledBuilding = _currentDonateBuilding;
           // Close the panel instead of reopening it immediately -- reopened
@@ -7856,7 +7898,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
           // the reopened (dimmed) panel sitting directly behind the
           // celebration showing the same info underneath it.
           queueCelebration({
-            type: 'cornucopia_level_up',
+            type: 'milestone',
             icon: '🌽',
             title: 'THE CORNUCOPIA OVERFLOWS!',
             subtitle: `LEVEL ${data.new_level}`,
@@ -8272,6 +8314,78 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         showToast(`${data.item.name} purchased!`, 'ok');
         await refreshStats();
         await renderSealShop();
+      } else {
+        showToast(data.message || 'Purchase failed.', 'err');
+      }
+    } catch(e) { showToast('Error.', 'err'); }
+  }
+
+  // ── HORNY JAIL GEAR RACK -- mirrors the Seal Shop block above exactly,
+  // eggs instead of mayor_seals, HORNY_JAIL_GEAR_SHOP instead of SEAL_SHOP. ──
+  let _hjGearItems  = [];
+  let _ownedHjGearIds = new Set();
+
+  async function openHornyJailGearShop() {
+    if (window.GameSounds) GameSounds.modalOpen();
+    document.getElementById('horny-jail-gear-modal').classList.add('show');
+    await renderHornyJailGearShop();
+  }
+
+  function closeHornyJailGearShop() {
+    if (window.GameSounds) GameSounds.modalClose();
+    document.getElementById('horny-jail-gear-modal').classList.remove('show');
+  }
+
+  async function renderHornyJailGearShop() {
+    const list = document.getElementById('horny-jail-gear-list');
+    try {
+      const [shopRes, resRes, cosRes] = await Promise.all([
+        fetch('/horny_jail/gear/shop'),
+        fetch(`/resources/${CURRENT_USER}`),
+        fetch(`/gear/cosmetics/${CURRENT_USER}`)
+      ]);
+      const shopData = await shopRes.json();
+      const resData  = await resRes.json();
+      const cosData  = await cosRes.json();
+      _hjGearItems   = shopData.items || [];
+      const playerEggs = resData.eggs || 0;
+      const hjIds = new Set(_hjGearItems.map(i => i.id));
+      _ownedHjGearIds = new Set((cosData.cosmetics || []).filter(c => hjIds.has(c.item_id)).map(c => c.item_id));
+      document.getElementById('horny-jail-gear-player-count').textContent = playerEggs.toLocaleString();
+      if (_hjGearItems.length === 0) {
+        list.innerHTML = '<div style="color:#B8B8D0;font-size:16px;text-align:center;padding:20px;">NO ITEMS AVAILABLE</div>';
+        return;
+      }
+      list.innerHTML = _hjGearItems.map(item => {
+        const owned  = _ownedHjGearIds.has(item.id);
+        const afford = playerEggs >= item.cost;
+        const footer = owned
+          ? `<span class="seal-owned-badge">✓ OWNED</span>`
+          : `<button class="seal-buy-btn" ${afford ? '' : 'disabled'} onclick="buyHornyJailGear('${item.id}')">BUY</button>`;
+        return `<div class="seal-item">
+          <div class="seal-item-name">${item.name}</div>
+          <div class="seal-item-cost">🥚 ${item.cost.toLocaleString()} Eggs</div>
+          <div class="seal-item-desc">${item.description}</div>
+          <div class="seal-item-footer">${footer}</div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      list.innerHTML = '<div style="color:#ff6666;font-size:16px;text-align:center;padding:20px;">FAILED TO LOAD</div>';
+    }
+  }
+
+  async function buyHornyJailGear(itemId) {
+    try {
+      const res  = await fetch('/horny_jail/gear/buy', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ username: CURRENT_USER, item_id: itemId }),
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast(`${data.item.name} purchased!`, 'ok');
+        await refreshStats();
+        await renderHornyJailGearShop();
       } else {
         showToast(data.message || 'Purchase failed.', 'err');
       }
@@ -9210,6 +9324,8 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     cursed_temple: '🔮 Rune Memory',
     guillotine:    '💀 Whack-a-Target',
     grand_piano:   '🎹 Piano Recital',
+    horny_jail:    '🥚 Cell Block Beat',
+    sports_centre: '🤾 Sport Toss',
   };
 
   async function loadMinigameRecords() {
@@ -11765,6 +11881,10 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "A building milestone! The village infrastructure thanks you.",
         "Incredible contribution! This place is really coming together.",
         "Without citizens like you, this village would be a snowdrift. Literally.",
+        "Look at that harvest! Every job in the village just got a little sweeter.",
+        "The Cornucopia never stops giving — and neither does this village, apparently.",
+        "Abundance, penguins! That's what teamwork looks like from up here.",
+        "The horn overflows again! I hope you're all hungry for more work — it pays better now.",
       ],
       challenge_start: [
         "A new challenge, penguins! Let\'s show the world what this village can do!",
@@ -11801,12 +11921,6 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         "The village keeps changing. Try to keep up, would you?",
         "New patch, new village. Scroll down, it\'s worth your time.",
       ],
-      cornucopia_level_up: [
-        "Look at that harvest! Every job in the village just got a little sweeter.",
-        "The Cornucopia never stops giving — and neither does this village, apparently.",
-        "Abundance, penguins! That's what teamwork looks like from up here.",
-        "The horn overflows again! I hope you're all hungry for more work — it pays better now.",
-      ],
     };
     var pool = quotes[type] || quotes.level_up;
     var hash = 0;
@@ -11819,7 +11933,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     if (!window.GameSounds) return;
     if (type === 'achievement' || type === 'title') GameSounds.achievement();
     else if (type === 'first_kill')                 GameSounds.firstKill();
-    else if (type === 'milestone' || type === 'cornucopia_level_up') GameSounds.buildingLevelUp();
+    else if (type === 'milestone') GameSounds.buildingLevelUp();
     else if (type === 'challenge_start' || type === 'raid_start') GameSounds.mayorAppears();
     else if (type === 'challenge_result_success')   GameSounds.achievement();
     else if (type === 'challenge_result_fail')      GameSounds.error();
