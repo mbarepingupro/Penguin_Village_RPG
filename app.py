@@ -1650,6 +1650,18 @@ COSMETIC_SET_BONUSES = {
         },
         "secret": True,
     },
+    # Nest Guardian -- Horny Jail's 4-piece cosmetic set (Eggshell Helm/Downy
+    # Cloak/Talon Boots/Nest-Woven Gloves, sold via /horny_jail/gear/buy for
+    # eggs only). One extra required item vs. every 3-piece set above, so its
+    # +2 eggs/hr sits a little above the plain single-resource 3-piece bonuses
+    # (Beach Day/Mystic Wanderer/Dark Lord's +1) rather than matching them
+    # exactly. check_cosmetic_sets() matches by equipped gear.name same as
+    # every other entry here -- no set_name column involved.
+    "Nest Guardian": {
+        "required_items": ["Eggshell Helm", "Downy Cloak", "Talon Boots", "Nest-Woven Gloves"],
+        "bonus": {"eggs_per_hour": 2, "description": "+2 eggs/hr passive gathering"},
+        "secret": True,
+    },
 }
 
 # ── ACHIEVEMENT DEFINITIONS ───────────────────────────────────────────────────
@@ -1730,6 +1742,16 @@ IGLOO_FURNITURE = {
     "fountain":           {"name": "Indoor Fountain",    "width": 2, "height": 2, "cost": {"gold": 2500, "spell_fragments": 50}, "category": "decor"},
     "trophy_case":        {"name": "Trophy Case",        "width": 2, "height": 1, "cost": {"gold": 1500}, "category": "furniture"},
     "crystal_chandelier": {"name": "Crystal Chandelier", "width": 1, "height": 1, "cost": {"gold": 4000, "spell_fragments": 100}, "category": "decor"},
+    # Horny Jail's 3 furniture items -- purely cosmetic/decorative, no
+    # "interactive" key (unlike bed/bunk_bed/canopy_bed's "rest" or
+    # grand_piano's "minigame" -- both static/igloo_renderer.js and
+    # templates/home.html's igloo-shop rendering already treat a missing
+    # "interactive" key as non-interactive, same as every other decor-only
+    # item above). gold + a modest eggs component, same "themed resource"
+    # pricing convention as fish_tank/fountain/crystal_chandelier above.
+    "nest_bed":           {"name": "Nest Bed",           "width": 2, "height": 2, "cost": {"gold": 500, "eggs": 150}, "category": "furniture"},
+    "incubator_lamp":     {"name": "Incubator Lamp",     "width": 1, "height": 1, "cost": {"gold": 250, "eggs": 75},  "category": "decor"},
+    "henhouse_decoration":{"name": "Henhouse Decoration","width": 2, "height": 1, "cost": {"gold": 400, "eggs": 100},"category": "decor"},
     "mayors_portrait":    {"name": "Mayor's Portrait",   "width": 1, "height": 1, "cost": None, "category": "special", "source": "Mayor gift"},
     "golden_fish":        {"name": "Golden Fish Trophy", "width": 1, "height": 1, "cost": None, "category": "special", "source": "500 fish collected"},
     "combat_banner":      {"name": "Combat Banner",      "width": 1, "height": 2, "cost": None, "category": "special", "source": "50 monsters defeated"},
@@ -1753,6 +1775,26 @@ SEAL_SHOP = [
     {"id": "golden_frame",        "name": "Golden Card Frame",     "cost": 60,  "slot": "card_frame",  "description": "Makes your Penguin Card shine."},
     {"id": "animated_sparkle",    "name": "Sparkle Effect",        "cost": 120, "slot": "card_effect", "description": "Animated sparkles on your Penguin Card."},
     {"id": "mayor_council_badge", "name": "Mayor's Council Badge", "cost": 150, "slot": "accessory",   "description": "You have the Mayor's ear. Use it wisely."},
+]
+
+# Horny Jail's cosmetic-only "Nest Guardian" set -- same shape as SEAL_SHOP
+# (flat single-resource `cost`, no combat_power, plain list not DB-backed via
+# catalog.py) but priced in eggs instead of mayor_seals. NOT part of the
+# 26-set/5-tier combat gear balance (DEFAULT_GEAR_TEMPLATES/barracks_shop) --
+# sold through its own /horny_jail/gear/shop + /horny_jail/gear/buy routes,
+# inserted into `gear` as type='cosmetic' same as every SEAL_SHOP purchase.
+# Slots use the cosmetic vocabulary (hat/outfit/footwear/accessory) that
+# BOUTIQUE_ITEMS/SEAL_SHOP both use, not the combat gear slot names
+# (helmet/armor/boots) -- there is no cosmetic "helmet" or "armor" slot in
+# this codebase. The matching hidden set bonus lives in
+# COSMETIC_SET_BONUSES["Nest Guardian"] below, discovered the same way as
+# Street Style/Beach Day/etc. (see gear_cosmetics_equip()) -- nothing here
+# needs to reference that bonus directly.
+HORNY_JAIL_GEAR_SHOP = [
+    {"id": "eggshell_helm",      "name": "Eggshell Helm",       "cost": 2000, "slot": "hat",       "description": "A cracked eggshell, worn with pride."},
+    {"id": "downy_cloak",        "name": "Downy Cloak",         "cost": 2500, "slot": "outfit",    "description": "Soft as a hatchling's first feathers."},
+    {"id": "talon_boots",        "name": "Talon Boots",         "cost": 2000, "slot": "footwear",  "description": "Grip the nest like you mean it."},
+    {"id": "nest_woven_gloves",  "name": "Nest-Woven Gloves",   "cost": 1800, "slot": "accessory", "description": "Hand-woven from the finest twigs."},
 ]
 
 # ── MISSION DEFINITIONS ───────────────────────────────────────────────────────
@@ -5121,6 +5163,54 @@ def seals_buy():
     return jsonify({"status": "success", "item": shop_item})
 
 
+@app.route("/horny_jail/gear/shop")
+def horny_jail_gear_shop():
+    return jsonify({"items": HORNY_JAIL_GEAR_SHOP})
+
+
+@app.route("/horny_jail/gear/buy", methods=["POST"])
+def horny_jail_gear_buy():
+    """Buy one Nest Guardian piece with eggs -- mirrors seals_buy() exactly
+    (flat single-resource cost, gear inserted as type='cosmetic'), substituting
+    eggs for mayor_seals. Cosmetic-only: no combat_power, no set_name column,
+    not part of the 26-set/5-tier combat gear balance. The hidden 4-piece set
+    bonus (COSMETIC_SET_BONUSES["Nest Guardian"]) is discovered automatically
+    once all 4 are equipped -- gear_cosmetics_equip() already matches by
+    equipped gear.name across every source, nothing extra needed here."""
+    data     = request.get_json(silent=True) or {}
+    username = session.get("username", "").strip()
+    item_id  = data.get("item_id", "").strip()
+    shop_item = next((i for i in HORNY_JAIL_GEAR_SHOP if i["id"] == item_id), None)
+    if not shop_item:
+        return jsonify({"status": "error", "message": "Item not found."})
+    db = get_db()
+    p  = db.execute("SELECT id FROM penguins WHERE username=?", (username,)).fetchone()
+    if not p:
+        db.close()
+        return jsonify({"status": "error", "message": "Penguin not found."})
+    ensure_resources(db, username)
+    r = db.execute("SELECT eggs FROM resources WHERE username=?", (username,)).fetchone()
+    eggs = r["eggs"] if r else 0
+    if eggs < shop_item["cost"]:
+        db.close()
+        return jsonify({"status": "error", "message": f"Not enough Eggs. Need {shop_item['cost']}, have {eggs}."})
+    already = db.execute(
+        "SELECT id FROM gear WHERE username=? AND item_id=?", (username, item_id)
+    ).fetchone()
+    if already:
+        db.close()
+        return jsonify({"status": "error", "message": "You already own this item."})
+    db.execute("UPDATE resources SET eggs=eggs-? WHERE username=?", (shop_item["cost"], username))
+    db.execute(
+        "INSERT INTO gear (username, item_id, name, type, slot, rarity, obtained_at) VALUES (?,?,?,?,?,?,?)",
+        (username, item_id, shop_item["name"], "cosmetic", shop_item["slot"], "exclusive", int(time.time()))
+    )
+    log_event(db, "shop", f"{username} purchased {shop_item['name']} from the Horny Jail's gear rack!", username)
+    db.commit()
+    db.close()
+    return jsonify({"status": "success", "item": shop_item})
+
+
 # ── STREAM PRESENCE ──────────────────────────────────────────────────────────
 
 @app.route("/stream/presence", methods=["POST"])
@@ -6127,6 +6217,7 @@ def work_collect():
         extra_bones       = int(cosmetic_bonuses.get("bones_per_hour", 0)            * hours_worked)
         extra_blood_gems  = int(cosmetic_bonuses.get("blood_gems_per_hour", 0)       * hours_worked)
         extra_frags       = int(cosmetic_bonuses.get("spell_fragments_per_hour", 0)  * hours_worked)
+        extra_eggs        = int(cosmetic_bonuses.get("eggs_per_hour", 0)             * hours_worked)
         extra_xp          = int(cosmetic_bonuses.get("xp_per_hour", 0)               * hours_worked)
         if extra_gold > 0:
             add_gold(db, username, extra_gold)
@@ -6136,6 +6227,7 @@ def work_collect():
         _cb_earn("bones",            "bones",            extra_bones)
         _cb_earn("blood_gems",       "blood_gems",       extra_blood_gems)
         _cb_earn("spell_fragments",  "spell_fragments",  extra_frags)
+        _cb_earn("eggs",             "eggs",             extra_eggs)
         if extra_xp > 0:
             _, lvl_rewards = award_xp(db, username, extra_xp)
             level_ups.extend(lvl_rewards)

@@ -18,6 +18,7 @@ const IglooRenderer = (function () {
         wardrobe: '👗', rug_large: '🟫', throne: '👑', canopy_bed: '🛏️', grand_piano: '🎹',
         fountain: '⛲', trophy_case: '🏆', crystal_chandelier: '💎',
         mayors_portrait: '🎭', golden_fish: '🐟', combat_banner: '⚔️',
+        nest_bed: '🪺', incubator_lamp: '🐣', henhouse_decoration: '🐔',
     };
 
     // ── FURNITURE SPRITES ──────────────────────────────────────────────────
