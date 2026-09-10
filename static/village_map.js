@@ -152,6 +152,9 @@ const BUILDING_CFG = {
     // (same reasoning as boutique's noLevelBadge), unlike the 5 fixed-max-
     // level-3 BUILDING_UPGRADES buildings.
     cornucopia:    { color: "#E8A33D", name: "PENGUIN CORNUCOPIA", noLevelBadge: true },
+    // Minigame-only, like boutique/cornucopia -- never has a building_upgrades
+    // row (not a BUILDING_UPGRADES key), so there's no level to badge either.
+    sports_centre: { color: "#4aff6b", name: "SPORTS CENTRE", noLevelBadge: true },
 };
 
 const JOB_ICONS = {

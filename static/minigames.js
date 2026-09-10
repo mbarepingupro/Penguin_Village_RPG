@@ -70,6 +70,7 @@ var MiniGameManager = {
       guillotine:    '💀 WHACK-A-TARGET',
       grand_piano:   '🎹 PIANO RECITAL',
       horny_jail:    '🥚 CELL BLOCK BEAT',
+      sports_centre: '🤾 SPORT TOSS',
     };
     var insts = {
       sea_lion_pit:  'Click fish to catch them! Avoid puffer fish! Golden fish = jackpot!',
@@ -79,6 +80,7 @@ var MiniGameManager = {
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
       grand_piano:   'Watch the keys light up, then play them back in order!',
       horny_jail:    'Watch the beat, then tap it back — match the COUNT and the TIMING between taps!',
+      sports_centre: 'PRESS & HOLD to wind up, RELEASE in the green zone to score a hit!',
     };
     document.getElementById('mg-title').textContent = titles[buildingId] || 'MINI-GAME';
     document.getElementById('mg-instruction').textContent = insts[buildingId] || '';
@@ -92,6 +94,7 @@ var MiniGameManager = {
       case 'guillotine':    this._activeGame = ExecutionerGame;  break;
       case 'grand_piano':   this._activeGame = PianoRecitalGame; break;
       case 'horny_jail':    this._activeGame = CellBlockBeatGame; break;
+      case 'sports_centre': this._activeGame = SportTossGame;    break;
       default:              this._activeGame = FishCatchGame;
     }
 
@@ -1706,5 +1709,222 @@ var CellBlockBeatGame = {
     this._running = false;
     if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
     if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
+  },
+};
+
+// ─── Sport Toss (Penguin Sports Centre) ─────────────────────────────────────
+// Throw-COUNT-limited, not time-limited like every other game here (though
+// `duration` above still caps the session as a safety net -- see
+// _finishSession() below for how a normal run ends earlier than that).
+// Genuinely new mechanic: press-and-hold charges a power meter that
+// oscillates 0-100 back and forth; releasing reads the meter's value at that
+// instant as the throw's power, and only a release landing inside that
+// throw's own randomized target zone (different every throw, never the same
+// twice) counts as a hit -- release too early and it falls short, hold too
+// long and it overshoots. Binary hit/miss per throw, not graded bands like
+// CellBlockBeatGame's Perfect/Good/Miss -- the reward spec's own "per
+// successful hit" phrasing reads as a discrete outcome, and giving the two
+// newest minigames different scoring shapes (banded vs. binary) keeps them
+// feeling distinct rather than reskins of each other. Handball/dodgeball
+// framing throughout (🐧/🥅/🤾) -- no weapon or shooting-range visuals or
+// text anywhere here.
+var SportTossGame = {
+  duration: 55,       // generous safety cap -- THROW_COUNT below is what
+                       // actually ends a normal session (_finishSession()).
+  THROW_COUNT: 7,
+
+  MIN_TARGET: 15,      // target zone center is randomized within this power
+  MAX_TARGET: 95,      // range (0-100) each throw, kept off the very edges
+                        // so it's always reachable both rising and falling.
+  ZONE_HALF_WIDTH: 8,  // a release within +-8 power of the target is a hit
+
+  _canvas: null,
+  _ctx: null,
+  _running: false,
+  _animFrame: null,
+
+  _throwIdx: 0,      // throws taken so far this session (0-based)
+  _phase: 'ready',   // ready | charging | result
+  _power: 0,         // 0-100, current meter value while charging
+  _direction: 1,     // 1 while rising toward 100, -1 while falling toward 0
+  _cycleMs: 900,     // ms for the meter to cross 0->100 (or 100->0) -- shrinks each throw
+  _target: 50,
+  _lastHit: null,
+  _lastPower: 0,
+  _resultUntil: 0,
+  _hits: 0,
+
+  init: function(canvas, ctx) {
+    this._canvas = canvas;
+    this._ctx = ctx;
+    this._running = true;
+    this._throwIdx = 0;
+    this._hits = 0;
+    this._lastHit = null;
+
+    var self = this;
+    var down = function(e) { e.preventDefault(); self._startCharge(); };
+    var up   = function(e) { e.preventDefault(); self._release(); };
+    canvas.onmousedown  = down;
+    canvas.onmouseup    = up;
+    canvas.onmouseleave = up; // dragging off-canvas still releases, same as letting go of the button
+    canvas.ontouchstart = down;
+    canvas.ontouchend   = up;
+
+    this._newTarget();
+    this._render();
+  },
+
+  _newTarget: function() {
+    this._target = this.MIN_TARGET + Math.random() * (this.MAX_TARGET - this.MIN_TARGET);
+    this._phase = 'ready';
+    this._power = 0;
+    this._direction = 1;
+    // Shrinking cycle = a tighter release window -- this game's stand-in
+    // for a per-round difficulty ramp, since throws aren't rounds.
+    this._cycleMs = Math.max(420, 900 - this._throwIdx * 70);
+  },
+
+  _startCharge: function() {
+    if (!this._running || this._phase !== 'ready') return;
+    this._phase = 'charging';
+    this._power = 0;
+    this._direction = 1;
+    if (window.GameSounds) GameSounds.minigameStart();
+  },
+
+  _release: function() {
+    if (!this._running || this._phase !== 'charging') return;
+    var hit = Math.abs(this._power - this._target) <= this.ZONE_HALF_WIDTH;
+    this._lastHit = hit;
+    this._lastPower = this._power;
+    if (hit) {
+      this._hits++;
+      MiniGameManager.addScore(15);
+      if (window.GameSounds) GameSounds.minigameCombo();
+    } else if (window.GameSounds) {
+      GameSounds.minigameMiss();
+    }
+    this._throwIdx++;
+    this._phase = 'result';
+    this._resultUntil = performance.now() + 1100;
+  },
+
+  _render: function() {
+    if (!this._running) return;
+    var self = this;
+    var ctx = this._ctx;
+    var canvas = this._canvas;
+    var last = null;
+
+    function loop(ts) {
+      if (!self._running) return;
+      var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
+      last = ts;
+      var now = performance.now();
+
+      ctx.fillStyle = '#08140c';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (self._phase === 'charging') {
+        var stepPct = (dt * 1000 / self._cycleMs) * 100;
+        self._power += self._direction * stepPct;
+        if (self._power >= 100) { self._power = 100; self._direction = -1; }
+        else if (self._power <= 0) { self._power = 0; self._direction = 1; }
+      } else if (self._phase === 'result' && now >= self._resultUntil) {
+        if (self._throwIdx >= self.THROW_COUNT) {
+          self._finishSession();
+          return; // session over -- don't draw or schedule another frame
+        }
+        self._newTarget();
+      }
+
+      // ── Power field ──
+      var barX = canvas.width * 0.1, barW = canvas.width * 0.8;
+      var barY = canvas.height * 0.55, barH = 26;
+      ctx.fillStyle = '#14241a';
+      ctx.fillRect(barX, barY, barW, barH);
+      ctx.strokeStyle = '#2a4a34';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(barX, barY, barW, barH);
+
+      var zoneX = barX + barW * ((self._target - self.ZONE_HALF_WIDTH) / 100);
+      var zoneW = barW * (self.ZONE_HALF_WIDTH * 2 / 100);
+      ctx.fillStyle = 'rgba(74,255,107,0.35)';
+      ctx.fillRect(zoneX, barY, zoneW, barH);
+      ctx.strokeStyle = '#4aff6b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(zoneX, barY, zoneW, barH);
+
+      var markerPower = (self._phase === 'result') ? self._lastPower : self._power;
+      var markerX = barX + barW * (markerPower / 100);
+      var markerColor = self._phase === 'result' ? (self._lastHit ? '#4aff6b' : '#ff6b6b') : '#FFD700';
+      ctx.beginPath();
+      ctx.arc(markerX, barY + barH / 2, 12, 0, Math.PI * 2);
+      ctx.fillStyle = markerColor;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Handball/dodgeball flavor -- penguin at the throw line, goal at the
+      // far end. No weapon/shooting-range imagery anywhere.
+      ctx.font = '28px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🐧', barX - 14, barY + barH / 2);
+      ctx.font = '22px serif';
+      ctx.fillText('🥅', barX + barW + 16, barY + barH / 2);
+
+      // ── HUD text ──
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#4aff6b';
+      ctx.font = 'bold 15px monospace';
+      ctx.fillText('THROW ' + Math.min(self._throwIdx + 1, self.THROW_COUNT) + ' / ' + self.THROW_COUNT, canvas.width / 2, 30);
+      ctx.font = '12px monospace';
+      if (self._phase === 'ready') {
+        ctx.fillStyle = '#B8B8D0';
+        ctx.fillText('PRESS & HOLD to wind up, RELEASE in the green zone!', canvas.width / 2, 54);
+      } else if (self._phase === 'charging') {
+        ctx.fillStyle = '#B8B8D0';
+        ctx.fillText('RELEASE NOW!', canvas.width / 2, 54);
+      } else if (self._phase === 'result') {
+        ctx.fillStyle = self._lastHit ? '#4aff6b' : '#ff6b6b';
+        ctx.fillText(self._lastHit ? '✓ NICE THROW!' : '✗ MISSED THE ZONE', canvas.width / 2, 54);
+      }
+      ctx.fillStyle = '#8888A8';
+      ctx.fillText('Hits: ' + self._hits + ' / ' + self.THROW_COUNT, canvas.width / 2, canvas.height - 14);
+
+      ctx.textAlign = 'left';
+      self._animFrame = requestAnimationFrame(loop);
+    }
+    self._animFrame = requestAnimationFrame(loop);
+  },
+
+  // All THROW_COUNT throws are used -- end the session right away instead of
+  // waiting out the rest of the safety-cap `duration`. Mirrors
+  // MiniGameManager._endGame() but clears its own countdown interval FIRST,
+  // so that interval can't also independently reach 0 and call _endGame() a
+  // second time (which would double-fire _showResults()/the reward flow).
+  _finishSession: function() {
+    this._running = false;
+    if (MiniGameManager._timer) {
+      clearInterval(MiniGameManager._timer);
+      MiniGameManager._timer = null;
+    }
+    MiniGameManager._endGame();
+  },
+
+  stop: function() {
+    this._running = false;
+    if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
+    if (this._canvas) {
+      this._canvas.onmousedown = null;
+      this._canvas.onmouseup = null;
+      this._canvas.onmouseleave = null;
+      this._canvas.ontouchstart = null;
+      this._canvas.ontouchend = null;
+    }
   },
 };

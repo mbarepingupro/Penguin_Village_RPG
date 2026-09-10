@@ -7277,6 +7277,12 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         html += `<button class="bp-btn" onclick="switchContentTab('bank', document.querySelector('[data-tab=bank]')); closeBuildingPanel();">OPEN BANK</button>`;
       else
         html += bpComingSoon('🚧', 'COMING SOON', 'This building is still being constructed.');
+    } else if (btype === 'minigame') {
+      // Minigame-only, like grand_piano -- no job to work, no donation to
+      // upgrade, just the PLAY button (same startMiniGame() call the 'job'
+      // branch's "OR PLAY ACTIVELY" button above uses).
+      html += `<div class="bp-info" style="color:#B8B8D0;">Handballs, dodgeballs, and village bragging rights.</div>`;
+      html += `<button class="bp-btn" style="background:#1a1030;border-color:#A86EFF;color:#A86EFF;" onclick="startMiniGame('${data.building_id}')">🎮 PLAY MINI-GAME (10 ⚡)</button>`;
     }
     return html;
   }
@@ -9319,6 +9325,7 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     guillotine:    '💀 Whack-a-Target',
     grand_piano:   '🎹 Piano Recital',
     horny_jail:    '🥚 Cell Block Beat',
+    sports_centre: '🤾 Sport Toss',
   };
 
   async function loadMinigameRecords() {

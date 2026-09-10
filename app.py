@@ -1162,6 +1162,16 @@ BUILDINGS = {
         "desc": "An endless harvest, fed by the whole village. Every level feeds every job.",
         "type": "cornucopia",
     },
+    # Minigame-only, like grand_piano -- no "produces" (no passive job), and
+    # deliberately NOT a BUILDING_UPGRADES key (no donation/leveling). type
+    # "minigame" is new: _renderBuildingActionsHtml() (home.html) renders
+    # just a PLAY button for it, skipping the job/rest/shop/combat/
+    # achievements/placeholder branches every other type hits.
+    "sports_centre": {
+        "name": "Penguin Sports Centre", "icon": "🤾",
+        "desc": "Handballs, dodgeballs, and village bragging rights. No refunds.",
+        "type": "minigame",
+    },
 }
 
 # ── SOCIAL SYSTEM ─────────────────────────────────────────────────────────────
@@ -13108,7 +13118,7 @@ def bank_sell_to_bank():
     })
 
 
-MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano", "horny_jail")
+MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano", "horny_jail", "sports_centre")
 
 # Mirrors templates/home.html's MINIGAME_LABELS -- kept as a separate copy
 # rather than a shared source since one lives in Python (chat announcements)
@@ -13121,6 +13131,7 @@ MINIGAME_LABELS = {
     "guillotine":    "💀 Whack-a-Target",
     "grand_piano":   "🎹 Piano Recital",
     "horny_jail":    "🥚 Cell Block Beat",
+    "sports_centre": "🤾 Sport Toss",
 }
 
 
@@ -13135,6 +13146,9 @@ def calculate_minigame_rewards(building_id, score, player_level):
         # Same tier as sea_lion_pit/club_soda -- horny_jail's job produces
         # eggs at the identical 12.5/hr rate those produce fish/herbs at.
         "horny_jail":    {"eggs": 15, "gold": 5, "xp": 10},
+        # Identical to grand_piano's -- both are minigame-only buildings with
+        # no passive job to tier the reward against.
+        "sports_centre": {"gold": 20, "xp": 10},
     }
     # `score` is now the player's raw, uncapped score (see minigame_complete --
     # scores used to be clamped to 0-100 before storage/display; now only the
@@ -13754,7 +13768,7 @@ def _minigame_week_bounds(reference_ts=None):
 
 
 def _compute_weekly_minigame_leaderboards_by_game(week_start, week_end):
-    """Independent per-game weekly rankings -- each of the 7 minigames has its
+    """Independent per-game weekly rankings -- each of the 8 minigames has its
     own leaderboard, unrelated to how anyone did in the others. Raw scores
     aren't comparable across games (fish caught vs combo points vs memory
     rounds), so there's no cross-game normalization or combined total here,
@@ -13818,7 +13832,7 @@ def minigame_leaderboard_route():
 def resolve_weekly_minigame_leaderboard():
     """Saturday 00:00 UTC -- resolves the just-ended Mon->Sat minigame week.
 
-    Each of the 7 minigames is its own independent competition: whoever holds
+    Each of the 8 minigames is its own independent competition: whoever holds
     rank #1 in a given game gets exactly 1 N00Tbox (grant_lootbox, source
     "minigame_weekly_<building_id>") for that game -- no ranks 2/3, no
     resource curve for the rest of the field, and a game nobody played this
