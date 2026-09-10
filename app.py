@@ -13108,7 +13108,7 @@ def bank_sell_to_bank():
     })
 
 
-MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano")
+MINIGAME_BUILDING_IDS = ("sea_lion_pit", "club_soda", "parkmusement", "cursed_temple", "guillotine", "grand_piano", "horny_jail")
 
 # Mirrors templates/home.html's MINIGAME_LABELS -- kept as a separate copy
 # rather than a shared source since one lives in Python (chat announcements)
@@ -13120,6 +13120,7 @@ MINIGAME_LABELS = {
     "cursed_temple": "🔮 Rune Memory",
     "guillotine":    "💀 Whack-a-Target",
     "grand_piano":   "🎹 Piano Recital",
+    "horny_jail":    "🥚 Cell Block Beat",
 }
 
 
@@ -13131,6 +13132,9 @@ def calculate_minigame_rewards(building_id, score, player_level):
         "cursed_temple": {"spell_fragments": 12, "gold": 5, "xp": 10},
         "guillotine":    {"blood_gems": 6, "bones": 6, "gold": 5, "xp": 10},
         "grand_piano":   {"gold": 20, "xp": 10},
+        # Same tier as sea_lion_pit/club_soda -- horny_jail's job produces
+        # eggs at the identical 12.5/hr rate those produce fish/herbs at.
+        "horny_jail":    {"eggs": 15, "gold": 5, "xp": 10},
     }
     # `score` is now the player's raw, uncapped score (see minigame_complete --
     # scores used to be clamped to 0-100 before storage/display; now only the
@@ -13468,6 +13472,13 @@ def build_leaderboard_route():
     })
 
 
+# Energy spent per /minigame/start attempt, shared by every building
+# minigame (grand_piano included) -- was a bare inline 10 in two places
+# below; named here so a new minigame (or a future balance change) has one
+# place to read/change it instead of a second hand-copied literal.
+MINIGAME_ENERGY_COST = 10
+
+
 @app.route("/minigame/start", methods=["POST"])
 def minigame_start():
     data        = request.get_json(silent=True) or {}
@@ -13522,12 +13533,12 @@ def minigame_start():
         if p["job"]:
             db.close()
             return jsonify({"status": "error", "message": "Collect your passive job first!"})
-        if energy < 10:
+        if energy < MINIGAME_ENERGY_COST:
             db.close()
-            return jsonify({"status": "error", "message": "Need 10 energy to play! Rest at the hotel."})
-        db.execute("UPDATE penguins SET energy=energy-10 WHERE username=?", (username,))
+            return jsonify({"status": "error", "message": f"Need {MINIGAME_ENERGY_COST} energy to play! Rest at the hotel."})
+        db.execute("UPDATE penguins SET energy=energy-? WHERE username=?", (MINIGAME_ENERGY_COST, username))
         db.commit()
-        energy -= 10
+        energy -= MINIGAME_ENERGY_COST
 
     # host_username is carried through the session (not re-read from the
     # client) at /minigame/complete, same trust boundary as username/
@@ -13743,8 +13754,8 @@ def _minigame_week_bounds(reference_ts=None):
 
 
 def _compute_weekly_minigame_leaderboards_by_game(week_start, week_end):
-    """Independent per-game weekly rankings -- each of the 6 minigames has its
-    own leaderboard, unrelated to how anyone did in the other 4. Raw scores
+    """Independent per-game weekly rankings -- each of the 7 minigames has its
+    own leaderboard, unrelated to how anyone did in the others. Raw scores
     aren't comparable across games (fish caught vs combo points vs memory
     rounds), so there's no cross-game normalization or combined total here,
     just each player's own best raw score in that game this week.
@@ -13807,7 +13818,7 @@ def minigame_leaderboard_route():
 def resolve_weekly_minigame_leaderboard():
     """Saturday 00:00 UTC -- resolves the just-ended Mon->Sat minigame week.
 
-    Each of the 6 minigames is its own independent competition: whoever holds
+    Each of the 7 minigames is its own independent competition: whoever holds
     rank #1 in a given game gets exactly 1 N00Tbox (grant_lootbox, source
     "minigame_weekly_<building_id>") for that game -- no ranks 2/3, no
     resource curve for the rest of the field, and a game nobody played this

@@ -69,6 +69,7 @@ var MiniGameManager = {
       cursed_temple: '🔮 RUNE MEMORY',
       guillotine:    '💀 WHACK-A-TARGET',
       grand_piano:   '🎹 PIANO RECITAL',
+      horny_jail:    '🥚 CELL BLOCK BEAT',
     };
     var insts = {
       sea_lion_pit:  'Click fish to catch them! Avoid puffer fish! Golden fish = jackpot!',
@@ -77,6 +78,7 @@ var MiniGameManager = {
       cursed_temple: 'Watch the rune sequence, then repeat it in order!',
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
       grand_piano:   'Watch the keys light up, then play them back in order!',
+      horny_jail:    'Watch the beat, then tap it back — match the COUNT and the TIMING between taps!',
     };
     document.getElementById('mg-title').textContent = titles[buildingId] || 'MINI-GAME';
     document.getElementById('mg-instruction').textContent = insts[buildingId] || '';
@@ -89,6 +91,7 @@ var MiniGameManager = {
       case 'cursed_temple': this._activeGame = RuneMemoryGame;   break;
       case 'guillotine':    this._activeGame = ExecutionerGame;  break;
       case 'grand_piano':   this._activeGame = PianoRecitalGame; break;
+      case 'horny_jail':    this._activeGame = CellBlockBeatGame; break;
       default:              this._activeGame = FishCatchGame;
     }
 
@@ -1426,6 +1429,281 @@ var ExecutionerGame = {
   stop: function() {
     this._running = false;
     if (this._spawnTimer) { clearInterval(this._spawnTimer); this._spawnTimer = null; }
+    if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
+    if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
+  },
+};
+
+// ─── Cell Block Beat (Horny Jail) ───────────────────────────────────────────
+// Timing-based, deliberately NOT a Rune Memory reskin: Rune Memory only
+// grades WHICH rune the player taps, in order -- position, never time (see
+// RuneMemoryGame._handleClick above, it just compares rn.idx to
+// this._sequence[pos]; nothing there ever reads a timestamp). This game
+// shows a pattern of clicks with specific gaps between them (ms) -- some
+// slow/even, some fast/back-to-back -- then grades the player's own taps on
+// TWO axes: did they land the right COUNT of taps, and did each gap between
+// two consecutive taps land close to the matching target gap. Screen
+// position is irrelevant (one big tap zone), only rhythm matters.
+var CellBlockBeatGame = {
+  duration: 45,
+  _canvas: null,
+  _ctx: null,
+  _running: false,
+  _animFrame: null,
+
+  _phase: 'show',   // show | input | result
+  _round: 0,
+  _pattern: [],     // target gaps (ms) between consecutive taps -- length tapCount-1
+  _tapCount: 0,
+
+  // Show-phase playback state
+  _showBeatIdx: 0,      // how many beats have played so far this round
+  _showNextBeatAt: 0,   // performance.now() timestamp the next beat plays at
+  _showPulse: 0,        // 0-1, decays after each beat -- drives the circle's flash
+
+  // Input-phase state
+  _inputTaps: [],        // performance.now() timestamps of the player's taps this round
+  _inputDeadline: 0,     // performance.now() timestamp -- round auto-ends (remaining taps = Miss) past this
+  _lastBand: null,       // 'perfect' | 'good' | 'miss' | 'start' -- last graded tap, for HUD/circle color
+  _tapPulse: 0,          // 0-1, decays after each tap
+
+  _resultUntil: 0,
+  _resultCounts: null,   // {perfect, good, miss} tallied for the round just finished
+
+  // Timing windows (ms): how far an actual inter-tap gap can be from the
+  // pattern's target gap and still count as Perfect/Good. Past GOOD_WINDOW_MS
+  // is a Miss -- no credit, same "no credit for Miss" as Bits & Bops' Hammer
+  // Time bands this is modeled on.
+  PERFECT_WINDOW_MS: 80,
+  GOOD_WINDOW_MS:    180,
+
+  // Points per graded gap. Calibrated against the shared 0-100 S/A/B/C/D
+  // grade scale (_showResults()'s gradeScore) so a strong run reaches S
+  // around round 4-5, not round 2 -- rounds ramp mostly via MORE graded
+  // gaps (tapCount grows) rather than steep per-tap point growth.
+  PERFECT_PTS: 6,
+  GOOD_PTS:    3,
+
+  // Gap durations (ms) patterns are built from -- SLOW is the evenly-spaced
+  // "click...click...click" baseline; MEDIUM/FAST mix in the "click-click"
+  // back-to-back feel the spec calls for, phased in from round 2 onward.
+  SLOW_GAP:   650,
+  MEDIUM_GAP: 400,
+  FAST_GAP:   180,
+
+  init: function(canvas, ctx) {
+    this._canvas = canvas;
+    this._ctx = ctx;
+    this._running = true;
+    this._round = 0;
+    this._resultCounts = null;
+
+    var handler = this._handleTap.bind(this);
+    canvas.onclick = handler;
+    canvas.ontouchend = function(e) { e.preventDefault(); handler(e.changedTouches[0]); };
+
+    this._startRound();
+    this._render();
+  },
+
+  // Round N: tapCount grows 3 -> 8 (capped) as N increases; the gaps between
+  // those taps start all-SLOW (round 1, a clean baseline) and increasingly
+  // mix in MEDIUM/FAST gaps as N grows -- "more clicks and/or more complex
+  // spacing patterns" per round, exactly as specced.
+  _buildPattern: function(round) {
+    var tapCount = Math.min(2 + round, 8);
+    var fastChance = Math.min(0.15 * (round - 1), 0.45);
+    var medChance  = Math.min(0.15 * (round - 1), 0.35);
+    var gaps = [];
+    for (var i = 0; i < tapCount - 1; i++) {
+      var gap = this.SLOW_GAP;
+      if (round > 1) {
+        var roll = Math.random();
+        if (roll < fastChance) gap = this.FAST_GAP;
+        else if (roll < fastChance + medChance) gap = this.MEDIUM_GAP;
+      }
+      gaps.push(gap);
+    }
+    return { tapCount: tapCount, gaps: gaps };
+  },
+
+  _startRound: function() {
+    this._round++;
+    var built = this._buildPattern(this._round);
+    this._tapCount = built.tapCount;
+    this._pattern = built.gaps;
+    this._phase = 'show';
+    this._showBeatIdx = 0;
+    this._showPulse = 0;
+    this._showNextBeatAt = performance.now() + 500; // brief pause before the round starts
+    this._inputTaps = [];
+    this._lastBand = null;
+  },
+
+  _handleTap: function(e) {
+    if (!this._running || this._phase !== 'input') return;
+    // Extra taps past tapCount are ignored rather than punished -- an
+    // accidental double-click shouldn't cost a Miss the player never
+    // actually had a gap to misjudge.
+    if (this._inputTaps.length >= this._tapCount) return;
+
+    var now = performance.now();
+    this._inputTaps.push(now);
+    this._tapPulse = 1;
+
+    var i = this._inputTaps.length - 1;
+    if (i === 0) {
+      // The first tap has no preceding gap to grade -- it only marks t0 that
+      // every later gap is measured from.
+      this._lastBand = 'start';
+    } else {
+      var actualGap = this._inputTaps[i] - this._inputTaps[i - 1];
+      var targetGap = this._pattern[i - 1];
+      var diff = Math.abs(actualGap - targetGap);
+      var band, pts;
+      if (diff <= this.PERFECT_WINDOW_MS)     { band = 'perfect'; pts = this.PERFECT_PTS; }
+      else if (diff <= this.GOOD_WINDOW_MS)   { band = 'good';    pts = this.GOOD_PTS;    }
+      else                                    { band = 'miss';    pts = 0;                }
+      this._lastBand = band;
+      if (pts > 0) MiniGameManager.addScore(pts);
+      if (!this._resultCounts) this._resultCounts = { perfect: 0, good: 0, miss: 0 };
+      this._resultCounts[band]++;
+      if (window.GameSounds) {
+        if (band === 'perfect') GameSounds.minigameCombo();
+        else if (band === 'good') GameSounds.minigameHit();
+        else GameSounds.minigameMiss();
+      }
+    }
+
+    if (this._inputTaps.length >= this._tapCount) this._endRoundInput(false);
+  },
+
+  // timedOut=true: the player ran out of time before landing tapCount taps.
+  // Every gap that never got a chance to be graded (including all of them,
+  // if they never tapped at all) is scored as a Miss -- reproducing the
+  // wrong COUNT is graded here, not just a wrong gap.
+  _endRoundInput: function(timedOut) {
+    if (timedOut) {
+      if (!this._resultCounts) this._resultCounts = { perfect: 0, good: 0, miss: 0 };
+      var gradedGaps = Math.max(0, this._inputTaps.length - 1);
+      var totalGaps  = this._tapCount - 1;
+      this._resultCounts.miss += Math.max(0, totalGaps - gradedGaps);
+    }
+    this._phase = 'result';
+    this._resultUntil = performance.now() + 1400;
+  },
+
+  _render: function() {
+    if (!this._running) return;
+    var self = this;
+    var ctx = this._ctx;
+    var canvas = this._canvas;
+    var last = null;
+
+    function loop(ts) {
+      if (!self._running) return;
+      var dt = last ? Math.min((ts - last) / 1000, 0.05) : 0.016;
+      last = ts;
+      var now = performance.now();
+
+      ctx.fillStyle = '#0a0612';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (self._phase === 'show') {
+        if (self._showBeatIdx < self._tapCount && now >= self._showNextBeatAt) {
+          self._showPulse = 1;
+          if (window.GameSounds) GameSounds.minigameHit();
+          var justPlayedIdx = self._showBeatIdx;
+          self._showBeatIdx++;
+          self._showNextBeatAt = now + (self._showBeatIdx < self._tapCount
+            ? self._pattern[justPlayedIdx]
+            : 500); // breathing room after the last cue before input opens
+        } else if (self._showBeatIdx >= self._tapCount && now >= self._showNextBeatAt) {
+          self._phase = 'input';
+          // Deadline anchored from when input OPENS (not from show's start),
+          // so the pattern's own playback length never eats into the
+          // player's actual reaction/tap time.
+          var totalGapMs = self._pattern.reduce(function(a, b) { return a + b; }, 0);
+          self._inputDeadline = now + totalGapMs + 2500;
+        }
+        if (self._showPulse > 0) self._showPulse = Math.max(0, self._showPulse - dt * 3);
+      } else if (self._phase === 'input') {
+        if (self._tapPulse > 0) self._tapPulse = Math.max(0, self._tapPulse - dt * 3);
+        if (now >= self._inputDeadline) self._endRoundInput(true);
+      } else if (self._phase === 'result') {
+        if (now >= self._resultUntil) {
+          self._resultCounts = null;
+          self._startRound();
+        }
+      }
+
+      // ── Beat circle ──
+      var cx = canvas.width / 2;
+      var cy = canvas.height / 2 - 6;
+      var baseR = Math.min(canvas.width, canvas.height) * 0.18;
+      var pulse = self._phase === 'show' ? self._showPulse : self._tapPulse;
+      var r = baseR * (1 + pulse * 0.35);
+      var color = '#F5C518';
+      if (self._phase === 'input') {
+        if (self._lastBand === 'perfect') color = '#FFD700';
+        else if (self._lastBand === 'good') color = '#4aafff';
+        else if (self._lastBand === 'miss') color = '#ff6b6b';
+        else color = '#4aff6b';
+      }
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = color + '33';
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.font = '38px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('🥚', cx, cy);
+
+      // ── HUD text ──
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      if (self._phase === 'show') {
+        ctx.fillStyle = '#F5C518';
+        ctx.font = 'bold 15px monospace';
+        ctx.fillText('WATCH THE BEAT...', cx, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        ctx.fillText('Round ' + self._round + ' — ' + self._tapCount + ' tap(s)', cx, 48);
+      } else if (self._phase === 'input') {
+        ctx.fillStyle = '#4aff6b';
+        ctx.font = 'bold 15px monospace';
+        ctx.fillText('YOUR TURN! (' + self._inputTaps.length + ' / ' + self._tapCount + ')', cx, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        var bandLabel = self._lastBand === 'perfect' ? 'PERFECT!'
+          : self._lastBand === 'good' ? 'GOOD'
+          : self._lastBand === 'miss' ? 'MISS'
+          : 'Tap the beat back';
+        ctx.fillText(bandLabel, cx, 48);
+      } else if (self._phase === 'result') {
+        var rc = self._resultCounts || { perfect: 0, good: 0, miss: 0 };
+        ctx.fillStyle = '#A86EFF';
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText('ROUND ' + self._round + ' COMPLETE', cx, 28);
+        ctx.fillStyle = '#B8B8D0';
+        ctx.font = '12px monospace';
+        ctx.fillText('★' + rc.perfect + '  ✓' + rc.good + '  ✗' + rc.miss, cx, 48);
+      }
+
+      ctx.textAlign = 'left';
+      self._animFrame = requestAnimationFrame(loop);
+    }
+    self._animFrame = requestAnimationFrame(loop);
+  },
+
+  stop: function() {
+    this._running = false;
     if (this._animFrame) { cancelAnimationFrame(this._animFrame); this._animFrame = null; }
     if (this._canvas) { this._canvas.onclick = null; this._canvas.ontouchend = null; }
   },
