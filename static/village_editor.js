@@ -52,15 +52,24 @@ const BUILDING_DEFS = {
 
 const BUILDING_KEYS = Object.keys(BUILDING_DEFS);
 
-// Whether the Penguin Cornucopia is offered as a placeable building yet --
-// mirrors app.py's _era_advanced() (village_era.era >= 2). Fetched once at
-// init() via checkCornucopiaUnlocked(); defaults to false (hidden) until
-// that resolves, so a slow/failed check fails closed rather than briefly
-// offering a building that isn't actually unlocked server-side yet.
-let cornucopiaUnlocked = false;
+// Whether the Penguin Cornucopia is offered as a placeable building for
+// whichever map is currently being edited. Derived from editingTarget/
+// currentEra (both set by populateEraUI()/renderEraControls() below) rather
+// than fetched on its own: editing a future era (editingTarget is always
+// > currentEra, i.e. always >= 2) unlocks it for planning purposes even
+// though the LIVE map stays locked until the Mayor actually advances --
+// mirrors app.py's _era_advanced() (village_era.era >= 2), applied to
+// whichever era number is actually being designed. currentEra defaults to
+// 1 until populateEraUI() resolves, so this fails closed (hidden) on a
+// slow/failed check rather than briefly offering a building that isn't
+// unlocked yet.
+function isCornucopiaUnlockedForEditing() {
+    const effectiveEra = editingTarget === 'live' ? currentEra : editingTarget;
+    return effectiveEra >= 2;
+}
 
 function placeableBuildingKeys() {
-    return cornucopiaUnlocked ? BUILDING_KEYS : BUILDING_KEYS.filter(k => k !== 'cornucopia');
+    return isCornucopiaUnlockedForEditing() ? BUILDING_KEYS : BUILDING_KEYS.filter(k => k !== 'cornucopia');
 }
 
 // ── STATE ────────────────────────────────────────────────────────────────────
@@ -706,8 +715,8 @@ function updateInfoPanel() {
     // the literal number 10 (stale even before this change: BUILDING_DEFS
     // already had 11 entries), so it undercounted and "ALL PLACED" could
     // never show once a 12th (or 11th) building existed. Excludes the
-    // Cornucopia from the denominator while it isn't unlocked yet, same as
-    // the sidebar list below.
+    // Cornucopia from the denominator while it isn't unlocked for the map
+    // currently being edited, same as the sidebar list below.
     const placeableCount = placeableBuildingKeys().length;
     statsEl.textContent = `WALKABLE: ${walkable} | PATH: ${path} | TREES: ${trees} | WATER: ${water} | BUILDINGS: ${bCount}/${placeableCount}`;
 
@@ -742,24 +751,6 @@ function showFlash(msg, isError) {
     flashTimeout = setTimeout(() => {
         el.classList.remove('visible');
     }, 2000);
-}
-
-// Mirrors app.py's _era_advanced() (village_era.era >= 2) -- the Cornucopia
-// stays out of the BUILDINGS palette (and the placeable-count denominator)
-// until the Mayor has advanced the era at least once. Checked once on page
-// load, same fire-and-forget pattern as populateEraUI() below;
-// re-renders the sidebar/info panel once it resolves since both are already
-// built by the time this fetch lands.
-async function checkCornucopiaUnlocked() {
-    try {
-        const resp = await fetch('/village/era/status');
-        const data = await resp.json();
-        cornucopiaUnlocked = (data.era || 1) >= 2;
-    } catch (e) {
-        cornucopiaUnlocked = false; // fail closed -- stay hidden if the check fails
-    }
-    updateInfoPanel();
-    rebuildBuildingsList();
 }
 
 // ── ERA EDITOR ──────────────────────────────────────────────────────────────
@@ -822,6 +813,12 @@ function renderEraControls() {
             label.textContent = `Editing: ERA ${editingTarget}${saved ? '' : ' (default preview -- not yet saved)'}`;
         }
     }
+
+    // Cornucopia placeability depends on editingTarget/currentEra (see
+    // isCornucopiaUnlockedForEditing()), both of which just changed --
+    // refresh the palette/count so switching maps updates them immediately.
+    updateInfoPanel();
+    rebuildBuildingsList();
 }
 
 // ── SAVE / LOAD ───────────────────────────────────────────────────────────────
@@ -1385,12 +1382,12 @@ async function init() {
     }
 
     // Fire-and-forget -- fills in the era-picker/import-source lists once
-    // /village/era/status + /village/layout/era/available resolve.
+    // /village/era/status + /village/layout/era/available resolve, and (via
+    // renderEraControls()) refreshes the Cornucopia's placeability once the
+    // real currentEra lands -- currentEra defaults to 1 until then, so the
+    // very first render below already hides it (a no-op re-render if the
+    // live map is still what's being edited and it's genuinely locked).
     populateEraUI();
-    // Also fire-and-forget -- cornucopiaUnlocked defaults to false, so the
-    // very first render below already hides it; this just re-renders once
-    // the real era check lands (a no-op re-render if it's still locked).
-    checkCornucopiaUnlocked();
 
     updateInfoPanel();
     rebuildBuildingsList();
