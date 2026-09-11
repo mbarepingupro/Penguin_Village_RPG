@@ -110,13 +110,18 @@ const GameSounds = {
     minigameCombo()    { this._play({notes: [{freq:600, dur:0.05, type:'sine', vol:0.10}, {freq:900, dur:0.08, type:'sine', vol:0.10, time:0.04}]}); },
     minigameComplete() { this._play({notes: [{freq:523, dur:0.10, type:'triangle', vol:0.12}, {freq:659, dur:0.10, type:'triangle', vol:0.12, time:0.08}, {freq:784, dur:0.15, type:'triangle', vol:0.10, time:0.16}, {freq:1047, dur:0.25, type:'triangle', vol:0.10, time:0.26}]}); },
 
-    // Cell Block Beat (Horny Jail) door sounds -- a low kick-drum thud for
-    // the door taking a hit on the beat, and knuckle-on-wood knocks graded
-    // the same as the game's Perfect/Good/Miss bands.
-    minigameThump()       { this._play({notes: [{freq:140, freqEnd:55, dur:0.16, type:'sine', vol:0.22}]}); this._noise(0.05, 0.05, 0, 120, 'lowpass'); },
-    minigameKnockStart()  { this._noise(0.05, 0.14, 0, 1800, 'bandpass'); },
-    minigameKnockPerfect(){ this._noise(0.04, 0.16, 0, 2000, 'bandpass'); this._play({notes: [{freq:700, dur:0.05, type:'sine', vol:0.10, time:0.02}, {freq:1050, dur:0.08, type:'sine', vol:0.10, time:0.05}]}); },
-    minigameKnockGood()   { this._noise(0.045, 0.14, 0, 1700, 'bandpass'); this._play({notes: [{freq:600, dur:0.06, type:'sine', vol:0.08, time:0.02}]}); },
+    // Cell Block Beat (Horny Jail) door sounds. The two families are
+    // deliberately pitched apart so they read as two different things by
+    // ear alone: the door's own vibration (minigameThump(), the rhythm
+    // cue) is a bright, high, chiptune-ish rattle -- NOT a bass thud -- and
+    // every knock (the player's own input, graded the same as the game's
+    // Perfect/Good/Miss bands) sits in a distinctly LOWER register than
+    // that, so a player can tell "the beat" from "my own tap" without
+    // looking at the screen.
+    minigameThump()       { this._play({notes: [{freq:1100, freqEnd:1500, dur:0.05, type:'square', vol:0.12}, {freq:1500, dur:0.04, type:'square', vol:0.09, time:0.05}]}); this._noise(0.035, 0.05, 0, 3200, 'highpass'); },
+    minigameKnockStart()  { this._noise(0.05, 0.14, 0, 650, 'bandpass'); },
+    minigameKnockPerfect(){ this._noise(0.045, 0.16, 0, 700, 'bandpass'); this._play({notes: [{freq:350, dur:0.05, type:'sine', vol:0.10, time:0.02}, {freq:500, dur:0.08, type:'sine', vol:0.10, time:0.05}]}); },
+    minigameKnockGood()   { this._noise(0.05, 0.14, 0, 600, 'bandpass'); this._play({notes: [{freq:300, dur:0.06, type:'sine', vol:0.08, time:0.02}]}); },
     minigameKnockMiss()   { this._play({notes: [{freq:160, dur:0.14, type:'square', vol:0.08}]}); },
 
     purchase()    { this._play({notes: [{freq:800, dur:0.06, type:'square', vol:0.12}, {freq:1200, dur:0.06, type:'square', vol:0.12, time:0.05}, {freq:1600, dur:0.10, type:'square', vol:0.10, time:0.10}]}); },
