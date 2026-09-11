@@ -178,7 +178,11 @@ const EXPANSION_LABELS = [
 ];
 let cameraX = 0, cameraY = 50;
 let zoomLevel = 1.0;
-const MIN_ZOOM = 0.5;
+// 0.15 (was 0.5) -- matches village_editor.js's own MIN_ZOOM. The live grid
+// can now be much bigger than the original fixed 40x40 (see EXPANSION_MARGIN
+// in app.py), and 0.5 wasn't nearly far enough out to fit an expanded map on
+// a normal screen.
+const MIN_ZOOM = 0.15;
 const MAX_ZOOM = 2.0;
 const ZOOM_STEP = 0.1;
 let _pinchDist = 0;
@@ -1111,9 +1115,27 @@ function resizeCanvas() {
     initCamera();
 }
 
+// Lands the camera centered on the Penguin Cornucopia -- the village's own
+// hand-placed landmark, so the first view still shows the actual village
+// regardless of how much the surrounding grid has grown (see
+// EXPANSION_MARGIN in app.py). Previously a fixed screen-space anchor
+// (grid cell (0,0) pinned near the top of the viewport), which worked only
+// by coincidence on the original fixed 40x40 grid -- once the grid grows,
+// (0,0) drifts out into newly-added, empty expansion territory, nowhere
+// near any actual building.
+//
+// Called before the layout has loaded too (resizeCanvas() at the top of
+// initEngine(), ahead of the /village/layout fetch) -- buildingLayout is
+// still {} then, so this falls back to the grid's own geometric center;
+// initEngine() calls this again once the layout (and Cornucopia's real
+// position) is actually known.
 function initCamera() {
-    cameraX = canvas.width / 2;
-    cameraY = 50;
+    const cornucopia = buildingLayout['cornucopia'];
+    const cx = cornucopia ? cornucopia.gridX + (cornucopia.width  || 3) / 2 : GRID_W / 2;
+    const cy = cornucopia ? cornucopia.gridY + (cornucopia.height || 3) / 2 : GRID_H / 2;
+    const wpos = gridToScreen(cx, cy);
+    cameraX = canvas.width  / 2 - wpos.x * zoomLevel;
+    cameraY = canvas.height / 2 - wpos.y * zoomLevel;
 }
 
 // Recenters the camera on the current player's own penguin, honoring
