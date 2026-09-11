@@ -3420,6 +3420,80 @@ def _notice_plain_text(notice):
     return " — ".join(p for p in (notice["title"], notice["subtitle"], notice["description"]) if p)
 
 
+def _era_window_for_recap(db):
+    """(start_ts, end_ts) unix-time bounds for the era that just ended -- i.e.
+    whatever era preceded village_era's current one. end_ts is
+    village_era.advanced_at (the moment the current era began, which is also
+    the moment the previous one ended); start_ts is the created_at of the
+    era-advance event_log row BEFORE that one (the moment the ended era
+    itself began), or 0 if the ended era was era 1 (nothing earlier to bound
+    it against). village_era itself can't answer this alone -- it's a
+    singleton row, overwritten on every advance, so advanced_at only ever
+    remembers the LATEST transition; mayor_advance_era()'s own log_event()
+    call is the only place era-transition timestamps accumulate."""
+    row = db.execute("SELECT advanced_at FROM village_era WHERE id=1").fetchone()
+    end_ts = (row["advanced_at"] if row else None) or int(time.time())
+    prior = db.execute(
+        "SELECT created_at FROM event_log WHERE event_type='village' "
+        "AND message LIKE '%advanced to Era%' ORDER BY created_at DESC LIMIT 1 OFFSET 1"
+    ).fetchone()
+    start_ts = prior["created_at"] if prior else 0
+    return start_ts, end_ts
+
+
+def _era_recap_contributors(db, start_ts, end_ts):
+    """Distinct usernames who donated anything -- to any of the 5 donation-
+    upgradeable buildings, OR the Penguin Cornucopia -- during [start_ts,
+    end_ts). Cornucopia counts by default: it's still a donation the player
+    made to the village during this era, same spirit as a building donation,
+    and it only ever unlocks once era >= 2 anyway (see _era_advanced()), so
+    it's never spuriously relevant to an era-1 recap that can't exist."""
+    rows = db.execute(
+        "SELECT DISTINCT username FROM building_donations WHERE donated_at >= ? AND donated_at < ? "
+        "UNION "
+        "SELECT DISTINCT username FROM cornucopia_donations WHERE donated_at >= ? AND donated_at < ?",
+        (start_ts, end_ts, start_ts, end_ts)
+    ).fetchall()
+    return {r["username"] for r in rows}
+
+
+def _era_recap_penguins(db, contributor_usernames):
+    """Every character-created penguin's visual data (body color/shape + worn
+    cosmetics), tagged is_contributor -- bulk single-query-plus-batched-worn-
+    items shape, same as /village/penguins builds its whole roster (not
+    _penguin_visual()'s one-username-at-a-time queries, which would be an
+    N+1 here across potentially every player in the village)."""
+    rows = db.execute(
+        "SELECT username, penguin_name, penguin_color, penguin_shape "
+        "FROM penguins WHERE character_created = 1"
+    ).fetchall()
+    if not rows:
+        return []
+    unames = tuple(r["username"] for r in rows)
+    placeholders = ",".join("?" * len(unames))
+    worn_rows = db.execute(
+        f"SELECT username, slot, item_id FROM gear WHERE worn=1 AND username IN ({placeholders})",
+        unames
+    ).fetchall()
+    worn_map = {}
+    for w in worn_rows:
+        area = _VISUAL_AREA.get(w["slot"])
+        if area and w["item_id"]:
+            worn_map.setdefault(w["username"], {})[area] = w["item_id"]
+
+    penguins = []
+    for r in rows:
+        penguins.append({
+            "username":       r["username"],
+            "display_name":   r["penguin_name"] or r["username"],
+            "penguin_color":  _resolve_hex_color(r["penguin_color"] or "#1a1a1a"),
+            "penguin_shape":  r["penguin_shape"] or "normal",
+            "worn_items":     worn_map.get(r["username"], {}),
+            "is_contributor": r["username"] in contributor_usernames,
+        })
+    return penguins
+
+
 def _mayor_message_notices(db, p, updates):
     """Announcement/patch-notes one-shot notices -- same "latest row vs.
     per-player marker" shape as the weekly_challenges/raid_state notices in
@@ -3485,7 +3559,7 @@ def lifecycle_notices(username):
         "SELECT notice_challenge_start_id, notice_challenge_result_id, "
         "notice_raid_start_id, notice_raid_result_id, "
         "last_seen_announcement_id, last_seen_patch_notes_id, "
-        "last_seen_moment_id FROM penguins WHERE username=?",
+        "last_seen_moment_id, last_seen_era_recap_era FROM penguins WHERE username=?",
         (username,)
     ).fetchone()
     if not p:
@@ -3558,6 +3632,31 @@ def lifecycle_notices(username):
                 updates["notice_raid_result_id"] = rid
 
     notices.extend(_mayor_message_notices(db, p, updates))
+
+    # Era Recap popup -- fires once per player, the first time they poll
+    # after the Mayor advances the era (village_era.era bumps). Naturally
+    # dormant while the era_advance feature flag is off, no separate flag
+    # check needed here: mayor_advance_era() is the only way era ever
+    # exceeds 1, same reasoning as _mayor_message_notices() above not
+    # re-checking weekly_raid. `or 1` baseline: a brand-new player (marker
+    # still NULL) sees nothing while era is still 1 -- there's no ended era
+    # to recap yet -- and the first real advance to era 2 then fires it for
+    # everyone, exactly the nullable "or 0"/"or 1" marker convention every
+    # other column here already uses.
+    era_row     = db.execute("SELECT era FROM village_era WHERE id=1").fetchone()
+    current_era = era_row["era"] if era_row else 1
+    if current_era > (p["last_seen_era_recap_era"] or 1):
+        start_ts, end_ts = _era_window_for_recap(db)
+        contributors = _era_recap_contributors(db, start_ts, end_ts)
+        notices.append({
+            "type":        "era_recap",
+            "title":       "NEW ERA!",
+            "subtitle":    f"Era {current_era} has begun!",
+            "description": "",
+            "era":         current_era,
+            "penguins":    _era_recap_penguins(db, contributors),
+        })
+        updates["last_seen_era_recap_era"] = current_era
 
     if updates:
         set_clause = ", ".join(f"{k}=?" for k in updates)

@@ -1060,6 +1060,13 @@ def init_db():
     # any notifications row with id > this cursor is "unread" for that
     # player, and mark_read just advances the cursor to the current max id.
     _add_col(c, "penguins", "last_seen_notification_id INTEGER DEFAULT NULL")
+    # Same "last delivered" marker pattern as the notice_*/last_seen_* columns
+    # above, but compared against village_era.era directly instead of a row
+    # id -- village_era is a singleton (one row, overwritten on each advance),
+    # not an append-only log, so there's no "latest row id" to track. See
+    # lifecycle_notices()'s era_recap block: fires once per player the first
+    # time era > (this or 1), then advances this to that era.
+    _add_col(c, "penguins", "last_seen_era_recap_era INTEGER DEFAULT NULL")
 
     # Backfill total_monsters_defeated from existing monster_kills rows
     try:
