@@ -49,6 +49,33 @@ const GameSounds = {
         } catch(e) {}
     },
 
+    // Short filtered-noise burst -- _play()'s pure oscillator tones can't
+    // sell a percussive hit (a knock, a thump) on their own. Only used by
+    // Cell Block Beat's door sounds below; every other effect in this file
+    // is tone-only and untouched.
+    _noise(dur, vol, time, filterFreq, filterType) {
+        if (window._soundMuted) return;
+        try {
+            const ctx = this.getCtx();
+            if (!ctx) return;
+            const t0 = ctx.currentTime + 0.02 + (time || 0);
+            const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+            const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < n; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / n);
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            const filt = ctx.createBiquadFilter();
+            filt.type = filterType || 'bandpass';
+            filt.frequency.value = filterFreq || 1500;
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(vol, t0);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            src.connect(filt); filt.connect(gain); gain.connect(ctx.destination);
+            src.start(t0);
+        } catch(e) {}
+    },
+
     uiClick()    { this._play({notes: [{freq:800, dur:0.05, type:'sine', vol:0.08}]}); },
     uiHover()    { this._play({notes: [{freq:600, dur:0.03, type:'sine', vol:0.04}]}); },
     modalOpen()  { this._play({notes: [{freq:400, dur:0.08, type:'sine', vol:0.10}, {freq:600, dur:0.08, type:'sine', vol:0.10, time:0.06}]}); },
@@ -82,6 +109,15 @@ const GameSounds = {
     minigameMiss()     { this._play({notes: [{freq:200, dur:0.10, type:'square', vol:0.08}]}); },
     minigameCombo()    { this._play({notes: [{freq:600, dur:0.05, type:'sine', vol:0.10}, {freq:900, dur:0.08, type:'sine', vol:0.10, time:0.04}]}); },
     minigameComplete() { this._play({notes: [{freq:523, dur:0.10, type:'triangle', vol:0.12}, {freq:659, dur:0.10, type:'triangle', vol:0.12, time:0.08}, {freq:784, dur:0.15, type:'triangle', vol:0.10, time:0.16}, {freq:1047, dur:0.25, type:'triangle', vol:0.10, time:0.26}]}); },
+
+    // Cell Block Beat (Horny Jail) door sounds -- a low kick-drum thud for
+    // the door taking a hit on the beat, and knuckle-on-wood knocks graded
+    // the same as the game's Perfect/Good/Miss bands.
+    minigameThump()       { this._play({notes: [{freq:140, freqEnd:55, dur:0.16, type:'sine', vol:0.22}]}); this._noise(0.05, 0.05, 0, 120, 'lowpass'); },
+    minigameKnockStart()  { this._noise(0.05, 0.14, 0, 1800, 'bandpass'); },
+    minigameKnockPerfect(){ this._noise(0.04, 0.16, 0, 2000, 'bandpass'); this._play({notes: [{freq:700, dur:0.05, type:'sine', vol:0.10, time:0.02}, {freq:1050, dur:0.08, type:'sine', vol:0.10, time:0.05}]}); },
+    minigameKnockGood()   { this._noise(0.045, 0.14, 0, 1700, 'bandpass'); this._play({notes: [{freq:600, dur:0.06, type:'sine', vol:0.08, time:0.02}]}); },
+    minigameKnockMiss()   { this._play({notes: [{freq:160, dur:0.14, type:'square', vol:0.08}]}); },
 
     purchase()    { this._play({notes: [{freq:800, dur:0.06, type:'square', vol:0.12}, {freq:1200, dur:0.06, type:'square', vol:0.12, time:0.05}, {freq:1600, dur:0.10, type:'square', vol:0.10, time:0.10}]}); },
     cantAfford()  { this._play({notes: [{freq:200, dur:0.15, type:'square', vol:0.10}, {freq:180, dur:0.20, type:'square', vol:0.08, time:0.12}]}); },
