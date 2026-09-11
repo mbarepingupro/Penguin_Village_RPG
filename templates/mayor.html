@@ -1105,6 +1105,28 @@
           <button class="mh-btn danger" onclick="mayorAdvanceEra()">🎆 ADVANCE ERA</button>
         </div>
 
+        <!-- Force advance -- always visible (unlike #era-advance-card above),
+             for when the Mayor wants to advance before every building has
+             actually hit its current max_level. Hits the same
+             /mayor/advance_era route with force:true, which the backend has
+             always supported (mayor_advance_era()'s `force` param) -- this
+             just exposes it in the UI. -->
+        <div class="mh-action-card">
+          <div class="mh-action-title">⚠️ FORCE ADVANCE ERA</div>
+          <div style="color:var(--dim);font-size:15px;margin-bottom:6px;">
+            Advances the era right now, skipping the "every building maxed"
+            requirement above. Safe either way -- donations aren't actually
+            capped by max_level anymore (leveling is uncapped/infinite), so
+            an unmaxed building loses nothing by force-advancing; this is
+            meant as an escape hatch (testing, a newly added building that
+            hasn't caught up yet, etc.), not the normal path.
+          </div>
+          <div style="margin-bottom:10px;font-size:16px;">
+            Current era: <span id="era-force-advance-current">1</span>
+          </div>
+          <button class="mh-btn danger" onclick="mayorForceAdvanceEra()">⚠️ FORCE ADVANCE ERA</button>
+        </div>
+
         <!-- Building reset -->
         <div class="mh-action-card">
           <div class="mh-action-title">🏗️ BUILDING RESET</div>
@@ -2112,6 +2134,9 @@
       document.getElementById('era-advance-current').textContent = data.era;
       document.getElementById('era-advance-card').style.display =
         data.era_status === 'maxed_waiting' ? 'block' : 'none';
+      // Force-advance card is always visible -- just keep its own "current
+      // era" readout in sync with the same fetch.
+      document.getElementById('era-force-advance-current').textContent = data.era;
     } catch(e) {}
   }
 
@@ -2121,6 +2146,18 @@
     const data = await api('/mayor/advance_era', {}, btn);
     if (data.status === 'success') {
       toast(`✅ Village advanced to Era ${data.era}!`);
+      loadVillageEraStatus();
+    } else {
+      toast('❌ ' + (data.message || 'Error.'), false);
+    }
+  }
+
+  async function mayorForceAdvanceEra() {
+    if (!confirm('⚠️ FORCE advance the village to the next Era right now, even though not every building has hit its current max level? This raises every building\'s max level by 3, opening new upgrade tiers with placeholder costs. Cannot be undone.')) return;
+    const btn  = event.target;
+    const data = await api('/mayor/advance_era', { force: true }, btn);
+    if (data.status === 'success') {
+      toast(`✅ Village force-advanced to Era ${data.era}!`);
       loadVillageEraStatus();
     } else {
       toast('❌ ' + (data.message || 'Error.'), false);
