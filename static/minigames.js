@@ -69,7 +69,7 @@ var MiniGameManager = {
       cursed_temple: '🔮 RUNE MEMORY',
       guillotine:    '💀 WHACK-A-TARGET',
       grand_piano:   '🎹 PIANO RECITAL',
-      horny_jail:    '🥚 CELL BLOCK BEAT',
+      horny_jail:    '🚪 CELL BLOCK BEAT',
       sports_centre: '🤾 SPORT TOSS',
     };
     var insts = {
@@ -79,7 +79,7 @@ var MiniGameManager = {
       cursed_temple: 'Watch the rune sequence, then repeat it in order!',
       guillotine:    'Whack monsters & elites! Never hit a penguin!',
       grand_piano:   'Watch the keys light up, then play them back in order!',
-      horny_jail:    'Watch the beat, then tap it back — match the COUNT and the TIMING between taps!',
+      horny_jail:    'Watch the door shake out the beat, then knock it back — match the COUNT and the TIMING between knocks!',
       sports_centre: 'PRESS & HOLD to wind up, RELEASE in the green zone to score a hit!',
     };
     document.getElementById('mg-title').textContent = titles[buildingId] || 'MINI-GAME';
@@ -1473,6 +1473,15 @@ var CellBlockBeatGame = {
   _resultUntil: 0,
   _resultCounts: null,   // {perfect, good, miss} tallied for the round just finished
 
+  // Door presentation state -- the beat/tap is shown as a door on its frame
+  // taking a hit each beat (see _render()'s door group below) instead of a
+  // free-floating circle. _shake/_particles/_swing* are purely cosmetic;
+  // none of them feed into timing or grading.
+  _shake:      0,   // 0-1, decays like _showPulse/_tapPulse -- door jolt magnitude
+  _swingAngle: 0,   // "OCCUPIED" sign pendulum angle (radians), hung off the knob
+  _swingVel:   0,
+  _particles:  [],  // dust puffs off the top of the door frame
+
   // Timing windows (ms): how far an actual inter-tap gap can be from the
   // pattern's target gap and still count as Perfect/Good. Past GOOD_WINDOW_MS
   // is a Miss -- no credit, same "no credit for Miss" as Bits & Bops' Hammer
@@ -1500,6 +1509,9 @@ var CellBlockBeatGame = {
     this._running = true;
     this._round = 0;
     this._resultCounts = null;
+    this._particles = [];
+    this._swingAngle = 0;
+    this._swingVel = 0;
 
     var handler = this._handleTap.bind(this);
     canvas.onclick = handler;
@@ -1543,6 +1555,25 @@ var CellBlockBeatGame = {
     this._lastBand = null;
   },
 
+  // Kicks the door's cosmetic reaction -- jolt magnitude, a nudge to the
+  // "OCCUPIED" sign's pendulum, and a few dust puffs off the frame. Purely
+  // presentational, called from both the show-phase beat and every tap.
+  _kick: function(mag) {
+    this._shake = 1;
+    this._swingVel += (Math.random() < 0.5 ? -1 : 1) * 2.4 * (mag || 1);
+    for (var i = 0; i < 4; i++) {
+      this._particles.push({
+        x: (Math.random() - 0.5) * 14,
+        y: 0,
+        vx: (Math.random() - 0.5) * 22,
+        vy: -20 - Math.random() * 30,
+        life: 0.5 + Math.random() * 0.25,
+        maxLife: 0.75,
+        size: 1.6 + Math.random() * 1.6,
+      });
+    }
+  },
+
   _handleTap: function(e) {
     if (!this._running || this._phase !== 'input') return;
     // Extra taps past tapCount are ignored rather than punished -- an
@@ -1559,6 +1590,8 @@ var CellBlockBeatGame = {
       // The first tap has no preceding gap to grade -- it only marks t0 that
       // every later gap is measured from.
       this._lastBand = 'start';
+      if (window.GameSounds) GameSounds.minigameKnockStart();
+      this._kick(0.6);
     } else {
       var actualGap = this._inputTaps[i] - this._inputTaps[i - 1];
       var targetGap = this._pattern[i - 1];
@@ -1572,13 +1605,29 @@ var CellBlockBeatGame = {
       if (!this._resultCounts) this._resultCounts = { perfect: 0, good: 0, miss: 0 };
       this._resultCounts[band]++;
       if (window.GameSounds) {
-        if (band === 'perfect') GameSounds.minigameCombo();
-        else if (band === 'good') GameSounds.minigameHit();
-        else GameSounds.minigameMiss();
+        if (band === 'perfect') GameSounds.minigameKnockPerfect();
+        else if (band === 'good') GameSounds.minigameKnockGood();
+        else GameSounds.minigameKnockMiss();
       }
+      this._kick(band === 'miss' ? 0.5 : 1);
     }
 
     if (this._inputTaps.length >= this._tapCount) this._endRoundInput(false);
+  },
+
+  // Heart doorknob -- the "click target" the whole door presentation is
+  // organized around.
+  _drawHeart: function(ctx, cx, cy, size, color) {
+    var top = size * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + top);
+    ctx.bezierCurveTo(cx, cy, cx - size / 2, cy, cx - size / 2, cy + top);
+    ctx.bezierCurveTo(cx - size / 2, cy + (size + top) / 2, cx, cy + (size + top) / 2, cx, cy + size);
+    ctx.bezierCurveTo(cx, cy + (size + top) / 2, cx + size / 2, cy + (size + top) / 2, cx + size / 2, cy + top);
+    ctx.bezierCurveTo(cx + size / 2, cy, cx, cy, cx, cy + top);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
   },
 
   // timedOut=true: the player ran out of time before landing tapCount taps.
@@ -1609,13 +1658,25 @@ var CellBlockBeatGame = {
       last = ts;
       var now = performance.now();
 
-      ctx.fillStyle = '#0a0612';
+      // ── background: dim hallway, vignette toward the door ──
+      var cx = canvas.width / 2, cy = canvas.height / 2 - 6;
+      var grad = ctx.createRadialGradient(cx, cy, canvas.height * 0.1, cx, cy, canvas.height * 0.75);
+      grad.addColorStop(0, '#1a0f22');
+      grad.addColorStop(1, '#0a0612');
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#241a30';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height * 0.87);
+      ctx.lineTo(canvas.width, canvas.height * 0.87);
+      ctx.stroke();
 
       if (self._phase === 'show') {
         if (self._showBeatIdx < self._tapCount && now >= self._showNextBeatAt) {
           self._showPulse = 1;
-          if (window.GameSounds) GameSounds.minigameHit();
+          if (window.GameSounds) GameSounds.minigameThump();
+          self._kick(1);
           var justPlayedIdx = self._showBeatIdx;
           self._showBeatIdx++;
           self._showNextBeatAt = now + (self._showBeatIdx < self._tapCount
@@ -1640,12 +1701,19 @@ var CellBlockBeatGame = {
         }
       }
 
-      // ── Beat circle ──
-      var cx = canvas.width / 2;
-      var cy = canvas.height / 2 - 6;
-      var baseR = Math.min(canvas.width, canvas.height) * 0.18;
+      // ── cosmetic physics: shake decay, sign pendulum, dust particles ──
+      if (self._shake > 0) self._shake = Math.max(0, self._shake - dt * 4);
+      self._swingVel += -14 * self._swingAngle * dt;
+      self._swingVel *= (1 - Math.min(1, dt * 1.4));
+      self._swingAngle += self._swingVel * dt;
+      for (var pi = self._particles.length - 1; pi >= 0; pi--) {
+        var p = self._particles[pi];
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 60 * dt;
+        p.life -= dt;
+        if (p.life <= 0) self._particles.splice(pi, 1);
+      }
+
       var pulse = self._phase === 'show' ? self._showPulse : self._tapPulse;
-      var r = baseR * (1 + pulse * 0.35);
       var color = '#F5C518';
       if (self._phase === 'input') {
         if (self._lastBand === 'perfect') color = '#FFD700';
@@ -1654,40 +1722,123 @@ var CellBlockBeatGame = {
         else color = '#4aff6b';
       }
 
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = color + '33';
-      ctx.fill();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 4;
-      ctx.stroke();
+      // ── door group (shaken) ──
+      ctx.save();
+      var shakeX = (Math.random() - 0.5) * 10 * self._shake;
+      var shakeY = (Math.random() - 0.5) * 5 * self._shake;
+      ctx.translate(shakeX, shakeY);
 
-      ctx.font = '38px serif';
+      var doorW = canvas.width * 0.30;
+      var doorH = canvas.height * 0.54;
+      var doorX = cx - doorW / 2;
+      var doorY = canvas.height * 0.22;
+
+      ctx.fillStyle = '#3a2317';
+      ctx.fillRect(doorX - 10, doorY - 10, doorW + 20, doorH + 14);
+
+      ctx.fillStyle = '#B84A82';
+      ctx.fillRect(doorX, doorY, doorW, doorH);
+      ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(doorX + doorW * 0.12, doorY + doorH * 0.30, doorW * 0.76, doorH * 0.24);
+      ctx.strokeRect(doorX + doorW * 0.12, doorY + doorH * 0.60, doorW * 0.76, doorH * 0.28);
+
+      // barred window, glowing with the beat
+      var winW = doorW * 0.42, winH = doorH * 0.14;
+      var winX = cx - winW / 2, winY = doorY + doorH * 0.08;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.22 + pulse * 0.55;
+      ctx.fillRect(winX, winY, winW, winH);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#241408';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(winX, winY, winW, winH);
+      for (var b = 1; b < 4; b++) {
+        var bx = winX + (winW / 4) * b;
+        ctx.beginPath();
+        ctx.moveTo(bx, winY);
+        ctx.lineTo(bx, winY + winH);
+        ctx.stroke();
+      }
+
+      // doorknob (heart)
+      var knobX = doorX + doorW * 0.87, knobY = doorY + doorH * 0.56;
+      var knobSize = doorW * 0.16 * (1 + pulse * 0.3);
+      self._drawHeart(ctx, knobX, knobY - knobSize * 0.55, knobSize, color);
+
+      // "OCCUPIED" sign, swinging from the knob
+      ctx.save();
+      ctx.translate(knobX, knobY);
+      ctx.rotate(self._swingAngle);
+      ctx.strokeStyle = '#8a8a9a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 16);
+      ctx.stroke();
+      var signW = 58, signH = 20;
+      ctx.fillStyle = '#f2e9d8';
+      ctx.strokeStyle = '#3a2317';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(-signW / 2, 16, signW, signH, 3);
+      else ctx.rect(-signW / 2, 16, signW, signH);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#B0304F';
+      ctx.font = 'bold 9.5px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.fillText('🥚', cx, cy);
+      ctx.fillText('OCCUPIED', 0, 16 + signH / 2 + 0.5);
+      ctx.restore();
 
-      // ── HUD text ──
+      // dust particles off the top of the frame
+      ctx.fillStyle = '#cfc3a8';
+      for (var dpi = 0; dpi < self._particles.length; dpi++) {
+        var dp = self._particles[dpi];
+        ctx.globalAlpha = Math.max(0, dp.life / dp.maxLife) * 0.85;
+        ctx.beginPath();
+        ctx.arc(cx + dp.x, doorY - 6 + dp.y, dp.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // knock: fist punches toward the door on _tapPulse, from off-panel
+      if (self._phase !== 'show' && self._tapPulse > 0) {
+        var reach = (1 - self._tapPulse) * 34;
+        var fx = knobX - 46 + reach;
+        var fy = knobY - knobSize * 0.55;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, self._tapPulse * 1.4);
+        ctx.font = '26px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('✊', fx, fy);
+        ctx.restore();
+      }
+
+      ctx.restore(); // door group
+
+      // ── HUD text (unshaken) ──
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       if (self._phase === 'show') {
         ctx.fillStyle = '#F5C518';
         ctx.font = 'bold 15px monospace';
-        ctx.fillText('WATCH THE BEAT...', cx, 28);
+        ctx.fillText('WATCH THE DOOR...', cx, 28);
         ctx.fillStyle = '#B8B8D0';
         ctx.font = '12px monospace';
-        ctx.fillText('Round ' + self._round + ' — ' + self._tapCount + ' tap(s)', cx, 48);
+        ctx.fillText('Round ' + self._round + ' — ' + self._tapCount + ' knock(s)', cx, 48);
       } else if (self._phase === 'input') {
         ctx.fillStyle = '#4aff6b';
         ctx.font = 'bold 15px monospace';
-        ctx.fillText('YOUR TURN! (' + self._inputTaps.length + ' / ' + self._tapCount + ')', cx, 28);
+        ctx.fillText('KNOCK IT BACK! (' + self._inputTaps.length + ' / ' + self._tapCount + ')', cx, 28);
         ctx.fillStyle = '#B8B8D0';
         ctx.font = '12px monospace';
-        var bandLabel = self._lastBand === 'perfect' ? 'PERFECT!'
-          : self._lastBand === 'good' ? 'GOOD'
-          : self._lastBand === 'miss' ? 'MISS'
-          : 'Tap the beat back';
+        var bandLabel = self._lastBand === 'perfect' ? 'PERFECT KNOCK!'
+          : self._lastBand === 'good' ? 'GOOD KNOCK'
+          : self._lastBand === 'miss' ? 'MISSED KNOCK'
+          : 'Knock the beat back';
         ctx.fillText(bandLabel, cx, 48);
       } else if (self._phase === 'result') {
         var rc = self._resultCounts || { perfect: 0, good: 0, miss: 0 };
