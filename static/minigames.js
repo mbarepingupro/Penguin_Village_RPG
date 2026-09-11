@@ -2043,48 +2043,76 @@ var SportTossGame = {
     }
   },
 
-  // A small illustrated penguin -- body, belly, a jersey (clothes), beak,
-  // feet, and a flipper that swings back while charging and snaps forward
-  // on release. Handball/dodgeball framing, no weapon imagery.
+  // Lazily-populated per-src image cache, persisted across sessions (not
+  // reset in init()) since the player's own sprite/cosmetics don't change
+  // mid-game. Returns the loaded Image, or null (and kicks off a load) if
+  // it isn't ready yet -- same "check .complete, draw once it's there"
+  // pop-in behavior village_map.js's own worn-item rendering already uses.
+  _spriteCache: {},
+  _getSprite: function(src) {
+    var img = this._spriteCache[src];
+    if (!img) {
+      img = new Image();
+      img.src = src;
+      this._spriteCache[src] = img;
+    }
+    return (img.complete && img.naturalWidth > 0) ? img : null;
+  },
+
+  // The REAL player's penguin -- body shape/color + worn cosmetics, not a
+  // hand-illustrated stand-in. Reuses the exact walk-strip + recolorPenguin()
+  // + worn-item-compositing technique village_map.js's drawPenguin() already
+  // uses for the live map (PLAYER_SHAPE/PLAYER_COLOR are globals set by
+  // home.html; window.getPlayerWornItems() is a small accessor it exposes
+  // for exactly this cross-script case). No new sprite assets: "winding
+  // up"/"throwing" borrows the strip's other frame as a reach pose (same
+  // technique the Era Recap overlay uses for its jump), and the throw-snap
+  // motion is still the same lean rotation as before, just applied to the
+  // whole sprite instead of one hand-drawn limb.
   _drawPenguin: function(ctx) {
-    var lean = this._phase === 'charging' ? -0.16 * (this._power / 100) : (0.30 * this._leanT);
+    var lean  = this._phase === 'charging' ? -0.16 * (this._power / 100) : (0.30 * this._leanT);
+    var shape = (typeof PLAYER_SHAPE !== 'undefined' && PLAYER_SHAPE) || 'normal';
+    var color = (typeof PLAYER_COLOR !== 'undefined' && PLAYER_COLOR) || '#1a1a1a';
+    var cfg   = (window.SHAPE_CONFIG && window.SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: 40, stripFile: 'penguin_normal.png' };
+
+    var drawHeight = Math.min(118, this._H * 0.36);
+    var drawWidth  = drawHeight * (cfg.frameWidth / cfg.frameHeight);
+    var frame  = (this._phase === 'charging' || this._phase === 'throwing') ? 1 : 0;
+    var frameX = frame * cfg.frameWidth;
+
     ctx.save();
     ctx.translate(this._penguinX, this._groundY);
     ctx.rotate(lean);
 
-    ctx.fillStyle = '#f2a63d';
-    ctx.beginPath(); ctx.ellipse(-11, 1, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(11, 1, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+    var baseSprite = this._getSprite('/static/' + cfg.stripFile);
+    if (baseSprite) {
+      var recolored = getRecoloredSprite('sporttoss_' + shape, baseSprite, color);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(recolored, frameX, 0, cfg.frameWidth, cfg.frameHeight,
+        -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
 
-    ctx.fillStyle = '#182a23';
-    ctx.beginPath(); ctx.ellipse(0, -46, 27, 47, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#eef7f0';
-    ctx.beginPath(); ctx.ellipse(1, -40, 15, 34, 0, 0, Math.PI * 2); ctx.fill();
-    // jersey (clothes) -- the sport's own accent green, numbered
-    ctx.fillStyle = '#2f9e5c';
-    ctx.beginPath(); ctx.ellipse(0, -60, 21, 15, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#eef7f0';
-    ctx.font = 'bold 13px monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('7', 0, -58);
-
-    // throwing flipper -- swings back on the charge, snaps forward on release
-    var flipperA = this._phase === 'charging' ? 0.9 + 0.5 * (this._power / 100) : 0.9 - 1.5 * this._leanT;
-    ctx.save();
-    ctx.translate(20, -56);
-    ctx.rotate(flipperA);
-    ctx.fillStyle = '#182a23';
-    ctx.beginPath(); ctx.ellipse(14, 0, 16, 6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-
-    ctx.fillStyle = '#182a23';
-    ctx.beginPath(); ctx.arc(0, -86, 15, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#f2a63d';
-    ctx.beginPath(); ctx.moveTo(11, -87); ctx.lineTo(27, -83); ctx.lineTo(11, -79); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(6, -91, 3.4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.arc(7, -91, 1.7, 0, Math.PI * 2); ctx.fill();
+      var wornItems  = (window.getPlayerWornItems && window.getPlayerWornItems()) || {};
+      var areaFolder = window._AREA_FOLDER || { head: 'hats', body: 'outfits', feet: 'footwear', hand: 'accessories' };
+      var order = ['body', 'feet', 'hand', 'head'];
+      for (var i = 0; i < order.length; i++) {
+        var area   = order[i];
+        var itemId = wornItems[area];
+        if (!itemId) continue;
+        var folder  = areaFolder[area] || area;
+        var wornImg = this._getSprite('/static/penguin_wearing/' + shape + '/' + folder + '/' + itemId + '.png');
+        if (wornImg) {
+          ctx.drawImage(wornImg, frameX, 0, cfg.frameWidth, cfg.frameHeight,
+            -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
+        }
+      }
+    } else {
+      // Sprite not loaded yet -- flat silhouette placeholder, same fallback
+      // shape village_map.js's own _drawPenguinSprite() uses.
+      ctx.beginPath();
+      ctx.arc(0, -drawHeight / 2, drawWidth / 2, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
 
     ctx.restore();
   },
