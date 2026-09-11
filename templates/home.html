@@ -8486,6 +8486,24 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
     } catch(e) {}
   }
 
+  // Current player's worn cosmetics as a plain {area: item_id} map -- same
+  // computation _drawSidebarWornItems() does internally for its own no-arg
+  // "draw the current player" case, exposed on window so other scripts on
+  // this page (e.g. static/minigames.js, which can't reach _cosmeticCache
+  // directly) can render the real player's cosmetics too instead of a bare
+  // body. Empty object (not null) if nothing's worn or cosmetics haven't
+  // loaded yet, so callers can iterate it unconditionally.
+  window.getPlayerWornItems = function() {
+    const itemIdByArea = {};
+    if (!_cosmeticCache || !_cosmeticCache.length) return itemIdByArea;
+    _cosmeticCache.forEach(c => {
+      if (!c.worn) return;
+      const area = _SLOT_TO_AREA[c.slot];
+      if (area) itemIdByArea[area] = c.item_id;
+    });
+    return itemIdByArea;
+  };
+
   const SLOT_LABELS = { hat: 'HAT', outfit: 'OUTFIT', accessory: 'ITEM', footwear: 'FOOTWEAR' };
 
   function openCosmeticSlot(slot) {
