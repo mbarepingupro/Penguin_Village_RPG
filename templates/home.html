@@ -1861,6 +1861,46 @@
     }
     .celeb-close-btn:hover { background: #A86EFF; color: #1C1C2E; }
 
+    /* ── ERA RECAP OVERLAY ──
+       Full-screen one-time popup (see showEraRecapOverlay() below) -- its
+       own component rather than a queueCelebration() entry, same reasoning
+       as the interactive-moment toast: it renders a crowd of individually
+       animated, individually labeled penguin sprites on a canvas, not
+       icon/title/text. z-index 99997: same top bracket as
+       .celebration-overlay (99998)/#toast (100000) -- just under
+       celebration so a genuinely simultaneous queued celebration still
+       wins -- and well above #wb-overlay (90037) and every other modal. */
+    #era-recap-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,6,18,0.94); z-index: 99997;
+      flex-direction: column; align-items: center; justify-content: center;
+      animation: fadeIn 0.35s ease; padding: 16px; box-sizing: border-box;
+    }
+    #era-recap-overlay.show { display: flex; }
+    .era-recap-header { text-align: center; margin-bottom: 8px; z-index: 1; }
+    .era-recap-icon {
+      font-size: 40px;
+      animation: celebPopIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+    .era-recap-title {
+      font-family: 'Silkscreen', monospace; font-size: 26px; color: #FF8C00;
+      text-shadow: 0 0 16px rgba(255,140,0,0.5);
+    }
+    .era-recap-subtitle {
+      font-family: 'Silkscreen', monospace; font-size: 16px; color: #A86EFF;
+      margin-top: 4px;
+    }
+    #era-recap-canvas {
+      display: block; z-index: 1;
+      width: min(94vw, 900px); height: min(56vh, 480px);
+      background: #14101f; border: 3px solid #A86EFF;
+    }
+    .era-recap-footer { text-align: center; margin-top: 10px; z-index: 1; }
+    .era-recap-legend {
+      font-family: 'Silkscreen', monospace; font-size: 14px; color: #B8B8D0;
+      margin-bottom: 8px;
+    }
+
     /* ── LEVELS TAB ── */
     .levels-panel { display: flex; flex-direction: column; height: 100%; }
     .levels-range-bar { display: flex; border-bottom: 2px solid #A86EFF; flex-shrink: 0; }
@@ -4562,6 +4602,21 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
       <div id="wb-news-section"></div>
     </div>
     <button id="wb-ok-btn" class="wb-collect-btn" onclick="wbDismiss()">OK</button>
+  </div>
+</div>
+
+<!-- ERA RECAP OVERLAY -- one-time popup, see showEraRecapOverlay()/eraRecapDismiss() -->
+<div id="era-recap-overlay">
+  <div class="era-recap-confetti-container celeb-confetti-container"></div>
+  <div class="era-recap-header">
+    <div class="era-recap-icon">🎆</div>
+    <div class="era-recap-title" id="era-recap-title">NEW ERA!</div>
+    <div class="era-recap-subtitle" id="era-recap-subtitle"></div>
+  </div>
+  <canvas id="era-recap-canvas"></canvas>
+  <div class="era-recap-footer">
+    <div class="era-recap-legend">🎉 Contributors to last era are celebrating up front — thank you!</div>
+    <button type="button" class="celeb-close-btn" onclick="eraRecapDismiss()">✕ CONTINUE</button>
   </div>
 </div>
 
@@ -12252,6 +12307,11 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         // to stay up long enough to read/act on and show both penguins
         // fully rendered rather than just their names.
         if (n.type === 'interactive_moment') { showMomentToast(n); return; }
+        // era_recap also bypasses the celebration queue -- same reasoning
+        // as interactive_moment: it renders a crowd of individually
+        // animated, individually labeled penguin sprites on its own canvas,
+        // not icon/title/text (see showEraRecapOverlay() below).
+        if (n.type === 'era_recap') { showEraRecapOverlay(n); return; }
         queueCelebration({
           type: n.type,
           icon: _LIFECYCLE_ICONS[n.type] || '📯',
@@ -12265,6 +12325,216 @@ Regardless of the outcome, top 3 damage dealers will be awarded extra N00Tboxes 
         });
       });
     } catch(e) {}
+  }
+
+  // ── ERA RECAP OVERLAY ────────────────────────────────────────────────────
+  // Full-screen one-time popup shown the first time a player polls
+  // /lifecycle-notices after the Mayor advances the era (see app.py's
+  // era_recap block in lifecycle_notices()). Reuses the exact walk-strip
+  // frame + recolorPenguin() + worn-item compositing technique village_map.js's
+  // drawPenguin()/_drawPenguinSprite() use for the live map -- just drawn to
+  // this overlay's own canvas instead of the map's, and with the frame
+  // toggled on a timer instead of on movement (see _startEraRecapLoop()
+  // below). No new sprite assets, no physics -- frame 0 is "grounded", frame 1
+  // (already the walk-strip's other frame) doubles as the jump's "up" pose,
+  // paired with a small extra Y offset while it's showing.
+  const _eraRecapSpriteCache   = {};
+  const _eraRecapSpritePending = {};
+
+  function _eraRecapLoadImage(src, onLoad) {
+    const cached = _eraRecapSpriteCache[src];
+    if (cached && cached.complete && cached.naturalWidth > 0) { onLoad(cached); return; }
+    if (cached) { (_eraRecapSpritePending[src] = _eraRecapSpritePending[src] || []).push(onLoad); return; }
+    const img = new Image();
+    _eraRecapSpriteCache[src] = img;
+    _eraRecapSpritePending[src] = [onLoad];
+    img.onload = () => {
+      const pending = _eraRecapSpritePending[src] || [];
+      delete _eraRecapSpritePending[src];
+      pending.forEach(fn => fn(img));
+    };
+    img.onerror = () => { delete _eraRecapSpritePending[src]; };
+    img.src = src;
+  }
+
+  let _eraRecapAnimHandle    = null;
+  let _eraRecapContribLayout = [];
+  let _eraRecapSideLayout    = [];
+
+  const ERA_RECAP_JUMP_MS     = 260; // ms per bounce phase -- snappier than PENGUIN_ANIM_SPEED's 400ms walk cadence
+  const ERA_RECAP_JUMP_OFFSET = 12;  // px raised (at drawSize 64) on the "up" phase
+
+  // Arranges contributors into a centered, wrapping front row (large, so
+  // they read as the stars of the screen) and everyone else into wrapping
+  // rows banked along the top edge (small, static, "on the sidelines").
+  function _layoutEraRecapPenguins(canvas, contributors, sidelines) {
+    const W = canvas.width, H = canvas.height;
+
+    const contribSize = Math.max(28, Math.min(64, (W * 0.86) / Math.max(3, Math.min(contributors.length, 8))));
+    const contribGap   = contribSize * 1.35;
+    const contribCols  = Math.max(1, Math.min(contributors.length, Math.floor((W * 0.9) / contribGap)));
+    const contribRows  = Math.max(1, Math.ceil(contributors.length / contribCols));
+    const contribLayout = contributors.map((p, i) => {
+      const row      = Math.floor(i / contribCols);
+      const rowCount = Math.min(contribCols, contributors.length - row * contribCols);
+      const rowW     = rowCount * contribGap;
+      const startX   = (W - rowW) / 2 + contribGap / 2;
+      const col      = i - row * contribCols;
+      return {
+        p, x: startX + col * contribGap,
+        y: H * 0.68 - (contribRows - 1 - row) * contribSize * 0.95,
+        drawSize: contribSize,
+      };
+    });
+
+    const sideSize = Math.max(16, Math.min(32, (W * 0.92) / Math.max(6, Math.min(sidelines.length, 16))));
+    const sideGap  = sideSize * 1.5;
+    const sideCols = Math.max(1, Math.min(sidelines.length, Math.floor((W * 0.94) / sideGap)));
+    const sideLayout = sidelines.map((p, i) => {
+      const row      = Math.floor(i / sideCols);
+      const rowCount = Math.min(sideCols, sidelines.length - row * sideCols);
+      const rowW     = rowCount * sideGap;
+      const startX   = (W - rowW) / 2 + sideGap / 2;
+      const col      = i - row * sideCols;
+      return {
+        p, x: startX + col * sideGap,
+        y: H * 0.16 + row * sideSize * 1.3,
+        drawSize: sideSize,
+      };
+    });
+
+    return { contribLayout, sideLayout };
+  }
+
+  // jumpUp only ever applies to contributors -- sidelines are always drawn
+  // grounded/frame-0, per spec ("static -- just their normal idle/static
+  // sprite frame").
+  function _drawEraRecapPenguin(ctx, entry, jumpUp) {
+    const p     = entry.p;
+    const shape = p.penguin_shape || 'normal';
+    const cfg   = (window.SHAPE_CONFIG && window.SHAPE_CONFIG[shape]) || { frameWidth: 32, frameHeight: 40, stripFile: 'penguin_normal.png' };
+    const drawWidth  = entry.drawSize;
+    const drawHeight = (cfg.frameHeight / cfg.frameWidth) * drawWidth;
+    const bounce = jumpUp ? ERA_RECAP_JUMP_OFFSET * (entry.drawSize / 64) : 0;
+    const drawX  = entry.x - drawWidth / 2;
+    const drawY  = entry.y - drawHeight - bounce;
+    const frame  = jumpUp ? 1 : 0;
+    const frameX = frame * cfg.frameWidth;
+
+    const stripSrc  = '/static/' + cfg.stripFile;
+    const baseSprite = _eraRecapSpriteCache[stripSrc];
+    if (baseSprite && baseSprite.complete && baseSprite.naturalWidth > 0) {
+      const recolored = getRecoloredSprite('erarecap_' + shape, baseSprite, p.penguin_color || '#1a1a1a');
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(recolored, frameX, 0, cfg.frameWidth, cfg.frameHeight, drawX, drawY, drawWidth, drawHeight);
+      ctx.restore();
+
+      // Worn cosmetics, same folder/layer-order convention as
+      // village_map.js's drawPenguin() (_AREA_FOLDER is exposed on window
+      // by that file).
+      if (p.worn_items) {
+        const areaFolder = window._AREA_FOLDER || { head: 'hats', body: 'outfits', feet: 'footwear', hand: 'accessories' };
+        ['body', 'feet', 'hand', 'head'].forEach(area => {
+          const itemId = p.worn_items[area];
+          if (!itemId) return;
+          const folder   = areaFolder[area] || area;
+          const wornSrc  = `/static/penguin_wearing/${shape}/${folder}/${itemId}.png`;
+          const wornImg  = _eraRecapSpriteCache[wornSrc];
+          if (wornImg && wornImg.complete && wornImg.naturalWidth > 0) {
+            ctx.drawImage(wornImg, frameX, 0, cfg.frameWidth, cfg.frameHeight, drawX, drawY, drawWidth, drawHeight);
+          } else if (!wornImg) {
+            _eraRecapLoadImage(wornSrc, () => {}); // fire-and-forget -- next frame picks it up once cached
+          }
+        });
+      }
+    } else {
+      ctx.beginPath();
+      ctx.arc(entry.x, entry.y - drawHeight / 2 - bounce, drawWidth / 2, 0, Math.PI * 2);
+      ctx.fillStyle = p.penguin_color || '#1a1a1a';
+      ctx.fill();
+    }
+
+    // Name label -- same font/shadow/centered-above-sprite convention as
+    // village_map.js's drawPenguin() label block.
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur  = 3;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font      = (entry.drawSize >= 48 ? '13px' : '10px') + " 'C&C Red Alert', monospace";
+    ctx.fillStyle = jumpUp ? '#FFD700' : (entry.drawSize >= 48 ? '#FFFFFF' : '#B8B8D0');
+    ctx.fillText(p.display_name || p.username, entry.x, drawY - 6);
+    ctx.restore();
+  }
+
+  function _startEraRecapLoop(canvas, ctx) {
+    let lastToggle = performance.now();
+    let jumpUp = false;
+
+    function tick(ts) {
+      const overlay = document.getElementById('era-recap-overlay');
+      if (!overlay || !overlay.classList.contains('show')) { _eraRecapAnimHandle = null; return; }
+      if (ts - lastToggle > ERA_RECAP_JUMP_MS) { jumpUp = !jumpUp; lastToggle = ts; }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      _eraRecapSideLayout.forEach(e => _drawEraRecapPenguin(ctx, e, false));
+      _eraRecapContribLayout.forEach(e => _drawEraRecapPenguin(ctx, e, jumpUp));
+
+      _eraRecapAnimHandle = requestAnimationFrame(tick);
+    }
+    if (_eraRecapAnimHandle) cancelAnimationFrame(_eraRecapAnimHandle);
+    _eraRecapAnimHandle = requestAnimationFrame(tick);
+  }
+
+  function showEraRecapOverlay(notice) {
+    const overlay = document.getElementById('era-recap-overlay');
+    if (!overlay) return;
+    document.getElementById('era-recap-title').textContent    = notice.title || 'NEW ERA!';
+    document.getElementById('era-recap-subtitle').textContent = notice.subtitle || '';
+
+    const penguins     = notice.penguins || [];
+    const contributors = penguins.filter(p => p.is_contributor);
+    const sidelines     = penguins.filter(p => !p.is_contributor);
+
+    // .show goes on BEFORE reading clientWidth/clientHeight below -- while
+    // display:none, the canvas (and its display:none ancestor) reports 0
+    // for both, which would silently ignore the CSS box's real size.
+    if (window.GameSounds) GameSounds.minigameComplete();
+    overlay.classList.add('show');
+    startConfetti(overlay.querySelector('.era-recap-confetti-container'));
+
+    const canvas = document.getElementById('era-recap-canvas');
+    // Backing resolution matches the CSS box's actual on-screen size, same
+    // fit-to-container convention MiniGameManager._createOverlay() uses for
+    // the minigame canvases.
+    canvas.width  = canvas.clientWidth  || 900;
+    canvas.height = canvas.clientHeight || 480;
+    const ctx = canvas.getContext('2d');
+
+    const laid = _layoutEraRecapPenguins(canvas, contributors, sidelines);
+    _eraRecapContribLayout = laid.contribLayout;
+    _eraRecapSideLayout    = laid.sideLayout;
+
+    // Preload every distinct shape's walk-strip (+ each contributor/sideline
+    // penguin's worn items) before starting the loop -- avoids the first
+    // second or two drawing placeholder circles while images trickle in.
+    const shapes = Array.from(new Set(penguins.map(p => p.penguin_shape || 'normal')));
+    if (!shapes.length) { _startEraRecapLoop(canvas, ctx); return; }
+    let remaining = shapes.length;
+    shapes.forEach(shape => {
+      const cfg = (window.SHAPE_CONFIG && window.SHAPE_CONFIG[shape]) || { stripFile: 'penguin_normal.png' };
+      _eraRecapLoadImage('/static/' + cfg.stripFile, () => {
+        remaining--;
+        if (remaining <= 0) _startEraRecapLoop(canvas, ctx);
+      });
+    });
+  }
+
+  function eraRecapDismiss() {
+    const overlay = document.getElementById('era-recap-overlay');
+    if (overlay) overlay.classList.remove('show');
+    if (_eraRecapAnimHandle) { cancelAnimationFrame(_eraRecapAnimHandle); _eraRecapAnimHandle = null; }
   }
 
   // Read-only banner shown when every building has hit its current max_level
