@@ -9588,7 +9588,6 @@ def village_era_status():
         era_status = "maxed_waiting"
         db.execute("UPDATE village_era SET status=? WHERE id=1", (era_status,))
         db.commit()
-        _generate_draft_layout(db)
     elif not all_maxed and era_status == "maxed_waiting":
         era_status = "active"
         db.execute("UPDATE village_era SET status=? WHERE id=1", (era_status,))
@@ -9644,24 +9643,27 @@ def mayor_advance_era():
         # longer unlocks anything that wasn't already donatable.
         new_levels_added[building_id] = list(range(old_max + 1, new_max + 1))
 
-    # Promote the Mayor's prepared draft map to live, if one exists (normally
-    # seeded by village_era_status() the moment the banner flipped to
-    # 'maxed_waiting' -- see _generate_draft_layout()). If the Mayor never
-    # opened the editor to design one, generate + promote one now so
-    # advancing the era never fails for lack of a draft.
-    if os.path.exists(_VILLAGE_LAYOUT_DRAFT_PATH):
-        layout_source = "draft"
+    # Promote the map the Mayor designed for the new era via the Era Editor,
+    # if one was saved ahead of time -- otherwise _resolve_era_layout() falls
+    # back to its own default (the nearest era with real content, grown by
+    # EXPANSION_MARGIN) so advancing never fails for lack of a plan. Same
+    # resolution _era_layout()'s GET route uses, so what the Mayor previewed
+    # in the editor is exactly what gets promoted here.
+    new_era  = era + 1
+    era_path = _era_layout_path(new_era)
+    layout_source = "designed" if os.path.exists(era_path) else "auto_generated"
+    promoted_layout = _resolve_era_layout(era, new_era)
+    if promoted_layout is not None:
+        with open(_VILLAGE_LAYOUT_PATH, "w") as f:
+            json.dump(promoted_layout, f, indent=2)
+        if os.path.exists(era_path):
+            os.remove(era_path)
     else:
-        _generate_draft_layout(db)
-        layout_source = "auto_generated"
-    with open(_VILLAGE_LAYOUT_DRAFT_PATH) as f:
-        draft_layout = f.read()
-    with open(_VILLAGE_LAYOUT_PATH, "w") as f:
-        f.write(draft_layout)
-    os.remove(_VILLAGE_LAYOUT_DRAFT_PATH)
+        # No live layout and no default to fall back to either -- leave
+        # whatever's on disk untouched rather than writing `null` over it.
+        layout_source = "unavailable"
 
-    new_era = era + 1
-    now     = int(time.time())
+    now = int(time.time())
     db.execute(
         "UPDATE village_era SET era=?, status='active', advanced_at=? WHERE id=1",
         (new_era, now)
@@ -10975,14 +10977,20 @@ os.makedirs(os.path.dirname(_VILLAGE_LAYOUT_PATH), exist_ok=True)
 # thing a live mayor edit gets lost to.
 _VILLAGE_LAYOUT_DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "static", "village_layout_default.json")
 
-# Next-era map the Mayor can design ahead of time once the village hits
-# 'maxed_waiting' (see _generate_draft_layout()/village_era_status() below) --
-# lives beside _VILLAGE_LAYOUT_PATH so it survives deploys the same way.
-# Promoted to the live layout by mayor_advance_era(), then deleted.
-_VILLAGE_LAYOUT_DRAFT_PATH = os.path.join(os.path.dirname(_VILLAGE_LAYOUT_PATH), "village_layout_draft.json")
+# Era Editor -- one map per future era, editable anytime (NOT gated behind
+# 'maxed_waiting' the way the old single-draft mechanism was), living beside
+# _VILLAGE_LAYOUT_PATH so each survives deploys the same way. A saved era
+# file is promoted to the live layout (and deleted) by mayor_advance_era()
+# once the village actually advances into that era; an era nobody got
+# around to designing falls back to _resolve_era_layout()'s own default --
+# the nearest era that DOES have content (or the live map, at the bottom),
+# grown by EXPANSION_MARGIN -- so advancing never fails for lack of a plan,
+# and a village that builds on itself never has to start from scratch.
+def _era_layout_path(era_n):
+    return os.path.join(os.path.dirname(_VILLAGE_LAYOUT_PATH), f"village_layout_era_{era_n}.json")
 
-# How many tiles the draft map grows in every direction beyond the current
-# live grid -- see _generate_draft_layout().
+# How many tiles a defaulted (undesigned) era's map grows in every direction
+# beyond whatever it's based on -- see _expand_layout().
 EXPANSION_MARGIN = 20
 
 # Fallback only -- these were hand-picked against a much older map layout
@@ -11021,20 +11029,17 @@ def _load_current_layout():
     return None
 
 
-def _generate_draft_layout(db):
-    """Seeds _VILLAGE_LAYOUT_DRAFT_PATH from the current live layout, grown by
-    EXPANSION_MARGIN tiles on every side (new tiles default to TILE_EXPAND=6,
-    the existing 'under construction' tile) with the old grid/buildings
-    recentered inside it. No-op if a draft already exists -- never clobber a
-    Mayor's in-progress edits, e.g. if this fires again from
-    village_layout/draft's own safety-net call after the banner already
-    triggered it once."""
-    if os.path.exists(_VILLAGE_LAYOUT_DRAFT_PATH):
-        return
-    old = _load_current_layout()
-    if not old:
-        return
-    old_grid = old.get("grid") or []
+def _expand_layout(layout):
+    """Grow `layout` by EXPANSION_MARGIN tiles on every side (new tiles
+    default to TILE_EXPAND=6, matching static/village_map.js), recentering
+    the existing grid/buildings/tileRotations inside it. Pure function --
+    doesn't touch disk; _resolve_era_layout() below decides when to call it
+    and whether the result gets persisted.
+
+    Fence rotations are keyed "x,y" in absolute grid coordinates (see
+    village_editor.js's tileRotations) -- shifted along with the grid so
+    existing fences don't end up unrotated relative to their new position."""
+    old_grid = layout.get("grid") or []
     old_h    = len(old_grid)
     old_w    = len(old_grid[0]) if old_h else 0
     new_h    = old_h + 2 * EXPANSION_MARGIN
@@ -11046,21 +11051,15 @@ def _generate_draft_layout(db):
             new_grid[y + EXPANSION_MARGIN][x + EXPANSION_MARGIN] = tile
 
     new_buildings = {}
-    for bid, bdef in (old.get("buildings") or {}).items():
+    for bid, bdef in (layout.get("buildings") or {}).items():
         new_buildings[bid] = {
             **bdef,
             "gridX": bdef["gridX"] + EXPANSION_MARGIN,
             "gridY": bdef["gridY"] + EXPANSION_MARGIN,
         }
 
-    draft = {"grid": new_grid, "buildings": new_buildings}
-    # Fence rotations are keyed "x,y" in absolute grid coordinates (see
-    # village_editor.js's tileRotations) -- shift them along with the grid so
-    # existing fences don't end up unrotated relative to their new position.
-    # Not explicitly called out by the original spec for this feature, but
-    # left unshifted these would silently point the wrong way as soon as the
-    # draft opens.
-    old_rotations = old.get("tileRotations")
+    expanded = {"grid": new_grid, "buildings": new_buildings}
+    old_rotations = layout.get("tileRotations")
     if isinstance(old_rotations, dict):
         new_rotations = {}
         for key, rot in old_rotations.items():
@@ -11070,10 +11069,50 @@ def _generate_draft_layout(db):
             except ValueError:
                 continue
             new_rotations[f"{x + EXPANSION_MARGIN},{y + EXPANSION_MARGIN}"] = rot
-        draft["tileRotations"] = new_rotations
+        expanded["tileRotations"] = new_rotations
+    return expanded
 
-    with open(_VILLAGE_LAYOUT_DRAFT_PATH, "w") as f:
-        json.dump(draft, f, indent=2)
+
+def _resolve_era_layout(current_era, era_n):
+    """The map for era `era_n`, given the village is currently on
+    `current_era`. Any era already reached (era_n <= current_era) IS the
+    live layout -- there's no separate historical snapshot kept once an era
+    file is promoted (see mayor_advance_era(), which deletes it). For a
+    future era: its own saved file if the Mayor designed one, otherwise
+    _expand_layout() applied to the NEAREST era with real content, walking
+    backwards until it bottoms out at the live layout -- so an unplanned era
+    still builds on whatever came before it instead of starting from
+    scratch, exactly like a designed one does. Iterative (not recursive) so
+    a Mayor designing "highly in advance" -- hundreds of eras out -- can't
+    blow Python's recursion limit walking back to find the nearest content.
+
+    None only if even the live layout is unavailable (_load_current_layout()
+    found neither the persisted file nor the tracked default)."""
+    if era_n <= current_era:
+        return _load_current_layout()
+
+    layout = None
+    unplanned_hops = 0
+    n = era_n
+    while n > current_era:
+        path = _era_layout_path(n)
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    layout = json.load(f)
+                break
+            except (FileNotFoundError, ValueError):
+                pass
+        unplanned_hops += 1
+        n -= 1
+    if layout is None:
+        layout = _load_current_layout()
+        if layout is None:
+            return None
+
+    for _ in range(unplanned_hops):
+        layout = _expand_layout(layout)
+    return layout
 
 
 def _building_entrance_tile(bdef):
@@ -11184,39 +11223,67 @@ def village_layout():
     return jsonify(layout)
 
 
-@app.route("/village/layout/draft/save", methods=["POST"])
-def save_village_layout_draft():
-    """Mirrors save_village_layout() exactly, writing to the draft path
-    instead -- the Mayor's editor toggles between the two via draftMode
-    (see static/village_editor.js)."""
+@app.route("/village/layout/era/available")
+def village_layout_era_available():
+    """Which future eras already have a Mayor-designed map saved, for the
+    Era Editor's era-picker/import-source lists -- plus the village's
+    current era, so the frontend knows where "future" starts."""
+    db  = get_db()
+    row = db.execute("SELECT era FROM village_era WHERE id=1").fetchone()
+    current_era = row["era"] if row else 1
+    db.close()
+
+    saved = []
+    dir_path = os.path.dirname(_VILLAGE_LAYOUT_PATH)
+    prefix, suffix = "village_layout_era_", ".json"
+    try:
+        for fname in os.listdir(dir_path):
+            if fname.startswith(prefix) and fname.endswith(suffix):
+                try:
+                    saved.append(int(fname[len(prefix):-len(suffix)]))
+                except ValueError:
+                    continue
+    except FileNotFoundError:
+        pass
+    saved.sort()
+    return jsonify({"current_era": current_era, "saved_eras": saved})
+
+
+@app.route("/village/layout/era/<int:n>/save", methods=["POST"])
+def save_village_layout_era(n):
+    """Mirrors save_village_layout() exactly, writing to era `n`'s own file
+    instead -- the Era Editor (static/village_editor.js) can target any
+    future era at any time, not gated behind era_status."""
     username = session.get("username")
     if username != MAYOR_USERNAME:
         return jsonify({"status": "error", "message": "Unauthorized"}), 403
+    if n < 2:
+        return jsonify({"status": "error", "message": "Use /village/layout/save for the live map (era 1 and below have no separate file)."}), 400
     data = request.get_json(silent=True)
     if not data or "grid" not in data or "buildings" not in data:
         return jsonify({"status": "error", "message": "Invalid data"}), 400
-    with open(_VILLAGE_LAYOUT_DRAFT_PATH, "w") as f:
+    with open(_era_layout_path(n), "w") as f:
         json.dump(data, f, indent=2)
     return jsonify({"status": "success"})
 
 
-@app.route("/village/layout/draft")
-def village_layout_draft():
-    """Mirrors village_layout() exactly, reading the draft path instead --
-    minus the building_levels/building_max_levels merge, which is specific to
-    the live layout's in-game rendering, not the editor. Generates the draft
-    on demand if it doesn't exist yet (safety net for opening draft mode
-    before /village/era/status has ever flipped to 'maxed_waiting')."""
-    if not os.path.exists(_VILLAGE_LAYOUT_DRAFT_PATH):
-        db = get_db()
-        _generate_draft_layout(db)
-        db.close()
-    try:
-        with open(_VILLAGE_LAYOUT_DRAFT_PATH) as f:
-            draft = json.load(f)
-    except FileNotFoundError:
-        return jsonify({"error": "draft not found"}), 404
-    return jsonify(draft)
+@app.route("/village/layout/era/<int:n>")
+def village_layout_era(n):
+    """Mirrors village_layout() exactly, minus the building_levels/
+    building_max_levels merge (specific to the live layout's in-game
+    rendering, not the editor) -- resolved via _resolve_era_layout() so
+    an era nobody has designed yet still previews its own real default
+    (built on whatever era precedes it) instead of 404ing."""
+    if n < 1:
+        return jsonify({"error": "invalid era"}), 400
+    db  = get_db()
+    row = db.execute("SELECT era FROM village_era WHERE id=1").fetchone()
+    current_era = row["era"] if row else 1
+    db.close()
+    layout = _resolve_era_layout(current_era, n)
+    if layout is None:
+        return jsonify({"error": "layout not found"}), 404
+    return jsonify(layout)
 
 
 @app.route("/village/penguins")
